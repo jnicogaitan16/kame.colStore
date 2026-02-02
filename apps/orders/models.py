@@ -1,5 +1,6 @@
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
+from django.utils import timezone
 
 from apps.catalog.models import ProductVariant
 from apps.customers.models import Customer
@@ -7,10 +8,10 @@ from apps.customers.models import Customer
 
 class Order(models.Model):
     class Status(models.TextChoices):
-        DRAFT = "draft", "Draft"
+        CREATED = "created", "Created"
         PAID = "paid", "Paid"
-        SHIPPED = "shipped", "Shipped"
         CANCELLED = "cancelled", "Cancelled"
+        REFUNDED = "refunded", "Refunded"
 
     customer = models.ForeignKey(
         Customer,
@@ -20,7 +21,7 @@ class Order(models.Model):
     status = models.CharField(
         max_length=20,
         choices=Status.choices,
-        default=Status.DRAFT,
+        default=Status.CREATED,
     )
     total = models.DecimalField(
         max_digits=10,
@@ -33,6 +34,12 @@ class Order(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    stock_deducted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Fecha/hora en la que se descontó stock para este pedido (idempotencia).",
+    )
+
     def recalculate_total(self) -> None:
         """Recalculate and persist the order total from its items."""
         total = sum(
@@ -43,24 +50,37 @@ class Order(models.Model):
         self.total = total
         self.save(update_fields=["total"])
 
-    def mark_paid_and_decrement_stock(self) -> None:
-        """Mark order as PAID and decrement stock by variant.
+    def confirm_payment(self) -> None:
+        """Confirm payment for the order and (once) decrement stock.
 
-        Production notes:
-        - Uses `select_for_update()` to prevent overselling under concurrency.
-        - Validates available stock before decrementing.
+        Idempotency:
+        - Stock is decremented only once per order, controlled by `stock_deducted_at`.
+        - Re-calling this method after success will not decrement stock again.
+
+        Concurrency:
+        - Locks the order row and all involved variants using `select_for_update()`.
         - Performs all operations atomically.
-
-        This method is intentionally explicit and should be called from a service layer
-        (e.g. after payment confirmation / COD confirmation), not automatically from `save()`.
         """
+
+        from django.utils import timezone
 
         with transaction.atomic():
             # Lock the order row to avoid double-processing.
             order = Order.objects.select_for_update().get(pk=self.pk)
 
-            if order.status != Order.Status.DRAFT:
-                raise ValidationError("Solo se puede pagar un pedido en estado DRAFT.")
+            if order.status in (Order.Status.CANCELLED, Order.Status.REFUNDED):
+                raise ValidationError("No se puede confirmar pago para un pedido cancelado o reembolsado.")
+
+            # If already processed successfully, do nothing (idempotent).
+            if order.status == Order.Status.PAID and order.stock_deducted_at is not None:
+                self.status = order.status
+                self.total = order.total
+                self.stock_deducted_at = order.stock_deducted_at
+                return
+
+            # Only CREATED or a partially-processed PAID (without stock_deducted_at) can proceed.
+            if order.status not in (Order.Status.CREATED, Order.Status.PAID):
+                raise ValidationError("Solo se puede confirmar pago para un pedido en estado CREATED.")
 
             # Aggregate requested qty per variant to minimize locks/updates.
             required_by_variant: dict[int, int] = {}
@@ -88,20 +108,26 @@ class Order(models.Model):
                         f"Stock insuficiente para {variant}. Disponible: {variant.stock}, requerido: {required_qty}."
                     )
 
-            # Decrement stock.
+            # Decrement stock (exactly once).
             for vid, required_qty in required_by_variant.items():
                 variant = variants_by_id[vid]
                 variant.stock = variant.stock - required_qty
                 variant.save(update_fields=["stock"])
 
-            # Persist totals and status.
+            # Persist totals, status and idempotency marker.
             order.recalculate_total()
             order.status = Order.Status.PAID
-            order.save(update_fields=["status"])
+            order.stock_deducted_at = timezone.now()
+            order.save(update_fields=["status", "stock_deducted_at"])
 
             # Reflect latest state on the instance.
             self.status = order.status
             self.total = order.total
+            self.stock_deducted_at = order.stock_deducted_at
+
+    def mark_paid_and_decrement_stock(self) -> None:
+        """Backward-compatible alias. Prefer `confirm_payment()`."""
+        self.confirm_payment()
 
     def __str__(self) -> str:
         return f"Order #{self.id} - {self.customer}"
@@ -141,10 +167,19 @@ class OrderItem(models.Model):
 
     def save(self, *args, **kwargs):
         """
-        Si es un item nuevo y no viene precio definido,
-        toma automáticamente el precio base del producto asociado
-        a la variante (product_variant.product.price).
+        Reglas de negocio:
+        - No permitir modificaciones de items si la orden ya está PAGADA.
+        - Si es un item nuevo y no viene precio definido,
+          toma automáticamente el precio base del producto asociado
+          a la variante (product_variant.product.price).
         """
+        from django.core.exceptions import ValidationError
+
+        # Bloquear edición si la orden ya fue pagada
+        if self.pk and self.order.status == Order.Status.PAID:
+            raise ValidationError("No se pueden modificar items de una orden ya pagada.")
+
+        # Autocompletar precio unitario al crear el item
         if self._state.adding and (self.unit_price is None or self.unit_price == 0):
             if self.product_variant and self.product_variant.product:
                 self.unit_price = self.product_variant.product.price

@@ -1,6 +1,5 @@
 from django.contrib import admin
 from django import forms
-from django.db.models import Sum
 
 from .models import Category, Product, ProductVariant
 
@@ -25,6 +24,13 @@ class ProductVariantAdminForm(forms.ModelForm):
     the product category. Final validation lives in ProductVariant.clean().
     """
 
+    # Replaces numeric frame sizes with semantic sizes for admin UX
+    CUADROS = [
+        ("PEQUEÑO", "Pequeño"),
+        ("MEDIANO", "Mediano"),
+        ("GRANDE", "Grande"),
+    ]
+
     class Meta:
         model = ProductVariant
         fields = "__all__"
@@ -34,28 +40,37 @@ class ProductVariantAdminForm(forms.ModelForm):
 
         instance: ProductVariant | None = kwargs.get("instance")
 
-        category_key = ""
-        if instance and instance.product and instance.product.category:
-            slug = (instance.product.category.slug or "").strip().lower()
-            name = (instance.product.category.name or "").strip().lower()
-            category_key = slug or name
+        # Determine category based on instance or posted product id
+        category = None
+
+        # 1) Editing an existing instance
+        if instance and instance.product_id:
+            category = instance.product.category.slug.lower()
+
+        # 2) Creating via inline: product comes from POST data
+        elif self.data.get("product"):
+            try:
+                product_id = int(self.data.get("product"))
+                product = Product.objects.select_related("category").get(id=product_id)
+                category = product.category.slug.lower()
+            except (ValueError, Product.DoesNotExist):
+                category = None
 
         self.fields["value"].help_text = (
-            "Camisetas: S/M/L/XL/2XL • "
-            "Cuadros: 20x30/30x40/40x50 • "
-            "Mugs: Blanco/Colores/Mágico"
+            "Camisetas: S / M / L / XL / 2XL · "
+            "Cuadros: Pequeño / Mediano / Grande · "
+            "Mugs: Blanco / Colores / Mágico"
         )
 
+        category_key = category or ""
         if category_key == "camisetas":
             self.fields["value"].widget = forms.Select(
                 choices=[(v, v) for v in sorted(ProductVariant.TSHIRT_SIZES)]
             )
-
         elif category_key == "cuadros":
             self.fields["value"].widget = forms.Select(
-                choices=[(v, v) for v in sorted(ProductVariant.FRAME_SIZES)]
+                choices=self.CUADROS
             )
-
         elif category_key == "mugs":
             self.fields["value"].widget = forms.Select(
                 choices=[
@@ -89,7 +104,7 @@ class ProductAdmin(admin.ModelAdmin):
         "name",
         "category",
         "price",
-        "stock_total_display",
+        "variants_stock_total",
         "is_active",
         "created_at",
     )
@@ -110,23 +125,6 @@ class ProductAdmin(admin.ModelAdmin):
             form.base_fields.pop("stock", None)
 
         return form
-
-    @admin.display(description="Stock (total)")
-    def stock_total_display(self, obj: Product) -> int:
-        """Si hay variantes, muestra la suma; si no, muestra el stock legacy."""
-        if hasattr(obj, "variants") and obj.variants.exists():
-            agg = obj.variants.aggregate(total=Sum("stock"))
-            return int(agg["total"] or 0)
-        return int(getattr(obj, "stock", 0) or 0)
-
-    @admin.display(description="Stock (variantes)")
-    def variants_stock_total_display(self, obj: Product) -> int:
-        """Suma el stock de todas las variantes del producto."""
-        # `variants` es el related_name usado en este proyecto (se usa arriba en get_form).
-        if hasattr(obj, "variants"):
-            agg = obj.variants.aggregate(total=Sum("stock"))
-            return int(agg["total"] or 0)
-        return 0
 
 
 # ======================

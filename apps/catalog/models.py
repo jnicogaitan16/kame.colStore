@@ -15,19 +15,6 @@ class Category(models.Model):
     def __str__(self) -> str:
         return self.name
 
-    @property
-    def total_stock(self) -> int:
-        """Stock real (suma de stock de variantes activas).
-
-        Nota: si el producto no tiene variantes, devuelve 0.
-        """
-        agg = self.variants.filter(is_active=True).aggregate(total=Sum("stock"))
-        return int(agg["total"] or 0)
-
-    @property
-    def variants_stock_total(self) -> int:
-        """Alias retrocompatible usado por el admin."""
-        return self.total_stock
 
 
 class Product(models.Model):
@@ -54,6 +41,17 @@ class Product(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+    @property
+    def total_stock(self) -> int:
+        """Stock real (suma de stock de variantes activas)."""
+        agg = self.variants.filter(is_active=True).aggregate(total=Sum("stock"))
+        return int(agg["total"] or 0)
+
+    @property
+    def variants_stock_total(self) -> int:
+        """Alias retrocompatible usado por el admin."""
+        return self.total_stock
 
 
 class ProductVariant(models.Model):
