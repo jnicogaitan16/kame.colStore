@@ -1,7 +1,9 @@
 from django.contrib import admin
 from django import forms
+from django.http import JsonResponse
+from django.urls import path
 
-from .models import Category, Product, ProductVariant
+from .models import Category, Product, ProductVariant, CAMISETA_VALUES
 
 
 # ======================
@@ -15,22 +17,7 @@ class CategoryAdmin(admin.ModelAdmin):
     list_filter = ("is_active",)
 
 
-# ======================
-# ProductVariant Form
-# ======================
 class ProductVariantAdminForm(forms.ModelForm):
-    """
-    Admin form that presents the correct allowed values depending on
-    the product category. Final validation lives in ProductVariant.clean().
-    """
-
-    # Replaces numeric frame sizes with semantic sizes for admin UX
-    CUADROS = [
-        ("PEQUEÑO", "Pequeño"),
-        ("MEDIANO", "Mediano"),
-        ("GRANDE", "Grande"),
-    ]
-
     class Meta:
         model = ProductVariant
         fields = "__all__"
@@ -38,47 +25,15 @@ class ProductVariantAdminForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        instance: ProductVariant | None = kwargs.get("instance")
+        # ✅ sin texto informativo
+        self.fields["value"].help_text = ""
+        self.fields["value"].label = "Value"
 
-        # Determine category based on instance or posted product id
-        category = None
-
-        # 1) Editing an existing instance
-        if instance and instance.product_id:
-            category = instance.product.category.slug.lower()
-
-        # 2) Creating via inline: product comes from POST data
-        elif self.data.get("product"):
-            try:
-                product_id = int(self.data.get("product"))
-                product = Product.objects.select_related("category").get(id=product_id)
-                category = product.category.slug.lower()
-            except (ValueError, Product.DoesNotExist):
-                category = None
-
-        self.fields["value"].help_text = (
-            "Camisetas: S / M / L / XL / 2XL · "
-            "Cuadros: Pequeño / Mediano / Grande · "
-            "Mugs: Blanco / Colores / Mágico"
-        )
-
-        category_key = category or ""
-        if category_key == "camisetas":
-            self.fields["value"].widget = forms.Select(
-                choices=[(v, v) for v in sorted(ProductVariant.TSHIRT_SIZES)]
-            )
-        elif category_key == "cuadros":
-            self.fields["value"].widget = forms.Select(
-                choices=self.CUADROS
-            )
-        elif category_key == "mugs":
-            self.fields["value"].widget = forms.Select(
-                choices=[
-                    ("BLANCO", "Blanco"),
-                    ("COLORES", "Colores"),
-                    ("MAGICO", "Mágico"),
-                ]
-            )
+    def clean_value(self):
+        value = self.cleaned_data.get("value")
+        if value is None:
+            return value
+        return str(value).strip().upper()
 
 
 # ======================
@@ -139,3 +94,30 @@ class ProductVariantAdmin(admin.ModelAdmin):
     list_filter = ("kind", "is_active", "product__category")
     search_fields = ("product__name", "value")
     readonly_fields = ("kind",)
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom = [
+            path(
+                "product-category/",
+                self.admin_site.admin_view(self.product_category_view),
+                name="catalog_productvariant_product_category",
+            ),
+        ]
+        return custom + urls
+
+    def product_category_view(self, request):
+        product_id = request.GET.get("product_id")
+        slug = None
+
+        if product_id:
+            try:
+                product = Product.objects.select_related("category").get(pk=product_id)
+                slug = (product.category.slug or "").lower() if product.category else None
+            except Product.DoesNotExist:
+                slug = None
+
+        return JsonResponse({"category_slug": slug})
+
+    class Media:
+        js = ("admin/catalog/productvariant_dynamic_value.js",)

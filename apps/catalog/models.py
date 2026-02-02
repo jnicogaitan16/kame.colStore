@@ -54,16 +54,31 @@ class Product(models.Model):
         return self.total_stock
 
 
+
+CAMISETA_VALUES = ["S", "M", "L", "XL", "2XL"]
+
+# Cuadros presets: labels -> canonical measure
+CUADRO_PRESETS = {
+    # labels -> canonical measure
+    "pequeno": "20x30",
+    "pequeño": "20x30",
+    "mediano": "30x40",
+    "grande": "40x50",
+}
+
+# For UI/readability you may want to show labels, but we store the canonical measure
+# so existing logic (e.g., titles, comparisons) remains consistent.
+
 class ProductVariant(models.Model):
     """A generic variant model.
 
     Requirements:
     - Camisetas: talla -> S/M/L/XL/2XL
-    - Cuadros: medida -> 20x30 / 30x40 / 40x50
-    - Mugs: tipo -> Blanco / Colores / Mágico
-
     OrderItem should reference ProductVariant (handled in orders app).
     """
+
+    # Backward-compatible alias used by admin/forms.
+    TSHIRT_SIZES = CAMISETA_VALUES
 
     class Kind(models.TextChoices):
         GENERIC = "generic", "Genérico"
@@ -71,13 +86,9 @@ class ProductVariant(models.Model):
         MEASURE = "measure", "Medida"
         MUG_TYPE = "mug_type", "Tipo de mug"
 
-    # Canonical allowed values per category (by slug/name)
-    TSHIRT_SIZES = {"S", "M", "L", "XL", "2XL"}
-    FRAME_SIZES = {"20x30", "30x40", "40x50"}
-    MUG_TYPES = {"BLANCO", "COLORES", "MAGICO"}  # MAGICO == "Mágico"
-
     CATEGORY_TO_KIND = {
         "camisetas": Kind.SIZE,
+        # Keep for compatibility, but don't use for validation:
         "cuadros": Kind.MEASURE,
         "mugs": Kind.MUG_TYPE,
     }
@@ -109,56 +120,92 @@ class ProductVariant(models.Model):
             return slug
         return (getattr(self.product.category, "name", "") or "").strip().lower()
 
-    def _normalize_value(self, raw: str) -> str:
-        """Normalize user input to our canonical storage."""
+    def _normalize_cuadro_value(self, raw: str) -> str:
+        """Accepts either a measure (e.g. 20x30) or a preset label (e.g. Pequeño).
+
+        Returns the canonical stored measure (e.g. 20x30) when a preset is provided.
+        """
         if raw is None:
             return ""
+
         v = str(raw).strip()
         if not v:
             return ""
-        # Keep sizes and frame sizes as-is (upper for size, exact for WxH)
-        if "x" in v.lower():
-            return v.lower().replace(" ", "")
+
+        key = v.strip().lower()
+        # normalize common accent variants
+        key = (
+            key.replace("á", "a")
+            .replace("é", "e")
+            .replace("í", "i")
+            .replace("ó", "o")
+            .replace("ú", "u")
+        )
+
+        # Keep the original too, because we allow both 'pequeño' and 'pequeno'
+        if key in CUADRO_PRESETS:
+            return CUADRO_PRESETS[key]
+
+        # If user typed with ñ, keep it handled as well
+        if v.strip().lower() in CUADRO_PRESETS:
+            return CUADRO_PRESETS[v.strip().lower()]
+
+        return v
+
+    def _normalize_value(self, raw: str) -> str:
+        """Normalize user input to our canonical storage.
+
+        Rules:
+        - Sizes (e.g. S, M, L, XL, 2XL) -> uppercase
+        - Measures written as WxH (e.g. 20x30, 30 x 40) -> lowercase 'wxh' without spaces
+        - Anything else -> uppercase
+
+        IMPORTANT:
+        Do NOT treat values like '2XL' as a measure just because they contain an 'x'.
+        """
+        if raw is None:
+            return ""
+
+        v = str(raw).strip()
+        if not v:
+            return ""
+
+        # Detect strict measurement pattern: <digits> x <digits>
+        v_compact = v.replace(" ", "")
+        parts = v_compact.lower().split("x")
+        if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
+            return f"{int(parts[0])}x{int(parts[1])}"  # canonical: lowercase + no spaces
+
         return v.upper()
 
     def clean(self):
+        super().clean()
+
         category_key = self._normalized_category_key()
-        derived_kind = self.CATEGORY_TO_KIND.get(category_key, self.Kind.GENERIC)
 
-        # Always keep kind aligned with category.
-        self.kind = derived_kind
+        # Normaliza siempre ANTES de validar
+        if self.value is not None:
+            # Cuadros: permitir labels (Pequeño/Mediano/Grande) pero guardar medida canonical
+            if category_key == "cuadros":
+                self.value = self._normalize_cuadro_value(self.value)
 
-        # Enforce value rules by category.
-        if derived_kind == self.Kind.SIZE:
-            normalized = self._normalize_value(self.value)
-            if not normalized:
-                raise ValidationError({"value": "Para Camisetas, la talla es obligatoria (S/M/L/XL/2XL)."})
-            if normalized not in self.TSHIRT_SIZES:
+            self.value = self._normalize_value(self.value)
+
+        # Solo camisetas: valida talla
+        if self.product and category_key == "camisetas":
+            if self.value not in CAMISETA_VALUES:
                 raise ValidationError({"value": "Talla inválida. Usa: S, M, L, XL, 2XL."})
-            self.value = normalized
 
-        elif derived_kind == self.Kind.MEASURE:
-            normalized = self._normalize_value(self.value)
-            if not normalized:
-                raise ValidationError({"value": "Para Cuadros, la medida es obligatoria (20x30/30x40/40x50)."})
-            if normalized not in self.FRAME_SIZES:
-                raise ValidationError({"value": "Medida inválida. Usa: 20x30, 30x40, 40x50."})
-            self.value = normalized
-
-        elif derived_kind == self.Kind.MUG_TYPE:
-            normalized = self._normalize_value(self.value)
-            if not normalized:
-                raise ValidationError({"value": "Para Mugs, el tipo es obligatorio (Blanco/Colores/Mágico)."})
-            if normalized not in self.MUG_TYPES:
-                raise ValidationError({"value": "Tipo inválido. Usa: Blanco, Colores, Mágico."})
-            self.value = normalized
-
-        else:
-            # Generic variants: allow empty value (some products may not use variants).
-            # If a value is provided, normalize basic whitespace.
-            if self.value is not None:
-                v = str(self.value).strip()
-                self.value = v if v else None
+        # 2) Evitar duplicado (mismo product+kind+value)
+        if self.product_id and self.kind and self.value:
+            exists = (
+                type(self).objects
+                .filter(product_id=self.product_id, kind=self.kind, value=self.value)
+                .exclude(pk=self.pk)
+                .exists()
+            )
+            if exists:
+                raise ValidationError({"value": "Ya existe una variante con esta talla/valor para este producto."})
 
     def __str__(self) -> str:
         if self.value:
