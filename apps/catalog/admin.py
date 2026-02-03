@@ -153,6 +153,46 @@ class ProductVariantAdmin(admin.ModelAdmin):
     search_fields = ("product__name", "value", "color")
     readonly_fields = ("kind",)
 
+    def _is_orders_variant_selector(self, request) -> bool:
+        """Detecta cuándo ProductVariant se está usando como selector desde Orders.
+
+        - Autocomplete: /admin/autocomplete/ incluye app_label/model_name/field_name
+        - Popup selector (_popup=1): lo acotamos a Orders usando el HTTP_REFERER
+          para no afectar popups de otros módulos.
+        """
+        is_orders_autocomplete = (
+            request.GET.get("app_label") == "orders"
+            and request.GET.get("model_name") == "orderitem"
+            and request.GET.get("field_name") == "product_variant"
+        )
+
+        is_orders_popup = bool(request.GET.get("_popup")) and (
+            "/admin/orders/" in (request.META.get("HTTP_REFERER") or "")
+        )
+
+        return is_orders_autocomplete or is_orders_popup
+
+    def get_queryset(self, request):
+        """Restringe variantes SOLO cuando se seleccionan desde Orders (popup/autocomplete).
+
+        Evita mostrar variantes sin stock (stock <= 0) y/o inactivas.
+        """
+        qs = super().get_queryset(request)
+
+        if self._is_orders_variant_selector(request):
+            return qs.filter(is_active=True, stock__gt=0)
+
+        return qs
+
+    def get_search_results(self, request, queryset, search_term):
+        """Refuerza el filtro también para el endpoint de autocomplete."""
+        queryset, use_distinct = super().get_search_results(request, queryset, search_term)
+
+        if self._is_orders_variant_selector(request):
+            queryset = queryset.filter(is_active=True, stock__gt=0)
+
+        return queryset, use_distinct
+
     def get_urls(self):
         urls = super().get_urls()
         custom = [

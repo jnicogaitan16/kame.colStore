@@ -1,17 +1,27 @@
 from django.contrib import admin, messages
-
 from django.core.exceptions import ValidationError
-
-from .models import Order, OrderItem
-
 from django.db import transaction
 
+from apps.catalog.models import ProductVariant
+from .models import Order, OrderItem
 
 
 class OrderItemInline(admin.TabularInline):
+    """Inline para ítems del pedido.
+
+    Mejora: filtra las variantes disponibles para evitar seleccionar variantes sin stock
+    (stock <= 0) y así prevenir errores al confirmar el pago.
+    """
+
     model = OrderItem
     extra = 1
     autocomplete_fields = ("product_variant",)
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        # Filtra el selector/autocomplete de product_variant para mostrar solo variantes vendibles.
+        if db_field.name == "product_variant":
+            kwargs["queryset"] = ProductVariant.objects.filter(is_active=True, stock__gt=0)
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
 
 @admin.register(Order)
@@ -86,3 +96,8 @@ class OrderItemAdmin(admin.ModelAdmin):
         "order__id",
         "product_variant__product__name",
     )
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "product_variant":
+            kwargs["queryset"] = ProductVariant.objects.filter(is_active=True, stock__gt=0)
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
