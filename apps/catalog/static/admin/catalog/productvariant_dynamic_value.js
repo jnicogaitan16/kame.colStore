@@ -1,9 +1,14 @@
 (function () {
   "use strict";
 
-  const SIZES = ["S", "M", "L", "XL", "2XL"];
-  const CAMISETAS_SLUG = "camisetas";
   const EMPTY_OPTION_TEXT = "---------";
+
+  const DEFAULT_CAMISETA_VALUES = null; // o ["S","M","L","XL","2XL"] como fallback mínimo
+  const DEFAULT_APPAREL_COLORS = null; // o ["Blanco","Negro",...] como fallback mínimo
+
+  function normalizeSlug(v) {
+    return String(v || "").trim().toLowerCase();
+  }
 
   let lastProductId = null;
   let lastMode = null; // "select" | "input"
@@ -18,7 +23,7 @@
   }
 
   function normalizeValue(v) {
-    return String(v || "").trim().toUpperCase();
+    return String(v || "").trim();
   }
 
   function setValueLabel(text) {
@@ -37,19 +42,36 @@
     });
   }
 
-  function buildSelect(className, currentValue) {
+  function getFormRowForField(inputEl) {
+    if (!inputEl) return null;
+    // Django admin typically wraps fields in .form-row
+    return inputEl.closest?.(".form-row") || null;
+  }
+
+  function setRowVisible(inputEl, visible) {
+    const row = getFormRowForField(inputEl);
+    if (!row) return;
+    row.style.display = visible ? "" : "none";
+  }
+
+  function setFieldEnabled(inputEl, enabled) {
+    if (!inputEl) return;
+    inputEl.disabled = !enabled;
+  }
+
+  function buildSelect(className, currentValue, allowedValues) {
     const select = document.createElement("select");
     select.id = "id_value";
     select.name = "value";
     select.className = className || "";
+    select.classList.add("vTextField");
 
-    // Empty option (admin style)
     const empty = document.createElement("option");
     empty.value = "";
     empty.textContent = EMPTY_OPTION_TEXT;
     select.appendChild(empty);
 
-    SIZES.forEach((v) => {
+    (allowedValues || []).forEach((v) => {
       const opt = document.createElement("option");
       opt.value = v;
       opt.textContent = v;
@@ -57,7 +79,7 @@
     });
 
     const norm = normalizeValue(currentValue);
-    if (SIZES.includes(norm)) select.value = norm;
+    if ((allowedValues || []).includes(norm)) select.value = norm;
 
     return select;
   }
@@ -72,21 +94,24 @@
     return input;
   }
 
-  function setValueAsSelect() {
+  function setValueAsSelect(rule) {
     const current = $("id_value");
     if (!current) return;
 
     if (current.tagName && current.tagName.toLowerCase() === "select") {
+      // Ensure options are in sync even if we're already a select
+      const next = buildSelect(current.className, current.value, rule.allowed_values);
+      current.parentNode.replaceChild(next, current);
       lastMode = "select";
-      setValueLabel("Talla");
+      setValueLabel(rule.label || "Value");
       return;
     }
 
-    const select = buildSelect(current.className, current.value);
+    const select = buildSelect(current.className, current.value, rule.allowed_values);
     current.parentNode.replaceChild(select, current);
 
     lastMode = "select";
-    setValueLabel("Talla");
+    setValueLabel(rule.label || "Value");
   }
 
   function setValueAsInput() {
@@ -106,6 +131,65 @@
     setValueLabel("Value");
   }
 
+  function setColorLabel(text) {
+    const label = document.querySelector('label[for="id_color"]');
+    if (label) label.textContent = text + ":";
+  }
+
+  function buildColorSelect(className, currentValue, allowedColors) {
+    const select = document.createElement("select");
+    select.id = "id_color";
+    select.name = "color";
+    select.className = className || "";
+    select.classList.add("vTextField");
+
+    const empty = document.createElement("option");
+    empty.value = "";
+    empty.textContent = EMPTY_OPTION_TEXT;
+    select.appendChild(empty);
+
+    (allowedColors || []).forEach((c) => {
+      const opt = document.createElement("option");
+      opt.value = c;
+      opt.textContent = c;
+      select.appendChild(opt);
+    });
+
+    const norm = normalizeValue(currentValue);
+    if ((allowedColors || []).includes(norm)) select.value = norm;
+
+    return select;
+  }
+
+  function setColorAsSelect(rule) {
+    const current = $("id_color");
+    if (!current) return;
+
+    setRowVisible(current, true);
+    setFieldEnabled(current, true);
+
+    if (current.tagName && current.tagName.toLowerCase() === "select") {
+      const next = buildColorSelect(current.className, current.value, rule.allowed_colors);
+      current.parentNode.replaceChild(next, current);
+      setColorLabel(rule.label || "Color");
+      return;
+    }
+
+    const select = buildColorSelect(current.className, current.value, rule.allowed_colors);
+    current.parentNode.replaceChild(select, current);
+    setColorLabel(rule.label || "Color");
+  }
+
+  function hideColorFieldAndClear() {
+    const current = $("id_color");
+    if (!current) return;
+    // Prevent submitting obsolete color values
+    current.value = "";
+    setFieldEnabled(current, false);
+    setRowVisible(current, false);
+    setColorLabel("Color");
+  }
+
   function getAdminBasePath() {
     // Example paths:
     // /admin/catalog/productvariant/add/
@@ -117,7 +201,7 @@
     return window.location.pathname.replace(/(add|\d+\/change)\/?$/, "");
   }
 
-  async function fetchCategorySlug(productId) {
+  async function fetchVariantRule(productId) {
     const base = getAdminBasePath();
     const url = base + "product-category/?product_id=" + encodeURIComponent(productId);
 
@@ -130,8 +214,7 @@
       throw new Error("Category endpoint returned " + res.status);
     }
 
-    const data = await res.json();
-    return data && data.category_slug ? String(data.category_slug).toLowerCase() : "";
+    return await res.json();
   }
 
   async function refreshValueWidget() {
@@ -141,6 +224,7 @@
     if (!productEl) {
       if (lastMode !== "input") setValueAsInput();
       setSaveButtonsEnabled(true);
+      hideColorFieldAndClear();
       lastProductId = null;
       return;
     }
@@ -151,6 +235,7 @@
     if (!productId) {
       if (lastMode !== "input") setValueAsInput();
       setSaveButtonsEnabled(true);
+      hideColorFieldAndClear();
       lastProductId = null;
       return;
     }
@@ -160,18 +245,63 @@
     lastProductId = productId;
 
     try {
-      const slug = await fetchCategorySlug(productId);
+      const rule = await fetchVariantRule(productId);
 
-      if (slug === CAMISETAS_SLUG) {
-        setValueAsSelect();
-        setSaveButtonsEnabled(true);
+      // Backwards/forwards compatible parsing (snake_case / camelCase / minimal payload)
+      const allowedValues =
+        rule.allowed_values ??
+        rule.allowedValues ??
+        rule.allowed ??
+        rule.values ??
+        null;
+
+      const allowedColors =
+        rule.allowed_colors ??
+        rule.allowedColors ??
+        rule.colors ??
+        null;
+
+      const categorySlug = normalizeSlug(
+        rule.category_slug ?? rule.categorySlug ?? rule.category ?? rule.slug ?? ""
+      );
+
+      const isApparel = categorySlug === "camisetas" || categorySlug === "hoodies";
+
+      const shouldUseSelect = Boolean(rule.use_select ?? rule.useSelect) || isApparel;
+
+      if (shouldUseSelect) {
+        setValueAsSelect({
+          label: rule.label || (isApparel ? "Talla" : "Value"),
+          allowed_values:
+            Array.isArray(allowedValues) && allowedValues.length
+              ? allowedValues
+              : isApparel
+                ? DEFAULT_CAMISETA_VALUES
+                : [],
+        });
       } else {
         setValueAsInput();
-        setSaveButtonsEnabled(true);
+      }
+      setSaveButtonsEnabled(true);
+
+      // Color: only for apparel categories (camisetas/hoodies)
+      if (isApparel) {
+        const colorsArr =
+          Array.isArray(allowedColors) && allowedColors.length
+            ? allowedColors
+            : DEFAULT_APPAREL_COLORS || [];
+
+        setColorAsSelect({
+          label: "Color",
+          allowed_colors: colorsArr,
+        });
+      } else {
+        hideColorFieldAndClear();
       }
     } catch (e) {
       // Conservative fallback: allow viewing/editing and allow save
       setValueAsInput();
+      hideColorFieldAndClear();
       setSaveButtonsEnabled(true);
     }
   }

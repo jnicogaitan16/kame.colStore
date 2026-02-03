@@ -1,9 +1,13 @@
+from __future__ import annotations
+
 from django.contrib import admin
 from django import forms
 from django.http import JsonResponse
+from django.shortcuts import get_object_or_404
 from django.urls import path
 
-from .models import Category, Product, ProductVariant, CAMISETA_VALUES
+from .models import Category, Product, ProductVariant
+from .variant_rules import get_variant_rule
 
 
 # ======================
@@ -17,6 +21,9 @@ class CategoryAdmin(admin.ModelAdmin):
     list_filter = ("is_active",)
 
 
+# ======================
+# ProductVariant Form
+# ======================
 class ProductVariantAdminForm(forms.ModelForm):
     class Meta:
         model = ProductVariant
@@ -25,15 +32,68 @@ class ProductVariantAdminForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # ✅ sin texto informativo
+        # Reset help text
         self.fields["value"].help_text = ""
-        self.fields["value"].label = "Value"
+        self.fields["color"].help_text = ""
+
+        category_slug = None
+
+        # 1) Edit form (instance exists)
+        if self.instance and getattr(self.instance, "pk", None):
+            product = getattr(self.instance, "product", None)
+            if product and getattr(product, "category", None):
+                category_slug = product.category.slug
+
+        # 2) Add form (product selected via POST)
+        else:
+            product_id = self.data.get("product") or self.initial.get("product")
+            if product_id:
+                try:
+                    product = Product.objects.select_related("category").get(pk=product_id)
+                    if product.category:
+                        category_slug = product.category.slug
+                except Product.DoesNotExist:
+                    pass
+
+        rule = get_variant_rule(category_slug)
+
+        # Label from rule
+        self.fields["value"].label = rule.get("label", "Value")
+
+        # Use select widget if rule says so
+        if rule.get("use_select") and rule.get("allowed_values"):
+            self.fields["value"].widget = forms.Select(
+                choices=[(v, v) for v in rule["allowed_values"]]
+            )
+
+        # Color field: select for apparel categories; hidden for non-apparel
+        allowed_colors = rule.get("allowed_colors")
+        slug_norm = (category_slug or "").strip().lower()
+
+        if slug_norm in {"camisetas", "hoodies"}:
+            self.fields["color"].required = True
+            # Render as list with available colors
+            if allowed_colors:
+                self.fields["color"].widget = forms.Select(
+                    choices=[("", "---------")] + [(c, c) for c in allowed_colors]
+                )
+        else:
+            # Keep the field rendered (JS will show/hide the row)
+            # Model.clean() already clears color for non-apparel
+            self.fields["color"].required = False
+            self.fields["color"].widget = forms.TextInput()
 
     def clean_value(self):
         value = self.cleaned_data.get("value")
         if value is None:
             return value
         return str(value).strip().upper()
+
+    def clean_color(self):
+        color = self.cleaned_data.get("color")
+        if color is None:
+            return color
+        return str(color).strip()
 
 
 # ======================
@@ -45,8 +105,8 @@ class ProductVariantInline(admin.TabularInline):
     extra = 1
 
     readonly_fields = ("kind",)
-    fields = ("kind", "value", "stock", "is_active")
-    ordering = ("kind", "value", "id")
+    fields = ("kind", "value", "color", "stock", "is_active")
+    ordering = ("kind", "value", "color", "id")
 
 
 # ======================
@@ -71,9 +131,7 @@ class ProductAdmin(admin.ModelAdmin):
     inlines = [ProductVariantInline]
 
     def get_form(self, request, obj=None, **kwargs):
-        """
-        Oculta el stock legacy cuando el producto ya tiene variantes.
-        """
+        """Oculta el stock legacy cuando el producto ya tiene variantes."""
         form = super().get_form(request, obj=obj, **kwargs)
 
         if obj and obj.variants.exists():
@@ -89,10 +147,10 @@ class ProductAdmin(admin.ModelAdmin):
 class ProductVariantAdmin(admin.ModelAdmin):
     form = ProductVariantAdminForm
 
-    list_display = ("id", "product", "kind", "value", "stock", "is_active")
+    list_display = ("id", "product", "kind", "value", "color", "stock", "is_active")
     list_select_related = ("product", "product__category")
     list_filter = ("kind", "is_active", "product__category")
-    search_fields = ("product__name", "value")
+    search_fields = ("product__name", "value", "color")
     readonly_fields = ("kind",)
 
     def get_urls(self):
@@ -108,16 +166,34 @@ class ProductVariantAdmin(admin.ModelAdmin):
 
     def product_category_view(self, request):
         product_id = request.GET.get("product_id")
-        slug = None
 
-        if product_id:
-            try:
-                product = Product.objects.select_related("category").get(pk=product_id)
-                slug = (product.category.slug or "").lower() if product.category else None
-            except Product.DoesNotExist:
-                slug = None
+        if not product_id:
+            rule = get_variant_rule(None)
+            return JsonResponse(
+                {
+                    "category_slug": "",
+                    "label": rule.get("label", "Value"),
+                    "use_select": bool(rule.get("use_select")),
+                    "allowed_values": rule.get("allowed_values"),
+                    "allowed_colors": rule.get("allowed_colors"),
+                    "normalize_upper": bool(rule.get("normalize_upper", True)),
+                }
+            )
 
-        return JsonResponse({"category_slug": slug})
+        product = get_object_or_404(Product.objects.select_related("category"), pk=product_id)
+        category_slug = product.category.slug if product.category else ""
+        rule = get_variant_rule(category_slug)
+
+        return JsonResponse(
+            {
+                "category_slug": (category_slug or "").strip().lower(),
+                "label": rule.get("label", "Value"),
+                "use_select": bool(rule.get("use_select")),
+                "allowed_values": rule.get("allowed_values"),
+                "allowed_colors": rule.get("allowed_colors"),
+                "normalize_upper": bool(rule.get("normalize_upper", True)),
+            }
+        )
 
     class Media:
         js = ("admin/catalog/productvariant_dynamic_value.js",)

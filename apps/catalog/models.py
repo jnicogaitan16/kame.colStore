@@ -2,6 +2,8 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Sum
 
+from .variant_rules import get_variant_rule, normalize_variant_value
+
 
 class Category(models.Model):
     name = models.CharField(max_length=120, unique=True)
@@ -54,21 +56,6 @@ class Product(models.Model):
         return self.total_stock
 
 
-
-CAMISETA_VALUES = ["S", "M", "L", "XL", "2XL"]
-
-# Cuadros presets: labels -> canonical measure
-CUADRO_PRESETS = {
-    # labels -> canonical measure
-    "pequeno": "20x30",
-    "pequeño": "20x30",
-    "mediano": "30x40",
-    "grande": "40x50",
-}
-
-# For UI/readability you may want to show labels, but we store the canonical measure
-# so existing logic (e.g., titles, comparisons) remains consistent.
-
 class ProductVariant(models.Model):
     """A generic variant model.
 
@@ -78,7 +65,10 @@ class ProductVariant(models.Model):
     """
 
     # Backward-compatible alias used by admin/forms.
-    TSHIRT_SIZES = CAMISETA_VALUES
+    TSHIRT_SIZES = get_variant_rule("camisetas").get("allowed_values") or []
+
+    # Shared colors for apparel (camisetas/hoodies) - comes from variant_rules
+    APPAREL_COLORS = get_variant_rule("camisetas").get("allowed_colors") or []
 
     class Kind(models.TextChoices):
         GENERIC = "generic", "Genérico"
@@ -102,12 +92,15 @@ class ProductVariant(models.Model):
     # For categories that require variants (camisetas/cuadros/mugs) this is required.
     value = models.CharField(max_length=20, null=True, blank=True)
 
+    # Optional extra attribute for apparel variants (required for camisetas/hoodies).
+    color = models.CharField(max_length=20, null=True, blank=True)
+
     stock = models.PositiveIntegerField(default=0)
     is_active = models.BooleanField(default=True)
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=["product", "kind", "value"], name="uniq_product_variant"),
+            models.UniqueConstraint(fields=["product", "kind", "value", "color"], name="uniq_product_variant"),
         ]
         ordering = ["product__name", "kind", "value", "id"]
 
@@ -120,94 +113,80 @@ class ProductVariant(models.Model):
             return slug
         return (getattr(self.product.category, "name", "") or "").strip().lower()
 
-    def _normalize_cuadro_value(self, raw: str) -> str:
-        """Accepts either a measure (e.g. 20x30) or a preset label (e.g. Pequeño).
-
-        Returns the canonical stored measure (e.g. 20x30) when a preset is provided.
-        """
-        if raw is None:
-            return ""
-
-        v = str(raw).strip()
-        if not v:
-            return ""
-
-        key = v.strip().lower()
-        # normalize common accent variants
-        key = (
-            key.replace("á", "a")
-            .replace("é", "e")
-            .replace("í", "i")
-            .replace("ó", "o")
-            .replace("ú", "u")
-        )
-
-        # Keep the original too, because we allow both 'pequeño' and 'pequeno'
-        if key in CUADRO_PRESETS:
-            return CUADRO_PRESETS[key]
-
-        # If user typed with ñ, keep it handled as well
-        if v.strip().lower() in CUADRO_PRESETS:
-            return CUADRO_PRESETS[v.strip().lower()]
-
-        return v
-
-    def _normalize_value(self, raw: str) -> str:
-        """Normalize user input to our canonical storage.
-
-        Rules:
-        - Sizes (e.g. S, M, L, XL, 2XL) -> uppercase
-        - Measures written as WxH (e.g. 20x30, 30 x 40) -> lowercase 'wxh' without spaces
-        - Anything else -> uppercase
-
-        IMPORTANT:
-        Do NOT treat values like '2XL' as a measure just because they contain an 'x'.
-        """
-        if raw is None:
-            return ""
-
-        v = str(raw).strip()
-        if not v:
-            return ""
-
-        # Detect strict measurement pattern: <digits> x <digits>
-        v_compact = v.replace(" ", "")
-        parts = v_compact.lower().split("x")
-        if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
-            return f"{int(parts[0])}x{int(parts[1])}"  # canonical: lowercase + no spaces
-
-        return v.upper()
 
     def clean(self):
         super().clean()
 
-        category_key = self._normalized_category_key()
+        category_slug = None
+        if self.product and getattr(self.product, "category", None):
+            category_slug = self.product.category.slug
 
-        # Normaliza siempre ANTES de validar
-        if self.value is not None:
-            # Cuadros: permitir labels (Pequeño/Mediano/Grande) pero guardar medida canonical
-            if category_key == "cuadros":
-                self.value = self._normalize_cuadro_value(self.value)
+        # Derive kind from category (so admin/validation behave consistently)
+        slug_norm = (category_slug or "").strip().lower()
+        self.kind = self.CATEGORY_TO_KIND.get(slug_norm, self.Kind.GENERIC)
 
-            self.value = self._normalize_value(self.value)
+        # Rules are only STRICTLY enforced for apparel categories.
+        rule = get_variant_rule(category_slug)
 
-        # Solo camisetas: valida talla
-        if self.product and category_key == "camisetas":
-            if self.value not in CAMISETA_VALUES:
-                raise ValidationError({"value": "Talla inválida. Usa: S, M, L, XL, 2XL."})
+        # -----------------------------
+        # Value validation (apparel only)
+        # -----------------------------
+        if slug_norm in {"camisetas", "hoodies"}:
+            # Normalize value according to central rule
+            self.value = normalize_variant_value(self.value)
 
-        # 2) Evitar duplicado (mismo product+kind+value)
+            allowed = rule.get("allowed_values")
+            # For apparel, value is required
+            if not self.value:
+                label = rule.get("label", "Value")
+                raise ValidationError({"value": f"Selecciona {label.lower()}."})
+
+            if allowed and self.value not in allowed:
+                label = rule.get("label", "Value")
+                raise ValidationError({"value": f"{label} inválida. Usa: {', '.join(allowed)}."})
+        else:
+            # For non-apparel products, do not enforce a fixed list.
+            # Keep whatever the user entered (or allow empty).
+            if self.value is not None:
+                self.value = (self.value or "").strip() or None
+
+        # -----------------------------
+        # Color validation (apparel only)
+        # -----------------------------
+        allowed_colors = rule.get("allowed_colors")
+        if slug_norm in {"camisetas", "hoodies"}:
+            # For apparel, color is required and must be one of allowed colors
+            self.color = (self.color or "").strip()
+            if not self.color:
+                raise ValidationError({"color": "Selecciona un color."})
+            if allowed_colors and self.color not in allowed_colors:
+                raise ValidationError({"color": f"Color inválido. Usa: {', '.join(allowed_colors)}."})
+        else:
+            # For non-apparel products, do not persist color
+            self.color = None
+
+        # -----------------------------
+        # Prevent duplicates (same product + kind + value + color)
+        # -----------------------------
+        # Only check duplicates when a concrete value exists.
         if self.product_id and self.kind and self.value:
             exists = (
                 type(self).objects
-                .filter(product_id=self.product_id, kind=self.kind, value=self.value)
+                .filter(
+                    product_id=self.product_id,
+                    kind=self.kind,
+                    value=self.value,
+                    color=self.color,
+                )
                 .exclude(pk=self.pk)
                 .exists()
             )
             if exists:
-                raise ValidationError({"value": "Ya existe una variante con esta talla/valor para este producto."})
+                raise ValidationError({"value": "Ya existe una variante con este valor para este producto."})
 
     def __str__(self) -> str:
+        if self.value and self.color:
+            return f"{self.product.name} - {self.get_kind_display()}: {self.value} / {self.color}"
         if self.value:
             return f"{self.product.name} - {self.get_kind_display()}: {self.value}"
         return f"{self.product.name} (sin variante)"
