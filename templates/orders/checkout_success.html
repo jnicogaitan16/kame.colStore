@@ -1,0 +1,16 @@
+<h1>Pedido creado: #{{ order.id }}</h1>
+
+<p>Tu pedido quedó <strong>pendiente de confirmación de pago</strong>.</p>
+
+<p><strong>Total:</strong> {{ order.total }}</p>
+<p><strong>Envío:</strong> {{ order.shipping_cost }}</p>
+
+<h3>Pago por transferencia</h3>
+<ul>
+  <li>Banco: ...</li>
+  <li>Cuenta: ...</li>
+  <li>Nombre: ...</li>
+</ul>
+
+<p><strong>Referencia:</strong> KAME-{{ order.id }}</p>
+<p>Envíanos el comprobante por WhatsApp para confirmar.</p>

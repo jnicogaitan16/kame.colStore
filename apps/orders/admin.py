@@ -2,6 +2,9 @@ from django.contrib import admin, messages
 from django.core.exceptions import ValidationError
 from django.db import transaction
 
+from django import forms
+from apps.orders.constants import CITY_CHOICES
+
 from apps.catalog.models import ProductVariant
 from .models import Order, OrderItem
 
@@ -24,8 +27,22 @@ class OrderItemInline(admin.TabularInline):
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
 
+# Custom ModelForm for OrderAdmin to control city_code choices
+class OrderAdminForm(forms.ModelForm):
+    city_code = forms.ChoiceField(
+        choices=[("", "---------")] + CITY_CHOICES,
+        required=False,
+        label="City code",
+    )
+
+    class Meta:
+        model = Order
+        fields = "__all__"
+
+
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
+    form = OrderAdminForm
     list_display = ("id", "customer", "status", "total", "created_at")
     list_filter = ("status", "created_at")
     search_fields = (
@@ -59,33 +76,57 @@ class OrderAdmin(admin.ModelAdmin):
             messages.warning(request, f"No se pudo confirmar pago en {failed} pedido(s).")
 
     def save_model(self, request, obj, form, change):
+        """Guarda la orden y aplica reglas de negocio desde el Admin.
+
+        - Autorellena snapshot (full_name, phone, email) desde Customer solo si vienen vacíos.
+        - Detecta transición real a estado "paid" para confirmar pago y descontar stock (idempotente).
         """
-        Garantiza la ejecución correcta de la lógica de negocio desde el Admin:
-        - Detecta transición real a estado PAID
-        - Descuenta stock de forma idempotente
-        """
-        # Obtener el estado previo ANTES de guardar
+        # Estado previo (solo si es edición)
         previous_status = None
         if change and obj.pk:
             previous_status = (
-                Order.objects
-                .filter(pk=obj.pk)
+                Order.objects.filter(pk=obj.pk)
                 .values_list("status", flat=True)
                 .first()
             )
 
-        # Guardar normalmente la orden (esto persiste el nuevo estado)
+        # Autorellenar snapshot desde el customer (también aplica en Add)
+        if getattr(obj, "customer_id", None):
+            customer = obj.customer
+
+            if not (getattr(obj, "full_name", "") or "").strip():
+                first = getattr(customer, "first_name", "") or ""
+                last = getattr(customer, "last_name", "") or ""
+                full = f"{first} {last}".strip()
+                # Fallback: si tu Customer usa un solo campo 'name'
+                if not full:
+                    full = (getattr(customer, "name", "") or "").strip()
+                obj.full_name = full
+
+            if not (getattr(obj, "phone", "") or "").strip():
+                obj.phone = (getattr(customer, "phone", "") or "").strip()
+
+            if not (getattr(obj, "email", "") or "").strip():
+                obj.email = (getattr(customer, "email", "") or "").strip()
+
+            if not (getattr(obj, "cedula", "") or "").strip():
+                obj.cedula = (getattr(customer, "cedula", "") or "").strip()
+
+        # Guardar la orden
         super().save_model(request, obj, form, change)
 
-        # Ejecutar lógica de negocio solo en transición real a "paid"
+        # Ejecutar lógica de negocio solo en transición real a "paid" (en edición)
         if (
-                change
-                and previous_status != "paid"
-                and obj.status == "paid"
-                and obj.stock_deducted_at is None
+            change
+            and previous_status != "paid"
+            and obj.status == "paid"
+            and obj.stock_deducted_at is None
         ):
             with transaction.atomic():
                 obj.confirm_payment()
+
+    class Media:
+        js = ("orders/js/order_admin_shipping.js",)
 
 
 @admin.register(OrderItem)

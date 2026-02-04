@@ -1,4 +1,5 @@
 from django.db import models
+from django.core.validators import RegexValidator
 
 
 class Customer(models.Model):
@@ -6,6 +7,16 @@ class Customer(models.Model):
     last_name = models.CharField(max_length=80, blank=True)
     email = models.EmailField(unique=True)
     phone = models.CharField(max_length=30, blank=True)
+    cedula = models.CharField(
+        max_length=20,
+        unique=True,
+        validators=[
+            RegexValidator(
+                regex=r"^\d{5,20}$",
+                message="La cédula debe contener solo números (5 a 20 dígitos).",
+            )
+        ],
+    )
 
     is_active = models.BooleanField(default=True)
 
@@ -14,3 +25,11 @@ class Customer(models.Model):
 
     def __str__(self) -> str:
         return f"{self.first_name} {self.last_name}".strip()
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=~models.Q(cedula=""),
+                name="customer_cedula_not_empty",
+            )
+        ]

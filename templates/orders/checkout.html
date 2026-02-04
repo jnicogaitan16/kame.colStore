@@ -1,0 +1,9 @@
+<h1>Checkout</h1>
+
+<p><strong>Envío gratis</strong> a partir de $150.000 COP.</p>
+
+<form method="post">
+  {% csrf_token %}
+  {{ form.as_p }}
+  <button type="submit">Crear pedido</button>
+</form>
