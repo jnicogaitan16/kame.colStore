@@ -1,6 +1,4 @@
-from django.core.exceptions import ValidationError
-from django.db import models, transaction
-from django.utils import timezone
+from django.db import models
 
 from apps.catalog.models import ProductVariant
 from apps.customers.models import Customer
@@ -111,6 +109,10 @@ class Order(models.Model):
     def confirm_payment(self) -> None:
         """Confirm payment for the order and (once) decrement stock.
 
+        This method delegates to the service layer function `confirm_order_payment()`
+        to maintain separation of concerns. All business logic is centralized in
+        `apps.orders.services.confirm_order_payment()`.
+
         Idempotency:
         - Stock is decremented only once per order, controlled by `stock_deducted_at`.
         - Re-calling this method after success will not decrement stock again.
@@ -119,73 +121,8 @@ class Order(models.Model):
         - Locks the order row and all involved variants using `select_for_update()`.
         - Performs all operations atomically.
         """
-        with transaction.atomic():
-            # Lock the order row to avoid double-processing.
-            order = Order.objects.select_for_update().get(pk=self.pk)
-
-            if order.status in (Order.Status.CANCELLED, Order.Status.REFUNDED):
-                raise ValidationError("No se puede confirmar pago para un pedido cancelado o reembolsado.")
-
-            # If already processed successfully, do nothing (idempotent).
-            if order.status == Order.Status.PAID and order.stock_deducted_at is not None:
-                self.status = order.status
-                self.total = order.total
-                self.subtotal = order.subtotal
-                self.shipping_cost = order.shipping_cost
-                self.payment_confirmed_at = order.payment_confirmed_at
-                self.stock_deducted_at = order.stock_deducted_at
-                return
-
-            # Only PENDING_PAYMENT/CREATED or a partially-processed PAID (without stock_deducted_at) can proceed.
-            if order.status not in (Order.Status.PENDING_PAYMENT, Order.Status.CREATED, Order.Status.PAID):
-                raise ValidationError(
-                    "Solo se puede confirmar pago para un pedido en estado PENDING_PAYMENT/CREATED."
-                )
-
-            # Aggregate requested qty per variant to minimize locks/updates.
-            required_by_variant: dict[int, int] = {}
-            for item in order.items.select_related("product_variant").all():
-                required_by_variant[item.product_variant_id] = (
-                    required_by_variant.get(item.product_variant_id, 0) + item.quantity
-                )
-
-            # Lock variants and validate stock.
-            variants_qs = (
-                ProductVariant.objects.select_for_update()
-                .filter(id__in=required_by_variant.keys(), is_active=True)
-                .select_related("product")
-            )
-            variants_by_id = {v.id: v for v in variants_qs}
-
-            missing = [vid for vid in required_by_variant.keys() if vid not in variants_by_id]
-            if missing:
-                raise ValidationError("Hay variantes inválidas o inactivas en el pedido.")
-
-            for vid, required_qty in required_by_variant.items():
-                variant = variants_by_id[vid]
-                if variant.stock < required_qty:
-                    raise ValidationError(
-                        f"Stock insuficiente para {variant}. Disponible: {variant.stock}, requerido: {required_qty}."
-                    )
-
-            # Decrement stock (exactly once).
-            for vid, required_qty in required_by_variant.items():
-                variant = variants_by_id[vid]
-                variant.stock = variant.stock - required_qty
-                variant.save(update_fields=["stock"])
-
-            # Persist totals, status and idempotency marker.
-            order.recalculate_total()
-            order.status = Order.Status.PAID
-            order.payment_confirmed_at = timezone.now()
-            order.stock_deducted_at = timezone.now()
-            order.save(update_fields=["status", "payment_confirmed_at", "stock_deducted_at"])
-
-            # Reflect latest state on the instance.
-            self.status = order.status
-            self.total = order.total
-            self.stock_deducted_at = order.stock_deducted_at
-            self.payment_confirmed_at = order.payment_confirmed_at
+        from apps.orders.services import confirm_order_payment
+        confirm_order_payment(self)
 
     def mark_paid_and_decrement_stock(self) -> None:
         """Backward-compatible alias. Prefer `confirm_payment()`."""
@@ -229,23 +166,14 @@ class OrderItem(models.Model):
 
     def save(self, *args, **kwargs):
         """
-        Reglas de negocio:
-        - No permitir modificaciones de items si la orden ya está PAGADA.
-        - Si es un item nuevo y no viene precio definido,
-          toma automáticamente el precio base del producto asociado
-          a la variante (product_variant.product.price).
+        Guarda el OrderItem aplicando reglas de negocio.
+
+        Este método delega la validación y preparación a la capa de servicios
+        para mantener la separación de responsabilidades. La lógica de negocio
+        está centralizada en `apps.orders.services.validate_and_prepare_order_item()`.
         """
-        from django.core.exceptions import ValidationError
-
-        # Bloquear edición si la orden ya fue pagada
-        if self.pk and self.order.status == Order.Status.PAID:
-            raise ValidationError("No se pueden modificar items de una orden ya pagada.")
-
-        # Autocompletar precio unitario al crear el item
-        if self._state.adding and (self.unit_price is None or self.unit_price == 0):
-            if self.product_variant and self.product_variant.product:
-                self.unit_price = self.product_variant.product.price
-
+        from apps.orders.services import validate_and_prepare_order_item
+        validate_and_prepare_order_item(self)
         super().save(*args, **kwargs)
 
     def __str__(self) -> str:

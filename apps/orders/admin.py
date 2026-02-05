@@ -32,7 +32,7 @@ class OrderAdminForm(forms.ModelForm):
     city_code = forms.ChoiceField(
         choices=[("", "---------")] + CITY_CHOICES,
         required=False,
-        label="City code",
+        label="Ciudad",
     )
 
     class Meta:
@@ -44,6 +44,7 @@ class OrderAdminForm(forms.ModelForm):
 class OrderAdmin(admin.ModelAdmin):
     form = OrderAdminForm
     list_display = ("id", "customer", "status", "total", "created_at")
+    autocomplete_fields = ("customer",)
     list_filter = ("status", "created_at")
     search_fields = (
         "customer__first_name",
@@ -78,8 +79,9 @@ class OrderAdmin(admin.ModelAdmin):
     def save_model(self, request, obj, form, change):
         """Guarda la orden y aplica reglas de negocio desde el Admin.
 
-        - Autorellena snapshot (full_name, phone, email) desde Customer solo si vienen vacíos.
+        - Autorellena snapshot (full_name, phone, email, cedula) desde Customer solo si vienen vacíos.
         - Detecta transición real a estado "paid" para confirmar pago y descontar stock (idempotente).
+        - Si falla (p. ej. stock insuficiente), NO rompe el admin: muestra mensaje y revierte status.
         """
         # Estado previo (solo si es edición)
         previous_status = None
@@ -112,18 +114,47 @@ class OrderAdmin(admin.ModelAdmin):
             if not (getattr(obj, "cedula", "") or "").strip():
                 obj.cedula = (getattr(customer, "cedula", "") or "").strip()
 
-        # Guardar la orden
+        # Persistir cambios del formulario
         super().save_model(request, obj, form, change)
 
-        # Ejecutar lógica de negocio solo en transición real a "paid" (en edición)
-        if (
+        # Guardar estado previo para usarlo en save_related (cuando los inlines ya están guardados)
+        obj._admin_previous_status = previous_status
+
+    def save_related(self, request, form, formsets, change):
+        """Confirma pago DESPUÉS de guardar inlines.
+
+        En el admin, los inlines (OrderItem) se guardan en save_related().
+        Si confirmamos pago en save_model(), confirm_payment() puede validar/deducir
+        usando ítems antiguos o incompletos.
+        """
+        super().save_related(request, form, formsets, change)
+
+        obj = form.instance
+        previous_status = getattr(obj, "_admin_previous_status", None)
+
+        should_confirm = (
             change
             and previous_status != "paid"
             and obj.status == "paid"
             and obj.stock_deducted_at is None
-        ):
+        )
+        if not should_confirm:
+            return
+
+        fallback_status = previous_status or "pending_payment"
+
+        try:
             with transaction.atomic():
                 obj.confirm_payment()
+        except ValidationError as e:
+            # Revertir el status para no dejar la orden como pagada si no se pudo descontar stock
+            Order.objects.filter(pk=obj.pk).update(status=fallback_status)
+            obj.status = fallback_status
+            messages.error(request, f"No se pudo confirmar el pago: {e}")
+        except Exception as e:
+            Order.objects.filter(pk=obj.pk).update(status=fallback_status)
+            obj.status = fallback_status
+            messages.error(request, f"Error inesperado al confirmar el pago: {e}")
 
     class Media:
         js = ("orders/js/order_admin_shipping.js",)
