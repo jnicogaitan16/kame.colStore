@@ -29,10 +29,6 @@ class Product(models.Model):
 
     price = models.DecimalField(max_digits=10, decimal_places=2)
 
-    # NOTE: For apparel like "camisetas", stock should be managed per size via ProductVariant.
-    # This global stock can still be used for products without sizes.
-    stock = models.PositiveIntegerField(default=0)
-
     is_active = models.BooleanField(default=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -40,6 +36,15 @@ class Product(models.Model):
 
     class Meta:
         ordering = ["-created_at", "id"]
+
+    def clean(self):
+        super().clean()
+
+        # Stock source of truth is ProductVariant. Do not allow active products with no stock.
+        if self.is_active and self.total_stock <= 0:
+            raise ValidationError(
+                {"is_active": "No puedes activar un producto sin stock disponible en sus variantes."}
+            )
 
     def __str__(self) -> str:
         return self.name

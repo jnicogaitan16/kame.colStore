@@ -7,3 +7,86 @@
   {{ form.as_p }}
   <button type="submit">Crear pedido</button>
 </form>
+
+<script>
+  (() => {
+    'use strict';
+
+    const $ = (id) => document.getElementById(id);
+
+    const getCookie = (name) =>
+      document.cookie
+        .split('; ')
+        .find((row) => row.startsWith(`${name}=`))
+        ?.split('=')[1] || '';
+
+    const int0 = (v) => {
+      const n = parseInt(String(v ?? '').replace(/[^0-9-]/g, ''), 10);
+      return Number.isFinite(n) ? n : 0;
+    };
+
+    const postJSON = async (url, data) => {
+      const res = await fetch(url, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': decodeURIComponent(getCookie('csrftoken')),
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+      return res.json();
+    };
+
+    const debounce = (fn, ms = 200) => {
+      let t;
+      return (...args) => {
+        clearTimeout(t);
+        t = setTimeout(() => fn(...args), ms);
+      };
+    };
+
+    const init = () => {
+      const cityEl = $('id_city_code');
+      const subtotalEl = $('id_subtotal');
+      const shippingEl = $('id_shipping_cost');
+      const totalEl = $('id_total');
+
+      // If the checkout form doesn't expose these fields, do nothing.
+      if (!cityEl || !subtotalEl || !shippingEl || !totalEl) return;
+
+      const recalc = async () => {
+        const city_code = (cityEl.value || '').trim();
+        const subtotal = int0(subtotalEl.value);
+
+        // Draft state: no city selected yet.
+        if (!city_code) {
+          shippingEl.value = 0;
+          totalEl.value = subtotal;
+          return;
+        }
+
+        try {
+          const data = await postJSON('/orders/api/shipping-quote/', { city_code, subtotal });
+          shippingEl.value = data.shipping_cost ?? 0;
+          totalEl.value = data.total ?? subtotal;
+        } catch (err) {
+          console.warn(err);
+        }
+      };
+
+      const schedule = debounce(recalc, 200);
+
+      cityEl.addEventListener('change', schedule);
+      subtotalEl.addEventListener('input', schedule);
+
+      // Run once on load to keep values consistent.
+      schedule();
+    };
+
+    document.addEventListener('DOMContentLoaded', init);
+  })();
+</script>

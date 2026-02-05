@@ -163,7 +163,8 @@
   const RE_QTY = /^id_.+-quantity$/;
   const RE_PRICE = /^id_.+-unit_price$/;
   const RE_DELETE = /^id_.+-DELETE$/;
-  const RE_PV = /^id_.+-(product_variant|product_variant_id)$/;
+  // Django admin Select2/autocomplete can suffix ids like -product_variant_0
+  const RE_PV = /^id_.+-(product_variant|product_variant_id)(?:_\d+)?$/;
 
   function getInlineRows() {
     // Generic: derive rows from any quantity inputs matching the expected Django inline naming.
@@ -175,11 +176,16 @@
       const delEl = document.getElementById(`${base}-DELETE`);
 
       // product_variant could be select or hidden input (depending on autocomplete widgets)
+      // In some admin/select2 setups Django appends _0 to the id.
       const pvEl =
         document.getElementById(`${base}-product_variant`) ||
+        document.getElementById(`${base}-product_variant_0`) ||
         document.getElementById(`${base}-product_variant_id`) ||
+        document.getElementById(`${base}-product_variant_id_0`) ||
         qs(`#${escapeId(base)}-product_variant`) ||
-        qs(`#${escapeId(base)}-product_variant_id`);
+        qs(`#${escapeId(base)}-product_variant_0`) ||
+        qs(`#${escapeId(base)}-product_variant_id`) ||
+        qs(`#${escapeId(base)}-product_variant_id_0`);
 
       return { base, qtyEl, priceEl, delEl, pvEl };
     });
@@ -287,45 +293,117 @@
     const recalcSubtotalAndQuoteDebounced = debounce(recalcSubtotalAndQuote, 200);
     const recalcQuoteDebounced = debounce(recalcQuote, 200);
 
-    async function handleProductVariantChange(pvEl) {
+    async function handleProductVariantChange(pvEl, forcedVariantId) {
       if (!pvEl) return;
 
-      const variantId = getValue(pvEl).trim();
+      const variantId = String(forcedVariantId ?? getValue(pvEl) ?? "").trim();
+
       if (!variantId) {
-        // If variant cleared, we still recalc subtotal (row might become invalid)
         recalcSubtotalAndQuoteDebounced();
         return;
       }
 
-      // Derive base from pv id
-      const pvId = pvEl.id || "";
-      if (!pvId) {
-        recalcSubtotalAndQuoteDebounced();
-        return;
+      // 1) Intento: tomar el <tr> directo (cuando el event viene del <select>/<input>)
+      let rowTr = pvEl.closest ? pvEl.closest("tr") : null;
+
+      // 2) Fallback ultra confiable: derivar el id de fila desde el id del campo
+      // Ej: id_items-1-product_variant -> fila <tr id="items-1">
+      if (!rowTr) {
+        const m = String(pvEl.id || "").match(
+          /^id_([^-]+-\d+)-(product_variant|product_variant_id)(?:_\d+)?$/
+        );
+        if (m && m[1]) rowTr = document.getElementById(m[1]);
       }
 
-      const base = pvId.replace(/-(product_variant|product_variant_id)$/, "");
-      const priceEl = document.getElementById(`${base}-unit_price`) || qs(`#${escapeId(base)}-unit_price`);
+      // Buscar el unit_price dentro de ESA fila
+      let priceEl = null;
+      if (rowTr) {
+        priceEl = rowTr.querySelector('input[id$="-unit_price"]');
+      }
+
+      // Último fallback: por base (por si cambia el HTML)
+      if (!priceEl) {
+        const pvId = pvEl.id || "";
+        if (pvId) {
+          const base = pvId.replace(/-(product_variant|product_variant_id)(?:_\d+)?$/, "");
+          priceEl =
+            document.getElementById(`${base}-unit_price`) ||
+            qs(`#${escapeId(base)}-unit_price`);
+        }
+      }
 
       try {
         const data = await fetchVariantPrice(variantId);
 
-        // Accept either {unit_price: ...} or {price: ...}
         const unitPrice =
-          data && data.unit_price != null ? data.unit_price : data && data.price != null ? data.price : "";
+          data && data.unit_price != null
+            ? data.unit_price
+            : data && data.price != null
+              ? data.price
+              : "";
 
         if (priceEl) {
-          // Set immediately
           setValue(priceEl, unitPrice);
-          // And store fallback value for cases where input looks empty (admin widgets)
           priceEl.dataset.unitPrice = String(unitPrice == null ? "" : unitPrice);
         }
       } catch (e) {
         console.error("Error al obtener unit_price del variant:", e);
       }
 
-      // After updating price, recalc subtotal + quote
       recalcSubtotalAndQuoteDebounced();
+    }
+
+    function wireProductVariantSelect2() {
+      const selector =
+        'select[id$="-product_variant"], select[id$="-product_variant_0"], ' +
+        'select[id$="-product_variant_id"], select[id$="-product_variant_id_0"], ' +
+        'input[id$="-product_variant"], input[id$="-product_variant_0"], ' +
+        'input[id$="-product_variant_id"], input[id$="-product_variant_id_0"]';
+
+      const selects = qsa(selector);
+      if (!selects.length) return;
+
+      // django.jQuery (admin) o jQuery global
+      let $ = null;
+      try {
+        $ = window.django && window.django.jQuery ? window.django.jQuery : window.jQuery;
+      } catch (e) {
+        $ = null;
+      }
+
+      // 1) Wiring directo para los que ya existen
+      for (const sel of selects) {
+        if (sel.dataset && sel.dataset.pvSelect2Wired === "1") continue;
+        if (sel.dataset) sel.dataset.pvSelect2Wired = "1";
+
+        sel.addEventListener("change", function () {
+          handleProductVariantChange(sel);
+        });
+
+        // Si ya tiene valor, precargar unit_price
+        if (getValue(sel).trim()) {
+          handleProductVariantChange(sel);
+        }
+      }
+
+      // 2) Wiring delegado: cubre filas que Select2 inicializa/reinicializa después
+      if ($ && !wireProductVariantSelect2._delegated) {
+        wireProductVariantSelect2._delegated = true;
+
+        $(document).on("select2:select", selector, function (e) {
+          const id = e && e.params && e.params.data ? e.params.data.id : undefined;
+          handleProductVariantChange(this, id);
+        });
+
+        $(document).on("select2:clear", selector, function () {
+          handleProductVariantChange(this, "");
+        });
+
+        // Backup: algunos flujos solo disparan change
+        $(document).on("change", selector, function () {
+          handleProductVariantChange(this);
+        });
+      }
     }
 
     async function handleCustomerChange() {
@@ -461,11 +539,14 @@
 
       // Django admin formset event (available in many versions)
       document.addEventListener("formset:added", function () {
+        // New inline row: re-wire select2/autocomplete and recalc totals
+        wireProductVariantSelect2();
         recalcSubtotalAndQuoteDebounced();
       });
     }
 
     wireInlineEvents();
+    wireProductVariantSelect2();
 
     // -----------------------------
     // Initial calculation

@@ -131,12 +131,14 @@ class ProductAdmin(admin.ModelAdmin):
     inlines = [ProductVariantInline]
 
     def get_form(self, request, obj=None, **kwargs):
-        """Oculta el stock legacy cuando el producto ya tiene variantes."""
+        """Oculta el stock del modelo Product.
+
+        El stock real vive en ProductVariant.stock; en Product se usa un total calculado
+        (p.ej. `variants_stock_total`). Este pop mantiene el admin consistente incluso
+        antes/después de eliminar el campo `stock` de Product.
+        """
         form = super().get_form(request, obj=obj, **kwargs)
-
-        if obj and obj.variants.exists():
-            form.base_fields.pop("stock", None)
-
+        form.base_fields.pop("stock", None)
         return form
 
 

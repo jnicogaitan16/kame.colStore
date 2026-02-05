@@ -10,6 +10,7 @@ from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_GET, require_POST
 
 from apps.customers.models import Customer
+from apps.catalog.models import ProductVariant
 from apps.orders.forms import CheckoutForm
 from apps.orders.models import Order
 from apps.orders.services import (
@@ -193,5 +194,35 @@ def customer_snapshot_view(request):
             "phone": phone,
             "email": email,
             "cedula": cedula,
+        }
+    )
+
+
+# --- API: variant_price_view ---
+@require_GET
+def variant_price_view(request):
+    variant_id = request.GET.get("variant_id")
+
+    try:
+        variant_id_int = int(variant_id or 0)
+    except (TypeError, ValueError):
+        return JsonResponse({"error": "Invalid variant_id"}, status=400)
+
+    if variant_id_int <= 0:
+        return JsonResponse({"error": "variant_id is required"}, status=400)
+
+    variant = get_object_or_404(ProductVariant, pk=variant_id_int)
+
+    price = getattr(variant.product, "price", None)
+    # Ensure JSON-serializable numeric output (Decimal -> float)
+    try:
+        price = float(price or 0)
+    except (TypeError, ValueError):
+        price = 0.0
+
+    return JsonResponse(
+        {
+            "variant_id": variant.id,
+            "unit_price": price,
         }
     )
