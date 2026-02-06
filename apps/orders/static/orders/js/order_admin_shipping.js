@@ -229,10 +229,19 @@
     const shippingEl =
       qs("#id_shipping_cost") ||
       qs("#shipping_cost") ||
-      qs(".field-shipping_cost .readonly");
+      qs(".field-shipping_cost .readonly") ||
+      qs(".form-row.field-shipping_cost .readonly") ||
+      qs(".form-row.field-shipping_cost p") ||
+      qs(".field-shipping_cost p");
 
-    // total is often readonly in admin
-    const totalEl = qs("#id_total") || qs("#total") || qs(".field-total .readonly");
+    // total is often readonly in admin (can be <div class="readonly"> or <p class="readonly">)
+    const totalEl =
+      qs("#id_total") ||
+      qs("#total") ||
+      qs(".field-total .readonly") ||
+      qs(".form-row.field-total .readonly") ||
+      qs(".form-row.field-total p") ||
+      qs(".field-total p");
 
     // Customer and autofill targets
     const customerEl = qs("#id_customer");
@@ -241,26 +250,57 @@
     const emailEl = qs("#id_email");
     const cedulaEl = qs("#id_cedula");
 
-    // If core shipping fields are missing, keep admin safe (but still allow customer autofill)
-    const hasShippingCore = !!(cityEl && subtotalEl && shippingEl && totalEl);
+    // Core fields required to keep totals consistent locally.
+    const hasTotalsCore = !!(subtotalEl && totalEl);
+    // Fields required to call the shipping quote endpoint.
+    const hasQuoteCore = !!(cityEl && subtotalEl && shippingEl);
 
     // Avoid loops when we update subtotal programmatically
     let isProgrammaticSubtotalUpdate = false;
 
-    const recalcQuote = async function () {
-      if (!hasShippingCore) return;
+    // -----------------------------
+    // Total calculation (local)
+    // -----------------------------
+    function updateTotalFromFields() {
+      // total = subtotal + shipping_cost (treat blanks as 0)
+      const subtotal = parseIntSafe(getValue(subtotalEl));
+      const shipping = shippingEl ? parseIntSafe(getValue(shippingEl)) : 0;
+      const total = subtotal + shipping;
+      setValue(totalEl, total);
+    }
 
-      const cityCode = getValue(cityEl).trim();
+    const recalcQuote = async function () {
+      if (!hasTotalsCore) return;
+
       const subtotal = parseIntSafe(getValue(subtotalEl));
 
-      if (!cityCode) return;
+      // If we don't have quote fields (or city not selected), still keep total consistent locally.
+      if (!hasQuoteCore) {
+        updateTotalFromFields();
+        return;
+      }
+
+      const cityCode = getValue(cityEl).trim();
+      if (!cityCode) {
+        updateTotalFromFields();
+        return;
+      }
 
       try {
         const data = await fetchQuote(cityCode, subtotal);
         setValue(shippingEl, data.shipping_cost);
-        setValue(totalEl, data.total);
+
+        // Prefer backend total when provided, but ensure total is always consistent.
+        if (data && data.total != null) {
+          setValue(totalEl, data.total);
+        } else {
+          updateTotalFromFields();
+        }
       } catch (e) {
         console.error("Error al calcular envío:", e);
+
+        // If quote fails, keep total consistent with current fields.
+        updateTotalFromFields();
 
         // Subtle visual feedback
         if (shippingEl && "value" in shippingEl) {
@@ -276,17 +316,27 @@
     };
 
     const recalcSubtotalAndQuote = async function () {
-      if (!hasShippingCore) return;
+      if (!hasTotalsCore) return;
 
       const computed = computeSubtotalFromInlines();
 
       isProgrammaticSubtotalUpdate = true;
       setValue(subtotalEl, computed);
+
+      // Keep total in sync immediately even before/without shipping quote.
+      updateTotalFromFields();
+
       window.setTimeout(() => {
         isProgrammaticSubtotalUpdate = false;
       }, 0);
 
-      await recalcQuote();
+      // Only call quote when quote core exists and city is selected; otherwise local total is enough.
+      if (hasQuoteCore) {
+        const cityCodeNow = getValue(cityEl).trim();
+        if (cityCodeNow) {
+          await recalcQuote();
+        }
+      }
     };
 
     // Debounce for inline edits
@@ -441,17 +491,26 @@
     // Events
     // -----------------------------
 
-    // change city -> quote
-    if (cityEl && hasShippingCore) {
-      cityEl.addEventListener("change", recalcQuote);
+    // change city -> quote (and always keep total consistent)
+    if (cityEl && hasQuoteCore) {
+      cityEl.addEventListener("change", function () {
+        recalcQuote();
+        updateTotalFromFields();
+      });
     }
 
     // input subtotal (manual edit) -> quote (but ignore programmatic updates)
-    if (subtotalEl && hasShippingCore) {
+    if (subtotalEl && hasTotalsCore) {
       subtotalEl.addEventListener("input", function () {
         if (isProgrammaticSubtotalUpdate) return;
         recalcQuoteDebounced();
       });
+    }
+
+    // shipping_cost manual edit -> update total immediately
+    if (shippingEl && hasTotalsCore) {
+      shippingEl.addEventListener("input", debounce(updateTotalFromFields, 50));
+      shippingEl.addEventListener("change", updateTotalFromFields);
     }
 
     // Autofill customer (works for regular <select>, raw_id_fields, and select2/autocomplete widgets)
@@ -551,11 +610,13 @@
     // -----------------------------
     // Initial calculation
     // -----------------------------
-    if (hasShippingCore) {
+    if (hasTotalsCore) {
       const hasInlineQty = qsa('input[id^="id_"]').some((el) => RE_QTY.test(el.id));
       if (hasInlineQty) {
         recalcSubtotalAndQuote();
       } else {
+        // Ensure total is never left at 0 when subtotal exists.
+        updateTotalFromFields();
         recalcQuote();
       }
     }

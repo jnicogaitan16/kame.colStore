@@ -1,12 +1,9 @@
-
-
 from __future__ import annotations
 
 from typing import Dict
 
 from apps.customers.models import Customer
 from apps.orders.models import Order, OrderItem
-from apps.orders.services.shipping import calculate_shipping_cost
 
 
 def create_order_from_cart(
@@ -15,6 +12,9 @@ def create_order_from_cart(
     form_data: dict,
     subtotal: int,
 ) -> Order:
+    # Local import to avoid circular dependencies between services modules
+    from apps.orders.services.shipping import calculate_shipping_cost
+
     city_code = (form_data.get("city_code") or "").strip()
 
     shipping_cost = int(calculate_shipping_cost(subtotal=int(subtotal), city_code=city_code))

@@ -10,7 +10,7 @@ class CheckoutForm(forms.Form):
 
     # Ciudad NO libre
     city_code = forms.ChoiceField(
-        label="Ciudad",
+        label="City",
         choices=[("", "---------")] + CITY_CHOICES
     )
 

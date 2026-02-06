@@ -32,7 +32,7 @@ class OrderAdminForm(forms.ModelForm):
     city_code = forms.ChoiceField(
         choices=[("", "---------")] + CITY_CHOICES,
         required=False,
-        label="Ciudad",
+        label="City",
     )
 
     class Meta:
