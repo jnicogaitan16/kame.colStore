@@ -22,6 +22,7 @@ from django.conf.urls.static import static
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("orders/", include("apps.orders.urls")),
+    path("api/", include("apps.catalog.urls_api")),
 ]
 
 # Servir archivos media en modo DEBUG

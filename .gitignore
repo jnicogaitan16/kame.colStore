@@ -10,3 +10,8 @@ media/
 # Logs
 logs/
 *.log
+
+# Frontend (Next.js)
+frontend/node_modules/
+frontend/.next/
+frontend/.env.local

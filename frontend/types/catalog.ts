@@ -1,0 +1,53 @@
+/**
+ * Tipos alineados con la API del catálogo (Django DRF).
+ */
+
+export interface Category {
+  id: number;
+  name: string;
+  slug: string;
+}
+
+export interface ProductImage {
+  id: number;
+  image: string | null;
+  alt_text: string;
+  is_primary: boolean;
+  sort_order: number;
+}
+
+export interface ProductVariant {
+  id: number;
+  kind: string;
+  kind_display: string;
+  value: string | null;
+  color: string | null;
+  stock: number;
+  is_active: boolean;
+  images: ProductImage[];
+}
+
+export interface ProductList {
+  id: number;
+  name: string;
+  slug: string;
+  price: string;
+  category: Category;
+  primary_image: string | null;
+  is_active: boolean;
+}
+
+export interface ProductDetail extends ProductList {
+  description: string;
+  stock: number;
+  created_at: string;
+  updated_at: string;
+  variants: ProductVariant[];
+}
+
+export interface PaginatedResponse<T> {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: T[];
+}

@@ -51,7 +51,9 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
-    #local apps
+    'rest_framework',
+
+    # local apps
     'apps.catalog.apps.CatalogConfig',
     'apps.orders.apps.OrdersConfig',
     'apps.customers.apps.CustomersConfig',
@@ -141,6 +143,16 @@ STATIC_URL = 'static/'
 # Media files (user uploaded content)
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+
+# Django REST Framework
+REST_FRAMEWORK = {
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "PAGE_SIZE": 20,
+    "DEFAULT_RENDERER_CLASSES": [
+        "rest_framework.renderers.JSONRenderer",
+    ],
+}
 
 
 # Logging configuration

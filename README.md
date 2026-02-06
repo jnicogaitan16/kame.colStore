@@ -11,6 +11,35 @@ Sistema de gestión de tienda en línea desarrollado con Django para la venta de
 - **Admin Django**: Interfaz administrativa completa y personalizada
 - **Validación de Stock**: Control de inventario por variante de producto
 
+## ⚡ Comandos rápidos (TL;DR)
+
+### Backend (Django)
+```bash
+# Activar entorno virtual
+source .venv/bin/activate
+
+# Levantar backend
+python manage.py runserver
+```
+
+### Migraciones
+```bash
+python manage.py makemigrations
+python manage.py migrate
+```
+
+### Frontend (Next.js)
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+### Detener servidores
+```bash
+Ctrl + C
+```
+
 ## 📋 Requisitos
 
 - Python 3.10+

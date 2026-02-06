@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground: #0f172a;
+  --background: #f8fafc;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+}
+
+/* Swiper: ocultar scrollbar en móvil si hace falta */
+.swiper-pagination-bullet-active {
+  background: #0ea5e9;
+}
