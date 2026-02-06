@@ -31,6 +31,10 @@ class Product(models.Model):
 
     is_active = models.BooleanField(default=True)
 
+    # SOLO LECTURA: el stock del producto se deriva de la suma del stock de sus variantes.
+    # Se inicializa en 0 y se mantiene sincronizado.
+    stock = models.PositiveIntegerField(default=0, editable=False)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -40,18 +44,22 @@ class Product(models.Model):
     def clean(self):
         super().clean()
 
+        # En el admin "Add product", el Product aún no tiene PK y no puedes usar self.variants.
+        # Además, los inlines todavía no están guardados, así que validar stock aquí sería incorrecto.
+        if not self.pk:
+            return
+
         # Stock source of truth is ProductVariant. Do not allow active products with no stock.
         if self.is_active and self.total_stock <= 0:
             raise ValidationError(
                 {"is_active": "No puedes activar un producto sin stock disponible en sus variantes."}
             )
 
-    def __str__(self) -> str:
-        return self.name
-
     @property
     def total_stock(self) -> int:
         """Stock real (suma de stock de variantes activas)."""
+        if not self.pk:
+            return 0
         agg = self.variants.filter(is_active=True).aggregate(total=Sum("stock"))
         return int(agg["total"] or 0)
 
@@ -60,6 +68,16 @@ class Product(models.Model):
         """Alias retrocompatible usado por el admin."""
         return self.total_stock
 
+    def save(self, *args, **kwargs):
+        # Stock en Product es SOLO LECTURA (derivado de variantes)
+        if not self.pk:
+            self.stock = 0
+        else:
+            self.stock = self.total_stock
+        return super().save(*args, **kwargs)
+
+    def __str__(self) -> str:
+        return self.name
 
 class ProductVariant(models.Model):
     """A generic variant model.
