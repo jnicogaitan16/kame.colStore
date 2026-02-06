@@ -166,17 +166,20 @@ class OrderItem(models.Model):
             ),
         ]
 
-    def save(self, *args, **kwargs):
-        """
-        Guarda el OrderItem aplicando reglas de negocio.
-
-        Este método delega la validación y preparación a la capa de servicios
-        para mantener la separación de responsabilidades. La lógica de negocio
-        está centralizada en `apps.orders.services.validate_and_prepare_order_item()`.
-        """
-        from apps.orders.services import validate_and_prepare_order_item
+    def clean(self):
+        super().clean()
+        # Reglas de negocio centralizadas (incluye bloqueo por orden PAID)
+        from apps.orders.services.order_items import validate_and_prepare_order_item
         validate_and_prepare_order_item(self)
-        super().save(*args, **kwargs)
+
+    def save(self, *args, **kwargs):
+        """Guarda el OrderItem aplicando reglas de negocio.
+
+        - Ejecuta `full_clean()` para asegurar validación en cualquier flujo.
+        - La lógica de negocio vive en `apps.orders.services.order_items`.
+        """
+        self.full_clean()
+        return super().save(*args, **kwargs)
 
     def __str__(self) -> str:
         return f"Order #{self.order_id} - {self.product_variant} x{self.quantity}"

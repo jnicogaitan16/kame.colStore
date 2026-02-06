@@ -4,27 +4,15 @@ import logging
 from typing import Dict, Tuple
 
 from django.core.exceptions import ValidationError
-from django.db import transaction
-from django.utils import timezone
 
 from apps.customers.models import Customer
 from apps.orders.models import Order, OrderItem
 from apps.orders.services.create_order_from_cart import create_order_from_cart
+from apps.orders.services.order_items import validate_and_prepare_order_item
 from apps.orders.services.payments import confirm_order_payment
 from apps.orders.services.product_variants import get_product_variant_model
 
 logger = logging.getLogger(__name__)
-
-
-def validate_and_prepare_order_item(order_item: OrderItem) -> None:
-    """Valida y prepara un OrderItem antes de guardarlo."""
-
-    if order_item.pk and order_item.order.status == Order.Status.PAID:
-        raise ValidationError("No se pueden modificar items de una orden ya pagada.")
-
-    if order_item._state.adding and (order_item.unit_price is None or order_item.unit_price == 0):
-        if order_item.product_variant and order_item.product_variant.product:
-            order_item.unit_price = order_item.product_variant.product.price
 
 
 def validate_cart(cart: dict) -> Tuple[Dict[int, dict], int]:
