@@ -2,6 +2,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Sum
 import os
+import uuid
 
 from .variant_rules import get_variant_rule, normalize_variant_value
 
@@ -82,10 +83,11 @@ class Product(models.Model):
 
 
 def product_image_upload_path(instance, filename):
-    """Generate upload path for product variant images."""
+    """Generate upload path for product variant images with unique filenames."""
+    ext = os.path.splitext(filename)[1].lower()
     variant_id = instance.variant.id if instance.variant_id else "unknown"
     product_id = instance.variant.product.id if instance.variant_id else "unknown"
-    return f"products/{product_id}/variants/{variant_id}/{filename}"
+    return f"products/{product_id}/variants/{variant_id}/{uuid.uuid4().hex}{ext}"
 
 
 class ProductImage(models.Model):

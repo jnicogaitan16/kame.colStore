@@ -84,7 +84,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
         <span className="text-slate-800">{product.name}</span>
       </nav>
 
-      <div className="grid gap-8 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
         <div>
           <ProductGallery
             images={finalVariant?.images ?? []}

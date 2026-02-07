@@ -3,6 +3,8 @@ Vistas API del catálogo (DRF).
 Endpoints: categories, products (list + detail by slug).
 """
 from django.db.models import Prefetch, Q
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import never_cache
 
 from rest_framework import generics
 from rest_framework.pagination import PageNumberPagination
@@ -25,6 +27,7 @@ class ProductListPagination(PageNumberPagination):
 # ---------------------------------------------------------------------------
 # GET /api/categories/
 # ---------------------------------------------------------------------------
+@method_decorator(never_cache, name="dispatch")
 class CategoryListAPIView(generics.ListAPIView):
     """Listado de categorías activas."""
     queryset = Category.objects.filter(is_active=True).order_by("name")
@@ -35,6 +38,7 @@ class CategoryListAPIView(generics.ListAPIView):
 # ---------------------------------------------------------------------------
 # GET /api/products/?category=slug&search=...
 # ---------------------------------------------------------------------------
+@method_decorator(never_cache, name="dispatch")
 class ProductListAPIView(generics.ListAPIView):
     """Listado de productos activos. Filtros: category (slug), search (nombre/descripción)."""
     serializer_class = ProductListSerializer
@@ -60,6 +64,7 @@ class ProductListAPIView(generics.ListAPIView):
 # ---------------------------------------------------------------------------
 # GET /api/products/<slug>/
 # ---------------------------------------------------------------------------
+@method_decorator(never_cache, name="dispatch")
 class ProductDetailAPIView(generics.RetrieveAPIView):
     """Detalle de producto por slug: producto + variantes + imágenes (primary + gallery)."""
     serializer_class = ProductDetailSerializer

@@ -107,7 +107,7 @@ class ProductListSerializer(serializers.ModelSerializer):
 # ---------------------------------------------------------------------------
 class ProductDetailSerializer(serializers.ModelSerializer):
     category = CategorySerializer(read_only=True)
-    variants = ProductVariantSerializer(many=True, read_only=True)
+    variants = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -124,3 +124,8 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             "updated_at",
             "variants",
         ]
+
+    def get_variants(self, obj):
+        # No exponer variantes inactivas/eliminadas en la API
+        qs = obj.variants.filter(is_active=True).order_by("kind", "value")
+        return ProductVariantSerializer(qs, many=True, context=self.context).data

@@ -12,6 +12,24 @@ body {
   background: var(--background);
 }
 
+html,
+body {
+  min-height: 100%;
+}
+
+/* Prevent accidental horizontal scroll on mobile layouts */
+body {
+  overflow-x: hidden;
+}
+
+/* Safe default for media elements */
+img,
+video,
+canvas {
+  max-width: 100%;
+  height: auto;
+}
+
 /* Swiper: ocultar scrollbar en móvil si hace falta */
 .swiper-pagination-bullet-active {
   background: #0ea5e9;

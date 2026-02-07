@@ -3,6 +3,7 @@ import { getCategories, getProducts } from "@/lib/api";
 import { ProductCard } from "@/components/ProductCard";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export default async function HomePage() {
   const [categories, productsRes] = await Promise.all([

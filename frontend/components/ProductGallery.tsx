@@ -41,15 +41,23 @@ export function ProductGallery({ images, productName }: ProductGalleryProps) {
     >
       {slides.map((img) => (
         <SwiperSlide key={img.id}>
-          <div className="relative h-full w-full">
-            <Image
-              src={img.image!}
-              alt={img.alt_text || productName}
-              fill
-              className="object-contain"
-              sizes="(max-width: 768px) 100vw, 50vw"
-              priority
-            />
+          <div className="relative w-full aspect-square">
+            {(() => {
+              const src = img.image ? `${img.image}?v=${img.id}` : null;
+              if (!src) return null;
+
+              return (
+                <Image
+                  key={src}
+                  src={src}
+                  alt={img.alt_text || productName}
+                  fill
+                  className="object-contain"
+                  sizes="(max-width: 768px) 100vw, 50vw"
+                  priority
+                />
+              );
+            })()}
           </div>
         </SwiperSlide>
       ))}

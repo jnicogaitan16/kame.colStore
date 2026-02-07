@@ -1,5 +1,9 @@
 /**
  * Cliente API para el catálogo (Django backend).
+ *
+ * Objetivo del fix:
+ * - Centralizar el fetch para evitar cache de Next (imágenes/JSON desactualizados)
+ * - Forzar no-store + revalidate:0 en App Router
  */
 import type {
   Category,
@@ -8,26 +12,45 @@ import type {
   ProductList,
 } from "@/types/catalog";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api";
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api";
 
-async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
+/**
+ * Fetch centralizado para la API.
+ *
+ * - cache: "no-store" evita que Next reutilice respuestas antiguas.
+ * - next.revalidate=0 refuerza el comportamiento en App Router.
+ * - Cache-Control: no-cache es un hint adicional para intermediarios.
+ */
+export async function apiFetch<T>(
+  path: string,
+  options: RequestInit = {}
+): Promise<T> {
   const url = path.startsWith("http") ? path : `${API_URL}${path}`;
+
   const res = await fetch(url, {
     ...options,
+    // Defaults (pueden ser sobrescritos si pasas otras opciones explícitas)
+    cache: options.cache ?? "no-store",
+    // (@ts-expect-error: next is supported in Next.js runtime
+    next: (options as any).next ?? { revalidate: 0 },
     headers: {
       "Content-Type": "application/json",
-      ...options?.headers,
+      "Cache-Control": "no-cache",
+      ...(options.headers || {}),
     },
   });
+
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`API ${res.status}: ${text || res.statusText}`);
   }
+
   return res.json() as Promise<T>;
 }
 
 export async function getCategories(): Promise<Category[]> {
-  return fetchApi<Category[]>("/categories/");
+  return apiFetch<Category[]>("/categories/");
 }
 
 export async function getProducts(params?: {
@@ -42,11 +65,12 @@ export async function getProducts(params?: {
   if (params?.page) searchParams.set("page", String(params.page));
   if (params?.page_size) searchParams.set("page_size", String(params.page_size));
   const qs = searchParams.toString();
-  return fetchApi<PaginatedResponse<ProductList>>(
-    `/products/${qs ? `?${qs}` : ""}`
-  );
+
+  const url = `/products/${qs ? `?${qs}` : ""}`;
+
+  return apiFetch<PaginatedResponse<ProductList>>(url);
 }
 
 export async function getProductBySlug(slug: string): Promise<ProductDetail> {
-  return fetchApi<ProductDetail>(`/products/${encodeURIComponent(slug)}/`);
+  return apiFetch<ProductDetail>(`/products/${encodeURIComponent(slug)}/`);
 }
