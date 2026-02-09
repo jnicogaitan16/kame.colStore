@@ -24,24 +24,6 @@ export default async function HomePage() {
         </p>
       </section>
 
-      {/* Categorías */}
-      <section className="mb-10 md:mb-14">
-        <h2 className="mb-4 text-xl font-semibold text-slate-800 md:text-2xl">
-          Categorías
-        </h2>
-        <div className="flex flex-wrap gap-2 md:gap-3">
-          {categories.map((cat) => (
-            <Link
-              key={cat.id}
-              href={`/categoria/${cat.slug}`}
-              className="rounded-full bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-brand-100 hover:text-brand-800 md:px-5 md:py-2.5"
-            >
-              {cat.name}
-            </Link>
-          ))}
-        </div>
-      </section>
-
       {/* Destacados */}
       <section>
         <div className="mb-4 flex items-center justify-between md:mb-6">

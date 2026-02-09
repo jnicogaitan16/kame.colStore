@@ -50,7 +50,13 @@ export async function apiFetch<T>(
 }
 
 export async function getCategories(): Promise<Category[]> {
-  return apiFetch<Category[]>("/categories/");
+  const data = await apiFetch<any>("/categories/");
+
+  // Soporta respuestas paginadas y no paginadas
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.results)) return data.results;
+
+  return [];
 }
 
 export async function getProducts(params?: {

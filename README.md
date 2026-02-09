@@ -29,6 +29,11 @@ python manage.py migrate
 ```
 
 ### Frontend (Next.js)
+
+⚠️ **Importante**: Este proyecto usa **Next.js 14**, que requiere **Node.js 18 o superior**.  
+Si usas Node 16, `npm install` mostrará warnings de engine y `next` no se instalará correctamente
+(lo que provoca el error `sh: next: command not found`).
+
 ```bash
 cd frontend
 npm install
@@ -44,6 +49,8 @@ Ctrl + C
 
 - Python 3.10+
 - Django 6.0+
+- Node.js **18+ (recomendado Node 20)**
+- npm 9+
 - SQLite (desarrollo) / PostgreSQL (producción recomendado)
 
 ## 🔧 Instalación
@@ -104,6 +111,21 @@ python manage.py runserver
 ```
 
 El sitio estará disponible en `http://127.0.0.1:8000/`
+
+## 🟢 Node.js Version
+
+Este proyecto ha sido probado con:
+
+- Node.js 20.x ✅ (recomendado)
+- Node.js 18.x ✅ (compatible)
+
+Se recomienda usar **nvm** para manejar versiones de Node:
+
+```bash
+nvm install 20
+nvm use 20
+nvm alias default 20
+```
 
 ## 📁 Estructura del Proyecto
 
