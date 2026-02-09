@@ -4,6 +4,8 @@ import "./globals.css";
 import HeaderServer from "@/components/HeaderServer";
 import { MiniCart } from "@/components/MiniCart";
 import { CartHydration } from "@/components/CartHydration";
+import Footer from "@/components/Footer";
+import WhatsAppButton from "@/components/WhatsAppButton";
 
 export const metadata: Metadata = {
   title: "Kame.col Store",
@@ -22,6 +24,12 @@ export default function RootLayout({
         <HeaderServer />
         <main className="pb-20 md:pb-8">{children}</main>
         <MiniCart />
+
+        <Footer />
+
+        <WhatsAppButton
+          phone={process.env.NEXT_PUBLIC_WHATSAPP_PHONE || "573137008959"}
+        />
       </body>
     </html>
   );
