@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useCartStore } from "@/store/cart";
-import { ProductGallery } from "@/components/ProductGallery";
+import { ProductGallery } from "@/components/product/ProductGallery";
 import type { ProductDetail, ProductVariant } from "@/types/catalog";
 
 interface ProductDetailClientProps {

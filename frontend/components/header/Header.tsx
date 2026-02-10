@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { useCartStore } from "@/store/cart";
 
 import Navbar from "./Navbar";
-import MobileMenu from "@/components/MobileMenu";
+import MobileMenu from "@/components/navigation/MobileMenu";
 
 export type HeaderCategory = {
   id: number | string;

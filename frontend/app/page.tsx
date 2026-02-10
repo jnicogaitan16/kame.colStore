@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getCategories, getProducts } from "@/lib/api";
-import { ProductCard } from "@/components/ProductCard";
+import { ProductCard } from "@/components/product/ProductCard";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;

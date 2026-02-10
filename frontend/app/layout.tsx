@@ -2,10 +2,10 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 import HeaderServer from "@/components/header/HeaderServer";
-import { MiniCart } from "@/components/header/MiniCart";
-import { CartHydration } from "@/components/CartHydration";
-import Footer from "@/components/Footer";
-import WhatsAppButton from "@/components/WhatsAppButton";
+import { MiniCart } from "@/components/cart/MiniCart";
+import { CartHydration } from "@/components/cart/CartHydration";
+import Footer from "@/components/layout/Footer";
+import WhatsAppButton from "@/components/layout/WhatsAppButton";
 
 export const metadata: Metadata = {
   title: "Kame.col Store",
