@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 
-import HeaderServer from "@/components/HeaderServer";
-import { MiniCart } from "@/components/MiniCart";
+import HeaderServer from "@/components/header/HeaderServer";
+import { MiniCart } from "@/components/header/MiniCart";
 import { CartHydration } from "@/components/CartHydration";
 import Footer from "@/components/Footer";
 import WhatsAppButton from "@/components/WhatsAppButton";

@@ -95,7 +95,22 @@ export default function Footer() {
         {/* Legal */}
         <div className="mt-12 border-t border-neutral-800 pt-6">
           <div className="flex flex-col items-center justify-between gap-4 text-sm text-neutral-500 md:flex-row">
-            <span>© {new Date().getFullYear()} Kame.col. Todos los derechos reservados.</span>
+            <div className="flex flex-col items-center gap-1 md:items-start">
+              <span>
+                © {new Date().getFullYear()} Kame.col. Todos los derechos reservados.
+              </span>
+              <span className="text-xs text-neutral-500">
+                Desarrollado por{" "}
+                <a
+                  href={process.env.NEXT_PUBLIC_LINKEDIN_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-medium text-neutral-300 hover:text-white transition-colors"
+                >
+                  Nicolás Gaitán
+                </a>
+              </span>
+            </div>
             <div className="flex gap-4">
               <Link href="/legal/politica-de-privacidad#terminos" className="hover:text-neutral-300">Términos</Link>
               <Link href="/legal/politica-de-privacidad#privacidad" className="hover:text-neutral-300">Privacidad</Link>
