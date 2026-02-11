@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useCartStore } from "@/store/cart";
@@ -9,10 +9,17 @@ import { Button } from "@/components/ui/Button";
 export function MiniCart() {
   const { items, isOpen, closeCart, removeItem, updateQuantity, totalItems, totalAmount } =
     useCartStore();
+  const [animateIn, setAnimateIn] = useState(false);
 
   useEffect(() => {
-    if (isOpen) document.body.style.overflow = "hidden";
-    else document.body.style.overflow = "";
+    if (isOpen) {
+      document.body.style.overflow = "hidden";
+      // Trigger entry animation on next frame
+      requestAnimationFrame(() => setAnimateIn(true));
+    } else {
+      document.body.style.overflow = "";
+      setAnimateIn(false);
+    }
     return () => {
       document.body.style.overflow = "";
     };
@@ -23,16 +30,16 @@ export function MiniCart() {
   return (
     <>
       <div
-        className="fixed inset-0 z-50 bg-black/50 md:bg-transparent"
+        className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm supports-[backdrop-filter]:backdrop-blur-sm md:bg-transparent md:backdrop-blur-0"
         onClick={closeCart}
         aria-hidden
       />
       <aside
-        className="fixed right-0 top-0 z-[60] flex h-full w-full max-w-sm flex-col bg-neutral-950 border-l border-white/10 shadow-xl md:max-w-md"
+        className={`fixed right-0 top-0 z-[60] h-full w-[90%] max-w-md bg-black/45 backdrop-blur-2xl border-l border-white/10 elevation-soft flex flex-col transform transition-transform duration-300 ease-out will-change-transform ${animateIn ? "translate-x-0" : "translate-x-full"}`}
         role="dialog"
         aria-label="Carrito"
       >
-        <div className="flex items-center justify-between border-b border-white/10 p-4 text-neutral-100">
+        <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between text-neutral-100">
           <h2 className="text-lg font-semibold">Carrito ({totalItems()})</h2>
           <button
             type="button"
@@ -51,8 +58,8 @@ export function MiniCart() {
           ) : (
             <ul className="space-y-4">
               {items.map((item) => (
-                <li key={item.variantId} className="flex gap-3 border-b border-white/10 pb-4">
-                  <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-neutral-900">
+                <li key={item.variantId} className="px-5 py-4 flex gap-3 border-b border-white/5">
+                  <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-white/5 border border-white/10">
                     {item.imageUrl ? (
                       <Image
                         src={item.imageUrl}
@@ -83,7 +90,7 @@ export function MiniCart() {
                         <button
                           type="button"
                           onClick={() => updateQuantity(item.variantId, item.quantity - 1)}
-                          className="flex h-8 w-8 items-center justify-center rounded border border-white/15 text-white/80 hover:bg-white/10"
+                          className="pill w-8 h-8 p-0 bg-white/5 border border-white/10 hover:bg-white/10"
                         >
                           −
                         </button>
@@ -91,12 +98,12 @@ export function MiniCart() {
                         <button
                           type="button"
                           onClick={() => updateQuantity(item.variantId, item.quantity + 1)}
-                          className="flex h-8 w-8 items-center justify-center rounded border border-white/15 text-white/80 hover:bg-white/10"
+                          className="pill w-8 h-8 p-0 bg-white/5 border border-white/10 hover:bg-white/10"
                         >
                           +
                         </button>
                       </div>
-                      <span className="font-medium text-neutral-100">
+                      <span className="font-medium text-white">
                         ${(parseFloat(item.price) * item.quantity).toLocaleString("es-CO")}
                       </span>
                     </div>
@@ -117,13 +124,10 @@ export function MiniCart() {
           )}
         </div>
         {items.length > 0 && (
-          <div
-            className="sticky bottom-0 border-t border-white/10 bg-neutral-950/80 p-4 text-neutral-100"
-            style={{ backdropFilter: "blur(12px) saturate(160%)" }}
-          >
-            <div className="mb-3 flex justify-between text-lg font-semibold">
+          <div className="mt-auto px-5 py-5 border-t border-white/10 bg-black/45 backdrop-blur-2xl text-neutral-100">
+            <div className="mb-4 flex items-baseline justify-between text-sm text-white/70">
               <span>Total</span>
-              <span>${totalAmount().toLocaleString("es-CO")}</span>
+              <span className="text-white font-semibold text-base">${totalAmount().toLocaleString("es-CO")}</span>
             </div>
             <Link href="/checkout" onClick={closeCart} className="block">
               <Button variant="primary" fullWidth>
