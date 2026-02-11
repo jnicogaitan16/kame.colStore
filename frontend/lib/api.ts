@@ -13,6 +13,12 @@ import type {
   ProductList,
 } from "@/types/catalog";
 
+export interface HomepageStory {
+  title: string;
+  subtitle?: string;
+  content: string;
+}
+
 // Base URL for API calls.
 // Default: "/api" (same-origin) so Next rewrites can proxy to Django without CORS.
 // If you explicitly set NEXT_PUBLIC_API_URL, it will be used.
@@ -102,4 +108,12 @@ export async function getProductBySlug(slug: string): Promise<ProductDetail> {
 export async function getHomepageBanners(): Promise<HomepageBanner[]> {
   const data = await apiFetch<HomepageBanner[]>("/homepage-banners/");
   return data;
+}
+
+export async function getHomepageStory(): Promise<HomepageStory | null> {
+  try {
+    return await apiFetch<HomepageStory>("/homepage-story/");
+  } catch {
+    return null;
+  }
 }

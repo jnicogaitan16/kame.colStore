@@ -8,11 +8,14 @@ from django.views.decorators.cache import never_cache
 
 from rest_framework import generics
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.views import APIView
+from rest_framework.response import Response
 
-from .models import Category, HomepageBanner, Product, ProductVariant
+from .models import Category, HomepageBanner, HomepageSection, Product, ProductVariant
 from .serializers import (
     CategorySerializer,
-  HomepageBannerSerializer,
+    HomepageBannerSerializer,
+    HomepageStorySerializer,
     ProductDetailSerializer,
     ProductListSerializer,
 )
@@ -99,3 +102,25 @@ class HomepageBannerListAPIView(generics.ListAPIView):
     def get_queryset(self):
         return HomepageBanner.objects.filter(is_active=True).order_by("sort_order", "-created_at")
 
+
+# ---------------------------------------------------------------------------
+# GET /api/homepage-story/
+# ---------------------------------------------------------------------------
+class HomepageStoryAPIView(APIView):
+    """Retorna la historia del home (1 registro activo).
+
+    Convención recomendada:
+      - Crear un HomepageSection con key='brand-story'
+      - Este endpoint prioriza ese key; si no existe, usa el primero activo.
+    """
+
+    def get(self, request):
+        story = HomepageSection.objects.filter(is_active=True, key="brand-story").first()
+        if not story:
+            story = HomepageSection.objects.filter(is_active=True).order_by("sort_order", "-updated_at", "id").first()
+
+        if not story:
+            return Response({}, status=200)
+
+        serializer = HomepageStorySerializer(story)
+        return Response(serializer.data)

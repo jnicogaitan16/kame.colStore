@@ -96,12 +96,6 @@ def homepage_banner_upload_path(instance, filename):
     return f"homepage_banners/{uuid.uuid4().hex}{ext}"
 
 
-def homepage_banner_upload_path(instance, filename):
-  """Upload path for homepage hero banners."""
-  ext = os.path.splitext(filename)[1].lower()
-  return f"homepage_banners/{uuid.uuid4().hex}{ext}"
-
-
 class ProductImage(models.Model):
     """Modelo para almacenar imágenes de variantes de productos.
     
@@ -389,3 +383,33 @@ class HomepageBanner(models.Model):
 
     def __str__(self) -> str:
         return self.title
+
+
+class HomepageSection(models.Model):
+    """Secciones administrables del Home (ej: 'Así nació Kame.col').
+
+    Permite manejar contenido editorial desde Django Admin sin hardcodear en el frontend.
+    """
+
+    key = models.SlugField(
+        max_length=60,
+        unique=True,
+        help_text="Identificador único (ej: 'brand-story', 'about', 'shipping-info').",
+    )
+    title = models.CharField(max_length=150)
+    subtitle = models.CharField(max_length=200, blank=True, default="")
+    content = models.TextField(help_text="Contenido principal (texto largo).")
+
+    is_active = models.BooleanField(default=True)
+    sort_order = models.PositiveIntegerField(default=0)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["sort_order", "-updated_at", "id"]
+        verbose_name = "Sección de Home"
+        verbose_name_plural = "Secciones de Home"
+
+    def __str__(self) -> str:
+        return f"{self.key} - {self.title}"

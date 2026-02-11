@@ -19,17 +19,19 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es">
-      <body className="min-h-screen antialiased">
-        <CartHydration />
-        <HeaderServer />
-        <main className="pb-20 md:pb-8">{children}</main>
-        <MiniCart />
+      <body className="bg-zinc-950 text-zinc-100 antialiased">
+        <div className="min-h-screen">
+          <CartHydration />
+          <HeaderServer />
+          <main className="pb-20 md:pb-8">{children}</main>
+          <MiniCart />
 
-        <Footer />
+          <Footer />
 
-        <WhatsAppButton
-          phone={process.env.NEXT_PUBLIC_WHATSAPP_PHONE || "573137008959"}
-        />
+          <WhatsAppButton
+            phone={process.env.NEXT_PUBLIC_WHATSAPP_PHONE || "573137008959"}
+          />
+        </div>
       </body>
     </html>
   );

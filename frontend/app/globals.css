@@ -1,6 +1,6 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
 
 :root {
   --foreground: #0f172a;
@@ -10,17 +10,16 @@
 body {
   color: var(--foreground);
   background: var(--background);
+  overflow-x: hidden;
 }
 
 html,
 body {
+  height: 100%;
   min-height: 100%;
 }
 
 /* Prevent accidental horizontal scroll on mobile layouts */
-body {
-  overflow-x: hidden;
-}
 
 /* Safe default for media elements */
 img,
@@ -33,4 +32,77 @@ canvas {
 /* Swiper: ocultar scrollbar en móvil si hace falta */
 .swiper-pagination-bullet-active {
   background: #0ea5e9;
+}
+
+/* =========================
+   Hero animations (Carousel)
+   ========================= */
+
+/* Hero reveal: abre desde el centro hacia los laterales */
+.hero-reveal {
+  clip-path: inset(0 50% 0 50%);
+  transform: scale(1.02);
+  filter: saturate(1.05) contrast(1.05);
+  will-change: clip-path, transform;
+}
+
+.hero-reveal.is-active {
+  animation: heroRevealOpen 900ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+@keyframes heroRevealOpen {
+  0% {
+    clip-path: inset(0 50% 0 50%);
+    transform: scale(1.02);
+  }
+  100% {
+    clip-path: inset(0 0 0 0);
+    transform: scale(1);
+  }
+}
+
+/* Panel tipo Skeleton: entra desde la izquierda */
+.hero-skeleton-panel {
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.92) 0%,
+    rgba(0, 0, 0, 0.65) 60%,
+    rgba(0, 0, 0, 0) 100%
+  );
+  transform: translateX(-14%);
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+.hero-skeleton-panel.is-active {
+  animation: skeletonPanelIn 650ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+@keyframes skeletonPanelIn {
+  0% {
+    transform: translateX(-14%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0%);
+    opacity: 1;
+  }
+}
+
+/* Accesibilidad: respeta reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .hero-reveal.is-active,
+  .hero-skeleton-panel.is-active {
+    animation: none !important;
+  }
+
+  .hero-reveal {
+    clip-path: inset(0 0 0 0);
+    transform: none;
+  }
+
+  .hero-skeleton-panel {
+    transform: none;
+    opacity: 1;
+  }
 }
