@@ -22,8 +22,10 @@ function buildVariantLabel(v: ProductVariant): string {
 
 function colorDotClass(color: string): string {
   const c = (color || "").trim().toLowerCase();
-  // Avoid a white solid dot for "Blanco" in dark UI.
-  if (c === "blanco") return "bg-transparent border border-white/60";
+  // For dark UI: keep the pill dark, but the dot for "Blanco" must be visible.
+  // Use white fill + subtle dark border + tiny shadow so it doesn't disappear.
+  if (c === "blanco")
+    return "bg-white border border-black/30 shadow-[0_0_0_1px_rgba(0,0,0,0.35)]";
   if (c === "negro") return "bg-black border border-white/20";
   if (c === "beige") return "bg-[#d6c5a3] border border-white/20";
   if (c === "verde") return "bg-emerald-500/80 border border-white/20";
