@@ -25,11 +25,14 @@ type HeaderProps = {
 export function Header({ categories = [] }: HeaderProps) {
   const pathname = usePathname();
 
+  const isHome = pathname === "/";
+
   const totalItems = useCartStore((s) => s.totalItems());
   const toggleCart = useCartStore((s) => s.toggleCart);
 
   const [mobileRendered, setMobileRendered] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
 
   const openMobileMenu = () => {
     setMobileRendered(true);
@@ -53,6 +56,26 @@ export function Header({ categories = [] }: HeaderProps) {
     }
   }, [pathname]);
 
+  // Header mode: overlay on Home (top), nav elsewhere / after scroll
+  useEffect(() => {
+    // Outside home: force nav mode
+    if (!isHome) {
+      setScrolled(true);
+      return;
+    }
+
+    // On home: listen scroll
+    const onScroll = () => {
+      setScrolled(window.scrollY > 40);
+    };
+
+    // Init on mount
+    onScroll();
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [isHome]);
+
   // Escape para cerrar
   useEffect(() => {
     if (!mobileOpen) return;
@@ -73,10 +96,20 @@ export function Header({ categories = [] }: HeaderProps) {
     };
   }, [mobileRendered]);
 
+  const headerMode = isHome && !scrolled ? "overlay" : "nav";
+  const headerClassName =
+    headerMode === "overlay"
+      ? "fixed top-0 left-0 z-50 w-full bg-transparent"
+      : "fixed top-0 left-0 z-50 w-full bg-zinc-950/70 border-b border-white/10 shadow-sm will-change-transform";
+
   return (
     <header
-      className="sticky top-0 z-50 bg-white/70 border-b border-white/20 shadow-sm will-change-transform"
-      style={{ backdropFilter: "blur(12px) saturate(150%)" }}
+      className={headerClassName}
+      style={
+        headerMode === "nav"
+          ? { backdropFilter: "blur(12px) saturate(150%)" }
+          : undefined
+      }
     >
       <Navbar
         categories={categories}

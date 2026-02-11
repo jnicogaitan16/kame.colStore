@@ -106,3 +106,21 @@ canvas {
     opacity: 1;
   }
 }
+
+/* =========================
+   Optional UX Enhancements
+   ========================= */
+
+/* Smooth scroll for anchor links */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Smooth color / background transitions (useful for header mode change) */
+.header-transition {
+  transition:
+    background-color 300ms ease,
+    border-color 300ms ease,
+    box-shadow 300ms ease,
+    color 300ms ease;
+}

@@ -23,7 +23,7 @@ export default function RootLayout({
         <div className="min-h-screen">
           <CartHydration />
           <HeaderServer />
-          <main className="pb-20 md:pb-8">{children}</main>
+          <main className="pt-16 pb-20 md:pt-18 md:pb-8">{children}</main>
           <MiniCart />
 
           <Footer />
