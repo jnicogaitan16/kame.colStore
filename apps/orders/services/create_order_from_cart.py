@@ -27,6 +27,7 @@ def create_order_from_cart(
         # Snapshot
         full_name=(form_data.get("full_name") or ""),
         cedula=(form_data.get("cedula") or ""),
+        document_type=(form_data.get("document_type") or "CC"),
         phone=(form_data.get("phone") or ""),
         email=(form_data.get("email") or "") or "",
         city_code=city_code,

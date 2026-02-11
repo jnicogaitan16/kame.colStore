@@ -12,31 +12,48 @@ import type {
   ProductList,
 } from "@/types/catalog";
 
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api";
+// Base URL for API calls.
+// Default: "/api" (same-origin) so Next rewrites can proxy to Django without CORS.
+// If you explicitly set NEXT_PUBLIC_API_URL, it will be used.
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "/api").replace(/\/$/, "");
 
-/**
- * Fetch centralizado para la API.
- *
- * - cache: "no-store" evita que Next reutilice respuestas antiguas.
- * - next.revalidate=0 refuerza el comportamiento en App Router.
- * - Cache-Control: no-cache es un hint adicional para intermediarios.
- */
+// Server-side base for Django (no CORS; avoids proxy/rewrite redirect loops).
+// NOTE: DJANGO_API_BASE is defined in frontend/.env.local but is NOT exposed to the browser
+// because it does not start with NEXT_PUBLIC_.
+const DJANGO_BASE = (process.env.DJANGO_API_BASE || "").replace(/\/$/, "");
+const SERVER_API_BASE = DJANGO_BASE ? `${DJANGO_BASE}/api` : "";
+
+// Fallback for environments where you still want to hit Next's own origin (rare).
+const SERVER_ORIGIN = (process.env.APP_ORIGIN || "").replace(/\/$/, "");
+const DEFAULT_SERVER_ORIGIN = `http://localhost:${process.env.PORT || 3000}`;
+
 export async function apiFetch<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const url = path.startsWith("http") ? path : `${API_URL}${path}`;
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  let url = path.startsWith("http") ? path : `${API_BASE}${normalizedPath}`;
+
+  // If we're running on the server and the URL is relative (starts with "/"),
+  // make it absolute so Node fetch can parse it.
+  if (typeof window === "undefined" && url.startsWith("/")) {
+    // Prefer calling Django directly during SSR to avoid proxy/rewrite issues.
+    if (SERVER_API_BASE && url.startsWith("/api")) {
+      url = `${SERVER_API_BASE}${url.slice("/api".length)}`;
+    } else {
+      const origin = SERVER_ORIGIN || DEFAULT_SERVER_ORIGIN;
+      url = `${origin}${url}`;
+    }
+  }
 
   const res = await fetch(url, {
     ...options,
-    // Defaults (pueden ser sobrescritos si pasas otras opciones explícitas)
+    // Avoid Next data cache for dynamic content (catalog/checkout)
     cache: options.cache ?? "no-store",
-    // (@ts-expect-error: next is supported in Next.js runtime
+    // (@ts-expect-error: next is supported in Next.js runtime)
     next: (options as any).next ?? { revalidate: 0 },
     headers: {
-      "Content-Type": "application/json",
-      "Cache-Control": "no-cache",
+      ...(options.body ? { "Content-Type": "application/json" } : {}),
       ...(options.headers || {}),
     },
   });

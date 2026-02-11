@@ -7,6 +7,12 @@ class Customer(models.Model):
     last_name = models.CharField(max_length=80, blank=True)
     email = models.EmailField(unique=True)
     phone = models.CharField(max_length=30, blank=True)
+    document_type = models.CharField(
+        max_length=10,
+        blank=True,
+        default="CC",
+        help_text="Tipo de documento principal del cliente (CC, NIT, ...).",
+    )
     cedula = models.CharField(
         max_length=20,
         unique=True,

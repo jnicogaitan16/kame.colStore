@@ -25,6 +25,7 @@ def get_or_create_customer_from_form_data(form_data: dict) -> Customer:
 
     email = (form_data.get("email") or "").strip()
     phone = (form_data.get("phone") or "").strip()
+    document_type = (form_data.get("document_type") or "CC").strip() or "CC"
 
     try:
         customer, _created = Customer.objects.get_or_create(
@@ -34,6 +35,7 @@ def get_or_create_customer_from_form_data(form_data: dict) -> Customer:
                 "last_name": last_name,
                 "phone": phone,
                 "email": email,
+                "document_type": document_type,
             },
         )
         return customer

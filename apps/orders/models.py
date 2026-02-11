@@ -41,6 +41,12 @@ class Order(models.Model):
     # snapshot entrega + contacto
     full_name = models.CharField(max_length=150, blank=True, default="")
     cedula = models.CharField(max_length=20, blank=True, default="")
+    document_type = models.CharField(
+        max_length=10,
+        blank=True,
+        default="CC",
+        help_text="Tipo de documento al momento del pedido (CC, NIT, ...).",
+    )
     phone = models.CharField(max_length=30, blank=True, default="")
     email = models.EmailField(blank=True, default="")
 
