@@ -132,28 +132,49 @@ nvm alias default 20
 ```
 kame.colStore/
 ├── apps/
-│   ├── catalog/          # Gestión de productos y categorías
-│   ├── customers/        # Gestión de clientes
-│   └── orders/          # Sistema de pedidos
-│       ├── services/     # Lógica de negocio
-│       │   ├── __init__.py
-│       │   └── shipping.py
-│       ├── static/       # Archivos estáticos (JS)
-│       └── templates/    # Plantillas HTML
-├── config/              # Configuración del proyecto
-├── templates/           # Plantillas globales
-├── requirements/        # Dependencias
+│   ├── catalog/             # Gestión de productos y categorías (API /api/)
+│   ├── customers/           # Gestión de clientes
+│   └── orders/              # Sistema de pedidos y checkout
+│       ├── services/        # Lógica de negocio (cart, shipping, órdenes)
+│       ├── views_api.py     # API REST de checkout (/api/orders/*)
+│       ├── views_cart.py    # LEGACY carrito por sesión (Django templates)
+│       ├── static/          # JS del admin (cálculo de envío)
+│       └── templates/       # Plantillas HTML antiguas
+├── config/                  # Configuración del proyecto Django
+├── frontend/                # Frontend público en Next.js 14 (App Router)
+│   ├── app/                 # Páginas (home, producto, checkout, etc.)
+│   ├── components/          # UI y carrito (MiniCart, Header, etc.)
+│   └── store/cart.ts        # Carrito cliente con Zustand + persist
+├── templates/               # Plantillas globales Django
+├── requirements/            # Dependencias Python
 └── manage.py
 ```
 
 ## 🏗️ Arquitectura
 
-### Separación de Responsabilidades
+### Separación de Responsabilidades (Backend)
 
-- **Modelos** (`models.py`): Definición de datos y métodos básicos
-- **Servicios** (`services/`): Lógica de negocio centralizada
-- **Vistas** (`views.py`): Coordinación de requests/responses
-- **Admin** (`admin.py`): Interfaz administrativa personalizada
+- **Modelos** (`models.py`): Definición de datos y métodos básicos.
+- **Servicios** (`apps/orders/services/`): Lógica de negocio centralizada
+  (validación de carrito, creación de órdenes, confirmación de pago, envío).
+- **Vistas Django** (`views.py`, `views_cart.py`): Coordinación de requests/responses.
+  - `views_cart.py` es **legacy** (carrito por sesión para plantillas Django).
+- **API REST** (`views_api.py`): Endpoints del checkout consumidos por Next.js.
+- **Admin** (`admin.py`): Interfaz administrativa personalizada.
+
+### Frontend (Next.js 14)
+
+- **Carrito**:
+  - Implementado con Zustand en `frontend/store/cart.ts` (persistencia en `localStorage`).
+  - `CartHydration` rehidrata el carrito en cliente.
+  - `MiniCart` muestra el drawer lateral y permite modificar cantidades.
+- **Checkout**:
+  - Página `frontend/app/checkout/CheckoutClient.tsx` con React Hook Form + Zod.
+  - La UI NO calcula precios ni envío; solo muestra estimados a partir de:
+    - `GET /api/orders/cities/`
+    - `GET /api/orders/shipping-quote/?city_code=...&subtotal=...`
+    - `POST /api/orders/checkout/`
+  - El backend recalcula subtotal, envío y total, valida stock y crea la orden.
 
 ### Servicios Principales
 

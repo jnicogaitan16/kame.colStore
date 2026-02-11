@@ -22,6 +22,7 @@ urlpatterns = [
     path("api/shipping-quote/", shipping_quote_view, name="shipping_quote"),
     path("api/customer-snapshot/", customer_snapshot_view, name="customer_snapshot"),
     path("api/variant-price/", variant_price_view, name="variant_price"),
+    # LEGACY session cart API (Django templates). Next.js frontend usa /api/orders/*
     path("api/cart/add/", cart_add_view, name="cart_add"),
     path("api/cart/update/", cart_update_view, name="cart_update"),
     path("api/cart/remove/", cart_remove_view, name="cart_remove"),

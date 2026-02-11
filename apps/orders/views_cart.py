@@ -1,5 +1,17 @@
 from __future__ import annotations
 
+"""
+Endpoints de carrito basados en sesión (LEGACY).
+
+- Usados por la antigua UI Django (`templates/orders/cart.html`).
+- El frontend moderno en Next.js NO usa estos endpoints: maneja el carrito
+  en el cliente con Zustand (`frontend/store/cart.ts`) y envía el checkout
+  directamente a `/api/orders/checkout/`.
+
+Se mantienen por compatibilidad con flujos antiguos y pueden eliminarse
+cuando ya no se utilice la UI de Django.
+"""
+
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET, require_POST
 
