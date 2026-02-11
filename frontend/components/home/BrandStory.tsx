@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
 import type { HomepageStory } from "@/lib/api";
 
 function splitParagraphs(content: string): string[] {
@@ -10,6 +13,33 @@ function splitParagraphs(content: string): string[] {
 export function BrandStory({ story }: { story: HomepageStory | null }) {
   if (!story) return null;
 
+  const sectionRef = useRef<HTMLElement | null>(null);
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el || isVisible) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry?.isIntersecting) {
+          setIsVisible(true);
+          observer.disconnect();
+        }
+      },
+      {
+        root: null,
+        // Trigger slightly before fully visible for a smoother reveal
+        rootMargin: "0px 0px -15% 0px",
+        threshold: 0.15,
+      }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [isVisible]);
+
   const paragraphs = splitParagraphs(story.content);
 
   // Headline with two levels (title + claim in italic).
@@ -21,7 +51,14 @@ export function BrandStory({ story }: { story: HomepageStory | null }) {
   const body = paragraphs.length >= 2 ? paragraphs.slice(1) : paragraphs;
 
   return (
-    <section className="relative mx-auto max-w-6xl px-6 py-20 md:py-28">
+    <section
+      ref={sectionRef}
+      className={[
+        "relative mx-auto max-w-6xl px-6 py-20 md:py-28",
+        "brand-story-reveal",
+        isVisible ? "is-visible" : "",
+      ].join(" ")}
+    >
       <div className="mx-auto rounded-3xl border border-white/10 bg-black/45 backdrop-blur-md px-6 py-12 md:px-12 md:py-16">
         <div className="space-y-8 text-center">
           <header className="space-y-5">
