@@ -311,3 +311,48 @@ html {
     0 18px 50px rgba(0, 0, 0, 0.5),
     0 4px 12px rgba(0, 0, 0, 0.6);
 }
+
+/* ============================= */
+/* GLASS BUTTON (Style) */
+/* ============================= */
+
+.btn-glass {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  min-height: 3rem;
+  padding: 0.875rem 1.5rem;
+  border-radius: 1rem;
+
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+
+  color: #fff;
+
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.08),
+    rgba(255, 255, 255, 0.03)
+  );
+
+  border: 1px solid rgba(255, 255, 255, 0.15);
+
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+
+  transition: all 250ms ease;
+}
+
+.btn-glass:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.12),
+    rgba(255, 255, 255, 0.05)
+  );
+
+  border-color: rgba(255, 255, 255, 0.25);
+
+  transform: translateY(-2px);
+}

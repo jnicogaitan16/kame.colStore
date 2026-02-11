@@ -108,7 +108,7 @@ export function HeroCarousel({ banners }: { banners: HomepageBanner[] }) {
                         {b.cta_label && b.cta_url ? (
                           <Link
                             href={b.cta_url}
-                            className="inline-flex items-center justify-center rounded-xl bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-white/90"
+                            className="btn-glass"
                           >
                             {b.cta_label}
                           </Link>
