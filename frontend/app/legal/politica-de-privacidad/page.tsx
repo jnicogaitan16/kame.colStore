@@ -24,13 +24,13 @@ export default function PoliticaDePrivacidadPage() {
           <Link href="/" className="hover:underline">Inicio</Link> / Legal / Políticas
         </p>
         <h1 className="mt-2 text-3xl font-bold tracking-tight">Políticas de Kame.col</h1>
-        <p className="mt-2 text-neutral-600">
+        <p className="mt-2 text-neutral-400">
           Aquí encuentras nuestros <strong>Términos</strong>, <strong>Política de Privacidad</strong> y <strong>Política de Cookies</strong>.
         </p>
       </div>
 
-      <div className="mb-10 rounded-xl border bg-white p-4 shadow-sm">
-        <p className="text-sm font-medium text-neutral-800">Accesos rápidos</p>
+      <div className="mb-10 rounded-xl border border-white/10 bg-neutral-900 p-4 shadow-sm">
+        <p className="text-sm font-medium text-neutral-100">Accesos rápidos</p>
         <div className="mt-3 flex flex-wrap gap-3">
           <Link className="rounded-full border px-4 py-2 text-sm hover:bg-neutral-50" href="#terminos">Términos</Link>
           <Link className="rounded-full border px-4 py-2 text-sm hover:bg-neutral-50" href="#privacidad">Privacidad</Link>
@@ -51,7 +51,7 @@ export default function PoliticaDePrivacidadPage() {
             <li><strong>Envíos:</strong> los tiempos dependen del destino y transportadora. Te compartiremos guía cuando aplique.</li>
             <li><strong>Soporte:</strong> si algo no sale bien, contáctanos y lo resolvemos contigo de forma prioritaria.</li>
           </ul>
-          <p className="text-sm text-neutral-500">
+          <p className="text-sm text-neutral-400">
             Última actualización: {new Date().toLocaleDateString("es-CO")}.
           </p>
         </Section>
@@ -103,9 +103,9 @@ export default function PoliticaDePrivacidadPage() {
         </Section>
       </div>
 
-      <div className="mt-12 rounded-xl border bg-neutral-50 p-5">
+      <div className="mt-12 rounded-xl border border-white/10 bg-neutral-900 p-5">
         <h3 className="text-lg font-semibold">Contacto</h3>
-        <p className="mt-2 text-neutral-700">
+        <p className="mt-2 text-neutral-400">
           Si tienes preguntas sobre estas políticas, escríbenos a <a href="mailto:kame.col.023@gmail.com">kame.col.023@gmail.com</a>.
         </p>
       </div>

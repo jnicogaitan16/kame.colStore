@@ -30,16 +30,16 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
   const { results, count, next } = productsRes;
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 md:py-10">
-      <h1 className="mb-2 text-2xl font-bold text-slate-800 md:text-3xl">
+    <div className="mx-auto max-w-6xl bg-neutral-950 px-4 py-6 md:py-10">
+      <h1 className="mb-2 text-2xl font-bold text-neutral-100 md:text-3xl">
         {category.name}
       </h1>
-      <p className="mb-6 text-slate-600">
+      <p className="mb-6 text-neutral-400">
         {count} producto{count !== 1 ? "s" : ""}
       </p>
 
       {results.length === 0 ? (
-        <p className="py-12 text-center text-slate-500">
+        <p className="py-12 text-center text-neutral-500">
           No hay productos en esta categoría.
         </p>
       ) : (
@@ -53,7 +53,7 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
             <div className="mt-8 flex justify-center">
               <a
                 href={`/categoria/${slug}?page=${pageNum + 1}`}
-                className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                className="rounded-lg border border-white/10 bg-neutral-900 px-4 py-2 text-sm font-medium text-neutral-100 hover:bg-neutral-800"
               >
                 Ver más
               </a>

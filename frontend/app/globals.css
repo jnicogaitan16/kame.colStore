@@ -3,8 +3,8 @@
 @import "tailwindcss/utilities";
 
 :root {
-  --foreground: #0f172a;
-  --background: #f8fafc;
+  --foreground: #f5f5f5;
+  --background: #0a0a0a;
 }
 
 body {
@@ -153,4 +153,17 @@ html {
     transform: none;
     transition: none !important;
   }
+}
+
+
+/* =========================
+   Card surface (premium texture)
+   ========================= */
+
+.card-surface {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.03) 0%,
+    rgba(255, 255, 255, 0.01) 100%
+  );
 }

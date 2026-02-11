@@ -10,9 +10,9 @@ export function ProductCard({ product }: ProductCardProps) {
   return (
     <Link
       href={`/producto/${product.slug}`}
-      className="group block overflow-hidden rounded-xl border border-slate-200 bg-white transition hover:border-brand-200 hover:shadow-md"
+      className="group block overflow-hidden rounded-xl border border-white/10 bg-neutral-900 transition hover:border-white/20 hover:shadow-md"
     >
-      <div className="relative aspect-square w-full overflow-hidden bg-slate-100">
+      <div className="relative aspect-square w-full overflow-hidden bg-neutral-800">
         {product.primary_image ? (
           <Image
             src={product.primary_image}
@@ -30,13 +30,13 @@ export function ProductCard({ product }: ProductCardProps) {
         )}
       </div>
       <div className="p-3 md:p-4">
-        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+        <p className="text-xs font-medium uppercase tracking-wide text-neutral-400">
           {product.category.name}
         </p>
-        <h3 className="mt-0.5 font-semibold text-slate-800 line-clamp-2 group-hover:text-brand-600">
+        <h3 className="mt-0.5 font-semibold text-neutral-100 line-clamp-2 group-hover:text-white">
           {product.name}
         </h3>
-        <p className="mt-2 text-lg font-semibold text-brand-600">
+        <p className="mt-2 text-lg font-semibold text-sky-400">
           ${parseFloat(product.price).toLocaleString("es-CO")}
         </p>
       </div>

@@ -44,7 +44,7 @@ export default function MobileMenu({
         type="button"
         className={`absolute inset-0 transition-[opacity,backdrop-filter] duration-200 ease-out ${
           open
-            ? "pointer-events-auto bg-black/65 opacity-100 backdrop-blur-[22px]"
+            ? "pointer-events-auto bg-black/70 opacity-100 backdrop-blur-[22px]"
             : "pointer-events-none bg-transparent opacity-0 backdrop-blur-0"
         }`}
         onClick={onClose}
@@ -53,12 +53,12 @@ export default function MobileMenu({
 
       {/* Panel */}
       <div
-        className={`relative w-full max-w-[420px] overflow-hidden rounded-[28px] border border-white/15 bg-slate-950/75 shadow-[0_28px_80px_rgba(0,0,0,0.65)] ring-1 ring-white/10 backdrop-blur-[60px] backdrop-saturate-[180%] transition-[opacity,transform] duration-200 ease-out ${
+        className={`relative w-full max-w-[420px] overflow-hidden rounded-[28px] border border-white/10 bg-neutral-950/85 shadow-[0_28px_80px_rgba(0,0,0,0.65)] ring-1 ring-white/10 backdrop-blur-[60px] backdrop-saturate-[180%] transition-[opacity,transform] duration-200 ease-out ${
           open ? "opacity-100 translate-y-0 scale-100" : "opacity-0 -translate-y-2 scale-[0.98]"
         }`}
       >
         {/* Diffusion layer: blocks background text bleed */}
-        <div className="pointer-events-none absolute inset-0 bg-slate-950/45" />
+        <div className="pointer-events-none absolute inset-0 bg-neutral-950/55" />
 
         {/* Glass highlight: subtle top glow like iOS */}
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_80%_at_50%_0%,rgba(255,255,255,0.14)_0%,rgba(255,255,255,0)_60%)]" />
@@ -78,7 +78,7 @@ export default function MobileMenu({
           <button
             type="button"
             onClick={onClose}
-            className="absolute right-3 top-3 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white/80 hover:bg-white/15"
+            className="absolute right-3 top-3 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-white/5 text-white/80 hover:bg-white/10"
             aria-label="Cerrar menú"
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -100,7 +100,7 @@ export default function MobileMenu({
                   <Link
                     href={`${categoryBasePath}/${c.slug}`}
                     onClick={onClose}
-                    className="block w-full rounded-2xl px-5 py-4 text-[15px] font-semibold tracking-wide text-white/90 transition hover:bg-white/10"
+                    className="block w-full rounded-2xl px-5 py-4 text-[15px] font-semibold tracking-wide text-white/90 transition hover:bg-white/5"
                   >
                     {c.name}
                   </Link>
