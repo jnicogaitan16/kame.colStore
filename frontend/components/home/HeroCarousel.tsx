@@ -34,8 +34,8 @@ export function HeroCarousel({ banners }: { banners: HomepageBanner[] }) {
   if (!slides.length) return null;
 
   return (
-    <section className="relative w-full">
-      <div className="relative overflow-hidden">
+    <section className="relative w-full overflow-hidden min-h-[70vh] md:min-h-[calc(100vh-72px)]">
+      <div className="relative w-full">
         <Swiper
           modules={[Autoplay, Pagination, EffectFade]}
           effect="fade"
@@ -44,7 +44,7 @@ export function HeroCarousel({ banners }: { banners: HomepageBanner[] }) {
           autoplay={{ delay: 6000, disableOnInteraction: false }}
           loop={slides.length > 1}
           onSlideChange={(s) => setActiveIndex(s.realIndex)}
-          className="h-[72vh] min-h-[520px] w-full"
+          className="w-full min-h-[70vh] md:min-h-[calc(100vh-72px)]"
         >
           {slides.map((b, idx) => {
             const isActive = idx === activeIndex;
@@ -54,7 +54,7 @@ export function HeroCarousel({ banners }: { banners: HomepageBanner[] }) {
 
             return (
               <SwiperSlide key={b.id}>
-                <div className="relative h-[72vh] min-h-[520px] w-full">
+                <div className="relative w-full min-h-[70vh] md:min-h-[calc(100vh-72px)]">
                   {/* Imagen */}
                   <div
                     className={[
@@ -86,7 +86,7 @@ export function HeroCarousel({ banners }: { banners: HomepageBanner[] }) {
                   />
 
                   {/* Copy */}
-                  <div className="relative z-10 mx-auto flex h-full max-w-6xl items-center px-4">
+                  <div className="relative z-10 mx-auto flex min-h-[70vh] md:min-h-[calc(100vh-72px)] max-w-6xl items-center px-4">
                     <div className="max-w-xl">
                       {b.subtitle ? (
                         <p className="mb-3 inline-flex rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-semibold tracking-widest text-white/85">

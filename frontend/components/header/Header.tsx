@@ -66,7 +66,7 @@ export function Header({ categories = [] }: HeaderProps) {
 
     // On home: listen scroll
     const onScroll = () => {
-      setScrolled(window.scrollY > 40);
+      setScrolled(window.scrollY > 24);
     };
 
     // Init on mount
@@ -99,8 +99,8 @@ export function Header({ categories = [] }: HeaderProps) {
   const headerMode = isHome && !scrolled ? "overlay" : "nav";
   const headerClassName =
     headerMode === "overlay"
-      ? "fixed top-0 left-0 z-50 w-full bg-transparent"
-      : "fixed top-0 left-0 z-50 w-full bg-zinc-950/70 border-b border-white/10 shadow-sm will-change-transform";
+      ? "fixed top-0 left-0 right-0 z-50 w-full bg-transparent border-b border-transparent shadow-none header-transition"
+      : "fixed top-0 left-0 right-0 z-50 w-full bg-zinc-950/70 border-b border-white/10 shadow-sm will-change-transform header-transition";
 
   return (
     <header
@@ -108,10 +108,11 @@ export function Header({ categories = [] }: HeaderProps) {
       style={
         headerMode === "nav"
           ? { backdropFilter: "blur(12px) saturate(150%)" }
-          : undefined
+          : { backdropFilter: "none" }
       }
     >
       <Navbar
+        variant={headerMode}
         categories={categories}
         onOpenMobileMenu={openMobileMenu}
         onToggleCart={toggleCart}

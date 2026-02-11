@@ -12,12 +12,15 @@ export default async function HomePage() {
   ]);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 md:py-10">
-      {/* Hero con carrusel de banners administrables */}
+    <>
+      {/* FULL BLEED */}
       <HeroCarousel banners={banners} />
 
-      {/* Historia editable desde Django */}
+      {/* FULL WIDTH SECTION */}
       {story ? <BrandStory story={story} /> : null}
-    </div>
+
+      {/* Si luego agregas secciones con ancho controlado, envuélvelas así: */}
+      {/* <div className="mx-auto max-w-6xl px-4 py-10">...</div> */}
+    </>
   );
 }
