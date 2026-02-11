@@ -7,7 +7,7 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.urls import path
 
-from .models import Category, Product, ProductVariant, ProductImage
+from .models import Category, Product, ProductVariant, ProductImage, HomepageBanner
 from .variant_rules import get_variant_rule
 
 
@@ -20,6 +20,17 @@ class CategoryAdmin(admin.ModelAdmin):
     search_fields = ("name", "slug")
     prepopulated_fields = {"slug": ("name",)}
     list_filter = ("is_active",)
+
+
+# ======================
+# HomepageBanner
+# ======================
+@admin.register(HomepageBanner)
+class HomepageBannerAdmin(admin.ModelAdmin):
+    list_display = ("id", "title", "is_active", "sort_order", "updated_at")
+    list_filter = ("is_active",)
+    search_fields = ("title", "subtitle")
+    ordering = ("sort_order", "-updated_at")
 
 
 # ======================

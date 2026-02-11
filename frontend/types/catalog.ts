@@ -45,6 +45,18 @@ export interface ProductDetail extends ProductList {
   variants: ProductVariant[];
 }
 
+export interface HomepageBanner {
+  id: number;
+  title: string;
+  subtitle: string;
+  description: string;
+  image: string | null;
+  alt_text: string;
+  cta_label: string;
+  cta_url: string;
+  sort_order: number;
+}
+
 export interface PaginatedResponse<T> {
   count: number;
   next: string | null;

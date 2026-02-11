@@ -9,9 +9,10 @@ from django.views.decorators.cache import never_cache
 from rest_framework import generics
 from rest_framework.pagination import PageNumberPagination
 
-from .models import Category, Product, ProductVariant
+from .models import Category, HomepageBanner, Product, ProductVariant
 from .serializers import (
     CategorySerializer,
+  HomepageBannerSerializer,
     ProductDetailSerializer,
     ProductListSerializer,
 )
@@ -83,4 +84,18 @@ class ProductDetailAPIView(generics.RetrieveAPIView):
             )
             .order_by("-created_at", "id")
         )
+
+
+# ---------------------------------------------------------------------------
+# GET /api/homepage-banners/
+# ---------------------------------------------------------------------------
+@method_decorator(never_cache, name="dispatch")
+class HomepageBannerListAPIView(generics.ListAPIView):
+    """Listado de hero banners activos para la home."""
+
+    serializer_class = HomepageBannerSerializer
+    pagination_class = None
+
+    def get_queryset(self):
+        return HomepageBanner.objects.filter(is_active=True).order_by("sort_order", "-created_at")
 

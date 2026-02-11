@@ -7,6 +7,7 @@
  */
 import type {
   Category,
+  HomepageBanner,
   PaginatedResponse,
   ProductDetail,
   ProductList,
@@ -96,4 +97,9 @@ export async function getProducts(params?: {
 
 export async function getProductBySlug(slug: string): Promise<ProductDetail> {
   return apiFetch<ProductDetail>(`/products/${encodeURIComponent(slug)}/`);
+}
+
+export async function getHomepageBanners(): Promise<HomepageBanner[]> {
+  const data = await apiFetch<HomepageBanner[]>("/homepage-banners/");
+  return data;
 }

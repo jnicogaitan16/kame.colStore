@@ -4,7 +4,7 @@ Incluyen imágenes con URL absoluta y orden primary + gallery.
 """
 from rest_framework import serializers
 
-from .models import Category, Product, ProductImage, ProductVariant
+from .models import Category, HomepageBanner, Product, ProductImage, ProductVariant
 
 
 def _absolute_uri(request, url):
@@ -129,3 +129,30 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         # No exponer variantes inactivas/eliminadas en la API
         qs = obj.variants.filter(is_active=True).order_by("kind", "value")
         return ProductVariantSerializer(qs, many=True, context=self.context).data
+
+
+# ---------------------------------------------------------------------------
+# Homepage banners (hero)
+# ---------------------------------------------------------------------------
+class HomepageBannerSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
+
+    class Meta:
+        model = HomepageBanner
+        fields = [
+            "id",
+            "title",
+            "subtitle",
+            "description",
+            "image",
+            "alt_text",
+            "cta_label",
+            "cta_url",
+            "sort_order",
+        ]
+
+    def get_image(self, obj):
+        if not obj.image:
+            return None
+        request = self.context.get("request")
+        return _absolute_uri(request, obj.image.url)

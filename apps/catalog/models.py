@@ -90,6 +90,18 @@ def product_image_upload_path(instance, filename):
     return f"products/{product_id}/variants/{variant_id}/{uuid.uuid4().hex}{ext}"
 
 
+def homepage_banner_upload_path(instance, filename):
+    """Generate upload path for homepage hero banners."""
+    ext = os.path.splitext(filename)[1].lower()
+    return f"homepage_banners/{uuid.uuid4().hex}{ext}"
+
+
+def homepage_banner_upload_path(instance, filename):
+  """Upload path for homepage hero banners."""
+  ext = os.path.splitext(filename)[1].lower()
+  return f"homepage_banners/{uuid.uuid4().hex}{ext}"
+
+
 class ProductImage(models.Model):
     """Modelo para almacenar imágenes de variantes de productos.
     
@@ -335,3 +347,45 @@ class ProductVariant(models.Model):
         if self.value:
             return f"{self.product.name} - {self.get_kind_display()}: {self.value}"
         return f"{self.product.name} (sin variante)"
+
+
+class HomepageBanner(models.Model):
+    """Hero banners para la página principal (administrables desde el admin).
+
+    Pensados para un carrusel horizontal tipo Skeleton.
+    """
+
+    title = models.CharField(max_length=150)
+    subtitle = models.CharField(max_length=200, blank=True, default="")
+    description = models.TextField(blank=True, default="")
+
+    image = models.ImageField(upload_to=homepage_banner_upload_path)
+    alt_text = models.CharField(max_length=200, blank=True, default="")
+
+    cta_label = models.CharField(
+        max_length=80,
+        blank=True,
+        default="",
+        help_text="Texto del botón (por ejemplo, 'Ver colección').",
+    )
+    cta_url = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        help_text="URL relativa o absoluta a la que apunta el botón.",
+    )
+
+    is_active = models.BooleanField(default=True)
+    sort_order = models.PositiveIntegerField(
+        default=0,
+        help_text="Orden de aparición en el carrusel (menor = primero).",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["sort_order", "-created_at"]
+
+    def __str__(self) -> str:
+        return self.title

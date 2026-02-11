@@ -1,28 +1,23 @@
 import Link from "next/link";
-import { getCategories, getProducts } from "@/lib/api";
+import { getCategories, getHomepageBanners, getProducts } from "@/lib/api";
 import { ProductCard } from "@/components/product/ProductCard";
+import { HeroCarousel } from "@/components/home/HeroCarousel";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default async function HomePage() {
-  const [categories, productsRes] = await Promise.all([
+  const [categories, productsRes, banners] = await Promise.all([
     getCategories(),
     getProducts({ page_size: 8 }),
+    getHomepageBanners(),
   ]);
   const featured = productsRes.results;
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 md:py-10">
-      {/* Hero */}
-      <section className="mb-10 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 px-6 py-12 text-white md:mb-14 md:py-16">
-        <h1 className="text-3xl font-bold tracking-tight md:text-4xl lg:text-5xl">
-          Kame.col Store
-        </h1>
-        <p className="mt-3 max-w-xl text-lg text-brand-100 md:text-xl">
-          Productos personalizados: camisetas, hoodies, mugs y más. Diseño único para ti.
-        </p>
-      </section>
+      {/* Hero con carrusel de banners administrables */}
+      <HeroCarousel banners={banners} />
 
       {/* Destacados */}
       <section>
