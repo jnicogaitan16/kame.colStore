@@ -1,10 +1,127 @@
-@import "tailwindcss/base";
-@import "tailwindcss/components";
-@import "tailwindcss/utilities";
+/* Tailwind directives (keeps build compatible and clearer for tooling) */
+/* stylelint-disable at-rule-no-unknown */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+/* stylelint-enable at-rule-no-unknown */
+
+/* Tailwind component-like classes (btns / pills) */
+
+/* =========================
+   Shared buttons (Brand / Dark system)
+   ========================= */
+
+/* Primary CTA (match current checkout button look) */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  min-height: 3rem;          /* 48px (h-12) */
+  padding: 0.875rem 1.25rem; /* más alto que py-3 */
+  border-radius: 0.75rem;    /* un poco más premium que 0.5rem */
+
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+
+  background: rgba(255, 255, 255, 0.9); /* bg-white/90 */
+  color: #000; /* text-black */
+
+  transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease;
+}
+
+.btn-primary:hover {
+  background: rgba(255, 255, 255, 1); /* hover:bg-white */
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Secondary CTA (dark outline) */
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  min-height: 3rem;          /* 48px */
+  padding: 0.875rem 1.25rem;
+  border-radius: 0.75rem;
+
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+
+  border: 1px solid rgba(255, 255, 255, 0.15); /* border-white/15 */
+  background: rgba(255, 255, 255, 0.05); /* bg-white/5 */
+  color: rgba(255, 255, 255, 1);
+
+  transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease;
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.1); /* hover:bg-white/10 */
+}
+
+.btn-secondary:disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* =========================
+   Pills (filters/tabs)
+   ========================= */
+
+/* Pill (not selected) */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px; /* rounded-full */
+  padding: 0.5rem 1rem; /* py-2 px-4 */
+  font-size: 0.75rem; /* text-xs */
+  font-weight: 600; /* font-semibold */
+  letter-spacing: 0.02em; /* tracking-wide */
+
+  border: 1px solid rgba(255, 255, 255, 0.1); /* border-white/10 */
+  background: rgba(255, 255, 255, 0.05); /* bg-white/5 */
+  color: rgba(255, 255, 255, 0.8); /* text-white/80 */
+
+  transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease;
+}
+
+.pill:hover {
+  background: rgba(255, 255, 255, 0.1); /* hover:bg-white/10 */
+  border-color: rgba(14, 165, 233, 0.45);
+}
+
+/* Pill (selected) */
+.pill-active {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 9999px;
+  padding: 0.5rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+
+  border: 1px solid rgba(14, 165, 233, 0.9); /* sky-400 */
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 1);
+
+  box-shadow:
+    0 0 0 1px rgba(14, 165, 233, 0.35),      /* ring azul */
+    0 10px 30px rgba(0, 0, 0, 0.25);         /* profundidad suave */
+}
 
 :root {
   --foreground: #f5f5f5;
   --background: #0a0a0a;
+  color-scheme: dark;
 }
 
 body {
@@ -18,6 +135,10 @@ html,
 body {
   height: 100%;
   min-height: 100%;
+}
+
+html {
+  background: var(--background);
 }
 
 /* Prevent accidental horizontal scroll on mobile layouts */
@@ -166,4 +287,27 @@ html {
     rgba(255, 255, 255, 0.03) 0%,
     rgba(255, 255, 255, 0.01) 100%
   );
+}
+
+/* =========================
+   Luxury elevation (Streetwear)
+   ========================= */
+
+.elevation-soft {
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.35),
+    0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.elevation-hover {
+  transition:
+    transform 300ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 300ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.elevation-hover:hover {
+  transform: translateY(-4px);
+  box-shadow:
+    0 18px 50px rgba(0, 0, 0, 0.5),
+    0 4px 12px rgba(0, 0, 0, 0.6);
 }

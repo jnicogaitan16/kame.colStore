@@ -8,6 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { apiFetch } from "@/lib/api";
 import { useCartStore } from "@/store/cart";
 import Link from "next/link";
+import { Button } from "@/components/ui/Button";
 
 type City = { code: string; label: string };
 
@@ -147,13 +148,13 @@ export default function CheckoutClient() {
 
   if (!items.length && orderSummary) {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-10">
-        <h1 className="text-2xl font-bold text-slate-800 mb-4">¡Gracias por tu pedido!</h1>
-        <p className="text-slate-600 mb-4">
+      <div className="mx-auto max-w-2xl px-4 py-10 text-zinc-100">
+        <h1 className="mb-4 text-2xl font-bold tracking-tight text-zinc-100">¡Gracias por tu pedido!</h1>
+        <p className="mb-4 text-white/70">
           Hemos recibido tu orden <span className="font-semibold">#{orderSummary.order_id}</span>.
           Te contactaremos por WhatsApp o email para coordinar el pago y envío.
         </p>
-        <div className="mb-6 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm">
+        <div className="card-surface mb-6 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-zinc-100">
           <div className="flex justify-between">
             <span>Subtotal</span>
             <span>${orderSummary.subtotal.toLocaleString("es-CO")}</span>
@@ -162,30 +163,29 @@ export default function CheckoutClient() {
             <span>{orderSummary.shipping.label}</span>
             <span>${orderSummary.shipping.amount.toLocaleString("es-CO")}</span>
           </div>
-          <div className="mt-2 border-t border-slate-200 pt-2 flex justify-between font-semibold">
+          <div className="mt-2 flex justify-between border-t border-white/10 pt-2 font-semibold">
             <span>Total</span>
             <span>${orderSummary.total.toLocaleString("es-CO")}</span>
           </div>
         </div>
-        <Link
-          href="/"
-          className="inline-flex items-center justify-center rounded-lg bg-brand-600 px-6 py-3 text-sm font-medium text-white hover:bg-brand-700"
-        >
-          Volver al inicio
+        <Link href="/" className="inline-flex w-full">
+          <Button type="button" variant="primary" fullWidth>
+            Volver al inicio
+          </Button>
         </Link>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-8 px-4 py-8 md:flex-row md:py-12">
+    <div className="mx-auto flex max-w-4xl flex-col gap-8 px-4 py-8 text-zinc-100 md:flex-row md:py-12">
       <section className="w-full md:w-2/3">
-        <h1 className="mb-6 text-2xl font-bold text-slate-800">Checkout</h1>
+        <h1 className="mb-6 text-2xl font-bold tracking-tight text-zinc-100">Checkout</h1>
 
         {!items.length && (
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/70">
             Tu carrito está vacío.{" "}
-            <Link href="/" className="font-medium text-brand-600 hover:underline">
+            <Link href="/" className="font-medium text-white/85 hover:text-white hover:underline">
               Volver a la tienda
             </Link>
           </div>
@@ -194,16 +194,16 @@ export default function CheckoutClient() {
         {items.length > 0 && (
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div>
-              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
+              <h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-white/60">
                 Datos de contacto
               </h2>
               <div className="space-y-4">
                 <div>
-                  <label className="mb-1 block text-sm font-medium">Nombre completo</label>
+                  <label className="mb-1 block text-sm font-medium text-white/80">Nombre completo</label>
                   <input
                     type="text"
                     {...register("full_name")}
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                    className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 placeholder:text-white/35 outline-none transition focus:border-white/20 focus:ring-2 focus:ring-white/20"
                   />
                   {errors.full_name && (
                     <p className="mt-1 text-xs text-red-600">{errors.full_name.message}</p>
@@ -211,29 +211,29 @@ export default function CheckoutClient() {
                 </div>
                 <div className="grid gap-4 md:grid-cols-2">
                   <div>
-                    <label className="mb-1 block text-sm font-medium">Email</label>
+                    <label className="mb-1 block text-sm font-medium text-white/80">Email</label>
                     <input
                       type="email"
                       placeholder="correo@ejemplo.com"
                       {...register("email")}
-                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                      className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 placeholder:text-white/35 outline-none transition focus:border-white/20 focus:ring-2 focus:ring-white/20"
                     />
                     {errors.email && (
                       <p className="mt-1 text-xs text-red-600">{errors.email.message}</p>
                     )}
                   </div>
                   <div>
-                    <label className="mb-1 block text-sm font-medium">Teléfono</label>
-                    <div className="flex rounded-lg border border-slate-300 bg-white text-sm focus-within:border-brand-500 focus-within:ring-1 focus-within:ring-brand-500">
-                      <div className="flex items-center gap-1 border-r border-slate-300 bg-slate-50 px-3">
+                    <label className="mb-1 block text-sm font-medium text-white/80">Teléfono</label>
+                    <div className="flex rounded-xl border border-white/10 bg-white/5 text-sm text-zinc-100 transition focus-within:border-white/20 focus-within:ring-2 focus-within:ring-white/20">
+                      <div className="flex items-center gap-1 border-r border-white/10 bg-white/5 px-3 text-white/80">
                         <span aria-hidden>🇨🇴</span>
-                        <span className="text-xs font-semibold text-slate-700">+57</span>
+                        <span className="text-xs font-semibold text-white/80">+57</span>
                       </div>
                       <input
                         type="tel"
                         {...register("phone")}
                         placeholder="310 000 0000"
-                        className="h-10 w-full rounded-r-lg border-0 px-3 py-2 text-sm focus:outline-none"
+                        className="h-10 w-full rounded-r-xl border-0 bg-transparent px-3 py-2 text-sm text-zinc-100 placeholder:text-white/35 focus:outline-none"
                       />
                     </div>
                     {errors.phone && (
@@ -243,10 +243,10 @@ export default function CheckoutClient() {
                 </div>
                 <div className="grid gap-4 md:grid-cols-3">
                   <div>
-                    <label className="mb-1 block text-sm font-medium">Tipo de documento</label>
+                    <label className="mb-1 block text-sm font-medium text-white/80">Tipo de documento</label>
                     <select
                       {...register("document_type")}
-                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                      className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 placeholder:text-white/35 outline-none transition focus:border-white/20 focus:ring-2 focus:ring-white/20"
                     >
                       <option value="CC">CC</option>
                       <option value="NIT">NIT</option>
@@ -258,12 +258,12 @@ export default function CheckoutClient() {
                     )}
                   </div>
                   <div className="md:col-span-2">
-                    <label className="mb-1 block text-sm font-medium">Número de documento</label>
+                    <label className="mb-1 block text-sm font-medium text-white/80">Número de documento</label>
                     <input
                       type="text"
                       {...register("document_number")}
                       placeholder="1234567890"
-                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                      className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 placeholder:text-white/35 outline-none transition focus:border-white/20 focus:ring-2 focus:ring-white/20"
                     />
                     {errors.document_number && (
                       <p className="mt-1 text-xs text-red-600">
@@ -276,16 +276,16 @@ export default function CheckoutClient() {
             </div>
 
             <div>
-              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
+              <h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-white/60">
                 Envío
               </h2>
               <div className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-2">
                   <div>
-                    <label className="mb-1 block text-sm font-medium">Ciudad</label>
+                    <label className="mb-1 block text-sm font-medium text-white/80">Ciudad</label>
                     <select
                       {...register("city_code")}
-                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                      className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 placeholder:text-white/35 outline-none transition focus:border-white/20 focus:ring-2 focus:ring-white/20"
                     >
                       <option value="">Selecciona una ciudad</option>
                       {cities.map((city) => (
@@ -299,12 +299,12 @@ export default function CheckoutClient() {
                     )}
                   </div>
                   <div>
-                    <label className="mb-1 block text-sm font-medium">Dirección</label>
+                    <label className="mb-1 block text-sm font-medium text-white/80">Dirección</label>
                     <input
                       type="text"
                       {...register("address")}
                       placeholder="Calle 123 #45-67"
-                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                      className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 placeholder:text-white/35 outline-none transition focus:border-white/20 focus:ring-2 focus:ring-white/20"
                     />
                     {errors.address && (
                       <p className="mt-1 text-xs text-red-600">{errors.address.message}</p>
@@ -312,14 +312,14 @@ export default function CheckoutClient() {
                   </div>
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium">
+                  <label className="mb-1 block text-sm font-medium text-white/80">
                     Indicaciones para el envío (opcional)
                   </label>
                   <textarea
                     rows={3}
                     {...register("notes")}
                     placeholder="Apartamento, portería, referencias..."
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                    className="min-h-[96px] w-full resize-none rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 placeholder:text-white/35 outline-none transition focus:border-white/20 focus:ring-2 focus:ring-white/20"
                   />
                   {errors.notes && (
                     <p className="mt-1 text-xs text-red-600">{errors.notes.message}</p>
@@ -329,31 +329,27 @@ export default function CheckoutClient() {
             </div>
 
             {submitError && (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              <div className="rounded-xl border border-red-500/25 bg-red-500/10 px-3 py-2 text-sm text-red-200">
                 {submitError}
               </div>
             )}
 
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="inline-flex w-full items-center justify-center rounded-lg bg-brand-600 px-4 py-3 text-sm font-medium text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-70"
-            >
+            <Button type="submit" variant="primary" fullWidth disabled={isSubmitting}>
               {isSubmitting ? "Procesando pedido..." : "Confirmar pedido"}
-            </button>
+            </Button>
           </form>
         )}
       </section>
 
       <aside className="w-full md:w-1/3">
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
+        <div className="card-surface rounded-2xl border border-white/10 bg-white/5 p-4">
+          <h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-white/60">
             Resumen del pedido
           </h2>
           {items.length === 0 ? (
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-white/70">
               No hay productos en tu carrito.{" "}
-              <Link href="/" className="font-medium text-brand-600 hover:underline">
+              <Link href="/" className="font-medium text-white/85 hover:text-white hover:underline">
                 Ver productos
               </Link>
             </p>
@@ -363,10 +359,10 @@ export default function CheckoutClient() {
                 {items.map((item) => (
                   <li key={item.variantId} className="flex justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="truncate font-medium text-slate-800">
+                      <p className="truncate font-medium text-zinc-100">
                         {item.productName}
                       </p>
-                      <p className="truncate text-xs text-slate-500">
+                      <p className="truncate text-xs text-white/60">
                         {item.variantLabel} × {item.quantity}
                       </p>
                     </div>
@@ -390,7 +386,7 @@ export default function CheckoutClient() {
                     <span>${shipping.amount.toLocaleString("es-CO")}</span>
                   </div>
                 )}
-                <div className="mt-2 border-t border-slate-200 pt-2 flex justify-between text-base font-semibold">
+                <div className="mt-2 border-t border-white/10 pt-2 flex justify-between text-base font-semibold">
                   <span>Total estimado</span>
                   <span>
                     $
@@ -399,7 +395,7 @@ export default function CheckoutClient() {
                     ).toLocaleString("es-CO")}
                   </span>
                 </div>
-                <p className="mt-2 text-xs text-slate-500">
+                <p className="mt-2 text-xs text-white/50">
                   El total final se confirma al crear la orden en el backend. No se
                   realiza el pago aún; coordinamos por WhatsApp o transferencia.
                 </p>

@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useCartStore } from "@/store/cart";
+import { Button } from "@/components/ui/Button";
 
 export function MiniCart() {
   const { items, isOpen, closeCart, removeItem, updateQuantity, totalItems, totalAmount } =
@@ -116,17 +117,18 @@ export function MiniCart() {
           )}
         </div>
         {items.length > 0 && (
-          <div className="border-t border-white/10 p-4 text-neutral-100">
+          <div
+            className="sticky bottom-0 border-t border-white/10 bg-neutral-950/80 p-4 text-neutral-100"
+            style={{ backdropFilter: "blur(12px) saturate(160%)" }}
+          >
             <div className="mb-3 flex justify-between text-lg font-semibold">
               <span>Total</span>
               <span>${totalAmount().toLocaleString("es-CO")}</span>
             </div>
-            <Link
-              href="/checkout"
-              onClick={closeCart}
-              className="block w-full rounded-lg bg-white/90 py-3 text-center font-semibold text-black transition-colors hover:bg-white"
-            >
-              Ir al checkout
+            <Link href="/checkout" onClick={closeCart} className="block">
+              <Button variant="primary" fullWidth>
+                Ir al checkout
+              </Button>
             </Link>
           </div>
         )}

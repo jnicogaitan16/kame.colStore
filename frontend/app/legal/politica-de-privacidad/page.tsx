@@ -1,15 +1,16 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 export const metadata = {
   title: "Políticas | Kame.col",
   description: "Términos, privacidad y cookies de Kame.col",
 };
 
-function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
+function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (
     <section id={id} className="scroll-mt-24">
       <h2 className="text-2xl font-semibold tracking-tight">{title}</h2>
-      <div className="prose prose-neutral mt-4 max-w-none prose-a:text-blue-600">
+      <div className="prose prose-invert mt-4 max-w-none prose-a:text-sky-400 prose-strong:text-white prose-headings:text-white/95 prose-li:marker:text-white/35">
         {children}
       </div>
     </section>
@@ -32,9 +33,9 @@ export default function PoliticaDePrivacidadPage() {
       <div className="mb-10 rounded-xl border border-white/10 bg-neutral-900 p-4 shadow-sm">
         <p className="text-sm font-medium text-neutral-100">Accesos rápidos</p>
         <div className="mt-3 flex flex-wrap gap-3">
-          <Link className="rounded-full border px-4 py-2 text-sm hover:bg-neutral-50" href="#terminos">Términos</Link>
-          <Link className="rounded-full border px-4 py-2 text-sm hover:bg-neutral-50" href="#privacidad">Privacidad</Link>
-          <Link className="rounded-full border px-4 py-2 text-sm hover:bg-neutral-50" href="#cookies">Cookies</Link>
+          <Link className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm text-white/85 hover:bg-white/10" href="#terminos">Términos</Link>
+          <Link className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm text-white/85 hover:bg-white/10" href="#privacidad">Privacidad</Link>
+          <Link className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm text-white/85 hover:bg-white/10" href="#cookies">Cookies</Link>
         </div>
       </div>
 

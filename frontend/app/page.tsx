@@ -16,11 +16,15 @@ export default async function HomePage() {
       {/* FULL BLEED */}
       <HeroCarousel banners={banners} />
 
-      {/* FULL WIDTH SECTION */}
-      {story ? <BrandStory story={story} /> : null}
+      {/* FULL WIDTH SECTION WITH EDITORIAL SPACING */}
+      {story ? (
+        <section className="py-12 md:py-20">
+          <BrandStory story={story} />
+        </section>
+      ) : null}
 
       {/* Si luego agregas secciones con ancho controlado, envuélvelas así: */}
-      {/* <div className="mx-auto max-w-6xl px-4 py-10">...</div> */}
+      {/* <div className="mx-auto max-w-6xl px-4 py-12 md:py-20">...</div> */}
     </>
   );
 }

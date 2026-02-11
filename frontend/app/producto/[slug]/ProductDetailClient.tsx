@@ -2,8 +2,11 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
+
 import { useCartStore } from "@/store/cart";
 import { ProductGallery } from "@/components/product/ProductGallery";
+import { Button } from "@/components/ui/Button";
+
 import type { ProductDetail, ProductVariant } from "@/types/catalog";
 
 interface ProductDetailClientProps {
@@ -17,6 +20,19 @@ function buildVariantLabel(v: ProductVariant): string {
   return parts.join(" / ") || `Variante #${v.id}`;
 }
 
+function colorDotClass(color: string): string {
+  const c = (color || "").trim().toLowerCase();
+  // Avoid a white solid dot for "Blanco" in dark UI.
+  if (c === "blanco") return "bg-transparent border border-white/60";
+  if (c === "negro") return "bg-black border border-white/20";
+  if (c === "beige") return "bg-[#d6c5a3] border border-white/20";
+  if (c === "verde") return "bg-emerald-500/80 border border-white/20";
+  if (c === "rojo") return "bg-red-500/80 border border-white/20";
+  if (c === "café" || c === "cafe") return "bg-amber-800/80 border border-white/20";
+  if (c === "azul") return "bg-sky-500/80 border border-white/20";
+  return "bg-white/30 border border-white/20";
+}
+
 export function ProductDetailClient({ product }: ProductDetailClientProps) {
   const addItem = useCartStore((s) => s.addItem);
   const openCart = useCartStore((s) => s.openCart);
@@ -28,14 +44,20 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
 
   const hasValue = variantsWithStock.some((v) => v.value);
   const hasColor = variantsWithStock.some((v) => v.color);
+
   const valueOptions = useMemo(() => {
     const set = new Set<string>();
-    variantsWithStock.forEach((v) => { if (v.value) set.add(v.value); });
+    variantsWithStock.forEach((v) => {
+      if (v.value) set.add(v.value);
+    });
     return Array.from(set);
   }, [variantsWithStock]);
+
   const colorOptions = useMemo(() => {
     const set = new Set<string>();
-    variantsWithStock.forEach((v) => { if (v.color) set.add(v.color); });
+    variantsWithStock.forEach((v) => {
+      if (v.color) set.add(v.color);
+    });
     return Array.from(set);
   }, [variantsWithStock]);
 
@@ -45,28 +67,36 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
   const [selectedColor, setSelectedColor] = useState<string>(firstWithColor);
 
   const finalVariant = useMemo(() => {
-    return variantsWithStock.find(
-      (v) =>
-        (selectedValue ? v.value === selectedValue : true) &&
-        (selectedColor ? v.color === selectedColor : true)
-    ) ?? variantsWithStock[0] ?? null;
+    return (
+      variantsWithStock.find(
+        (v) =>
+          (selectedValue ? v.value === selectedValue : true) &&
+          (selectedColor ? v.color === selectedColor : true)
+      ) ??
+      variantsWithStock[0] ??
+      null
+    );
   }, [variantsWithStock, selectedValue, selectedColor]);
 
-  const primaryImage = finalVariant?.images?.find((i) => i.is_primary)?.image
-    ?? finalVariant?.images?.[0]?.image
-    ?? null;
+  const primaryImage =
+    finalVariant?.images?.find((i) => i.is_primary)?.image ??
+    finalVariant?.images?.[0]?.image ??
+    null;
 
   const handleAddToCart = () => {
     if (!finalVariant) return;
-    addItem({
-      variantId: finalVariant.id,
-      productId: product.id,
-      productName: product.name,
-      productSlug: product.slug,
-      variantLabel: buildVariantLabel(finalVariant),
-      price: product.price,
-      imageUrl: primaryImage,
-    }, 1);
+    addItem(
+      {
+        variantId: finalVariant.id,
+        productId: product.id,
+        productName: product.name,
+        productSlug: product.slug,
+        variantLabel: buildVariantLabel(finalVariant),
+        price: product.price,
+        imageUrl: primaryImage,
+      },
+      1
+    );
     openCart();
   };
 
@@ -74,33 +104,36 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 md:py-10">
-      <nav className="mb-4 text-sm text-slate-500">
-        <Link href="/" className="hover:text-brand-600">Inicio</Link>
+      <nav className="mb-4 text-sm text-neutral-400">
+        <Link href="/" className="hover:text-white/90">
+          Inicio
+        </Link>
         <span className="mx-2">/</span>
-        <Link href={`/categoria/${product.category.slug}`} className="hover:text-brand-600">
+        <Link
+          href={`/categoria/${product.category.slug}`}
+          className="hover:text-white/90"
+        >
           {product.category.name}
         </Link>
         <span className="mx-2">/</span>
-        <span className="text-slate-800">{product.name}</span>
+        <span className="text-neutral-100">{product.name}</span>
       </nav>
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
         <div>
-          <ProductGallery
-            images={finalVariant?.images ?? []}
-            productName={product.name}
-          />
+          <ProductGallery images={finalVariant?.images ?? []} productName={product.name} />
         </div>
 
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 md:text-3xl">
+          <h1 className="text-2xl font-bold text-neutral-100 md:text-3xl">
             {product.name}
           </h1>
-          <p className="mt-2 text-2xl font-semibold text-brand-600">
+          <p className="mt-2 text-2xl font-semibold text-sky-400">
             ${parseFloat(product.price).toLocaleString("es-CO")}
           </p>
+
           {product.description && (
-            <div className="mt-4 text-slate-600 whitespace-pre-wrap">
+            <div className="mt-4 whitespace-pre-wrap text-neutral-300">
               {product.description}
             </div>
           )}
@@ -108,7 +141,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
           {/* Variantes: valor (talla) */}
           {hasValue && valueOptions.length > 0 && (
             <div className="mt-6">
-              <label className="block text-sm font-medium text-slate-700">
+              <label className="block text-sm font-medium text-neutral-200">
                 Talla
               </label>
               <div className="mt-2 flex flex-wrap gap-2">
@@ -117,11 +150,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
                     key={val}
                     type="button"
                     onClick={() => setSelectedValue(val)}
-                    className={`rounded-lg border px-4 py-2 text-sm font-medium transition ${
-                      selectedValue === val
-                        ? "border-brand-500 bg-brand-50 text-brand-700"
-                        : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
-                    }`}
+                    className={selectedValue === val ? "pill-active" : "pill"}
                   >
                     {val}
                   </button>
@@ -133,7 +162,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
           {/* Variantes: color */}
           {hasColor && colorOptions.length > 0 && (
             <div className="mt-4">
-              <label className="block text-sm font-medium text-slate-700">
+              <label className="block text-sm font-medium text-neutral-200">
                 Color
               </label>
               <div className="mt-2 flex flex-wrap gap-2">
@@ -142,13 +171,15 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
                     key={color}
                     type="button"
                     onClick={() => setSelectedColor(color)}
-                    className={`rounded-lg border px-4 py-2 text-sm font-medium transition ${
-                      selectedColor === color
-                        ? "border-brand-500 bg-brand-50 text-brand-700"
-                        : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
-                    }`}
+                    className={selectedColor === color ? "pill-active" : "pill"}
                   >
-                    {color}
+                    <span className="inline-flex items-center gap-2">
+                      <span
+                        aria-hidden
+                        className={["h-2.5 w-2.5 rounded-full", colorDotClass(color)].join(" ")}
+                      />
+                      <span>{color}</span>
+                    </span>
                   </button>
                 ))}
               </div>
@@ -156,19 +187,22 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
           )}
 
           {finalVariant && (
-            <p className="mt-2 text-sm text-slate-500">
+            <p className="mt-2 text-sm text-neutral-400">
               Stock: {finalVariant.stock} disponible{finalVariant.stock !== 1 ? "s" : ""}
             </p>
           )}
 
-          <button
-            type="button"
-            onClick={handleAddToCart}
-            disabled={!canAdd}
-            className="mt-6 w-full rounded-xl bg-brand-600 py-3 font-semibold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50 md:w-auto md:px-8"
-          >
-            {canAdd ? "Agregar al carrito" : "Sin stock"}
-          </button>
+          <div className="mt-6">
+            <Button
+              type="button"
+              onClick={handleAddToCart}
+              disabled={!canAdd}
+              variant="primary"
+              fullWidth
+            >
+              {canAdd ? "Agregar al carrito" : "Sin stock"}
+            </Button>
+          </div>
         </div>
       </div>
     </div>
