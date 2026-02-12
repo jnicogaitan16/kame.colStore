@@ -356,3 +356,19 @@ html {
 
   transform: translateY(-2px);
 }
+
+/* ============================================
+   PRODUCT MEDIA SURFACE (Dark Consistente)
+   Fondo oficial para imágenes PNG de producto
+   ============================================ */
+
+.product-media-surface {
+  background: linear-gradient(
+    180deg,
+    rgba(26, 26, 26, 0.95) 0%,
+    rgba(12, 12, 12, 0.95) 100%
+  );
+
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 1rem;
+}

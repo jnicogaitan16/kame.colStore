@@ -59,7 +59,7 @@ export function MiniCart() {
             <ul className="space-y-4">
               {items.map((item) => (
                 <li key={item.variantId} className="px-5 py-4 flex gap-3 border-b border-white/5">
-                  <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-white/5 border border-white/10">
+                  <div className="relative w-16 h-16 shrink-0 overflow-hidden product-media-surface">
                     {item.imageUrl ? (
                       <Image
                         src={item.imageUrl}

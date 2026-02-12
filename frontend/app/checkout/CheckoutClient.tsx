@@ -8,6 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { apiFetch } from "@/lib/api";
 import { useCartStore } from "@/store/cart";
 import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 
 type City = { code: string; label: string };
@@ -357,20 +358,53 @@ export default function CheckoutClient() {
             <>
               <ul className="mb-4 max-h-56 space-y-3 overflow-y-auto text-sm">
                 {items.map((item) => (
-                  <li key={item.variantId} className="flex justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="truncate font-medium text-zinc-100">
-                        {item.productName}
-                      </p>
-                      <p className="truncate text-xs text-white/60">
-                        {item.variantLabel} × {item.quantity}
-                      </p>
+                  <li key={item.variantId} className="flex items-start justify-between gap-3">
+                    <div className="flex min-w-0 items-start gap-3">
+                      <div className="relative h-16 w-16 shrink-0 overflow-hidden product-media-surface">
+                        {item.imageUrl ? (
+                          <Image
+                            src={item.imageUrl}
+                            alt={item.productName}
+                            fill
+                            className="object-contain p-2"
+                            sizes="64px"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-white/40">
+                            <svg
+                              className="h-6 w-6"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                              aria-hidden="true"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={1.5}
+                                d="M3 7a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"
+                              />
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={1.5}
+                                d="M8 11l2.5 3 3.5-4.5L19 16"
+                              />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-zinc-100">{item.productName}</p>
+                        <p className="truncate text-xs text-white/60">
+                          {item.variantLabel} × {item.quantity}
+                        </p>
+                      </div>
                     </div>
-                    <span className="shrink-0 text-sm font-medium">
-                      $
-                      {(
-                        parseFloat(item.price) * item.quantity
-                      ).toLocaleString("es-CO")}
+
+                    <span className="shrink-0 text-sm font-medium text-white">
+                      ${(parseFloat(item.price) * item.quantity).toLocaleString("es-CO")}
                     </span>
                   </li>
                 ))}

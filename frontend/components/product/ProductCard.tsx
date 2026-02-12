@@ -12,7 +12,7 @@ export function ProductCard({ product }: ProductCardProps) {
       href={`/producto/${product.slug}`}
       className="group bg-neutral-900 card-surface border border-white/10 rounded-2xl elevation-soft elevation-hover transition"
     >
-      <div className="relative aspect-square w-full overflow-hidden bg-neutral-800">
+      <div className="relative aspect-square w-full overflow-hidden product-media-surface">
         {product.primary_image ? (
           <Image
             src={product.primary_image}
