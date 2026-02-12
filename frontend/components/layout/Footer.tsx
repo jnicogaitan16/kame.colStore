@@ -33,11 +33,11 @@ export default function Footer() {
   return (
     <footer className="bg-neutral-900 text-neutral-200">
       <div className="mx-auto max-w-6xl px-4 py-12">
-        <div className="grid gap-10 md:grid-cols-4">
+        <div className="grid gap-10 md:grid-cols-4 items-start">
           {/* Brand */}
-          <div className="md:col-span-2">
+          <div className="md:col-span-2 text-center md:text-left">
             <h3 className="mb-3 text-xl font-semibold text-white">Kame.col</h3>
-            <p className="max-w-md text-sm leading-relaxed text-neutral-400">
+            <p className="mx-auto max-w-md text-sm leading-relaxed text-neutral-400 md:mx-0">
               Marca independiente de arte y diseño. Camisetas, hoodies y piezas
               personalizadas creadas con identidad urbana y cuidado por el
               detalle.
@@ -46,27 +46,42 @@ export default function Footer() {
 
           {/* Social */}
           <div>
-            <h4 className="mb-4 text-sm font-semibold uppercase tracking-wide text-white">
+            <h4 className="mb-4 text-sm font-semibold uppercase tracking-wide text-white text-center md:text-left">
               Síguenos
             </h4>
-            <ul className="space-y-3 text-sm">
+            <ul className="grid grid-cols-3 gap-3 text-sm md:block md:space-y-3">
               {instagramUrl ? (
                 <li>
-                  <a href={instagramUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 hover:text-white">
+                  <a
+                    href={instagramUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex flex-col items-center justify-center text-center gap-1 hover:text-white md:flex-row md:items-center md:justify-start md:text-left md:gap-2"
+                  >
                     <InstagramIcon /> Instagram
                   </a>
                 </li>
               ) : null}
               {tiktokUrl ? (
                 <li>
-                  <a href={tiktokUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 hover:text-white">
+                  <a
+                    href={tiktokUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex flex-col items-center justify-center text-center gap-1 hover:text-white md:flex-row md:items-center md:justify-start md:text-left md:gap-2"
+                  >
                     <TikTokIcon /> TikTok
                   </a>
                 </li>
               ) : null}
               {facebookUrl ? (
                 <li>
-                  <a href={facebookUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 hover:text-white">
+                  <a
+                    href={facebookUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex flex-col items-center justify-center text-center gap-1 hover:text-white md:flex-row md:items-center md:justify-start md:text-left md:gap-2"
+                  >
                     <FacebookIcon /> Facebook
                   </a>
                 </li>
@@ -75,7 +90,7 @@ export default function Footer() {
           </div>
 
           {/* Contact */}
-          <div>
+          <div className="text-center md:text-left">
             <h4 className="mb-4 text-sm font-semibold uppercase tracking-wide text-white">
               Contacto
             </h4>
