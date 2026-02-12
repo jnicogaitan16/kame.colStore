@@ -5,7 +5,7 @@ from django.core.validators import RegexValidator
 class Customer(models.Model):
     first_name = models.CharField(max_length=80)
     last_name = models.CharField(max_length=80, blank=True)
-    email = models.EmailField(unique=True)
+    email = models.EmailField(blank=True, null=True)
     phone = models.CharField(max_length=30, blank=True)
     document_type = models.CharField(
         max_length=10,
@@ -15,7 +15,6 @@ class Customer(models.Model):
     )
     cedula = models.CharField(
         max_length=20,
-        unique=True,
         validators=[
             RegexValidator(
                 regex=r"^\d{5,20}$",
@@ -37,5 +36,9 @@ class Customer(models.Model):
             models.CheckConstraint(
                 condition=~models.Q(cedula=""),
                 name="customer_cedula_not_empty",
-            )
+            ),
+            models.UniqueConstraint(
+                fields=["document_type", "cedula"],
+                name="uniq_customer_doc",
+            ),
         ]

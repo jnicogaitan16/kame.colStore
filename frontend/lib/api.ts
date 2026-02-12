@@ -52,6 +52,34 @@ export type StockValidateResponse = {
   }>;
 };
 
+export type CheckoutPayload = {
+  items: Array<{
+    product_variant_id: number;
+    quantity: number;
+    unit_price: number;
+  }>;
+  full_name: string;
+  document_type: string;
+  cedula: string;
+  email?: string;
+  phone?: string;
+  city_code: string;
+  address: string;
+  notes?: string;
+  payment_method?: string;
+};
+
+export type CheckoutResponse = {
+  order_id: number;
+  payment_reference: string;
+  status: string;
+  payment_instructions: string;
+  whatsapp_link?: string | null;
+  subtotal?: number;
+  shipping_cost?: number;
+  total?: number;
+};
+
 // Base URL for API calls.
 // Default: "/api" (same-origin) so Next rewrites can proxy to Django without CORS.
 // If you explicitly set NEXT_PUBLIC_API_URL, it will be used.
@@ -211,4 +239,30 @@ export async function validateCartStock(
     warningsByVariantId,
     items: rows.length ? rows : undefined,
   };
+}
+
+export async function checkout(payload: CheckoutPayload): Promise<CheckoutResponse> {
+  // Preferred backend route (Django): POST /api/orders/checkout/
+  // In this frontend, we call through Next's /api proxy. Depending on rewrites,
+  // this may be exposed as /api/orders/checkout/ or /api/checkout/.
+
+  const body = JSON.stringify(payload);
+
+  // Try the most explicit route first.
+  try {
+    return await apiFetch<CheckoutResponse>("/orders/checkout/", {
+      method: "POST",
+      body,
+    });
+  } catch (err: any) {
+    const msg = String(err?.message || "");
+    // Fallback to legacy/non-namespaced route if rewrites expose it that way.
+    if (msg.includes("404") || msg.includes("Not Found")) {
+      return await apiFetch<CheckoutResponse>("/checkout/", {
+        method: "POST",
+        body,
+      });
+    }
+    throw err;
+  }
 }

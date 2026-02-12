@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 
-import { apiFetch, validateCartStock } from "@/lib/api";
+import { apiFetch, checkout, validateCartStock, type CheckoutResponse } from "@/lib/api";
 import { useCartStore } from "@/store/cart";
 import Link from "next/link";
 import Image from "next/image";
@@ -15,10 +15,10 @@ type City = { code: string; label: string };
 
 const checkoutSchema = z.object({
   full_name: z.string().min(3, "Ingresa tu nombre completo"),
-  email: z.string().email("Ingresa un email válido"),
+  email: z.string().email("Ingresa un email válido").optional().or(z.literal("")),
   phone: z.string().min(7, "Ingresa un teléfono válido"),
   document_type: z.enum(["CC", "NIT"]),
-  document_number: z.string().min(4, "Documento obligatorio"),
+  cedula: z.string().min(4, "Documento obligatorio"),
   city_code: z.string().min(1, "Selecciona una ciudad"),
   address: z.string().min(5, "Ingresa una dirección"),
   notes: z.string().optional(),
@@ -63,12 +63,8 @@ export default function CheckoutClient() {
   const [exceedsByVariantId, setExceedsByVariantId] = useState<Record<number, number>>({});
   const stockValidateTimerRef = useRef<number | null>(null);
   const lastStockKeyRef = useRef<string>("");
-  const [orderSummary, setOrderSummary] = useState<{
-    order_id: number;
-    subtotal: number;
-    total: number;
-    shipping: { amount: number; label: string };
-  } | null>(null);
+  const [orderSummary, setOrderSummary] = useState<CheckoutResponse | null>(null);
+  const [copiedRef, setCopiedRef] = useState(false);
 
   const subtotal = Math.round(
     items.reduce(
@@ -154,33 +150,24 @@ export default function CheckoutClient() {
 
     try {
       const payload = {
-        customer: {
-          full_name: values.full_name,
-          email: values.email || "",
-          phone: values.phone,
-          document_type: values.document_type,
-          document_number: values.document_number,
-        },
-        shipping_address: {
-          city_code: values.city_code,
-          address: values.address,
-          notes: values.notes || "",
-        },
+        full_name: values.full_name,
+        email: values.email || undefined,
+        phone: values.phone,
+        document_type: values.document_type,
+        cedula: values.cedula,
+        city_code: values.city_code,
+        address: values.address,
+        notes: values.notes || "",
+        payment_method: "transferencia",
         items: items.map((item) => ({
           product_variant_id: item.variantId,
           quantity: item.quantity,
+          // Snapshot del precio unitario (backend espera int)
+          unit_price: Math.round(parseFloat(item.price)),
         })),
       };
 
-      const res = await apiFetch<{
-        order_id: number;
-        subtotal: number;
-        total: number;
-        shipping: { amount: number; label: string };
-      }>("/checkout/", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
+      const res = await checkout(payload);
 
       setOrderSummary(res);
       clearCart();
@@ -283,32 +270,89 @@ export default function CheckoutClient() {
   };
 
   if (!items.length && orderSummary) {
+    const ref = orderSummary.payment_reference;
+    const whatsapp = orderSummary.whatsapp_link;
+
     return (
       <div className="mx-auto max-w-2xl px-4 py-10 text-zinc-100">
-        <h1 className="mb-4 text-2xl font-bold tracking-tight text-zinc-100">¡Gracias por tu pedido!</h1>
+        <h1 className="mb-4 text-2xl font-bold tracking-tight text-zinc-100">Pedido creado</h1>
+
         <p className="mb-4 text-white/70">
-          Hemos recibido tu orden <span className="font-semibold">#{orderSummary.order_id}</span>.
-          Te contactaremos por WhatsApp o email para coordinar el pago y envío.
+          Tu orden <span className="font-semibold">#{orderSummary.order_id}</span> fue creada.
+          El siguiente paso es realizar el pago usando la referencia.
         </p>
+
         <div className="card-surface mb-6 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-zinc-100">
-          <div className="flex justify-between">
-            <span>Subtotal</span>
-            <span>${orderSummary.subtotal.toLocaleString("es-CO")}</span>
+          <div className="mb-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/60">Referencia de pago</p>
+            <div className="mt-2 flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+              <span className="font-mono text-sm text-white">{ref}</span>
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(ref || "");
+                    setCopiedRef(true);
+                    window.setTimeout(() => setCopiedRef(false), 1500);
+                  } catch {
+                    // ignore
+                  }
+                }}
+                className="inline-flex items-center justify-center rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white/85 hover:bg-white/10"
+              >
+                {copiedRef ? "Copiado" : "Copiar"}
+              </button>
+            </div>
           </div>
-          <div className="flex justify-between">
-            <span>{orderSummary.shipping.label}</span>
-            <span>${orderSummary.shipping.amount.toLocaleString("es-CO")}</span>
+
+          <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-3 text-sm text-white/80">
+            {orderSummary.payment_instructions}
           </div>
-          <div className="mt-2 flex justify-between border-t border-white/10 pt-2 font-semibold">
-            <span>Total</span>
-            <span>${orderSummary.total.toLocaleString("es-CO")}</span>
-          </div>
+
+          {(typeof orderSummary.subtotal === "number" || typeof orderSummary.total === "number") && (
+            <div className="mt-4 space-y-2">
+              {typeof orderSummary.subtotal === "number" && (
+                <div className="flex justify-between">
+                  <span>Subtotal</span>
+                  <span>${orderSummary.subtotal.toLocaleString("es-CO")}</span>
+                </div>
+              )}
+              {typeof orderSummary.shipping_cost === "number" && (
+                <div className="flex justify-between">
+                  <span>Envío</span>
+                  <span>${orderSummary.shipping_cost.toLocaleString("es-CO")}</span>
+                </div>
+              )}
+              {typeof orderSummary.total === "number" && (
+                <div className="flex justify-between border-t border-white/10 pt-2 font-semibold">
+                  <span>Total</span>
+                  <span>${orderSummary.total.toLocaleString("es-CO")}</span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
-        <Link href="/" className="inline-flex w-full">
-          <Button type="button" variant="primary" fullWidth>
-            Volver al inicio
-          </Button>
-        </Link>
+
+        <div className="flex flex-col gap-3">
+          {whatsapp ? (
+            <a
+              href={whatsapp}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex w-full"
+            >
+              <Button type="button" variant="secondary" fullWidth>
+                Hablar por WhatsApp
+              </Button>
+            </a>
+          ) : null}
+
+          <Link href="/" className="inline-flex w-full">
+            <Button type="button" variant="primary" fullWidth>
+              Volver al inicio
+            </Button>
+          </Link>
+        </div>
       </div>
     );
   }
@@ -427,13 +471,13 @@ export default function CheckoutClient() {
                     <label className="mb-1 block text-sm font-medium text-white/80">Número de documento</label>
                     <input
                       type="text"
-                      {...register("document_number")}
+                      {...register("cedula")}
                       placeholder="1234567890"
                       className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 placeholder:text-white/35 outline-none transition focus:border-white/20 focus:ring-2 focus:ring-white/20"
                     />
-                    {errors.document_number && (
+                    {errors.cedula && (
                       <p className="mt-1 text-xs text-red-600">
-                        {errors.document_number.message}
+                        {errors.cedula.message}
                       </p>
                     )}
                   </div>

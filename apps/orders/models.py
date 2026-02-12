@@ -35,7 +35,10 @@ class Order(models.Model):
     )
     payment_reference = models.CharField(
         max_length=80,
+        null=True,
         blank=True,
+        unique=True,
+        help_text="Referencia única del pago (asignada al confirmar).",
     )
 
     # snapshot entrega + contacto

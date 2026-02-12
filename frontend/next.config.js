@@ -1,22 +1,20 @@
-const DJANGO_API_BASE = process.env.DJANGO_API_BASE || 'http://127.0.0.1:8000';
-
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Avoid Next's automatic `/path/ -> /path` redirects.
   // This is especially important for proxied Django/DRF endpoints that conventionally end with `/`.
   skipTrailingSlashRedirect: true,
-  async rewrites() {
-    const raw = process.env.DJANGO_API_BASE || "";
 
+  async rewrites() {
+    // Read from .env.local (DJANGO_API_BASE=...) with a safe dev fallback.
+    const raw = process.env.DJANGO_API_BASE;
     if (!raw) {
-      console.warn(
-        "DJANGO_API_BASE is not defined. Set it in frontend/.env.local (e.g. DJANGO_API_BASE=http://127.0.0.1:8000)"
+      throw new Error(
+        "DJANGO_API_BASE is not defined. Set it in frontend/.env.local"
       );
-      return [];
     }
 
     // Normalize: remove trailing slash and optional trailing /api
-    const base = raw.replace(/\/$/, "").replace(/\/api$/, "");
+    const base = raw.replace(/\/+$/, "").replace(/\/api$/, "");
 
     return [
       {
@@ -28,6 +26,7 @@ const nextConfig = {
 
   images: {
     remotePatterns: [
+      // Local Django media (dev)
       {
         protocol: "http",
         hostname: "localhost",
@@ -40,20 +39,14 @@ const nextConfig = {
         port: "8000",
         pathname: "/media/**",
       },
+
+      // Cloudinary
       {
         protocol: "https",
-        hostname: "**",
-        pathname: "/media/**",
+        hostname: "res.cloudinary.com",
+        pathname: "/**",
       },
     ],
-  },
-  async rewrites() {
-    return [
-      {
-        source: '/api/:path*',
-        destination: `${DJANGO_API_BASE.replace(/\/$/, '')}/api/:path*`,
-      },
-    ];
   },
 };
 

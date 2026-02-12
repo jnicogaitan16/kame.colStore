@@ -1,6 +1,8 @@
 from django.contrib import admin, messages
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.conf import settings
+from django.core.mail import send_mail
 
 from django import forms
 from apps.orders.constants import CITY_CHOICES
@@ -51,7 +53,7 @@ class OrderAdmin(admin.ModelAdmin):
         "customer__last_name",
         "customer__email",
     )
-    readonly_fields = ("total", "stock_deducted_at", "created_at")
+    readonly_fields = ("status", "total", "stock_deducted_at", "created_at")
     inlines = (OrderItemInline,)
     actions = ("confirm_payment_action",)
 
@@ -62,7 +64,41 @@ class OrderAdmin(admin.ModelAdmin):
 
         for order in queryset:
             try:
+                prev_deducted_at = order.stock_deducted_at
+
                 order.confirm_payment()
+                order.refresh_from_db(fields=["status", "stock_deducted_at", "email", "full_name"])
+
+                is_first_confirmation = (
+                    prev_deducted_at is None
+                    and order.stock_deducted_at is not None
+                    and order.status == "paid"
+                )
+
+                if is_first_confirmation:
+                    recipient = (getattr(order, "email", "") or "").strip()
+
+                    if recipient:
+                        subject = f"Pago validado - Pedido #{order.pk}"
+                        body = (
+                            f"Hola {getattr(order, 'full_name', '') or ''},\n\n"
+                            f"Hemos validado tu pago y tu pedido #{order.pk} fue confirmado.\n"
+                            f"En un plazo de 3 días hábiles tendrás tu producto en el domicilio.\n\n"
+                            f"Gracias por comprar en Kame.col.\n"
+                        )
+                        send_mail(
+                            subject,
+                            body,
+                            getattr(settings, "DEFAULT_FROM_EMAIL", None) or None,
+                            [recipient],
+                            fail_silently=False,
+                        )
+                    else:
+                        messages.warning(
+                            request,
+                            f"Pedido #{order.pk}: pago confirmado, pero no se envió correo porque la orden no tiene email."
+                        )
+
                 ok += 1
             except ValidationError as e:
                 failed += 1
@@ -129,32 +165,9 @@ class OrderAdmin(admin.ModelAdmin):
         """
         super().save_related(request, form, formsets, change)
 
-        obj = form.instance
-        previous_status = getattr(obj, "_admin_previous_status", None)
-
-        should_confirm = (
-            change
-            and previous_status != "paid"
-            and obj.status == "paid"
-            and obj.stock_deducted_at is None
-        )
-        if not should_confirm:
-            return
-
-        fallback_status = previous_status or "pending_payment"
-
-        try:
-            with transaction.atomic():
-                obj.confirm_payment()
-        except ValidationError as e:
-            # Revertir el status para no dejar la orden como pagada si no se pudo descontar stock
-            Order.objects.filter(pk=obj.pk).update(status=fallback_status)
-            obj.status = fallback_status
-            messages.error(request, f"No se pudo confirmar el pago: {e}")
-        except Exception as e:
-            Order.objects.filter(pk=obj.pk).update(status=fallback_status)
-            obj.status = fallback_status
-            messages.error(request, f"Error inesperado al confirmar el pago: {e}")
+        # Deprecado: La confirmación de pago se hace SOLO por la acción del admin (confirm_payment_action).
+        # Evitamos confirmación “silenciosa” por edición manual del status.
+        return
 
     class Media:
         js = ("orders/js/order_admin_shipping.js",)

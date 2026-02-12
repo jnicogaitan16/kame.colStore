@@ -5,6 +5,9 @@ Prefijo: /api/orders/
 """
 from __future__ import annotations
 
+from urllib.parse import quote
+from django.conf import settings
+
 from django.db import transaction
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import never_cache
@@ -15,12 +18,8 @@ from rest_framework.views import APIView
 from apps.catalog.models import ProductVariant
 
 from apps.orders.constants import CITY_CHOICES
-from apps.orders.forms import CheckoutForm
 from apps.orders.serializers import CheckoutSerializer
-from apps.orders.services import (
-    create_order_from_cart,
-    get_or_create_customer_from_form_data,
-)
+from apps.orders.services.create_order_from_cart import create_order_from_checkout
 from apps.orders.services.shipping import calculate_shipping_cost
 from apps.orders.services.stock import validate_items_stock
 
@@ -184,33 +183,91 @@ class CheckoutAPIView(APIView):
 
         form_data, validated_cart = serializer.get_normalized_form_data()
 
-        # Reutilizar la lógica existente de customers + creación de orden
-        # para no duplicar reglas de negocio.
+        # Construir payload unificado para el service del checkout (customer + order + items)
+        items_payload = []
+        for it in (validated_cart.items or []):
+            if not isinstance(it, dict):
+                continue
+
+            pv_id = it.get("product_variant_id") or it.get("variant_id")
+            if pv_id is None and it.get("product_variant") is not None:
+                try:
+                    pv_id = int(it["product_variant"].id)
+                except Exception:
+                    pv_id = None
+
+            qty = it.get("quantity") or it.get("qty") or 0
+            unit_price = it.get("unit_price") or it.get("unitPrice") or it.get("price")
+
+            # Fallback: si viene el objeto variant, intenta tomar su precio
+            if unit_price is None and it.get("product_variant") is not None:
+                pv = it["product_variant"]
+                unit_price = getattr(pv, "price", None) or getattr(pv, "base_price", None)
+
+            if pv_id is None or unit_price is None:
+                continue
+
+            try:
+                items_payload.append(
+                    {
+                        "product_variant_id": int(pv_id),
+                        "quantity": int(qty),
+                        "unit_price": int(unit_price),
+                    }
+                )
+            except (TypeError, ValueError):
+                continue
+
+        checkout_payload = {
+            # items
+            "items": items_payload,
+            # customer snapshot
+            "full_name": form_data.get("full_name") or "",
+            "document_type": form_data.get("document_type") or "",
+            "cedula": form_data.get("cedula") or "",
+            "email": form_data.get("email"),
+            "phone": form_data.get("phone"),
+            # shipping snapshot
+            "city_code": form_data.get("city_code") or form_data.get("city") or "",
+            "address": form_data.get("address") or "",
+            "notes": form_data.get("notes") or "",
+            # payment
+            "payment_method": form_data.get("payment_method") or "transferencia",
+        }
+
         with transaction.atomic():
-            customer = get_or_create_customer_from_form_data(form_data)
+            order = create_order_from_checkout(checkout_payload)
 
-            # CheckoutForm solo se usa para aprovechar validaciones adicionales
-            # (por ahora ligeras) sin duplicar campos.
-            form = CheckoutForm(form_data)
-            form.is_valid(raise_exception=False)  # ya validamos en DRF; no interesa errors
+        # Instrucciones de pago (sin pasarela)
+        payment_reference = order.payment_reference or ""
+        payment_method = getattr(order, "payment_method", "") or "transferencia"
 
-            order = create_order_from_cart(
-                customer=customer,
-                cart_items=validated_cart.items,
-                form_data=form_data,
-                subtotal=validated_cart.subtotal,
+        payment_instructions = (
+            "Tu pedido fue creado. "
+            f"Paga por {payment_method} usando esta referencia: {payment_reference}. "
+            "Una vez realizado el pago, envíanos el comprobante para confirmar."
+        )
+
+        # WhatsApp opcional (si configuras un número de soporte en settings)
+        whatsapp_link = None
+        support_number = getattr(settings, "WHATSAPP_SUPPORT_NUMBER", None)
+        if support_number:
+            msg = (
+                f"Hola, quiero confirmar el pago de mi pedido #{order.id}. "
+                f"Referencia: {payment_reference}."
             )
-
-        shipping_amount = int(order.shipping_cost or 0)
+            whatsapp_link = f"https://wa.me/{support_number}?text={quote(msg)}"
 
         return Response(
             {
                 "order_id": order.id,
+                "payment_reference": payment_reference,
+                "status": getattr(order, "status", ""),
+                "payment_instructions": payment_instructions,
+                "whatsapp_link": whatsapp_link,
+                # Totales (útiles para UI)
                 "subtotal": int(order.subtotal or 0),
-                "shipping": {
-                    "amount": shipping_amount,
-                    "label": "Envío estándar",
-                },
+                "shipping_cost": int(order.shipping_cost or 0),
                 "total": int(order.total or 0),
             },
             status=status.HTTP_201_CREATED,

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import logging
+import base64
+import secrets
+from datetime import date
 from typing import Dict
 
 from django.core.exceptions import ValidationError
@@ -12,6 +15,33 @@ from apps.orders.services.product_variants import get_product_variant_model
 from apps.orders.services.stock import assert_items_stock
 
 logger = logging.getLogger(__name__)
+
+
+# --- Nueva función para generar referencia de pago ---
+def generate_payment_reference(prefix: str = "KME", max_attempts: int = 5) -> str:
+    """
+    Genera una referencia de pago corta y única.
+
+    Formato: KME-YYYYMMDD-XXXXXX
+    Donde XXXXXX es un código random en Base32 (A-Z2-7), sin padding.
+
+    Valida unicidad contra Order.payment_reference con hasta `max_attempts` intentos.
+    """
+    today = date.today().strftime("%Y%m%d")
+
+    def _random_base32_code(length: int = 6) -> str:
+        # 5 bytes => Base32 ~ 8 chars, cortamos a 6 para mantenerlo corto.
+        raw = secrets.token_bytes(5)
+        code = base64.b32encode(raw).decode("ascii").rstrip("=")
+        return code[:length].upper()
+
+    for _ in range(max_attempts):
+        code = _random_base32_code(6)
+        ref = f"{prefix}-{today}-{code}"
+        if not Order.objects.filter(payment_reference=ref).exists():
+            return ref
+
+    raise ValidationError("No fue posible generar una referencia de pago única. Intenta nuevamente.")
 
 
 def confirm_order_payment(order: Order) -> None:
@@ -44,7 +74,12 @@ def confirm_order_payment(order: Order) -> None:
             order.stock_deducted_at = locked_order.stock_deducted_at
             return
 
-        if locked_order.status not in (Order.Status.CREATED, Order.Status.PENDING_PAYMENT, Order.Status.PAID):
+        # Solo se confirma pago si el pedido está pendiente (o recién creado).
+        # Si ya está PAID pero sin stock descontado, eso indica un estado inconsistente.
+        if locked_order.status == Order.Status.PAID and not locked_order.stock_deducted_at:
+            raise ValidationError("El pedido ya está marcado como pagado; no se puede reconfirmar.")
+
+        if locked_order.status not in (Order.Status.CREATED, Order.Status.PENDING_PAYMENT):
             raise ValidationError("Estado inválido para confirmar pago.")
 
         # Agrupar cantidades requeridas por variante
@@ -88,6 +123,14 @@ def confirm_order_payment(order: Order) -> None:
         locked_order.payment_confirmed_at = timezone.now()
         locked_order.stock_deducted_at = timezone.now()
         locked_order.save(update_fields=["status", "payment_confirmed_at", "stock_deducted_at"])
+
+        # Enviar email de pago confirmado
+        try:
+            from apps.notifications.emails import send_payment_confirmed_email
+            send_payment_confirmed_email(locked_order)
+        except Exception:
+            # No romper confirmación si el email falla
+            pass
 
         # Reflejar cambios en instancia externa
         order.status = locked_order.status
