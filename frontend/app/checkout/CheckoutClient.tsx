@@ -27,7 +27,7 @@ const checkoutSchema = z.object({
 type CheckoutFormValues = z.infer<typeof checkoutSchema>;
 
 async function fetchCities(): Promise<City[]> {
-  const data = await apiFetch<{ cities: City[] }>("/orders/cities/");
+  const data = await apiFetch<{ cities: City[] }>("/cities/");
   return data.cities;
 }
 
@@ -37,7 +37,7 @@ async function fetchShippingQuote(params: {
 }): Promise<{ amount: number; label: string } | null> {
   if (!params.city_code || params.subtotal <= 0) return null;
   return apiFetch<{ amount: number; label: string }>(
-    `/orders/shipping-quote/?city_code=${encodeURIComponent(
+    `/shipping-quote/?city_code=${encodeURIComponent(
       params.city_code
     )}&subtotal=${params.subtotal}`
   );
@@ -48,6 +48,7 @@ export default function CheckoutClient() {
   const clearCart = useCartStore((state) => state.clearCart);
   const updateQuantity = useCartStore((state) => state.updateQuantity);
   const removeItem = useCartStore((state) => state.removeItem);
+  const applyOptimisticStockCheck = useCartStore((state) => state.applyOptimisticStockCheck);
   const setStockWarnings = useCartStore((state) => state.setStockWarnings);
   const getStockWarning = useCartStore((state) => state.getStockWarning);
   const hasStockWarnings = useCartStore((state) => state.hasStockWarnings);
@@ -59,6 +60,7 @@ export default function CheckoutClient() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [stockBanner, setStockBanner] = useState<string | null>(null);
+  const [exceedsByVariantId, setExceedsByVariantId] = useState<Record<number, number>>({});
   const stockValidateTimerRef = useRef<number | null>(null);
   const lastStockKeyRef = useRef<string>("");
   const [orderSummary, setOrderSummary] = useState<{
@@ -146,6 +148,7 @@ export default function CheckoutClient() {
     }
 
     setStockBanner(null);
+    setExceedsByVariantId({});
     setIsSubmitting(true);
     setSubmitError(null);
 
@@ -174,7 +177,7 @@ export default function CheckoutClient() {
         subtotal: number;
         total: number;
         shipping: { amount: number; label: string };
-      }>("/orders/checkout/", {
+      }>("/checkout/", {
         method: "POST",
         body: JSON.stringify(payload),
       });
@@ -229,6 +232,44 @@ export default function CheckoutClient() {
             };
           }
           setStockWarnings(map);
+        }
+
+        try {
+          const src: any = parsed?.warningsByVariantId
+            ? parsed.warningsByVariantId
+            : Array.isArray(parsed?.items)
+              ? parsed.items
+              : null;
+
+          const nextExceeds: Record<number, number> = {};
+
+          if (src && !Array.isArray(src)) {
+            // warningsByVariantId shape
+            for (const [k, v] of Object.entries(src)) {
+              const vid = Number(k);
+              if (!Number.isFinite(vid)) continue;
+              const status = (v as any)?.status;
+              const available = (v as any)?.available;
+              if (status === "exceeds_stock" && typeof available === "number") {
+                nextExceeds[vid] = available;
+              }
+            }
+          } else if (Array.isArray(src)) {
+            // items array shape
+            for (const it of src) {
+              const vid = Number(it.product_variant_id ?? it.variant_id ?? it.variantId);
+              if (!Number.isFinite(vid)) continue;
+              const status = it.status || it.reason;
+              const available = it.available;
+              if (status === "exceeds_stock" && typeof available === "number") {
+                nextExceeds[vid] = available;
+              }
+            }
+          }
+
+          setExceedsByVariantId(nextExceeds);
+        } catch {
+          setExceedsByVariantId({});
         }
 
         // Keep submitError null (banner is the UX)
@@ -290,7 +331,31 @@ export default function CheckoutClient() {
           <>
             {stockBanner && (
               <div className="mb-4 rounded-xl border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-sm text-amber-100">
-                {stockBanner}
+                <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                  <span>{stockBanner}</span>
+
+                  {Object.keys(exceedsByVariantId || {}).length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        for (const [k, available] of Object.entries(exceedsByVariantId || {})) {
+                          const vid = Number(k);
+                          if (!Number.isFinite(vid)) continue;
+
+                          if (available <= 0) {
+                            removeItem(vid);
+                          } else {
+                            applyOptimisticStockCheck(vid, available);
+                            updateQuantity(vid, available);
+                          }
+                        }
+                      }}
+                      className="inline-flex items-center justify-center rounded-lg border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-xs font-semibold text-amber-100 hover:bg-amber-400/15"
+                    >
+                      Ajustar todos a disponible
+                    </button>
+                  )}
+                </div>
               </div>
             )}
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -530,6 +595,7 @@ export default function CheckoutClient() {
                                     if (available === 0) {
                                       removeItem(item.variantId);
                                     } else {
+                                      applyOptimisticStockCheck(item.variantId, available);
                                       updateQuantity(item.variantId, available);
                                     }
                                   }}

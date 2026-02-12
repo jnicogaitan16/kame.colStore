@@ -4,7 +4,7 @@
  */
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { StockValidateStatus } from "@/lib/api";
+
 
 export interface CartItem {
   variantId: number;
@@ -17,14 +17,19 @@ export interface CartItem {
   imageUrl: string | null;
 }
 
-export type StockWarningStatus = StockValidateStatus;
+export type StockWarningStatus =
+  | "ok"
+  | "exceeds_stock"
+  | "missing"
+  | "inactive"
+  | "error";
 
-export interface StockWarning {
+export type StockWarning = {
   status: StockWarningStatus;
   available: number;
   message: string;
   updatedAt: number; // epoch ms
-}
+};
 
 interface CartState {
   items: CartItem[];
@@ -37,6 +42,11 @@ interface CartState {
   closeCart: () => void;
   toggleCart: () => void;
   setStockWarnings: (payload: Record<number, Omit<StockWarning, "updatedAt">>) => void;
+  upsertStockWarning: (
+    variantId: number,
+    warning: Partial<Omit<StockWarning, "updatedAt">>
+  ) => void;
+  applyOptimisticStockCheck: (variantId: number, nextQty: number) => void;
   hasStockWarnings: () => boolean;
   getStockWarning: (variantId: number) => StockWarning | undefined;
   totalItems: () => number;
@@ -107,6 +117,44 @@ export const useCartStore = create<CartState>()(
           }
 
           return { stockWarningsByVariantId: next };
+        });
+      },
+
+      upsertStockWarning: (variantId, warning) => {
+        const now = Date.now();
+        set((state) => {
+          const prev = state.stockWarningsByVariantId[variantId];
+          const next: Record<number, StockWarning> = {
+            ...state.stockWarningsByVariantId,
+          };
+
+          next[variantId] = {
+            status: (warning.status ?? prev?.status ?? "ok") as StockWarningStatus,
+            available: warning.available ?? prev?.available ?? 0,
+            message: warning.message ?? prev?.message ?? "",
+            updatedAt: now,
+          };
+
+          return { stockWarningsByVariantId: next };
+        });
+      },
+
+      applyOptimisticStockCheck: (variantId, nextQty) => {
+        const w = get().stockWarningsByVariantId[variantId];
+        if (!w) return;
+        if (!Number.isFinite(w.available) || w.available < 0) return;
+
+        if (nextQty > w.available) {
+          get().upsertStockWarning(variantId, {
+            status: "exceeds_stock",
+            message: "Stock insuficiente.",
+          });
+          return;
+        }
+
+        get().upsertStockWarning(variantId, {
+          status: "ok",
+          message: "",
         });
       },
 

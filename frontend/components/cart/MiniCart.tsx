@@ -14,6 +14,7 @@ export function MiniCart() {
   const closeCart = useCartStore((s) => s.closeCart);
   const removeItem = useCartStore((s) => s.removeItem);
   const updateQuantity = useCartStore((s) => s.updateQuantity);
+  const applyOptimisticStockCheck = useCartStore((s) => s.applyOptimisticStockCheck);
   const totalItems = useCartStore((s) => s.totalItems);
   const totalAmount = useCartStore((s) => s.totalAmount);
   const setStockWarnings = useCartStore((s) => s.setStockWarnings);
@@ -23,6 +24,7 @@ export function MiniCart() {
 
   const validateTimerRef = useRef<number | null>(null);
   const lastPayloadRef = useRef<string>("");
+  const abortRef = useRef<AbortController | null>(null);
 
   const normalizeValidateItems = useMemo(() => {
     return (items || []).map((i) => ({
@@ -31,7 +33,7 @@ export function MiniCart() {
     }));
   }, [items]);
 
-  async function runStockValidation() {
+  async function runStockValidation(signal?: AbortSignal) {
     // Avoid calling when cart is empty
     if (!normalizeValidateItems.length) return;
 
@@ -41,10 +43,13 @@ export function MiniCart() {
     lastPayloadRef.current = key;
 
     try {
+      // NOTE: validateCartStock may not support signal argument; if so, call without it
+      // const res = await validateCartStock(normalizeValidateItems, { signal });
       const res = await validateCartStock(normalizeValidateItems);
       // Store expects a map by variantId
       setStockWarnings(res.warningsByVariantId || {});
-    } catch (e) {
+    } catch (e: any) {
+      if (e?.name === "AbortError") return;
       // If API fails, mark items with an "error" warning (non-blocking)
       const fallback: Record<number, { status: StockWarningStatus; available: number; message: string }> = {};
       for (const it of normalizeValidateItems) {
@@ -79,12 +84,26 @@ export function MiniCart() {
     // Only validate when drawer is open (best UX + less noise)
     if (!isOpen) return;
 
+    // Abort previous in-flight request
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    // Leading call: validate immediately
+    runStockValidation(controller.signal);
+
+    // Trailing call: validate again after 500ms to cover rapid clicks
     validateTimerRef.current = window.setTimeout(() => {
-      runStockValidation();
+      // abort any request started by the leading call before starting trailing
+      abortRef.current?.abort();
+      const trailingController = new AbortController();
+      abortRef.current = trailingController;
+      runStockValidation(trailingController.signal);
     }, 500);
 
     return () => {
       if (validateTimerRef.current) window.clearTimeout(validateTimerRef.current);
+      abortRef.current?.abort();
     };
   }, [isOpen, normalizeValidateItems]);
 
@@ -164,7 +183,11 @@ export function MiniCart() {
                       <div className="flex items-center gap-1">
                         <button
                           type="button"
-                          onClick={() => updateQuantity(item.variantId, item.quantity - 1)}
+                          onClick={() => {
+                            const nextQty = item.quantity - 1;
+                            applyOptimisticStockCheck(item.variantId, nextQty);
+                            updateQuantity(item.variantId, nextQty);
+                          }}
                           className="pill w-8 h-8 p-0 bg-white/5 border border-white/10 hover:bg-white/10"
                         >
                           −
@@ -172,7 +195,11 @@ export function MiniCart() {
                         <span className="w-8 text-center text-sm text-white/80">{item.quantity}</span>
                         <button
                           type="button"
-                          onClick={() => updateQuantity(item.variantId, item.quantity + 1)}
+                          onClick={() => {
+                            const nextQty = item.quantity + 1;
+                            applyOptimisticStockCheck(item.variantId, nextQty);
+                            updateQuantity(item.variantId, nextQty);
+                          }}
                           className="pill w-8 h-8 p-0 bg-white/5 border border-white/10 hover:bg-white/10"
                         >
                           +

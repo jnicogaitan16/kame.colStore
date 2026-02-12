@@ -154,7 +154,7 @@ export async function getHomepageStory(): Promise<HomepageStory | null> {
 export async function validateCartStock(
   items: StockValidateItem[]
 ): Promise<StockValidateResponse> {
-  // Backend contract: POST /api/orders/stock-validate/ { items: [{ product_variant_id, quantity }] }
+  // Backend contract: POST /api/stock-validate/ { items: [{ product_variant_id, quantity }] }
   const payload = { items: items || [] };
 
   // Backend typically returns: { ok: boolean, items: [{ product_variant_id, requested, available, is_active, ok, reason }] }
@@ -165,7 +165,7 @@ export async function validateCartStock(
 
   type StockValidateRow = NonNullable<StockValidateResponse["items"]>[number];
 
-  const rows: StockValidateRow[] = Array.isArray(raw?.items) ? raw.items : [];
+  const rows = Array.isArray(raw?.items) ? raw.items : [];
 
   const warningsByVariantId: StockValidateResponse["warningsByVariantId"] = {};
 
@@ -192,12 +192,13 @@ export async function validateCartStock(
     const available =
       typeof row?.available === "number" ? row.available : 0;
 
-    const message =
-      typeof row?.reason === "string" && row.reason
-        ? row.reason
-        : status === "ok"
-          ? ""
-          : "error";
+    let message = "";
+
+    if (status === "exceeds_stock") message = "Stock insuficiente.";
+    else if (status === "missing") message = "Variante no disponible.";
+    else if (status === "inactive") message = "Variante inactiva.";
+    else if (status === "error") message = "No pudimos validar stock en este momento.";
+    else message = ""; // ok
 
     warningsByVariantId[variantId] = { status, available, message };
   }
