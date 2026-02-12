@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 
-import { apiFetch } from "@/lib/api";
+import { apiFetch, validateCartStock } from "@/lib/api";
 import { useCartStore } from "@/store/cart";
 import Link from "next/link";
 import Image from "next/image";
@@ -46,6 +46,11 @@ async function fetchShippingQuote(params: {
 export default function CheckoutClient() {
   const items = useCartStore((state) => state.items);
   const clearCart = useCartStore((state) => state.clearCart);
+  const updateQuantity = useCartStore((state) => state.updateQuantity);
+  const removeItem = useCartStore((state) => state.removeItem);
+  const setStockWarnings = useCartStore((state) => state.setStockWarnings);
+  const getStockWarning = useCartStore((state) => state.getStockWarning);
+  const hasStockWarnings = useCartStore((state) => state.hasStockWarnings);
 
   const [cities, setCities] = useState<City[]>([]);
   const [shipping, setShipping] = useState<{ amount: number; label: string } | null>(
@@ -53,6 +58,9 @@ export default function CheckoutClient() {
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [stockBanner, setStockBanner] = useState<string | null>(null);
+  const stockValidateTimerRef = useRef<number | null>(null);
+  const lastStockKeyRef = useRef<string>("");
   const [orderSummary, setOrderSummary] = useState<{
     order_id: number;
     subtotal: number;
@@ -66,6 +74,28 @@ export default function CheckoutClient() {
       0
     )
   );
+
+  const stockValidateItems = useMemo(() => {
+    return (items || []).map((item) => ({
+      product_variant_id: item.variantId,
+      quantity: item.quantity,
+    }));
+  }, [items]);
+
+  async function runStockValidate() {
+    if (!stockValidateItems.length) return;
+
+    const key = JSON.stringify(stockValidateItems);
+    if (key === lastStockKeyRef.current) return;
+    lastStockKeyRef.current = key;
+
+    try {
+      const res = await validateCartStock(stockValidateItems);
+      setStockWarnings(res.warningsByVariantId || {});
+    } catch {
+      // Non-blocking: do not show errors for validation failures
+    }
+  }
 
   const {
     register,
@@ -90,6 +120,19 @@ export default function CheckoutClient() {
   }, []);
 
   useEffect(() => {
+    if (stockValidateTimerRef.current) window.clearTimeout(stockValidateTimerRef.current);
+
+    // Debounce to avoid spamming when user edits quantities
+    stockValidateTimerRef.current = window.setTimeout(() => {
+      runStockValidate();
+    }, 400);
+
+    return () => {
+      if (stockValidateTimerRef.current) window.clearTimeout(stockValidateTimerRef.current);
+    };
+  }, [stockValidateItems]);
+
+  useEffect(() => {
     if (!watchedCity || subtotal <= 0) return;
     fetchShippingQuote({ city_code: watchedCity, subtotal })
       .then((quote) => setShipping(quote))
@@ -102,6 +145,7 @@ export default function CheckoutClient() {
       return;
     }
 
+    setStockBanner(null);
     setIsSubmitting(true);
     setSubmitError(null);
 
@@ -138,10 +182,60 @@ export default function CheckoutClient() {
       setOrderSummary(res);
       clearCart();
     } catch (error: any) {
-      const message =
+      // Default message
+      const fallback =
         error?.message ||
         "No se pudo procesar tu pedido. Intenta de nuevo en unos minutos.";
-      setSubmitError(message);
+
+      // Try to parse backend JSON from apiFetch error format: "API 400: <json>"
+      let parsed: any = null;
+      try {
+        const msg = String(error?.message || "");
+        const idx = msg.indexOf("API 400:");
+        if (idx !== -1) {
+          const raw = msg.slice(idx + "API 400:".length).trim();
+          if (raw) parsed = JSON.parse(raw);
+        }
+      } catch {
+        parsed = null;
+      }
+
+      const code = parsed?.code || parsed?.error || parsed?.detail_code;
+      if (code === "STOCK_EXCEEDED" || parsed?.code === "STOCK_EXCEEDED") {
+        // Banner + per-item warnings
+        setStockBanner(
+          parsed?.message ||
+            "Algunos productos no tienen el stock solicitado. Ajusta cantidades o continúa y lo revisamos."
+        );
+
+        if (parsed?.warningsByVariantId) {
+          setStockWarnings(parsed.warningsByVariantId || {});
+        } else if (Array.isArray(parsed?.items)) {
+          // Build warningsByVariantId from items if backend returns an array
+          const map: Record<number, { status: import("@/store/cart").StockWarningStatus; available: number; message: string }> = {};
+          for (const it of parsed.items) {
+            const vid = Number(it.product_variant_id ?? it.variant_id ?? it.variantId);
+            if (!Number.isFinite(vid)) continue;
+            map[vid] = {
+              status:
+                it.status === "missing" ||
+                it.status === "inactive" ||
+                it.status === "error" ||
+                it.status === "ok"
+                  ? it.status
+                  : "exceeds_stock",
+              available: typeof it.available === "number" ? it.available : 0,
+              message: it.message || "Stock insuficiente para este ítem.",
+            };
+          }
+          setStockWarnings(map);
+        }
+
+        // Keep submitError null (banner is the UX)
+        setSubmitError(null);
+      } else {
+        setSubmitError(fallback);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -193,7 +287,13 @@ export default function CheckoutClient() {
         )}
 
         {items.length > 0 && (
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          <>
+            {stockBanner && (
+              <div className="mb-4 rounded-xl border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-sm text-amber-100">
+                {stockBanner}
+              </div>
+            )}
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div>
               <h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-white/60">
                 Datos de contacto
@@ -339,6 +439,7 @@ export default function CheckoutClient() {
               {isSubmitting ? "Procesando pedido..." : "Confirmar pedido"}
             </Button>
           </form>
+          </>
         )}
       </section>
 
@@ -400,6 +501,46 @@ export default function CheckoutClient() {
                         <p className="truncate text-xs text-white/60">
                           {item.variantLabel} × {item.quantity}
                         </p>
+
+                        {(() => {
+                          const w = getStockWarning(item.variantId);
+                          if (!w || w.status === "ok") return null;
+
+                          const available =
+                            typeof w.available === "number" ? w.available : null;
+
+                          const canAdjust =
+                            available !== null &&
+                            available >= 0 &&
+                            available < item.quantity;
+
+                          return (
+                            <div className="mt-1">
+                              <p className="text-[11px] text-amber-300/90">
+                                {w.message}
+                                {available !== null ? (
+                                  <span className="text-amber-200/80"> (disp: {available})</span>
+                                ) : null}
+                              </p>
+
+                              {canAdjust ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (available === 0) {
+                                      removeItem(item.variantId);
+                                    } else {
+                                      updateQuantity(item.variantId, available);
+                                    }
+                                  }}
+                                  className="mt-1 inline-flex items-center rounded-lg border border-amber-400/25 bg-amber-400/10 px-2 py-1 text-[11px] font-medium text-amber-100 hover:bg-amber-400/15"
+                                >
+                                  Ajustar a disponible
+                                </button>
+                              ) : null}
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
 
@@ -433,6 +574,11 @@ export default function CheckoutClient() {
                   El total final se confirma al crear la orden en el backend. No se
                   realiza el pago aún; coordinamos por WhatsApp o transferencia.
                 </p>
+                {hasStockWarnings() && (
+                  <p className="mt-2 text-xs text-amber-200/80">
+                    Nota: algunos ítems tienen stock limitado. Ajusta cantidades si lo deseas.
+                  </p>
+                )}
               </div>
             </>
           )}

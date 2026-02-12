@@ -12,6 +12,8 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.catalog.models import ProductVariant
+
 from apps.orders.constants import CITY_CHOICES
 from apps.orders.forms import CheckoutForm
 from apps.orders.serializers import CheckoutSerializer
@@ -20,6 +22,7 @@ from apps.orders.services import (
     get_or_create_customer_from_form_data,
 )
 from apps.orders.services.shipping import calculate_shipping_cost
+from apps.orders.services.stock import validate_items_stock
 
 
 class CitiesAPIView(APIView):
@@ -35,13 +38,94 @@ class CitiesAPIView(APIView):
         return Response({"cities": cities})
 
 
-CITY_CODES = {code for code, _label in CITY_CHOICES}
+class StockValidateAPIView(APIView):
+    """POST /api/orders/stock-validate/
+
+    Validates that the requested items are sellable given current stock.
+    """
+
+    @method_decorator(never_cache)
+    def post(self, request, *args, **kwargs):
+        raw_items = request.data.get("items")
+
+        if not isinstance(raw_items, list) or not raw_items:
+            return Response(
+                {"detail": "items es requerido y debe ser una lista no vacía."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        normalized = []
+        variant_ids = []
+
+        for it in raw_items:
+            if not isinstance(it, dict):
+                continue
+            vid = it.get("product_variant_id")
+            qty = it.get("quantity")
+            try:
+                vid_int = int(vid)
+            except (TypeError, ValueError):
+                vid_int = None
+            try:
+                qty_int = int(qty)
+            except (TypeError, ValueError):
+                qty_int = 0
+
+            normalized.append({"product_variant_id": vid_int, "quantity": qty_int})
+            if vid_int is not None:
+                variant_ids.append(vid_int)
+
+        if not variant_ids:
+            return Response(
+                {"detail": "items debe incluir al menos un product_variant_id válido."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        variants = ProductVariant.objects.filter(id__in=variant_ids)
+        variants_by_id = {v.id: v for v in variants}
+
+        service_items = []
+        for it in normalized:
+            vid = it.get("product_variant_id")
+            service_items.append(
+                {
+                    "product_variant": variants_by_id.get(vid),
+                    "quantity": it.get("quantity", 0),
+                    "product_variant_id": vid,
+                }
+            )
+
+        results = validate_items_stock(service_items)
+
+        payload_items = []
+        ok_all = True
+
+        for idx, r in enumerate(results):
+            sent_id = (
+                normalized[idx].get("product_variant_id")
+                if idx < len(normalized)
+                else r.variant_id
+            )
+            row = {
+                "product_variant_id": sent_id,
+                "requested": r.requested,
+                "available": r.available,
+                "is_active": r.is_active,
+                "ok": r.ok,
+                "reason": r.reason,
+            }
+            payload_items.append(row)
+            if not r.ok:
+                ok_all = False
+
+        return Response(
+            {"ok": ok_all, "items": payload_items},
+            status=status.HTTP_200_OK,
+        )
 
 
 class ShippingQuoteAPIView(APIView):
-    """
-    GET /api/orders/shipping-quote/?city_code=...&subtotal=...
-    """
+    """GET /api/orders/shipping-quote/?city_code=...&subtotal=..."""
 
     @method_decorator(never_cache)
     def get(self, request, *args, **kwargs):
@@ -74,7 +158,9 @@ class ShippingQuoteAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        amount = int(calculate_shipping_cost(subtotal=subtotal, city_code=city_code))
+        amount = int(
+            calculate_shipping_cost(subtotal=subtotal, city_code=city_code)
+        )
 
         return Response(
             {
@@ -82,6 +168,9 @@ class ShippingQuoteAPIView(APIView):
                 "label": "Envío estándar",
             }
         )
+
+
+CITY_CODES = {code for code, _label in CITY_CHOICES}
 
 
 class CheckoutAPIView(APIView):
@@ -126,4 +215,3 @@ class CheckoutAPIView(APIView):
             },
             status=status.HTTP_201_CREATED,
         )
-

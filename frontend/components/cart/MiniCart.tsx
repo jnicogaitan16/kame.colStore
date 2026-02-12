@@ -1,15 +1,62 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useCartStore } from "@/store/cart";
+import type { StockWarningStatus } from "@/store/cart";
 import { Button } from "@/components/ui/Button";
+import { validateCartStock } from "@/lib/api";
 
 export function MiniCart() {
-  const { items, isOpen, closeCart, removeItem, updateQuantity, totalItems, totalAmount } =
-    useCartStore();
+  const items = useCartStore((s) => s.items);
+  const isOpen = useCartStore((s) => s.isOpen);
+  const closeCart = useCartStore((s) => s.closeCart);
+  const removeItem = useCartStore((s) => s.removeItem);
+  const updateQuantity = useCartStore((s) => s.updateQuantity);
+  const totalItems = useCartStore((s) => s.totalItems);
+  const totalAmount = useCartStore((s) => s.totalAmount);
+  const setStockWarnings = useCartStore((s) => s.setStockWarnings);
+  const hasStockWarnings = useCartStore((s) => s.hasStockWarnings);
+  const getStockWarning = useCartStore((s) => s.getStockWarning);
   const [animateIn, setAnimateIn] = useState(false);
+
+  const validateTimerRef = useRef<number | null>(null);
+  const lastPayloadRef = useRef<string>("");
+
+  const normalizeValidateItems = useMemo(() => {
+    return (items || []).map((i) => ({
+      product_variant_id: i.variantId,
+      quantity: i.quantity,
+    }));
+  }, [items]);
+
+  async function runStockValidation() {
+    // Avoid calling when cart is empty
+    if (!normalizeValidateItems.length) return;
+
+    // Deduplicate identical payloads (prevents spam on re-renders)
+    const key = JSON.stringify(normalizeValidateItems);
+    if (key === lastPayloadRef.current) return;
+    lastPayloadRef.current = key;
+
+    try {
+      const res = await validateCartStock(normalizeValidateItems);
+      // Store expects a map by variantId
+      setStockWarnings(res.warningsByVariantId || {});
+    } catch (e) {
+      // If API fails, mark items with an "error" warning (non-blocking)
+      const fallback: Record<number, { status: StockWarningStatus; available: number; message: string }> = {};
+      for (const it of normalizeValidateItems) {
+        fallback[it.product_variant_id] = {
+          status: "error",
+          available: 0,
+          message: "No pudimos validar stock en este momento.",
+        };
+      }
+      setStockWarnings(fallback);
+    }
+  }
 
   useEffect(() => {
     if (isOpen) {
@@ -24,6 +71,22 @@ export function MiniCart() {
       document.body.style.overflow = "";
     };
   }, [isOpen]);
+
+  useEffect(() => {
+    // clear any pending timer
+    if (validateTimerRef.current) window.clearTimeout(validateTimerRef.current);
+
+    // Only validate when drawer is open (best UX + less noise)
+    if (!isOpen) return;
+
+    validateTimerRef.current = window.setTimeout(() => {
+      runStockValidation();
+    }, 500);
+
+    return () => {
+      if (validateTimerRef.current) window.clearTimeout(validateTimerRef.current);
+    };
+  }, [isOpen, normalizeValidateItems]);
 
   if (!isOpen) return null;
 
@@ -85,6 +148,18 @@ export function MiniCart() {
                       {item.productName}
                     </Link>
                     <p className="text-sm text-white/60">{item.variantLabel}</p>
+                    {(() => {
+                      const w = getStockWarning(item.variantId);
+                      if (!w || w.status === "ok") return null;
+                      return (
+                        <p className="mt-1 text-xs text-amber-300/90">
+                          {w.message}
+                          {typeof w.available === "number" && w.available >= 0 ? (
+                            <span className="text-amber-200/80"> (disp: {w.available})</span>
+                          ) : null}
+                        </p>
+                      );
+                    })()}
                     <div className="mt-1 flex items-center justify-between">
                       <div className="flex items-center gap-1">
                         <button
@@ -129,6 +204,11 @@ export function MiniCart() {
               <span>Total</span>
               <span className="text-white font-semibold text-base">${totalAmount().toLocaleString("es-CO")}</span>
             </div>
+            {hasStockWarnings() && (
+              <div className="mb-3 rounded-lg border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs text-amber-100">
+                Hay productos con disponibilidad limitada. Puedes seguir al checkout y lo validamos antes de crear tu pedido.
+              </div>
+            )}
             <Link href="/checkout" onClick={closeCart} className="block">
               <Button variant="primary" fullWidth>
                 Ir al checkout

@@ -19,6 +19,39 @@ export interface HomepageStory {
   content: string;
 }
 
+export interface StockValidateItemInput {
+  product_variant_id: number;
+  quantity: number;
+}
+
+export type StockValidateStatus =
+  | "ok"
+  | "exceeds_stock"
+  | "missing"
+  | "inactive"
+  | "error";
+
+export type StockValidateItem = {
+  product_variant_id: number;
+  quantity: number;
+};
+
+export type StockValidateResponse = {
+  ok: boolean;
+  warningsByVariantId: Record<
+    number,
+    { status: StockValidateStatus; available: number; message: string }
+  >;
+  items?: Array<{
+    product_variant_id: number | null;
+    requested: number;
+    available: number;
+    is_active: boolean;
+    ok: boolean;
+    reason: string | null;
+  }>;
+};
+
 // Base URL for API calls.
 // Default: "/api" (same-origin) so Next rewrites can proxy to Django without CORS.
 // If you explicitly set NEXT_PUBLIC_API_URL, it will be used.
@@ -116,4 +149,65 @@ export async function getHomepageStory(): Promise<HomepageStory | null> {
   } catch {
     return null;
   }
+}
+
+export async function validateCartStock(
+  items: StockValidateItem[]
+): Promise<StockValidateResponse> {
+  // Backend contract: POST /api/orders/stock-validate/ { items: [{ product_variant_id, quantity }] }
+  const payload = { items: items || [] };
+
+  // Backend typically returns: { ok: boolean, items: [{ product_variant_id, requested, available, is_active, ok, reason }] }
+  const raw = await apiFetch<any>("/stock-validate/", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+  type StockValidateRow = NonNullable<StockValidateResponse["items"]>[number];
+
+  const rows: StockValidateRow[] = Array.isArray(raw?.items) ? raw.items : [];
+
+  const warningsByVariantId: StockValidateResponse["warningsByVariantId"] = {};
+
+  for (const row of rows) {
+    const variantId = row?.product_variant_id;
+
+    // Skip null/undefined ids (but keep them in `items` for debugging if needed)
+    if (typeof variantId !== "number") continue;
+
+    let status: StockValidateStatus = "error";
+
+    if (row?.ok === true) {
+      status = "ok";
+    } else if (row?.is_active === false) {
+      status = "inactive";
+    } else if (row?.reason === "missing") {
+      status = "missing";
+    } else if (row?.reason === "exceeds_stock") {
+      status = "exceeds_stock";
+    } else {
+      status = "error";
+    }
+
+    const available =
+      typeof row?.available === "number" ? row.available : 0;
+
+    const message =
+      typeof row?.reason === "string" && row.reason
+        ? row.reason
+        : status === "ok"
+          ? ""
+          : "error";
+
+    warningsByVariantId[variantId] = { status, available, message };
+  }
+
+  // If backend didn't send items, still return a consistent shape
+  const ok = typeof raw?.ok === "boolean" ? raw.ok : true;
+
+  return {
+    ok,
+    warningsByVariantId,
+    items: rows.length ? rows : undefined,
+  };
 }

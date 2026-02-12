@@ -9,6 +9,7 @@ from django.utils import timezone
 
 from apps.orders.models import Order
 from apps.orders.services.product_variants import get_product_variant_model
+from apps.orders.services.stock import assert_items_stock
 
 logger = logging.getLogger(__name__)
 
@@ -59,22 +60,21 @@ def confirm_order_payment(order: Order) -> None:
         # Lock de variantes
         variants = (
             ProductVariant.objects.select_for_update()
-            .filter(id__in=required_by_variant.keys(), is_active=True)
+            .filter(id__in=required_by_variant.keys())
             .select_related("product")
         )
         variants_by_id = {v.id: v for v in variants}
 
         missing = [vid for vid in required_by_variant if vid not in variants_by_id]
         if missing:
-            raise ValidationError("Hay variantes inválidas o inactivas en el pedido.")
+            raise ValidationError("Hay variantes inválidas en el pedido.")
 
-        # Validar stock
-        for vid, required_qty in required_by_variant.items():
-            variant = variants_by_id[vid]
-            if variant.stock < required_qty:
-                raise ValidationError(
-                    f"Stock insuficiente para {variant}. Disponible: {variant.stock}, requerido: {required_qty}."
-                )
+        # Validación centralizada de stock (misma regla para API/Admin/confirm_payment)
+        stock_items = [
+            {"product_variant": variants_by_id[vid], "quantity": required_qty}
+            for vid, required_qty in required_by_variant.items()
+        ]
+        assert_items_stock(stock_items)
 
         # Descontar stock
         for vid, required_qty in required_by_variant.items():

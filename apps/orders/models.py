@@ -119,7 +119,7 @@ class Order(models.Model):
 
         This method delegates to the service layer function `confirm_order_payment()`
         to maintain separation of concerns. All business logic is centralized in
-        `apps.orders.services.confirm_order_payment()`.
+        `apps.orders.services.payments.confirm_order_payment()`.
 
         Idempotency:
         - Stock is decremented only once per order, controlled by `stock_deducted_at`.
@@ -129,7 +129,7 @@ class Order(models.Model):
         - Locks the order row and all involved variants using `select_for_update()`.
         - Performs all operations atomically.
         """
-        from apps.orders.services import confirm_order_payment
+        from apps.orders.services.payments import confirm_order_payment
         confirm_order_payment(self)
 
     def mark_paid_and_decrement_stock(self) -> None:

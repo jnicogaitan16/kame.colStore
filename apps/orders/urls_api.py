@@ -17,5 +17,6 @@ urlpatterns = [
     path("shipping-quote", views_api.ShippingQuoteAPIView.as_view(), name="shipping-quote-no-slash"),
     path("checkout/", views_api.CheckoutAPIView.as_view(), name="checkout"),
     path("checkout", views_api.CheckoutAPIView.as_view(), name="checkout-no-slash"),
+    path("stock-validate/", views_api.StockValidateAPIView.as_view(), name="stock-validate"),
+    path("stock-validate", views_api.StockValidateAPIView.as_view(), name="stock-validate-no-slash"),
 ]
-

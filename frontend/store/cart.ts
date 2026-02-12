@@ -4,6 +4,7 @@
  */
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import type { StockValidateStatus } from "@/lib/api";
 
 export interface CartItem {
   variantId: number;
@@ -16,15 +17,28 @@ export interface CartItem {
   imageUrl: string | null;
 }
 
+export type StockWarningStatus = StockValidateStatus;
+
+export interface StockWarning {
+  status: StockWarningStatus;
+  available: number;
+  message: string;
+  updatedAt: number; // epoch ms
+}
+
 interface CartState {
   items: CartItem[];
   isOpen: boolean;
+  stockWarningsByVariantId: Record<number, StockWarning>;
   addItem: (item: Omit<CartItem, "quantity">, quantity?: number) => void;
   removeItem: (variantId: number) => void;
   updateQuantity: (variantId: number, quantity: number) => void;
   openCart: () => void;
   closeCart: () => void;
   toggleCart: () => void;
+  setStockWarnings: (payload: Record<number, Omit<StockWarning, "updatedAt">>) => void;
+  hasStockWarnings: () => boolean;
+  getStockWarning: (variantId: number) => StockWarning | undefined;
   totalItems: () => number;
   totalAmount: () => number;
   clearCart: () => void;
@@ -35,6 +49,7 @@ export const useCartStore = create<CartState>()(
     (set, get) => ({
       items: [],
       isOpen: false,
+      stockWarningsByVariantId: {},
 
       addItem: (item, quantity = 1) => {
         set((state) => {
@@ -73,6 +88,36 @@ export const useCartStore = create<CartState>()(
       openCart: () => set({ isOpen: true }),
       closeCart: () => set({ isOpen: false }),
       toggleCart: () => set((s) => ({ isOpen: !s.isOpen })),
+
+      setStockWarnings: (payload) => {
+        const now = Date.now();
+        set((state) => {
+          const next: Record<number, StockWarning> = { ...state.stockWarningsByVariantId };
+
+          for (const [key, value] of Object.entries(payload || {})) {
+            const variantId = Number(key);
+            if (!Number.isFinite(variantId)) continue;
+
+            next[variantId] = {
+              status: value.status,
+              available: value.available,
+              message: value.message,
+              updatedAt: now,
+            };
+          }
+
+          return { stockWarningsByVariantId: next };
+        });
+      },
+
+      hasStockWarnings: () => {
+        const map = get().stockWarningsByVariantId;
+        return Object.values(map).some((w) => w && w.status !== "ok");
+      },
+
+      getStockWarning: (variantId) => {
+        return get().stockWarningsByVariantId[variantId];
+      },
 
       totalItems: () =>
         get().items.reduce((acc, i) => acc + i.quantity, 0),

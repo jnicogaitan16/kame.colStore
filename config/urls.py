@@ -24,8 +24,8 @@ urlpatterns = [
     path("orders/", include("apps.orders.urls")),
     # Catálogo bajo /api/
     path("api/", include("apps.catalog.urls_api")),
-    # Checkout y órdenes bajo /api/orders/
-    path("api/orders/", include("apps.orders.urls_api")),
+    # Órdenes y checkout también bajo /api/
+    path("api/", include("apps.orders.urls_api")),
 ]
 
 # Servir archivos media en modo DEBUG

@@ -4,8 +4,8 @@ from django.db import transaction
 
 from django import forms
 from apps.orders.constants import CITY_CHOICES
+from apps.orders.services.stock import sellable_variants_queryset
 
-from apps.catalog.models import ProductVariant
 from .models import Order, OrderItem
 
 
@@ -23,7 +23,7 @@ class OrderItemInline(admin.TabularInline):
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         # Filtra el selector/autocomplete de product_variant para mostrar solo variantes vendibles.
         if db_field.name == "product_variant":
-            kwargs["queryset"] = ProductVariant.objects.filter(is_active=True, stock__gt=0)
+            kwargs["queryset"] = sellable_variants_queryset()
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
 
@@ -171,5 +171,5 @@ class OrderItemAdmin(admin.ModelAdmin):
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         if db_field.name == "product_variant":
-            kwargs["queryset"] = ProductVariant.objects.filter(is_active=True, stock__gt=0)
+            kwargs["queryset"] = sellable_variants_queryset()
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
