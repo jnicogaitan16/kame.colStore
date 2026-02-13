@@ -35,6 +35,10 @@ export interface ProductList {
   category: Category;
   primary_image: string | null;
   is_active: boolean;
+
+  // Backend-computed fields (list endpoint)
+  stock_total?: number;
+  sold_out?: boolean;
 }
 
 export interface ProductDetail extends ProductList {

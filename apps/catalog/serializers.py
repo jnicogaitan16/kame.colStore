@@ -74,6 +74,8 @@ class ProductVariantSerializer(serializers.ModelSerializer):
 class ProductListSerializer(serializers.ModelSerializer):
     category = CategorySerializer(read_only=True)
     primary_image = serializers.SerializerMethodField()
+    stock_total = serializers.IntegerField(read_only=True)
+    sold_out = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = Product
@@ -82,6 +84,8 @@ class ProductListSerializer(serializers.ModelSerializer):
             "name",
             "slug",
             "price",
+            "stock_total",
+            "sold_out",
             "category",
             "primary_image",
             "is_active",

@@ -39,29 +39,31 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
   const addItem = useCartStore((s) => s.addItem);
   const openCart = useCartStore((s) => s.openCart);
 
-  const variantsWithStock = useMemo(
-    () => product.variants.filter((v) => v.stock > 0),
-    [product.variants]
+  const variants = useMemo(() => product.variants ?? [], [product.variants]);
+
+  const soldOut = useMemo(
+    () => variants.length > 0 && variants.every((v: any) => (v.stock ?? 0) <= 0),
+    [variants]
   );
 
-  const hasValue = variantsWithStock.some((v) => v.value);
-  const hasColor = variantsWithStock.some((v) => v.color);
+  const hasValue = variants.some((v) => v.value);
+  const hasColor = variants.some((v) => v.color);
 
   const valueOptions = useMemo(() => {
     const set = new Set<string>();
-    variantsWithStock.forEach((v) => {
+    variants.forEach((v) => {
       if (v.value) set.add(v.value);
     });
     return Array.from(set);
-  }, [variantsWithStock]);
+  }, [variants]);
 
   const colorOptions = useMemo(() => {
     const set = new Set<string>();
-    variantsWithStock.forEach((v) => {
+    variants.forEach((v) => {
       if (v.color) set.add(v.color);
     });
     return Array.from(set);
-  }, [variantsWithStock]);
+  }, [variants]);
 
   const firstWithValue = valueOptions[0] ?? "";
   const firstWithColor = colorOptions[0] ?? "";
@@ -70,20 +72,25 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
 
   const finalVariant = useMemo(() => {
     return (
-      variantsWithStock.find(
+      variants.find(
         (v) =>
           (selectedValue ? v.value === selectedValue : true) &&
           (selectedColor ? v.color === selectedColor : true)
       ) ??
-      variantsWithStock[0] ??
+      variants[0] ??
       null
     );
-  }, [variantsWithStock, selectedValue, selectedColor]);
+  }, [variants, selectedValue, selectedColor]);
 
   const primaryImage =
     finalVariant?.images?.find((i) => i.is_primary)?.image ??
     finalVariant?.images?.[0]?.image ??
     null;
+
+  const galleryImages =
+    finalVariant?.images?.length
+      ? finalVariant.images
+      : (((product as any).images as any[]) ?? []);
 
   const handleAddToCart = () => {
     if (!finalVariant) return;
@@ -102,7 +109,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
     openCart();
   };
 
-  const canAdd = finalVariant && finalVariant.stock > 0;
+  const canAdd = !soldOut && !!finalVariant && finalVariant.stock > 0;
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 md:py-10">
@@ -123,7 +130,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
         <div>
-          <ProductGallery images={finalVariant?.images ?? []} productName={product.name} />
+          <ProductGallery images={galleryImages} productName={product.name} soldOut={soldOut} />
         </div>
 
         <div>

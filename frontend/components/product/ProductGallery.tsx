@@ -5,15 +5,17 @@ import Image from "next/image";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Pagination } from "swiper/modules";
 import type { ProductImage as ProductImageType } from "@/types/catalog";
+import SoldOutBadge from "@/components/badges/SoldOutBadge";
 import "swiper/css";
 import "swiper/css/pagination";
 
 interface ProductGalleryProps {
   images: ProductImageType[];
   productName: string;
+  soldOut?: boolean;
 }
 
-export function ProductGallery({ images, productName }: ProductGalleryProps) {
+export function ProductGallery({ images, productName, soldOut }: ProductGalleryProps) {
   const slides = useMemo(() => {
     if (!images?.length) return [];
     return images.filter((img) => img.image);
@@ -32,35 +34,39 @@ export function ProductGallery({ images, productName }: ProductGalleryProps) {
   }
 
   return (
-    <Swiper
-      modules={[Pagination]}
-      spaceBetween={0}
-      slidesPerView={1}
-      pagination={{ clickable: true }}
-      className="aspect-square w-full overflow-hidden product-media-surface"
-    >
-      {slides.map((img) => (
-        <SwiperSlide key={img.id}>
-          <div className="relative w-full aspect-square">
-            {(() => {
-              const src = img.image ? `${img.image}?v=${img.id}` : null;
-              if (!src) return null;
+    <div className="relative">
+      <SoldOutBadge show={!!soldOut} variant="detail" />
 
-              return (
-                <Image
-                  key={src}
-                  src={src}
-                  alt={img.alt_text || productName}
-                  fill
-                  className="object-contain"
-                  sizes="(max-width: 768px) 100vw, 50vw"
-                  priority
-                />
-              );
-            })()}
-          </div>
-        </SwiperSlide>
-      ))}
-    </Swiper>
+      <Swiper
+        modules={[Pagination]}
+        spaceBetween={0}
+        slidesPerView={1}
+        pagination={{ clickable: true }}
+        className="aspect-square w-full overflow-hidden product-media-surface"
+      >
+        {slides.map((img) => (
+          <SwiperSlide key={img.id}>
+            <div className="relative w-full aspect-square">
+              {(() => {
+                const src = img.image ? `${img.image}?v=${img.id}` : null;
+                if (!src) return null;
+
+                return (
+                  <Image
+                    key={src}
+                    src={src}
+                    alt={img.alt_text || productName}
+                    fill
+                    className="object-contain"
+                    sizes="(max-width: 768px) 100vw, 50vw"
+                    priority
+                  />
+                );
+              })()}
+            </div>
+          </SwiperSlide>
+        ))}
+      </Swiper>
+    </div>
   );
 }

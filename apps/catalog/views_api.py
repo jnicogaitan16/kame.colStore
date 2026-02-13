@@ -2,7 +2,8 @@
 Vistas API del catálogo (DRF).
 Endpoints: categories, products (list + detail by slug).
 """
-from django.db.models import Prefetch, Q
+from django.db.models import Prefetch, Q, Sum, Value, IntegerField, BooleanField, Case, When, F
+from django.db.models.functions import Coalesce
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import never_cache
 
@@ -52,6 +53,20 @@ class ProductListAPIView(generics.ListAPIView):
         qs = (
             Product.objects.filter(is_active=True)
             .select_related("category")
+            .annotate(
+                stock_total=Coalesce(
+                    Sum("variants__stock", filter=Q(variants__is_active=True), output_field=IntegerField()),
+                    Value(0),
+                    output_field=IntegerField(),
+                )
+            )
+            .annotate(
+                sold_out=Case(
+                    When(stock_total__lte=0, then=Value(True)),
+                    default=Value(False),
+                    output_field=BooleanField(),
+                )
+            )
             .order_by("-created_at", "id")
         )
         category_slug = self.request.query_params.get("category")
