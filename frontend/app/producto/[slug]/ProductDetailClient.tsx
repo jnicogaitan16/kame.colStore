@@ -41,7 +41,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
 
   const variants = useMemo(() => product.variants ?? [], [product.variants]);
 
-  const soldOut = useMemo(
+  const soldOutProduct = useMemo(
     () => variants.length > 0 && variants.every((v: any) => (v.stock ?? 0) <= 0),
     [variants]
   );
@@ -67,19 +67,72 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
 
   const firstWithValue = valueOptions[0] ?? "";
   const firstWithColor = colorOptions[0] ?? "";
-  const [selectedValue, setSelectedValue] = useState<string>(firstWithValue);
-  const [selectedColor, setSelectedColor] = useState<string>(firstWithColor);
+
+  const firstAvailableVariant = useMemo(
+    () => variants.find((v: any) => (v.stock ?? 0) > 0) ?? null,
+    [variants]
+  );
+
+  const defaultValue = (firstAvailableVariant?.value ?? firstWithValue) as string;
+  const defaultColor = (firstAvailableVariant?.color ?? firstWithColor) as string;
+
+  const [selectedValue, setSelectedValue] = useState<string>(() => defaultValue);
+  const [selectedColor, setSelectedColor] = useState<string>(() => defaultColor);
+  const [detailsExpanded, setDetailsExpanded] = useState(false);
+
+  const optionBase =
+    "inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold tracking-wide text-neutral-200 transition-colors hover:bg-white/10 hover:border-white/20 focus:outline-none";
+
+  const optionSelected =
+    "bg-white/10 border-white/20 ring-2 ring-cyan-400/60 ring-offset-0";
+
+  const optionMuted = "text-neutral-300";
+
+  const optionUnavailable = "opacity-50 line-through";
+
+  const optionClass = (isSelected: boolean, isAvailable: boolean) =>
+    `${optionBase} ${isSelected ? optionSelected : ""} ${isAvailable ? "" : optionUnavailable}`;
+
+  const tallaDisponible = (val: string) => {
+    return variants.some(
+      (v: any) =>
+        v.value === val &&
+        (selectedColor ? v.color === selectedColor : true) &&
+        (v.stock ?? 0) > 0
+    );
+  };
+
+  const colorDisponible = (color: string) => {
+    return variants.some(
+      (v: any) =>
+        v.color === color &&
+        (selectedValue ? v.value === selectedValue : true) &&
+        (v.stock ?? 0) > 0
+    );
+  };
 
   const finalVariant = useMemo(() => {
-    return (
-      variants.find(
-        (v) =>
-          (selectedValue ? v.value === selectedValue : true) &&
-          (selectedColor ? v.color === selectedColor : true)
-      ) ??
-      variants[0] ??
-      null
+    if (!variants.length) return null;
+
+    const exact = variants.find(
+      (v) =>
+        (selectedValue ? v.value === selectedValue : true) &&
+        (selectedColor ? v.color === selectedColor : true)
     );
+    if (exact) return exact;
+
+    // Fallbacks to avoid jumping to unrelated variants
+    if (selectedColor) {
+      const sameColor = variants.find((v) => v.color === selectedColor);
+      if (sameColor) return sameColor;
+    }
+
+    if (selectedValue) {
+      const sameValue = variants.find((v) => v.value === selectedValue);
+      if (sameValue) return sameValue;
+    }
+
+    return variants[0];
   }, [variants, selectedValue, selectedColor]);
 
   const primaryImage =
@@ -109,7 +162,8 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
     openCart();
   };
 
-  const canAdd = !soldOut && !!finalVariant && finalVariant.stock > 0;
+  const selectedOutOfStock = !!finalVariant && (finalVariant.stock ?? 0) <= 0;
+  const canAdd = !!finalVariant && (finalVariant.stock ?? 0) > 0;
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 md:py-10">
@@ -130,88 +184,129 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
         <div>
-          <ProductGallery images={galleryImages} productName={product.name} soldOut={soldOut} />
+          <ProductGallery images={galleryImages} productName={product.name} soldOut={selectedOutOfStock} />
         </div>
 
         <div>
-          <h1 className="text-2xl font-bold text-neutral-100 md:text-3xl">
+          {/* Header (arriba del fold) */}
+          <h1 className="text-2xl font-semibold tracking-tight text-neutral-100 md:text-3xl">
             {product.name}
           </h1>
-          <p className="mt-2 text-2xl font-semibold text-sky-400">
+          <p className="mt-2 text-2xl font-semibold text-cyan-400">
             ${parseFloat(product.price).toLocaleString("es-CO")}
           </p>
 
-          {product.description && (
-            <div className="mt-4 whitespace-pre-wrap text-neutral-300">
-              {product.description}
-            </div>
-          )}
-
-          {/* Variantes: valor (talla) */}
-          {hasValue && valueOptions.length > 0 && (
-            <div className="mt-6">
-              <label className="block text-sm font-medium text-neutral-200">
-                Talla
-              </label>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {valueOptions.map((val) => (
-                  <button
-                    key={val}
-                    type="button"
-                    onClick={() => setSelectedValue(val)}
-                    className={selectedValue === val ? "pill-active" : "pill"}
-                  >
-                    {val}
-                  </button>
-                ))}
+          {/* Selectores */}
+          <div className="mt-6 space-y-4">
+            {/* Variantes: valor (talla) */}
+            {hasValue && valueOptions.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-neutral-200">Talla</label>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {valueOptions.map((val) => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => setSelectedValue(val)}
+                      className={optionClass(selectedValue === val, tallaDisponible(val))}
+                    >
+                      {val}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Variantes: color */}
-          {hasColor && colorOptions.length > 0 && (
-            <div className="mt-4">
-              <label className="block text-sm font-medium text-neutral-200">
-                Color
-              </label>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {colorOptions.map((color) => (
-                  <button
-                    key={color}
-                    type="button"
-                    onClick={() => setSelectedColor(color)}
-                    className={selectedColor === color ? "pill-active" : "pill"}
-                  >
-                    <span className="inline-flex items-center gap-2">
-                      <span
-                        aria-hidden
-                        className={["h-2.5 w-2.5 rounded-full", colorDotClass(color)].join(" ")}
-                      />
-                      <span>{color}</span>
-                    </span>
-                  </button>
-                ))}
+            {/* Variantes: color */}
+            {hasColor && colorOptions.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-neutral-200">Color</label>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {colorOptions.map((color) => (
+                    <button
+                      key={color}
+                      type="button"
+                      onClick={() => setSelectedColor(color)}
+                      className={optionClass(selectedColor === color, colorDisponible(color)) + " " + optionMuted}
+                    >
+                      <span className="inline-flex items-center">
+                        <span>{color}</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
-          {finalVariant && (
-            <p className="mt-2 text-sm text-neutral-400">
-              Stock: {finalVariant.stock} disponible{finalVariant.stock !== 1 ? "s" : ""}
-            </p>
-          )}
-
+          {/* Stock + CTA */}
           <div className="mt-6">
+            {finalVariant && (
+              <div className="mb-4 flex flex-wrap items-center gap-2 text-sm text-neutral-400">
+                {!selectedOutOfStock ? (
+                  <span>
+                    Stock: {finalVariant.stock} disponible{finalVariant.stock !== 1 ? "s" : ""}
+                  </span>
+                ) : (
+                  <>
+                    <span className="text-neutral-400">
+                      No hay unidades disponibles por ahora. Prueba otra talla o color.
+                    </span>
+                  </>
+                )}
+              </div>
+            )}
+
             <Button
               type="button"
               onClick={handleAddToCart}
               disabled={!canAdd}
               variant="primary"
               fullWidth
+              className="rounded-xl disabled:bg-white/10 disabled:text-white/70 disabled:shadow-none"
             >
               {canAdd ? "Agregar al carrito" : "Sin stock"}
             </Button>
           </div>
+
+          {/* Contenido inferior: Descripción */}
+          {product.description ? (
+            <section className="mt-8 border-t border-white/10 pt-6">
+              <h2 className="text-sm font-semibold tracking-wide text-neutral-100">Descripción</h2>
+
+              <div className={detailsExpanded ? "mt-3 whitespace-pre-wrap text-neutral-300" : "mt-3 whitespace-pre-wrap text-neutral-300 line-clamp-4"}>
+                {product.description}
+              </div>
+
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={() => setDetailsExpanded((v) => !v)}
+                  className="text-sm font-semibold text-cyan-400 hover:text-cyan-300"
+                >
+                  {detailsExpanded ? "Ver menos" : "Ver más"}
+                </button>
+              </div>
+
+              <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-neutral-100">Guía de tallas</p>
+                    <p className="mt-1 text-sm text-neutral-400">
+                      Revisa medidas recomendadas para elegir la talla ideal.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="shrink-0 text-sm font-semibold text-cyan-400 hover:text-cyan-300"
+                    aria-label="Ver guía de tallas"
+                  >
+                    Ver guía
+                  </button>
+                </div>
+              </div>
+            </section>
+          ) : null}
         </div>
       </div>
     </div>

@@ -80,7 +80,7 @@ export function ProductCard({ product }: ProductCardProps) {
   return (
     <Link
       href={`/producto/${product.slug}`}
-      className="group bg-neutral-900 card-surface border border-white/10 rounded-2xl elevation-soft elevation-hover transition"
+      className="group bg-neutral-900 card-surface border border-white/10 rounded-2xl elevation-soft transition will-change-transform hover:border-white/20 hover:-translate-y-[1px]"
     >
       <div className="relative aspect-square w-full overflow-hidden product-media-surface">
         <SoldOutBadge show={soldOut === true} variant="card" />
@@ -109,14 +109,16 @@ export function ProductCard({ product }: ProductCardProps) {
 
       <div className="p-3 md:p-4">
         {categoryName ? (
-          <p className="text-xs font-medium uppercase tracking-wide text-neutral-400">{categoryName}</p>
+          <span className="inline-flex items-center rounded-full bg-white/5 border border-white/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-widest text-neutral-300">
+            {categoryName}
+          </span>
         ) : null}
 
-        <h3 className="mt-0.5 font-semibold text-neutral-100 line-clamp-2 group-hover:text-white">
+        <h3 className="mt-2 text-[15px] md:text-base font-semibold leading-snug text-neutral-100 line-clamp-2 group-hover:text-white">
           {product.name}
         </h3>
 
-        <p className="mt-2 text-lg font-semibold text-sky-400">
+        <p className="mt-2 text-xl font-semibold text-cyan-300 transition-colors group-hover:text-cyan-200">
           ${parseFloat(product.price).toLocaleString("es-CO")}
         </p>
       </div>

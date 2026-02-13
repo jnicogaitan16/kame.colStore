@@ -22,6 +22,7 @@ export default function SoldOutBadge({ show, variant = "card", className = "" }:
         width={400}
         height={200}
         priority={variant === "detail"}
+        className="drop-shadow-[0_10px_20px_rgba(0,0,0,0.35)]"
       />
     </div>
   );

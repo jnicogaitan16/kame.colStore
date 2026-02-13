@@ -94,7 +94,7 @@
 
 .pill:hover {
   background: rgba(255, 255, 255, 0.1); /* hover:bg-white/10 */
-  border-color: rgba(14, 165, 233, 0.45);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
 /* Pill (selected) */
@@ -109,19 +109,84 @@
   font-weight: 600;
   letter-spacing: 0.02em;
 
-  border: 1px solid rgba(14, 165, 233, 0.9); /* sky-400 */
+  border: 1px solid color-mix(in srgb, var(--accent) 90%, transparent);
   background: rgba(255, 255, 255, 0.08);
   color: rgba(255, 255, 255, 1);
 
   box-shadow:
-    0 0 0 1px rgba(14, 165, 233, 0.35),      /* ring azul */
+    0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent),      /* ring azul */
     0 10px 30px rgba(0, 0, 0, 0.25);         /* profundidad suave */
 }
 
 :root {
-  --foreground: #f5f5f5;
-  --background: #0a0a0a;
+  /* =========================
+     Design Tokens (Global)
+     ========================= */
+
+  /* Core surfaces */
+  --bg: #0A0A0A;
+  --surface: #111111;
+  --border: rgba(255, 255, 255, 0.10);
+
+  /* Text */
+  --text: #F5F5F5;
+  --muted: rgba(255, 255, 255, 0.65);
+
+  /* Brand accents */
+  --accent: #22D3EE;  /* cyan-400 */
+  --danger: #EF4444;  /* red-500 */
+
+  /* Backward compatibility (map old vars to new system) */
+  --foreground: var(--text);
+  --background: var(--bg);
+
   color-scheme: dark;
+
+  /* =========================
+     Token-based utility classes
+     Use these instead of inventing new blues/reds.
+     ========================= */
+  @layer utilities {
+    .bg-app {
+      background: var(--bg);
+    }
+
+    .bg-surface {
+      background: var(--surface);
+    }
+
+    .border-subtle {
+      border-color: var(--border);
+    }
+
+    .text-app {
+      color: var(--text);
+    }
+
+    .text-muted {
+      color: var(--muted);
+    }
+
+    .text-accent {
+      color: var(--accent);
+    }
+
+    .border-accent {
+      border-color: var(--accent);
+    }
+
+    .ring-accent {
+      --tw-ring-color: var(--accent);
+    }
+
+    .text-danger {
+      color: var(--danger);
+    }
+
+    .border-danger {
+      border-color: var(--danger);
+    }
+  }
 }
 
 body {
@@ -154,7 +219,7 @@ canvas {
 
 /* Swiper: ocultar scrollbar en móvil si hace falta */
 .swiper-pagination-bullet-active {
-  background: #0ea5e9;
+  background: var(--accent);
 }
 
 /* =========================

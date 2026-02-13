@@ -12,15 +12,15 @@ export default async function CatalogoPage() {
   const products = productsRes?.results ?? [];
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-12 md:py-20">
-      <header className="mb-8">
-        <p className="text-xs font-semibold tracking-widest text-white/50">
-          CATÁLOGO
+    <div className="mx-auto max-w-6xl px-4 md:px-6 py-12 md:py-20">
+      <header className="mb-10 md:mb-12">
+        <p className="text-xs font-semibold uppercase tracking-widest text-white/50">
+          Catálogo
         </p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight text-white">
+        <h1 className="mt-3 text-4xl font-semibold tracking-tight text-white md:text-5xl">
           Todo lo disponible
         </h1>
-        <p className="mt-2 text-sm text-white/60">
+        <p className="mt-4 max-w-2xl text-sm text-neutral-400 md:text-base">
           Productos sin filtros — lo que está activo y listo.
         </p>
       </header>
@@ -30,7 +30,7 @@ export default async function CatalogoPage() {
           Aún no hay productos disponibles.
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 md:gap-6">
+        <div className="grid grid-cols-2 gap-5 md:grid-cols-3 md:gap-8">
           {products.map((p: any) => (
             <ProductCard key={String(p.id)} product={p} />
           ))}
