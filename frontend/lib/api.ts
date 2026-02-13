@@ -80,18 +80,11 @@ export type CheckoutResponse = {
   total?: number;
 };
 
-// Base URL for API calls.
-// Default: "/api" (same-origin) so Next rewrites can proxy to Django without CORS.
-// If you explicitly set NEXT_PUBLIC_API_URL, it will be used.
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "/api").replace(/\/$/, "");
 
-// Server-side base for Django (no CORS; avoids proxy/rewrite redirect loops).
-// NOTE: DJANGO_API_BASE is defined in frontend/.env.local but is NOT exposed to the browser
-// because it does not start with NEXT_PUBLIC_.
 const DJANGO_BASE = (process.env.DJANGO_API_BASE || "").replace(/\/$/, "");
 const SERVER_API_BASE = DJANGO_BASE ? `${DJANGO_BASE}/api` : "";
 
-// Fallback for environments where you still want to hit Next's own origin (rare).
 const SERVER_ORIGIN = (process.env.APP_ORIGIN || "").replace(/\/$/, "");
 const DEFAULT_SERVER_ORIGIN = `http://localhost:${process.env.PORT || 3000}`;
 
@@ -102,10 +95,7 @@ export async function apiFetch<T>(
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   let url = path.startsWith("http") ? path : `${API_BASE}${normalizedPath}`;
 
-  // If we're running on the server and the URL is relative (starts with "/"),
-  // make it absolute so Node fetch can parse it.
   if (typeof window === "undefined" && url.startsWith("/")) {
-    // Prefer calling Django directly during SSR to avoid proxy/rewrite issues.
     if (SERVER_API_BASE && url.startsWith("/api")) {
       url = `${SERVER_API_BASE}${url.slice("/api".length)}`;
     } else {
@@ -116,9 +106,8 @@ export async function apiFetch<T>(
 
   const res = await fetch(url, {
     ...options,
-    // Avoid Next data cache for dynamic content (catalog/checkout)
     cache: options.cache ?? "no-store",
-    // (@ts-expect-error: next is supported in Next.js runtime)
+    // Next.js fetch option (supported in Next runtime)
     next: (options as any).next ?? { revalidate: 0 },
     headers: {
       ...(options.body ? { "Content-Type": "application/json" } : {}),
@@ -137,7 +126,6 @@ export async function apiFetch<T>(
 export async function getCategories(): Promise<Category[]> {
   const data = await apiFetch<any>("/categories/");
 
-  // Soporta respuestas paginadas y no paginadas
   if (Array.isArray(data)) return data;
   if (Array.isArray(data?.results)) return data.results;
 
@@ -167,8 +155,7 @@ export async function getProductBySlug(slug: string): Promise<ProductDetail> {
 }
 
 export async function getHomepageBanners(): Promise<HomepageBanner[]> {
-  const data = await apiFetch<HomepageBanner[]>("/homepage-banners/");
-  return data;
+  return apiFetch<HomepageBanner[]>("/homepage-banners/");
 }
 
 export async function getHomepageStory(): Promise<HomepageStory | null> {
@@ -182,16 +169,12 @@ export async function getHomepageStory(): Promise<HomepageStory | null> {
 export async function validateCartStock(
   items: StockValidateItem[]
 ): Promise<StockValidateResponse> {
-  // Backend contract: POST /api/stock-validate/ { items: [{ product_variant_id, quantity }] }
   const payload = { items: items || [] };
 
-  // Backend typically returns: { ok: boolean, items: [{ product_variant_id, requested, available, is_active, ok, reason }] }
   const raw = await apiFetch<any>("/stock-validate/", {
     method: "POST",
     body: JSON.stringify(payload),
   });
-
-  type StockValidateRow = NonNullable<StockValidateResponse["items"]>[number];
 
   const rows = Array.isArray(raw?.items) ? raw.items : [];
 
@@ -199,39 +182,26 @@ export async function validateCartStock(
 
   for (const row of rows) {
     const variantId = row?.product_variant_id;
-
-    // Skip null/undefined ids (but keep them in `items` for debugging if needed)
     if (typeof variantId !== "number") continue;
 
     let status: StockValidateStatus = "error";
 
-    if (row?.ok === true) {
-      status = "ok";
-    } else if (row?.is_active === false) {
-      status = "inactive";
-    } else if (row?.reason === "missing") {
-      status = "missing";
-    } else if (row?.reason === "exceeds_stock") {
-      status = "exceeds_stock";
-    } else {
-      status = "error";
-    }
+    if (row?.ok === true) status = "ok";
+    else if (row?.is_active === false) status = "inactive";
+    else if (row?.reason === "missing") status = "missing";
+    else if (row?.reason === "exceeds_stock") status = "exceeds_stock";
 
-    const available =
-      typeof row?.available === "number" ? row.available : 0;
+    const available = typeof row?.available === "number" ? row.available : 0;
 
     let message = "";
-
     if (status === "exceeds_stock") message = "Stock insuficiente.";
     else if (status === "missing") message = "Variante no disponible.";
     else if (status === "inactive") message = "Variante inactiva.";
     else if (status === "error") message = "No pudimos validar stock en este momento.";
-    else message = ""; // ok
 
     warningsByVariantId[variantId] = { status, available, message };
   }
 
-  // If backend didn't send items, still return a consistent shape
   const ok = typeof raw?.ok === "boolean" ? raw.ok : true;
 
   return {
@@ -242,27 +212,38 @@ export async function validateCartStock(
 }
 
 export async function checkout(payload: CheckoutPayload): Promise<CheckoutResponse> {
-  // Preferred backend route (Django): POST /api/orders/checkout/
-  // In this frontend, we call through Next's /api proxy. Depending on rewrites,
-  // this may be exposed as /api/orders/checkout/ or /api/checkout/.
-
-  const body = JSON.stringify(payload);
-
-  // Try the most explicit route first.
-  try {
-    return await apiFetch<CheckoutResponse>("/orders/checkout/", {
-      method: "POST",
-      body,
-    });
-  } catch (err: any) {
-    const msg = String(err?.message || "");
-    // Fallback to legacy/non-namespaced route if rewrites expose it that way.
-    if (msg.includes("404") || msg.includes("Not Found")) {
-      return await apiFetch<CheckoutResponse>("/checkout/", {
-        method: "POST",
-        body,
-      });
-    }
-    throw err;
+  if (!payload.items?.length) {
+    throw new Error("Checkout inválido: items vacío");
   }
+  // DRF expects nested objects:
+  // - customer: { full_name, document_type, document_number, email?, phone? }
+  // - shipping_address: { city_code, address, notes? }
+  // Keep current CheckoutPayload for the UI and adapt here.
+
+  const apiPayload = {
+    items: payload.items,
+    customer: {
+      full_name: payload.full_name,
+      document_type: payload.document_type,
+      // Backend expects `document_number` (not `cedula`)
+      document_number: payload.cedula,
+      email: payload.email || "",
+      phone: payload.phone || "",
+    },
+    shipping_address: {
+      city_code: payload.city_code,
+      address: payload.address,
+      notes: payload.notes || "",
+    },
+    payment_method: payload.payment_method || "",
+  };
+
+  const body = JSON.stringify(apiPayload);
+
+  // POST /api/checkout/ → Django /api/orders/checkout/
+  // apiFetch already prefixes /api
+  return apiFetch<CheckoutResponse>("/checkout/", {
+    method: "POST",
+    body,
+  });
 }

@@ -96,14 +96,53 @@ class CheckoutSerializer(serializers.Serializer):
     validated_cart: ValidatedCart | None = None
 
     def validate_items(self, value: List[dict]) -> List[dict]:
-        if not value:
+        # Con `CheckoutItemSerializer(many=True)` normalmente ya llega validado,
+        # pero mantenemos defensivo para evitar 500 por payloads mal formados.
+        if not isinstance(value, list) or not value:
             raise serializers.ValidationError("Debes agregar al menos un ítem.")
 
         # Consolidar items repetidos por variant_id
         consolidated: Dict[int, int] = {}
-        for item in value:
-            variant_id = int(item["product_variant_id"])
-            qty = int(item["quantity"])
+
+        for idx, item in enumerate(value):
+            try:
+                if not isinstance(item, dict):
+                    raise TypeError("El ítem no es un objeto.")
+
+                variant_raw = item.get("product_variant_id")
+                qty_raw = item.get("quantity")
+
+                if variant_raw is None:
+                    raise KeyError("product_variant_id")
+                if qty_raw is None:
+                    raise KeyError("quantity")
+
+                variant_id = int(variant_raw)
+                qty = int(qty_raw)
+
+                if variant_id < 1:
+                    raise ValueError("product_variant_id debe ser >= 1")
+                if qty < 1:
+                    raise ValueError("quantity debe ser >= 1")
+
+            except KeyError as exc:
+                field = str(exc).strip("'")
+                raise serializers.ValidationError(
+                    {
+                        "items": [
+                            f"Ítem #{idx + 1} inválido: falta el campo '{field}'."
+                        ]
+                    }
+                ) from exc
+            except (TypeError, ValueError) as exc:
+                raise serializers.ValidationError(
+                    {
+                        "items": [
+                            f"Ítem #{idx + 1} inválido: 'product_variant_id' y 'quantity' deben ser números enteros válidos (>= 1)."
+                        ]
+                    }
+                ) from exc
+
             consolidated[variant_id] = consolidated.get(variant_id, 0) + qty
 
         cart = {vid: {"qty": qty} for vid, qty in consolidated.items()}

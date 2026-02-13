@@ -138,6 +138,8 @@ export default function CheckoutClient() {
   }, [watchedCity, subtotal]);
 
   const onSubmit = async (values: CheckoutFormValues) => {
+    // Prevent double submit
+    if (isSubmitting) return;
     if (!items.length) {
       setSubmitError("Tu carrito está vacío.");
       return;
@@ -145,8 +147,39 @@ export default function CheckoutClient() {
 
     setStockBanner(null);
     setExceedsByVariantId({});
-    setIsSubmitting(true);
     setSubmitError(null);
+
+    // Always build items from the store (tolerant mapping) and validate before calling the API
+    const cartItems = items ?? [];
+    const checkoutItems = cartItems
+      .map((i) => {
+        const rawId: any = (i as any).product_variant_id ?? (i as any).variantId ?? (i as any).id;
+        const rawQty: any = (i as any).quantity ?? (i as any).qty ?? 1;
+        const rawPrice: any = (i as any).unit_price ?? (i as any).unitPrice ?? (i as any).price ?? 0;
+
+        const product_variant_id = Number(rawId);
+        const quantity = Number(rawQty);
+
+        let unit_price = 0;
+        if (typeof rawPrice === "number") unit_price = rawPrice;
+        else if (typeof rawPrice === "string") unit_price = parseFloat(rawPrice);
+        else unit_price = Number(rawPrice);
+
+        return {
+          product_variant_id,
+          quantity,
+          // Snapshot del precio unitario (backend espera int)
+          unit_price: Math.round(unit_price || 0),
+        };
+      })
+      .filter((x) => Number.isFinite(x.product_variant_id) && x.product_variant_id > 0 && x.quantity > 0);
+
+    if (!checkoutItems.length) {
+      setSubmitError("Tu carrito está vacío. Agrega productos antes de confirmar.");
+      return;
+    }
+
+    setIsSubmitting(true);
 
     try {
       const payload = {
@@ -159,12 +192,7 @@ export default function CheckoutClient() {
         address: values.address,
         notes: values.notes || "",
         payment_method: "transferencia",
-        items: items.map((item) => ({
-          product_variant_id: item.variantId,
-          quantity: item.quantity,
-          // Snapshot del precio unitario (backend espera int)
-          unit_price: Math.round(parseFloat(item.price)),
-        })),
+        items: checkoutItems,
       };
 
       const res = await checkout(payload);

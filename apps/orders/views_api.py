@@ -8,12 +8,13 @@ from __future__ import annotations
 from urllib.parse import quote
 from django.conf import settings
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import never_cache
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.exceptions import ValidationError
 
 from apps.catalog.models import ProductVariant
 
@@ -181,62 +182,59 @@ class CheckoutAPIView(APIView):
         serializer = CheckoutSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        form_data, validated_cart = serializer.get_normalized_form_data()
+        # Convert request anidado (customer / shipping_address) a payload plano
+        raw = request.data if isinstance(request.data, dict) else {}
+        customer = raw.get("customer") or {}
+        shipping_address = raw.get("shipping_address") or {}
 
-        # Construir payload unificado para el service del checkout (customer + order + items)
-        items_payload = []
-        for it in (validated_cart.items or []):
-            if not isinstance(it, dict):
-                continue
+        payload = dict(serializer.validated_data)
 
-            pv_id = it.get("product_variant_id") or it.get("variant_id")
-            if pv_id is None and it.get("product_variant") is not None:
-                try:
-                    pv_id = int(it["product_variant"].id)
-                except Exception:
-                    pv_id = None
+        # Items deben venir del request tal cual, preservando unit_price si lo envían
+        payload["items"] = raw.get("items")
 
-            qty = it.get("quantity") or it.get("qty") or 0
-            unit_price = it.get("unit_price") or it.get("unitPrice") or it.get("price")
+        # Si items falta o no es lista, falla con 400 claro
+        if not isinstance(payload.get("items"), list) or not payload["items"]:
+            raise ValidationError(
+                {"items": ["El checkout debe incluir items válidos (no vacíos)."]}
+            )
 
-            # Fallback: si viene el objeto variant, intenta tomar su precio
-            if unit_price is None and it.get("product_variant") is not None:
-                pv = it["product_variant"]
-                unit_price = getattr(pv, "price", None) or getattr(pv, "base_price", None)
+        # Mapear datos del cliente (payload plano esperado por el service)
+        payload["full_name"] = customer.get("full_name")
+        payload["document_type"] = customer.get("document_type")
+        payload["cedula"] = customer.get("document_number")
+        payload["email"] = customer.get("email")
+        payload["phone"] = customer.get("phone")
 
-            if pv_id is None or unit_price is None:
-                continue
+        # Mapear dirección de envío
+        payload["city_code"] = shipping_address.get("city_code")
+        payload["address"] = shipping_address.get("address")
+        payload["notes"] = shipping_address.get("notes") or ""
 
-            try:
-                items_payload.append(
-                    {
-                        "product_variant_id": int(pv_id),
-                        "quantity": int(qty),
-                        "unit_price": int(unit_price),
-                    }
-                )
-            except (TypeError, ValueError):
-                continue
+        # Método de pago (si viene en request, úsalo; si no, default)
+        payload["payment_method"] = (
+            raw.get("payment_method")
+            or payload.get("payment_method")
+            or "transferencia"
+        )
 
-        checkout_payload = {
-            # items
-            "items": items_payload,
-            # customer snapshot
-            "full_name": form_data.get("full_name") or "",
-            "document_type": form_data.get("document_type") or "",
-            "cedula": form_data.get("cedula") or "",
-            "email": form_data.get("email"),
-            "phone": form_data.get("phone"),
-            # shipping snapshot
-            "city_code": form_data.get("city_code") or form_data.get("city") or "",
-            "address": form_data.get("address") or "",
-            "notes": form_data.get("notes") or "",
-            # payment
-            "payment_method": form_data.get("payment_method") or "transferencia",
-        }
-
-        with transaction.atomic():
-            order = create_order_from_checkout(checkout_payload)
+        try:
+            with transaction.atomic():
+                order = create_order_from_checkout(payload)
+        except ValidationError:
+            # Dejar que DRF lo convierta a 400 con detalle (no atraparlo como 500)
+            raise
+        except IntegrityError:
+            # Por ejemplo: violación de UNIQUE (no debe ser 500)
+            return Response(
+                {"detail": "No se pudo crear la orden por una restricción de unicidad (UNIQUE)."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception:
+            # Error inesperado
+            return Response(
+                {"detail": "Error inesperado al crear la orden."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
         # Instrucciones de pago (sin pasarela)
         payment_reference = order.payment_reference or ""

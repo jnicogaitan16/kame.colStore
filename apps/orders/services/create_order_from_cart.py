@@ -8,6 +8,8 @@ from apps.orders.models import Order, OrderItem
 from apps.customers.services.customer_upsert import get_or_create_customer_from_checkout
 from apps.orders.services.payments import generate_payment_reference
 
+from rest_framework.exceptions import ValidationError
+
 
 def create_order_from_cart(
     customer: Customer,
@@ -55,58 +57,160 @@ def create_order_from_cart(
 
 # --- Nuevas utilidades para checkout-based order creation ---
 
-def _normalize_checkout_items(items: Any) -> List[Dict[str, Any]]:
-    """
-    Normaliza el payload de items del checkout a una lista de dicts con:
-    - product_variant_id (int)
-    - quantity (int)
-    - unit_price (int)
+def _normalize_checkout_items(items: Any) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+    """Normaliza items del checkout y acumula rechazos.
 
-    Soporta formatos comunes:
-    1) Lista: [{"product_variant_id": 1, "quantity": 2, "unit_price": 10000}, ...]
-    2) Dict por variant_id: { "1": {"qty": 2, "unit_price": 10000}, ... }  (formato cart)
+    Retorna:
+      - normalized: lista de dicts con keys: product_variant_id, quantity, unit_price, _index
+      - rejected: lista de dicts con: index, reason, detail?
+
+    Soporta formatos:
+      1) Lista: [{"product_variant_id": 1, "quantity": 2, "unit_price": 10000}, ...]
+      2) Dict por variant_id: {"1": {"qty": 2, "unit_price": 10000}, ...}  (formato cart)
+
+    Tolerancias:
+      - variant id puede venir como: product_variant_id | variant_id | product_variant
+      - quantity puede venir como: quantity | qty
+      - unit_price puede venir como: unit_price | unitPrice | price
     """
+    normalized: List[Dict[str, Any]] = []
+    rejected: List[Dict[str, Any]] = []
+
     if not items:
-        return []
+        return normalized, rejected
 
+    def _reject(idx: int, reason: str, detail: str | None = None) -> None:
+        row: Dict[str, Any] = {"index": idx, "reason": reason}
+        if detail:
+            row["detail"] = detail
+        rejected.append(row)
+
+    # Case 1: list of dicts
     if isinstance(items, list):
-        normalized: List[Dict[str, Any]] = []
-        for it in items:
+        for idx, it in enumerate(items):
             if not isinstance(it, dict):
+                _reject(idx, "bad_payload", "item is not an object")
                 continue
-            pv = it.get("product_variant_id", it.get("variant_id", it.get("productVariantId")))
-            qty = it.get("quantity", it.get("qty"))
-            price = it.get("unit_price", it.get("unitPrice", it.get("price")))
-            if pv is None or qty is None or price is None:
+
+            variant_id = (
+                it.get("product_variant_id")
+                or it.get("variant_id")
+                or it.get("product_variant")
+                or it.get("variant_id")
+                or it.get("variantId")
+            )
+            if variant_id is None:
+                _reject(idx, "missing_variant_id")
                 continue
+
+            try:
+                pv_id = int(variant_id)
+            except (TypeError, ValueError):
+                _reject(idx, "bad_variant_id", f"value={variant_id!r}")
+                continue
+
+            qty_raw = it.get("quantity", it.get("qty"))
+            if qty_raw is None:
+                _reject(idx, "missing_quantity")
+                continue
+            try:
+                qty = int(qty_raw)
+            except (TypeError, ValueError):
+                _reject(idx, "bad_quantity", f"value={qty_raw!r}")
+                continue
+            if qty <= 0:
+                _reject(idx, "bad_quantity", "quantity must be > 0")
+                continue
+
+            price_raw = it.get("unit_price", it.get("unitPrice", it.get("price")))
+            if price_raw is None:
+                _reject(idx, "missing_unit_price")
+                continue
+            try:
+                price = int(price_raw)
+            except (TypeError, ValueError):
+                _reject(idx, "bad_unit_price", f"value={price_raw!r}")
+                continue
+            if price < 0:
+                _reject(idx, "bad_unit_price", "unit_price must be >= 0")
+                continue
+
             normalized.append(
                 {
-                    "product_variant_id": int(pv),
-                    "quantity": int(qty),
-                    "unit_price": int(price),
+                    "product_variant_id": pv_id,
+                    "quantity": qty,
+                    "unit_price": price,
+                    "_index": idx,
                 }
             )
-        return normalized
 
+        return normalized, rejected
+
+    # Case 2: dict keyed by variant_id
     if isinstance(items, dict):
-        normalized = []
-        for variant_id, it in items.items():
+        # Stable indices for rejection messages
+        for idx, (variant_key, it) in enumerate(items.items()):
             if not isinstance(it, dict):
+                _reject(idx, "bad_payload", "item is not an object")
                 continue
-            qty = it.get("quantity", it.get("qty"))
-            price = it.get("unit_price", it.get("unitPrice", it.get("price")))
-            if qty is None or price is None:
+
+            # In dict-format, the key is the variant id, but allow fallback inside too.
+            variant_id = (
+                it.get("product_variant_id")
+                or it.get("variant_id")
+                or it.get("product_variant")
+                or variant_key
+            )
+            if variant_id is None:
+                _reject(idx, "missing_variant_id")
                 continue
+
+            try:
+                pv_id = int(variant_id)
+            except (TypeError, ValueError):
+                _reject(idx, "bad_variant_id", f"value={variant_id!r}")
+                continue
+
+            qty_raw = it.get("quantity", it.get("qty"))
+            if qty_raw is None:
+                _reject(idx, "missing_quantity")
+                continue
+            try:
+                qty = int(qty_raw)
+            except (TypeError, ValueError):
+                _reject(idx, "bad_quantity", f"value={qty_raw!r}")
+                continue
+            if qty <= 0:
+                _reject(idx, "bad_quantity", "quantity must be > 0")
+                continue
+
+            price_raw = it.get("unit_price", it.get("unitPrice", it.get("price")))
+            if price_raw is None:
+                _reject(idx, "missing_unit_price")
+                continue
+            try:
+                price = int(price_raw)
+            except (TypeError, ValueError):
+                _reject(idx, "bad_unit_price", f"value={price_raw!r}")
+                continue
+            if price < 0:
+                _reject(idx, "bad_unit_price", "unit_price must be >= 0")
+                continue
+
             normalized.append(
                 {
-                    "product_variant_id": int(variant_id),
-                    "quantity": int(qty),
-                    "unit_price": int(price),
+                    "product_variant_id": pv_id,
+                    "quantity": qty,
+                    "unit_price": price,
+                    "_index": idx,
                 }
             )
-        return normalized
 
-    return []
+        return normalized, rejected
+
+    # Unknown format
+    rejected.append({"index": 0, "reason": "bad_payload", "detail": "items must be a list or object"})
+    return [], rejected
 
 
 def create_order_from_checkout(payload: Dict[str, Any]) -> Order:
@@ -119,35 +223,87 @@ def create_order_from_checkout(payload: Dict[str, Any]) -> Order:
     - Genera payment_reference única
     - Calcula costos/totales
 
-    Expected keys (mínimo):
+    Payload soportado:
     - items (list|dict)
-    - full_name
-    - document_type
-    - cedula
-    - city_code
-    - address
-    Optional:
-    - email, phone, notes, payment_method
+    - customer: { full_name, document_type, document_number|cedula, email?, phone? }
+    - shipping_address: { city_code, address, notes? }
+    - payment_method?
+
+    Backward compatible (flat):
+    - full_name, document_type, cedula, email?, phone?, city_code, address, notes?, payment_method?
     """
-    items = _normalize_checkout_items(payload.get("items"))
+    # Soportar payload anidado (frontend): customer + shipping_address
+    customer_payload = payload.get("customer") if isinstance(payload.get("customer"), dict) else {}
+    shipping_payload = payload.get("shipping_address") if isinstance(payload.get("shipping_address"), dict) else {}
+
+    # Flatten con fallback a llaves flat (backward compatible)
+    full_name = (payload.get("full_name") or customer_payload.get("full_name") or "").strip()
+    document_type = (payload.get("document_type") or customer_payload.get("document_type") or "").strip()
+
+    # Alias: backend históricamente usa `cedula`, frontend envía `document_number`
+    cedula = (
+        payload.get("cedula")
+        or customer_payload.get("cedula")
+        or customer_payload.get("document_number")
+        or ""
+    ).strip()
+
+    city_code = (payload.get("city_code") or shipping_payload.get("city_code") or "").strip()
+    address = (payload.get("address") or shipping_payload.get("address") or "").strip()
+
+    email = (payload.get("email") or customer_payload.get("email") or "") or ""
+    phone = (payload.get("phone") or customer_payload.get("phone") or "") or ""
+    notes = (payload.get("notes") or shipping_payload.get("notes") or "") or ""
+
+    items, rejected = _normalize_checkout_items(payload.get("items"))
+
+    # Validar existencia/estado de variantes (si el modelo existe en este proyecto)
+    variant_ids = [int(it["product_variant_id"]) for it in items]
+    active_by_id: Dict[int, bool] = {}
+
+    if variant_ids:
+        try:
+            from apps.catalog.models import ProductVariant  # type: ignore
+
+            qs = ProductVariant.objects.filter(id__in=variant_ids)
+            found = {int(v.id): v for v in qs}
+
+            for it in list(items):
+                pv_id = int(it["product_variant_id"])
+                idx = int(it.get("_index", 0))
+
+                v = found.get(pv_id)
+                if v is None:
+                    rejected.append({"index": idx, "reason": "missing_variant", "detail": f"id={pv_id}"})
+                    items.remove(it)
+                    continue
+
+                is_active = bool(getattr(v, "is_active", True))
+                active_by_id[pv_id] = is_active
+                if not is_active:
+                    rejected.append({"index": idx, "reason": "inactive_variant", "detail": f"id={pv_id}"})
+                    items.remove(it)
+
+        except Exception:
+            # Si no existe catalog/models.py o no hay campo is_active, no romper checkout.
+            pass
+
     if not items:
-        raise ValueError("El checkout debe incluir items no vacíos.")
-
-    full_name = (payload.get("full_name") or "").strip()
-    document_type = (payload.get("document_type") or "").strip()
-    cedula = (payload.get("cedula") or "").strip()
-
-    city_code = (payload.get("city_code") or "").strip()
-    address = (payload.get("address") or "").strip()
+        raise ValidationError(
+            {
+                "items": ["El checkout debe incluir items válidos (no vacíos)."],
+                "rejected": rejected,
+            }
+        )
 
     if not full_name:
-        raise ValueError("full_name es requerido.")
+        raise ValidationError({"full_name": ["Este campo es requerido."]})
     if not document_type or not cedula:
-        raise ValueError("document_type y cedula son requeridos.")
+        raise ValidationError({"document_type": ["Este campo es requerido."], "cedula": ["Este campo es requerido."]})
     if not city_code:
-        raise ValueError("city_code es requerido.")
+        raise ValidationError({"city_code": ["Este campo es requerido."]})
     if not address:
-        raise ValueError("address es requerido.")
+        raise ValidationError({"address": ["Este campo es requerido."]})
 
     # 1) Customer upsert centralizado (por doc)
     customer = get_or_create_customer_from_checkout(
@@ -155,8 +311,8 @@ def create_order_from_checkout(payload: Dict[str, Any]) -> Order:
             "full_name": full_name,
             "document_type": document_type,
             "cedula": cedula,
-            "email": payload.get("email"),
-            "phone": payload.get("phone"),
+            "email": email,
+            "phone": phone,
         }
     )
 
@@ -181,12 +337,12 @@ def create_order_from_checkout(payload: Dict[str, Any]) -> Order:
         full_name=full_name,
         cedula=cedula,
         document_type=document_type,
-        phone=(payload.get("phone") or "") or "",
-        email=(payload.get("email") or "") or "",
+        phone=(phone or "") or "",
+        email=(email or "") or "",
         # Snapshot (envío)
         city_code=city_code,
         address=address,
-        notes=(payload.get("notes") or "") or "",
+        notes=(notes or "") or "",
         # Totals (se recalculan abajo también)
         subtotal=int(subtotal),
         shipping_cost=int(shipping_cost),
