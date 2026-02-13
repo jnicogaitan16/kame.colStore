@@ -474,7 +474,7 @@ export default function CheckoutClient() {
               <li>Abre tu app bancaria y elige transferir por Bre-B.</li>
               <li>Pega la llave Bre-B (cópiala con el botón).</li>
               <li>Transfiere el total exacto mostrado arriba.</li>
-              <li>Confirma el pago por WhatsApp.</li>
+              <li>Cuando termines el pago, confirma.</li>
             </ol>
           </div>
 
@@ -511,15 +511,18 @@ export default function CheckoutClient() {
               className="inline-flex w-full"
             >
               <Button type="button" variant="primary" fullWidth>
-                Confirmar pago por WhatsApp
+                Confirmar pago
               </Button>
             </a>
           ) : null}
 
           <Link href="/" className="inline-flex w-full">
-            <Button type="button" variant="primary" fullWidth>
+            <button
+              type="button"
+              className="inline-flex w-full items-center justify-center rounded-xl border border-white/10 bg-transparent px-4 py-3 text-sm font-semibold text-white/85 transition hover:bg-white/5"
+            >
               Volver al inicio
-            </Button>
+            </button>
           </Link>
         </div>
       </div>
