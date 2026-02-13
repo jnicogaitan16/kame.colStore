@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useCartStore } from "@/store/cart";
 import { ProductGallery } from "@/components/product/ProductGallery";
 import { Button } from "@/components/ui/Button";
+import SizeGuideDrawer from "@/components/product/SizeGuideDrawer";
 
 import type { ProductDetail, ProductVariant } from "@/types/catalog";
 
@@ -79,6 +80,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
   const [selectedValue, setSelectedValue] = useState<string>(() => defaultValue);
   const [selectedColor, setSelectedColor] = useState<string>(() => defaultColor);
   const [detailsExpanded, setDetailsExpanded] = useState(false);
+  const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
 
   const optionBase =
     "inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold tracking-wide text-neutral-200 transition-colors hover:bg-white/10 hover:border-white/20 focus:outline-none";
@@ -201,7 +203,17 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
             {/* Variantes: valor (talla) */}
             {hasValue && valueOptions.length > 0 && (
               <div>
-                <label className="block text-sm font-medium text-neutral-200">Talla</label>
+                <div className="flex items-center justify-between gap-3">
+                  <label className="block text-sm font-medium text-neutral-200">Talla</label>
+                  <button
+                    type="button"
+                    onClick={() => setSizeGuideOpen(true)}
+                    className="text-xs font-medium tracking-wide text-sky-300 underline underline-offset-4 decoration-white/20 hover:text-sky-200 hover:decoration-white/40"
+                  >
+                    Guía de tallas
+                  </button>
+                </div>
+
                 <div className="mt-2 flex flex-wrap gap-2">
                   {valueOptions.map((val) => (
                     <button
@@ -288,27 +300,16 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
                 </button>
               </div>
 
-              <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-neutral-100">Guía de tallas</p>
-                    <p className="mt-1 text-sm text-neutral-400">
-                      Revisa medidas recomendadas para elegir la talla ideal.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    className="shrink-0 text-sm font-semibold text-cyan-400 hover:text-cyan-300"
-                    aria-label="Ver guía de tallas"
-                  >
-                    Ver guía
-                  </button>
-                </div>
-              </div>
             </section>
           ) : null}
         </div>
       </div>
+
+      <SizeGuideDrawer
+        open={sizeGuideOpen}
+        onClose={() => setSizeGuideOpen(false)}
+        guideKey="oversize"
+      />
     </div>
   );
 }

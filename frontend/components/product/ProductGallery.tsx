@@ -69,25 +69,27 @@ export function ProductGallery({ images, productName, soldOut }: ProductGalleryP
       </Swiper>
       <style jsx global>{`
         .k-gallery-swiper .swiper-pagination {
-          bottom: 10px;
+          bottom: 12px;
         }
 
         .k-gallery-swiper .swiper-pagination-bullet {
-          width: 6px;
-          height: 6px;
-          margin: 0 4px !important;
-          background: rgba(255, 255, 255, 0.30);
-          opacity: 1;
+          width: 5px;
+          height: 5px;
+          margin: 0 5px !important;
+          background: rgba(255, 255, 255, 0.22);
+          opacity: 0.9;
           transition: transform 180ms ease, background-color 180ms ease, opacity 180ms ease;
         }
 
         .k-gallery-swiper .swiper-pagination-bullet-active {
           background: var(--accent);
-          transform: scale(1.15);
+          opacity: 1;
+          transform: scale(1.2);
         }
 
         .k-gallery-swiper .swiper-pagination-bullet:hover {
-          opacity: 0.9;
+          background: rgba(255, 255, 255, 0.32);
+          opacity: 1;
         }
       `}</style>
     </div>
