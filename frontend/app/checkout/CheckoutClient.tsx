@@ -10,6 +10,7 @@ import { useCartStore } from "@/store/cart";
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/Button";
+import { buildWhatsAppUrl } from "@/lib/whatsapp";
 
 type City = { code: string; label: string };
 
@@ -43,6 +44,97 @@ async function fetchShippingQuote(params: {
   );
 }
 
+type CopyButtonProps = {
+  valueToCopy: string;
+  label?: string;
+  copiedLabel?: string;
+  className?: string;
+  /** When true, renders as a full-width field (row) where the whole area copies */
+  asField?: boolean;
+  /** Optional left icon/content for field mode */
+  leading?: React.ReactNode;
+  /** Optional displayed value for field mode (defaults to valueToCopy) */
+  displayValue?: string;
+};
+function CopyButton({
+  valueToCopy,
+  label = "Copiar",
+  copiedLabel = "Copiado",
+  className = "",
+  asField = false,
+  leading,
+  displayValue,
+}: CopyButtonProps) {
+  const [copied, setCopied] = useState(false);
+
+  return (
+    <button
+      type="button"
+      onClick={async () => {
+        const text = valueToCopy || "";
+        if (!text) return;
+
+        const markCopied = () => {
+          setCopied(true);
+          window.setTimeout(() => setCopied(false), 1500);
+        };
+
+        try {
+          // Modern API (may fail on http or without user gesture permissions)
+          if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(text);
+            markCopied();
+            return;
+          }
+        } catch {
+          // fall through
+        }
+
+        try {
+          // Fallback for http / older browsers
+          const ta = document.createElement("textarea");
+          ta.value = text;
+          ta.setAttribute("readonly", "true");
+          ta.style.position = "fixed";
+          ta.style.left = "-9999px";
+          ta.style.top = "0";
+          document.body.appendChild(ta);
+          ta.select();
+          ta.setSelectionRange(0, ta.value.length);
+          const ok = document.execCommand("copy");
+          document.body.removeChild(ta);
+          if (ok) markCopied();
+        } catch {
+          // ignore
+        }
+      }}
+      className={
+        (asField
+          ? "w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/90 hover:bg-white/10"
+          : "inline-flex items-center justify-center rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white/85 hover:bg-white/10") +
+        " " +
+        className
+      }
+    >
+      {asField ? (
+        <span className="flex w-full items-center justify-between gap-3">
+          <span className="flex min-w-0 items-center gap-3">
+            {leading ? <span className="shrink-0">{leading}</span> : null}
+            <span className="truncate font-mono tracking-wide text-white">
+              {displayValue ?? valueToCopy}
+            </span>
+          </span>
+          <span className="shrink-0 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white/85">
+            {copied ? copiedLabel : label}
+          </span>
+        </span>
+      ) : (
+        <>{copied ? copiedLabel : label}</>
+      )}
+    </button>
+  );
+}
+
 export default function CheckoutClient() {
   const items = useCartStore((state) => state.items);
   const clearCart = useCartStore((state) => state.clearCart);
@@ -64,7 +156,6 @@ export default function CheckoutClient() {
   const stockValidateTimerRef = useRef<number | null>(null);
   const lastStockKeyRef = useRef<string>("");
   const [orderSummary, setOrderSummary] = useState<CheckoutResponse | null>(null);
-  const [copiedRef, setCopiedRef] = useState(false);
 
   const subtotal = Math.round(
     items.reduce(
@@ -298,43 +389,93 @@ export default function CheckoutClient() {
   };
 
   if (!items.length && orderSummary) {
-    const ref = orderSummary.payment_reference;
-    const whatsapp = orderSummary.whatsapp_link;
+    const brebKey = process.env.NEXT_PUBLIC_BREB_KEY || "";
+    const waPhone = process.env.NEXT_PUBLIC_WHATSAPP_PHONE || "";
+
+    const totalNumber =
+      typeof orderSummary.total === "number"
+        ? orderSummary.total
+        : typeof orderSummary.subtotal === "number"
+          ? orderSummary.subtotal + (typeof orderSummary.shipping_cost === "number" ? orderSummary.shipping_cost : 0)
+          : 0;
+
+    const totalText = totalNumber.toLocaleString("es-CO");
+
+    const waMessage = `Hola, ya realicé la transferencia del pedido #${orderSummary.order_id}.\nTotal: $${totalText}.\nAdjunto comprobante.${orderSummary.payment_reference ? `\nReferencia interna: ${orderSummary.payment_reference}` : ""}`;
+
+    const whatsapp = waPhone
+      ? buildWhatsAppUrl({ phone: waPhone, message: waMessage })
+      : orderSummary.whatsapp_link;
 
     return (
       <div className="mx-auto max-w-2xl px-4 py-10 text-zinc-100">
-        <h1 className="mb-4 text-2xl font-bold tracking-tight text-zinc-100">Pedido creado</h1>
-
-        <p className="mb-4 text-white/70">
-          Tu orden <span className="font-semibold">#{orderSummary.order_id}</span> fue creada.
-          El siguiente paso es realizar el pago usando la referencia.
-        </p>
+        <h1 className="mb-6 text-center text-2xl font-bold tracking-tight text-zinc-100">
+          Pedido creado
+        </h1>
 
         <div className="card-surface mb-6 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-zinc-100">
-          <div className="mb-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/60">Referencia de pago</p>
-            <div className="mt-2 flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2">
-              <span className="font-mono text-sm text-white">{ref}</span>
-              <button
-                type="button"
-                onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(ref || "");
-                    setCopiedRef(true);
-                    window.setTimeout(() => setCopiedRef(false), 1500);
-                  } catch {
-                    // ignore
-                  }
-                }}
-                className="inline-flex items-center justify-center rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white/85 hover:bg-white/10"
-              >
-                {copiedRef ? "Copiado" : "Copiar"}
-              </button>
+          <div className="mb-5 flex flex-col items-center justify-center gap-3 text-center">
+            <h2 className="text-lg font-semibold text-white">Paga por transferencia</h2>
+
+            {/* Logo */}
+            <div className="relative h-14 w-32 opacity-95">
+              <Image
+                src="/bre-b-logo.png"
+                alt="Bre-B"
+                fill
+                className="object-contain"
+                sizes="128px"
+                priority
+              />
             </div>
           </div>
 
+          <div className="mb-4">
+            <div className="mt-2">
+              {brebKey ? (
+                <CopyButton
+                  valueToCopy={brebKey}
+                  asField
+                  label="Copiar llave"
+                  copiedLabel="Copiada"
+                  leading={
+                    <div className="relative h-4 w-4 opacity-90">
+                      <Image
+                        src="/bre-b-key.png"
+                        alt="Llave Bre-B"
+                        fill
+                        className="object-contain"
+                        sizes="16px"
+                      />
+                    </div>
+                  }
+                />
+              ) : (
+                <div className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/60">
+                  (No configurada)
+                </div>
+              )}
+            </div>
+            {!brebKey ? (
+              <p className="mt-2 text-xs text-amber-200/80">
+                Configura <span className="font-mono">NEXT_PUBLIC_BREB_KEY</span> para mostrar tu llave.
+              </p>
+            ) : null}
+          </div>
+
+          <div className="mb-4 rounded-xl border border-white/10 bg-black/20 px-3 py-3 text-center">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/60">Total a transferir</p>
+            <p className="mt-1 text-2xl font-bold tracking-tight text-white">${totalText}</p>
+          </div>
+
           <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-3 text-sm text-white/80">
-            {orderSummary.payment_instructions}
+            <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-white/60">Pasos</p>
+            <ol className="list-decimal space-y-1 pl-4 text-sm text-white/80">
+              <li>Abre tu app bancaria y elige transferir por Bre-B.</li>
+              <li>Pega la llave Bre-B (cópiala con el botón).</li>
+              <li>Transfiere el total exacto mostrado arriba.</li>
+              <li>Confirma el pago por WhatsApp.</li>
+            </ol>
           </div>
 
           {(typeof orderSummary.subtotal === "number" || typeof orderSummary.total === "number") && (
@@ -369,8 +510,8 @@ export default function CheckoutClient() {
               rel="noreferrer"
               className="inline-flex w-full"
             >
-              <Button type="button" variant="secondary" fullWidth>
-                Hablar por WhatsApp
+              <Button type="button" variant="primary" fullWidth>
+                Confirmar pago por WhatsApp
               </Button>
             </a>
           ) : null}
