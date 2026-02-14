@@ -8,12 +8,11 @@ from .models import Category, HomepageBanner, HomepageSection, Product, ProductI
 
 
 def _absolute_uri(request, url):
-    """Devuelve la URL absoluta del media si hay request en el contexto."""
-    if not url:
-        return None
-    if request:
-        return request.build_absolute_uri(url)
-    return url
+    """
+    Devuelve siempre URL relativa (/media/...)
+    para evitar problemas con host 127.0.0.1 en túneles o LAN.
+    """
+    return url if url else None
 
 
 # ---------------------------------------------------------------------------

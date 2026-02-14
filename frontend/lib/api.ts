@@ -85,9 +85,6 @@ const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "/api").replace(/\/$/, "");
 const DJANGO_BASE = (process.env.DJANGO_API_BASE || "").replace(/\/$/, "");
 const SERVER_API_BASE = DJANGO_BASE ? `${DJANGO_BASE}/api` : "";
 
-const SERVER_ORIGIN = (process.env.APP_ORIGIN || "").replace(/\/$/, "");
-const DEFAULT_SERVER_ORIGIN = `http://localhost:${process.env.PORT || 3000}`;
-
 export async function apiFetch<T>(
   path: string,
   options: RequestInit = {}
@@ -95,13 +92,13 @@ export async function apiFetch<T>(
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   let url = path.startsWith("http") ? path : `${API_BASE}${normalizedPath}`;
 
+  // Server-side (Next) can call Django directly to avoid depending on any public origin.
+  // In the browser we always stay same-origin via /api/* (tunnel-safe).
   if (typeof window === "undefined" && url.startsWith("/")) {
     if (SERVER_API_BASE && url.startsWith("/api")) {
       url = `${SERVER_API_BASE}${url.slice("/api".length)}`;
-    } else {
-      const origin = SERVER_ORIGIN || DEFAULT_SERVER_ORIGIN;
-      url = `${origin}${url}`;
     }
+    // IMPORTANT: do NOT prepend an origin (APP_ORIGIN). Relative URLs must stay relative.
   }
 
   const res = await fetch(url, {
@@ -146,6 +143,24 @@ export async function getProducts(params?: {
   const qs = searchParams.toString();
 
   const url = `/products/${qs ? `?${qs}` : ""}`;
+
+  return apiFetch<PaginatedResponse<ProductList>>(url);
+}
+
+export async function getCatalogo(params?: {
+  category?: string;
+  search?: string;
+  page?: number;
+  page_size?: number;
+}): Promise<PaginatedResponse<ProductList>> {
+  const searchParams = new URLSearchParams();
+  if (params?.category) searchParams.set("category", params.category);
+  if (params?.search) searchParams.set("search", params.search);
+  if (params?.page) searchParams.set("page", String(params.page));
+  if (params?.page_size) searchParams.set("page_size", String(params.page_size));
+  const qs = searchParams.toString();
+
+  const url = `/catalogo/${qs ? `?${qs}` : ""}`;
 
   return apiFetch<PaginatedResponse<ProductList>>(url);
 }

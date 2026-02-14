@@ -34,11 +34,53 @@ SECRET_KEY = os.getenv(
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DJANGO_DEBUG", "True").lower() in ("1", "true", "yes", "on")
 
+ # Explicit allowed hosts for local dev + LAN access
+ALLOWED_HOSTS = [
+    "localhost",
+    "127.0.0.1",
+    "192.168.20.128",  # LAN IP
+    "0.0.0.0",
+]
+
+# Allow extra hosts via env if provided
 raw_allowed_hosts = os.getenv("DJANGO_ALLOWED_HOSTS", "")
 if raw_allowed_hosts:
-    ALLOWED_HOSTS = [h.strip() for h in raw_allowed_hosts.split(",") if h.strip()]
-else:
-    ALLOWED_HOSTS = []
+    ALLOWED_HOSTS += [
+        h.strip() for h in raw_allowed_hosts.split(",") if h.strip()
+    ]
+
+# CSRF trusted origins (needed when exposing via HTTPS tunnels / reverse proxies)
+ # CSRF trusted origins for frontend access (local + LAN)
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://192.168.20.128:3000",
+]
+
+# Allow extra trusted origins via env if provided
+raw_csrf_trusted = os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "")
+if raw_csrf_trusted:
+    CSRF_TRUSTED_ORIGINS += [
+        o.strip() for o in raw_csrf_trusted.split(",") if o.strip()
+    ]
+
+# When running behind a reverse proxy (e.g., Cloudflare Tunnel), Django should trust
+# the forwarded proto header to know the original scheme was HTTPS.
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# Trust host/scheme forwarded by the proxy (Cloudflare Tunnel sets these headers)
+USE_X_FORWARDED_HOST = True
+
+# Avoid HTTPS redirect loops behind tunnels in dev/demo.
+# In production you can set DJANGO_SECURE_SSL_REDIRECT=True.
+SECURE_SSL_REDIRECT = os.getenv("DJANGO_SECURE_SSL_REDIRECT", "False").lower() in ("1", "true", "yes", "on")
+if DEBUG:
+    # Default to False in DEBUG unless explicitly enabled via env.
+    SECURE_SSL_REDIRECT = os.getenv("DJANGO_SECURE_SSL_REDIRECT", "False").lower() in ("1", "true", "yes", "on")
+
+# For APIs behind proxies/rewrites (Next.js / Cloudflare Tunnel),
+# disable Django's automatic slash-append redirects to avoid 301 loops.
+APPEND_SLASH = False
 
 
 # Application definition
@@ -147,7 +189,7 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 # Django REST Framework
 REST_FRAMEWORK = {
-    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "DEFAULT_PAGINATION_CLASS": "apps.common.pagination.RelativePageNumberPagination",
     "PAGE_SIZE": 20,
     "DEFAULT_RENDERER_CLASSES": [
         "rest_framework.renderers.JSONRenderer",

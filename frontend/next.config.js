@@ -21,6 +21,10 @@ const nextConfig = {
         source: "/api/:path*",
         destination: `${base}/api/:path*`,
       },
+      {
+        source: "/media/:path*",
+        destination: `${base}/media/:path*`,
+      },
     ];
   },
 
@@ -45,6 +49,13 @@ const nextConfig = {
         protocol: "https",
         hostname: "res.cloudinary.com",
         pathname: "/**",
+      },
+
+      // Cloudflare Tunnel (trycloudflare.com)
+      {
+        protocol: "https",
+        hostname: "*.trycloudflare.com",
+        pathname: "/media/**",
       },
     ],
   },

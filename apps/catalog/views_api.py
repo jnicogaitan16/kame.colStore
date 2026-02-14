@@ -8,7 +8,6 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.cache import never_cache
 
 from rest_framework import generics
-from rest_framework.pagination import PageNumberPagination
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
@@ -22,11 +21,6 @@ from .serializers import (
 )
 
 
-# Paginación para listado de productos (por si se quiere distinto al global)
-class ProductListPagination(PageNumberPagination):
-    page_size = 20
-    page_size_query_param = "page_size"
-    max_page_size = 100
 
 
 # ---------------------------------------------------------------------------
@@ -47,7 +41,6 @@ class CategoryListAPIView(generics.ListAPIView):
 class ProductListAPIView(generics.ListAPIView):
     """Listado de productos activos. Filtros: category (slug), search (nombre/descripción)."""
     serializer_class = ProductListSerializer
-    pagination_class = ProductListPagination
 
     def get_queryset(self):
         qs = (
@@ -78,6 +71,26 @@ class ProductListAPIView(generics.ListAPIView):
                 Q(name__icontains=search) | Q(description__icontains=search)
             )
         return qs
+
+
+# ---------------------------------------------------------------------------
+# GET /api/catalogo/?category=slug&search=...  (alias de /api/products/)
+# ---------------------------------------------------------------------------
+@method_decorator(never_cache, name="dispatch")
+class CatalogoListAPIView(ProductListAPIView):
+    """
+    Alias del listado de productos para el catálogo.
+
+    Devuelve respuesta paginada:
+      { count, next, previous, results }
+
+    Soporta query params:
+      - page, page_size
+      - category (slug)
+      - search (nombre/descripción)
+    """
+
+    pass
 
 
 # ---------------------------------------------------------------------------

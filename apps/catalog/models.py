@@ -366,7 +366,7 @@ class HomepageBanner(models.Model):
         max_length=255,
         blank=True,
         default="",
-        help_text="URL relativa o absoluta a la que apunta el botón.",
+        help_text="Usa una ruta relativa. Ej: /catalogo (NO uses http(s)://, localhost, 127.0.0.1, 192.168.x.x ni dominios .trycloudflare.com).",
     )
 
     is_active = models.BooleanField(default=True)
@@ -377,6 +377,42 @@ class HomepageBanner(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def clean(self):
+        super().clean()
+
+        # Enforce relative CTA URL to keep the frontend tunnel-safe (same-origin).
+        # Allowed examples: "/catalogo", "/catalogo?x=1", "/".
+        raw = (self.cta_url or "").strip()
+        if not raw:
+            self.cta_url = ""
+            return
+
+        lowered = raw.lower()
+        # Block absolute URLs or host-based URLs.
+        if lowered.startswith("http://") or lowered.startswith("https://"):
+            raise ValidationError({
+                "cta_url": "La URL del CTA debe ser relativa (ej: /catalogo). No uses http(s)://."
+            })
+
+        # Also block common host patterns even if the scheme is omitted.
+        forbidden_markers = [
+            "localhost",
+            "127.0.0.1",
+            "0.0.0.0",
+            ".trycloudflare.com",
+            "192.168.",
+        ]
+        if any(m in lowered for m in forbidden_markers):
+            raise ValidationError({
+                "cta_url": "La URL del CTA debe ser relativa (ej: /catalogo). No uses hosts/IPs."
+            })
+
+        # Normalize: ensure it starts with '/'
+        if not raw.startswith("/"):
+            raw = "/" + raw.lstrip()
+
+        self.cta_url = raw
 
     class Meta:
         ordering = ["sort_order", "-created_at"]
