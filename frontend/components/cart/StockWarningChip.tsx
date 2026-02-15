@@ -1,5 +1,7 @@
 "use client";
 
+import React from "react";
+
 export type StockWarningStatus = "unknown" | "low" | "over";
 
 export type StockWarningChipProps = {
