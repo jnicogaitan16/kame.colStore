@@ -8,6 +8,7 @@
 import type {
   Category,
   HomepageBanner,
+  HomepagePromo,
   PaginatedResponse,
   ProductDetail,
   ProductList,
@@ -171,6 +172,13 @@ export async function getProductBySlug(slug: string): Promise<ProductDetail> {
 
 export async function getHomepageBanners(): Promise<HomepageBanner[]> {
   return apiFetch<HomepageBanner[]>("/homepage-banners/");
+}
+
+export async function getHomepagePromos(
+  placement?: "TOP" | "MID"
+): Promise<HomepagePromo[]> {
+  const qs = placement ? `?placement=${encodeURIComponent(placement)}` : "";
+  return apiFetch<HomepagePromo[]>(`/homepage-promos/${qs}`);
 }
 
 export async function getHomepageStory(): Promise<HomepageStory | null> {

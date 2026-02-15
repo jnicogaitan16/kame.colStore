@@ -1,47 +1,59 @@
-from __future__ import annotations
-
-from django.contrib import admin
-from django.contrib import messages
+from django.contrib import admin, messages
 from django import forms
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.urls import path
 
-from .models import Category, Product, ProductVariant, ProductImage, HomepageBanner, HomepageSection
+from .models import (
+    Category,
+    Product,
+    ProductVariant,
+    ProductImage,
+    HomepageBanner,
+    HomepageSection,
+    HomepagePromo,
+)
 from .variant_rules import get_variant_rule
 
+@admin.register(HomepagePromo)
+class HomepagePromoAdmin(admin.ModelAdmin):
+    list_display = ("title", "placement", "is_active", "sort_order", "updated_at")
+    list_filter = ("placement", "is_active")
+    search_fields = ("title", "subtitle", "alt_text")
+    ordering = ("placement", "sort_order", "id")
 
-# ======================
-# Category
-# ======================
-@admin.register(Category)
-class CategoryAdmin(admin.ModelAdmin):
-    list_display = ("id", "name", "slug", "is_active")
-    search_fields = ("name", "slug")
-    prepopulated_fields = {"slug": ("name",)}
-    list_filter = ("is_active",)
-
-
-# ======================
-# HomepageBanner
-# ======================
-@admin.register(HomepageBanner)
-class HomepageBannerAdmin(admin.ModelAdmin):
-    list_display = ("id", "title", "is_active", "sort_order", "updated_at")
-    list_filter = ("is_active",)
-    search_fields = ("title", "subtitle")
-    ordering = ("sort_order", "-updated_at")
-
-
-# ======================
-# HomepageSection
-# ======================
-@admin.register(HomepageSection)
-class HomepageSectionAdmin(admin.ModelAdmin):
-    list_display = ("id", "key", "title", "is_active", "sort_order", "updated_at")
-    list_filter = ("is_active",)
-    search_fields = ("key", "title", "subtitle", "content")
-    ordering = ("sort_order", "-updated_at")
+    fieldsets = (
+        (
+            "Contenido",
+            {
+                "fields": (
+                    "title",
+                    "subtitle",
+                    "alt_text",
+                )
+            },
+        ),
+        ("Media", {"fields": ("image",)}),
+        (
+            "CTA",
+            {
+                "fields": (
+                    "cta_label",
+                    "cta_url",
+                )
+            },
+        ),
+        (
+            "Visibilidad",
+            {
+                "fields": (
+                    "placement",
+                    "is_active",
+                    "sort_order",
+                )
+            },
+        ),
+    )
 
 
 # ======================

@@ -61,6 +61,17 @@ export interface HomepageBanner {
   sort_order: number;
 }
 
+export interface HomepagePromo {
+  id: number;
+  title: string;
+  subtitle?: string | null;
+  image: string | null;
+  alt_text?: string | null;
+  cta_label?: string | null;
+  cta_url?: string | null;
+  sort_order: number;
+}
+
 export interface PaginatedResponse<T> {
   count: number;
   next: string | null;
