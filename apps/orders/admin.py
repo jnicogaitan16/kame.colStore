@@ -2,7 +2,93 @@ from django.contrib import admin, messages
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.conf import settings
-from django.core.mail import send_mail
+from django.core.mail import EmailMultiAlternatives
+from django.template.loader import render_to_string
+from urllib.parse import quote
+from apps.notifications.email_context import build_payment_confirmed_context
+import logging
+from django.utils import timezone
+
+logger = logging.getLogger(__name__)
+def send_order_paid_email(order) -> None:
+    """Envía el correo de "Pago confirmado" (HTML + TXT) de forma compatible.
+
+    Nota: esta función se dispara desde la acción del admin y debe ser idempotente
+    a nivel de llamada (la idempotencia real se controla con `is_first_confirmation`).
+    """
+
+    recipient = (getattr(order, "email", "") or "").strip()
+    if not recipient:
+        return
+
+    # Contexto limpio para templates (sin lógica rara en el HTML)
+    ctx = build_payment_confirmed_context(order)
+
+    support_digits = str(ctx.get("support_whatsapp") or "").strip()
+    support_digits = "".join([c for c in support_digits if c.isdigit()])
+
+    # URLs opcionales para CTA
+    order_url = ctx.get("order_public_url")
+    whatsapp_url = None
+    if support_digits:
+        wa_message = f"Hola 👋 Mi pedido es #{order.pk}. ¿Me ayudas por favor?"
+        whatsapp_url = f"https://wa.me/{support_digits}?text={quote(wa_message)}"
+
+    template_ctx = {
+        **ctx,
+        "order_url": order_url,
+        "whatsapp_url": whatsapp_url,
+    }
+
+    subject = f"Pago confirmado - Pedido #{order.pk}"
+    # From/Reply-To robustos (evita None y mejora entregabilidad)
+    from_email = (
+        (getattr(settings, "DEFAULT_FROM_EMAIL", "") or "").strip()
+        or (getattr(settings, "SERVER_EMAIL", "") or "").strip()
+        or "no-reply@kame.col"
+    )
+
+    # Render TXT (obligatorio). Si falla, abortamos.
+    try:
+        text_body = render_to_string("emails/orders/paid.txt", template_ctx)
+    except Exception:
+        logger.exception(
+            "[email] Failed to render paid TXT template for order_id=%s",
+            getattr(order, "pk", None),
+        )
+        raise
+
+    # Render HTML (opcional). Si falla, igual enviamos TXT.
+    html_body = None
+    try:
+        html_body = render_to_string("emails/orders/paid.html", template_ctx)
+    except Exception:
+        logger.exception(
+            "[email] Failed to render paid HTML template for order_id=%s (sending TXT only)",
+            getattr(order, "pk", None),
+        )
+        html_body = None
+
+    msg = EmailMultiAlternatives(
+        subject=subject,
+        body=text_body,
+        from_email=from_email,
+        to=[recipient],
+        reply_to=[from_email],
+        headers={
+            "X-Kame-Order-Id": str(getattr(order, "pk", "")),
+        },
+    )
+    if html_body:
+        msg.attach_alternative(html_body, "text/html")
+    if not (text_body or "").strip():
+        logger.error(
+            "[email] Empty paid TXT body for order_id=%s; aborting send",
+            getattr(order, "pk", None),
+        )
+        return
+
+    msg.send(fail_silently=False)
 
 from django import forms
 from apps.orders.constants import CITY_CHOICES
@@ -103,27 +189,46 @@ class OrderAdmin(admin.ModelAdmin):
                 )
 
                 if is_first_confirmation:
+                    # Asegura payment_reference persistida (idempotente) para el correo.
+                    # Solo setea si viene vacía.
+                    if not (getattr(order, "payment_reference", "") or "").strip():
+                        order.payment_reference = (
+                            f"KME-{timezone.localdate().strftime('%Y%m%d')}-{order.id}"
+                        )
+                        order.save(update_fields=["payment_reference"])
+                        logger.info(
+                            "[admin] payment_reference generated for order_id=%s: %s",
+                            getattr(order, "pk", None),
+                            order.payment_reference,
+                        )
+
                     recipient = (getattr(order, "email", "") or "").strip()
 
                     if recipient:
-                        subject = f"Pago validado - Pedido #{order.pk}"
-                        body = (
-                            f"Hola {getattr(order, 'full_name', '') or ''},\n\n"
-                            f"Hemos validado tu pago y tu pedido #{order.pk} fue confirmado.\n"
-                            f"En un plazo de 3 días hábiles tendrás tu producto en el domicilio.\n\n"
-                            f"Gracias por comprar en Kame.col.\n"
-                        )
-                        send_mail(
-                            subject,
-                            body,
-                            getattr(settings, "DEFAULT_FROM_EMAIL", None) or None,
-                            [recipient],
-                            fail_silently=False,
-                        )
+                        try:
+                            send_order_paid_email(order)
+                            self.message_user(
+                                request,
+                                f"Pedido #{order.pk}: ✅ Pago confirmado.",
+                                level=messages.SUCCESS,
+                            )
+                        except Exception as mail_err:
+                            # Pago ya confirmado; el correo no debe romper el flujo.
+                            self.message_user(
+                                request,
+                                f"Pedido #{order.pk}: ⚠️ Pago confirmado, pero no se pudo enviar el correo (ver logs).",
+                                level=messages.WARNING,
+                            )
+                            # Trazabilidad para debugging (stacktrace)
+                            logger.exception(
+                                "[admin] Failed to send paid email for order_id=%s",
+                                getattr(order, "pk", None),
+                            )
                     else:
-                        messages.warning(
+                        self.message_user(
                             request,
-                            f"Pedido #{order.pk}: pago confirmado, pero no se envió correo porque la orden no tiene email."
+                            f"Pedido #{order.pk}: pago confirmado, pero no se envió correo porque la orden no tiene email.",
+                            level=messages.WARNING,
                         )
 
                 ok += 1

@@ -1,0 +1,68 @@
+Pago confirmado ✅
+
+{% if first_name %}
+Hey {{ first_name }},
+{% else %}
+Hola,
+{% endif %}
+
+Gracias por confiar en Kame.col.
+Tu pago ya quedó confirmado y arrancamos producción.
+
+--------------------------------------------------
+RESUMEN DEL PEDIDO
+--------------------------------------------------
+Pedido: #{{ order.id }}
+Método: {% if payment_method %}{{ payment_method }}{% else %}Transferencia Bre-B{% endif %}
+Total: {{ order.total }}
+Referencia: {{ reference|default:order.payment_reference|default:"—" }}
+
+{% if order_public_url %}
+Ver mi pedido:
+{{ order_public_url }}
+
+{% elif order_url %}
+Ver mi pedido:
+{{ order_url }}
+
+{% elif whatsapp_url %}
+Hablar por WhatsApp:
+{{ whatsapp_url }}
+
+{% endif %}
+Si tienes cualquier duda, puedes responder directamente a este correo.
+
+Gracias por apoyar una marca independiente. 🖤
+
+—
+KAME.COL
+Urban essentials · Hecho en Colombia
+© {% now "Y" %} KAME.COL
+Pago confirmado ✅
+
+{% if first_name %}Hey {{ first_name }},{% else %}Hola,{% endif %}
+
+Gracias por confiar en Kame.col.
+Tu pago ya quedó confirmado y arrancamos producción.
+
+------------------------------
+RESUMEN DEL PEDIDO
+------------------------------
+Pedido: #{{ order_number }}
+Método: {% if payment_method %}{{ payment_method }}{% else %}Transferencia Bre-B{% endif %}
+Total: {{ total_fmt }}
+Referencia: {% if reference %}{{ reference }}{% else %}—{% endif %}
+
+{% if whatsapp_url %}
+Hablar por WhatsApp:
+{{ whatsapp_url }}
+{% endif %}
+
+Si tienes cualquier duda, puedes responder directamente a este correo.
+
+Gracias por apoyar una marca independiente. 🖤
+
+—
+KAME.COL
+Urban essentials · Hecho en Colombia
+© {% now "Y" %} KAME.COL

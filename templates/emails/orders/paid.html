@@ -1,0 +1,111 @@
+{% extends "emails/base_dark.html" %}
+
+{% block title %}Pago confirmado · KAME.COL{% endblock %}
+
+{% block preheader %}
+Pago confirmado para tu pedido #{% if order_number %}{{ order_number }}{% else %}{{ order.id }}{% endif %}
+{% endblock %}
+
+{% block content %}
+  <h1 class="h1" style="margin:0; font-size:20px; line-height:28px; font-weight:700; color:#f5f7fb;">
+    Pago confirmado ✅
+  </h1>
+
+  <div style="height: 12px; line-height: 12px; font-size: 12px;">&nbsp;</div>
+
+  <p class="p" style="margin:0; font-size:14px; line-height:22px; color:#c9d1dc;">
+    {% if first_name %}
+      Hey {{ first_name }},
+    {% else %}
+      Hola,
+    {% endif %}
+  </p>
+
+  <div style="height: 10px; line-height: 10px; font-size: 10px;">&nbsp;</div>
+
+  <p class="p" style="margin:0; font-size:14px; line-height:22px; color:#c9d1dc;">
+    Gracias por confiar en <strong style="color:#f5f7fb;">Kame.col</strong>. Tu pago ya quedó confirmado y arrancamos producción.
+  </p>
+
+  <div style="height: 16px; line-height: 16px; font-size: 16px;">&nbsp;</div>
+
+  {# Bloque pedido (card dentro de card) #}
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+         bgcolor="#0f0f10"
+         style="width:100%; background:#0f0f10; border:1px solid #262626; border-radius:12px;">
+    <tr>
+      <td style="padding:16px;">
+        <p style="margin:0; font-size:12px; line-height:18px; color:#a9b1bd;">Pedido (para soporte)</p>
+        <p style="margin:2px 0 0 0; font-size:16px; line-height:24px; color:#f5f7fb; font-weight:800;">
+          #{{ order.id }}
+        </p>
+
+        <div style="height: 12px; line-height: 12px; font-size: 12px;">&nbsp;</div>
+        <div style="border-top:1px solid #262626; height:1px; line-height:1px; font-size:1px;">&nbsp;</div>
+        <div style="height: 12px; line-height: 12px; font-size: 12px;">&nbsp;</div>
+
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;">
+          <tr>
+            <td style="padding:0; vertical-align:top;">
+              <p style="margin:0; font-size:12px; line-height:18px; color:#a9b1bd;">Método</p>
+              <p style="margin:2px 0 0 0; font-size:14px; line-height:22px; color:#f5f7fb; font-weight:600;">
+                {% if payment_method %}{{ payment_method }}{% else %}Transferencia Bre-B{% endif %}
+              </p>
+            </td>
+            <td style="padding:0; vertical-align:top; text-align:right;">
+              <p style="margin:0; font-size:12px; line-height:18px; color:#a9b1bd;">Total</p>
+              <p style="margin:2px 0 0 0; font-size:14px; line-height:22px; color:#f5f7fb; font-weight:700;">
+                {{ total_fmt }}
+              </p>
+            </td>
+          </tr>
+        </table>
+
+        {% if reference %}
+          <div style="height: 10px; line-height: 10px; font-size: 10px;">&nbsp;</div>
+          <p style="margin:0; font-size:12px; line-height:18px; color:#a9b1bd;">Referencia</p>
+          <p style="margin:2px 0 0 0; font-size:13px; line-height:20px; color:#f5f7fb; font-weight:600; word-break:break-word;">
+            {{ reference }}
+          </p>
+        {% endif %}
+      </td>
+    </tr>
+  </table>
+
+  <div style="height: 18px; line-height: 18px; font-size: 18px;">&nbsp;</div>
+
+  {# CTA (centrado + premium) #}
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;">
+    <tr>
+      <td align="center" style="padding:0; text-align:center;">
+        {% if order_public_url %}
+          <a href="{{ order_public_url }}"
+             style="display:inline-block; background:#ffffff; color:#0b0f14; border-radius:999px; padding:12px 18px; font-size:13px; font-weight:800; letter-spacing:0.3px; border:1px solid #e6e6e6;">
+            VER MI PEDIDO
+          </a>
+        {% elif order_url %}
+          <a href="{{ order_url }}"
+             style="display:inline-block; background:#ffffff; color:#0b0f14; border-radius:999px; padding:12px 18px; font-size:13px; font-weight:800; letter-spacing:0.3px; border:1px solid #e6e6e6;">
+            VER MI PEDIDO
+          </a>
+        {% elif whatsapp_url %}
+          <a href="{{ whatsapp_url }}"
+             style="display:inline-block; background:#ffffff; color:#0b0f14; border-radius:999px; padding:12px 18px; font-size:13px; font-weight:800; letter-spacing:0.3px; border:1px solid #e6e6e6;">
+            HABLAR POR WHATSAPP
+          </a>
+        {% else %}
+          <p class="p" style="margin:0; font-size:14px; line-height:22px; color:#a9b1bd; text-align:center;">
+            Si necesitas algo, responde a este correo y te ayudamos.
+          </p>
+        {% endif %}
+      </td>
+    </tr>
+  </table>
+
+  <div style="height: 14px; line-height: 14px; font-size: 14px;">&nbsp;</div>
+
+  <p class="small" style="margin:0; font-size:12px; line-height:18px; color:#a9b1bd;">
+    Gracias por apoyar una marca independiente. 🖤
+    <span style="color:#c9d1dc;">— KAME.COL</span>
+  </p>
+{% endblock %}
