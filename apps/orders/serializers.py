@@ -37,21 +37,30 @@ def normalize_co_phone(raw: str) -> str:
 
 class CustomerDataSerializer(serializers.Serializer):
     full_name = serializers.CharField(max_length=150)
-    email = serializers.EmailField()
+    email = serializers.EmailField(required=False, allow_blank=True)
     phone = serializers.CharField(max_length=30)
-    document_type = serializers.ChoiceField(choices=(("CC", "CC"), ("NIT", "NIT")))
-    document_number = serializers.CharField(max_length=32)
+    document_type = serializers.ChoiceField(choices=(("CC", "CC"), ("NIT", "NIT")), required=False, default="CC")
+    # El frontend puede enviar `document_number` o `cedula` (alias).
+    document_number = serializers.CharField(max_length=32, required=False, allow_blank=True)
+    cedula = serializers.CharField(max_length=32, required=False, allow_blank=True)
 
     def validate_phone(self, value: str) -> str:
         return normalize_co_phone(value)
 
     def validate(self, attrs):
         """Validación conjunta de tipo y número de documento."""
-        raw_number = attrs.get("document_number") or ""
-        digits = "".join(ch for ch in raw_number if ch.isdigit())
+        raw_number = (attrs.get("document_number") or "").strip()
+        raw_cedula = (attrs.get("cedula") or "").strip()
+
+        raw_value = raw_number or raw_cedula
+        digits = "".join(ch for ch in raw_value if ch.isdigit())
+
         if not digits:
             raise serializers.ValidationError(
-                {"document_number": "El número de documento es obligatorio."}
+                {
+                    "cedula": "El documento es obligatorio.",
+                    "document_number": "El documento es obligatorio.",
+                }
             )
 
         doc_type = attrs.get("document_type")
@@ -67,6 +76,7 @@ class CustomerDataSerializer(serializers.Serializer):
                 )
 
         attrs["document_number"] = digits
+        attrs["cedula"] = digits
         return attrs
 
 
@@ -172,7 +182,7 @@ class CheckoutSerializer(serializers.Serializer):
         form_data = {
             "full_name": customer["full_name"],
             # Mapear document_number a cedula interna
-            "cedula": customer["document_number"],
+            "cedula": customer["cedula"],
             "document_type": customer["document_type"],
             "phone": customer["phone"],
             "email": customer.get("email") or "",
@@ -183,4 +193,3 @@ class CheckoutSerializer(serializers.Serializer):
         }
 
         return form_data, self.validated_cart
-
