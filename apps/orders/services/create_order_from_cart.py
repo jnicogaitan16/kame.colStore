@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, List, Tuple
+from typing import Any, Dict, List, Tuple
 
 from apps.customers.models import Customer
 from apps.orders.models import Order, OrderItem
