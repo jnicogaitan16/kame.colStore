@@ -1,21 +1,25 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Iterable, List, Tuple
+from typing import Any, Dict, List, Tuple
 
 from apps.customers.models import Customer
 from apps.orders.models import Order, OrderItem
 
-from apps.customers.services.customer_upsert import get_or_create_customer_from_checkout
 from apps.orders.services.payments import generate_payment_reference
 
 from rest_framework.exceptions import ValidationError
+from django.db import IntegrityError, transaction
+
+import logging
+logger = logging.getLogger(__name__)
 
 
 def create_order_from_cart(
     customer: Customer,
-    cart_items: Dict[int, dict],
+    cart_items: list[dict],
     form_data: dict,
     subtotal: int,
+    payment_method: str = "transferencia",
 ) -> Order:
     # Local import to avoid circular dependencies between services modules
     from apps.orders.services.shipping import calculate_shipping_cost
@@ -28,7 +32,7 @@ def create_order_from_cart(
     order = Order.objects.create(
         customer=customer,
         status=Order.Status.PENDING_PAYMENT,
-        payment_method=(form_data.get("payment_method") or "transferencia"),
+        payment_method=(payment_method or "transferencia"),
         # Snapshot
         full_name=(form_data.get("full_name") or ""),
         cedula=(form_data.get("cedula") or ""),
@@ -44,16 +48,115 @@ def create_order_from_cart(
         total=int(total),
     )
 
-    for variant_id, item in cart_items.items():
+    for item in cart_items:
         OrderItem.objects.create(
             order=order,
-            product_variant_id=int(variant_id),
+            product_variant_id=int(item["product_variant_id"]),
             quantity=int(item["qty"]),
             unit_price=int(item["unit_price"]),
         )
 
     return order
 
+
+
+# --- Customer resolver utility for checkout (safe upsert) ---
+
+def resolve_customer_from_checkout(payload_customer: Dict[str, Any]) -> Customer:
+    """Resolve a Customer without creating duplicates.
+
+    Regla final: Documento manda
+      - Si viene documento (cedula): buscar por (document_type, cedula). Si no existe, crear.
+        En este caso NO se busca por email.
+      - Solo si NO viene documento: buscar por email; si no existe, crear (si el modelo lo permite).
+
+    Nota:
+      - Nunca actualiza un Customer existente (0 updates).
+      - first_name/last_name se derivan desde full_name para cumplir modelo.
+    """
+
+    def _norm(value: Any) -> str:
+        return (value or "").strip()
+
+    def _norm_email(value: Any) -> str:
+        return (value or "").strip().lower()
+
+    def _split_full_name(full_name: str) -> tuple[str, str]:
+        parts = (full_name or "").strip().split()
+        if not parts:
+            return "-", ""
+        if len(parts) == 1:
+            return parts[0], ""
+        return parts[0], " ".join(parts[1:])
+
+    full_name = _norm(payload_customer.get("full_name"))
+    document_type = _norm(payload_customer.get("document_type")) or "CC"
+
+    # Accept legacy naming: cedula / document_number / document
+    cedula = _norm(
+        payload_customer.get("cedula")
+        or payload_customer.get("document_number")
+        or payload_customer.get("document")
+    )
+
+    email_norm = _norm_email(payload_customer.get("email"))
+    phone = _norm(payload_customer.get("phone"))
+
+    first_name, last_name = _split_full_name(full_name)
+
+    # A) SI hay documento: SOLO documento
+    if cedula:
+        existing = Customer.objects.filter(document_type=document_type, cedula=cedula).first()
+        if existing is not None:
+            return existing
+
+        try:
+            return Customer.objects.create(
+                document_type=document_type,
+                cedula=cedula,
+                first_name=first_name,
+                last_name=last_name,
+                email=(email_norm or None),
+                phone=(phone or ""),
+            )
+        except IntegrityError:
+            # Carrera por UNIQUE(document_type, cedula)
+            existing = Customer.objects.filter(document_type=document_type, cedula=cedula).first()
+            if existing is not None:
+                return existing
+            raise
+
+    # B) SI NO hay documento: fallback por email
+    if email_norm:
+        existing = Customer.objects.filter(email=email_norm).first()
+        if existing is not None:
+            return existing
+
+        # Crear nuevo (si tu modelo permite cedula vacía). Si no, este create fallará y es correcto.
+        try:
+            return Customer.objects.create(
+                document_type=document_type,
+                cedula="",
+                first_name=first_name,
+                last_name=last_name,
+                email=(email_norm or None),
+                phone=(phone or ""),
+            )
+        except IntegrityError:
+            existing = Customer.objects.filter(email=email_norm).first()
+            if existing is not None:
+                return existing
+            raise
+
+    # Sin documento y sin email: intentar crear (si el modelo lo permite). Si no, debe fallar.
+    return Customer.objects.create(
+        document_type=document_type,
+        cedula="",
+        first_name=first_name,
+        last_name=last_name,
+        email=None,
+        phone=(phone or ""),
+    )
 
 # --- Nuevas utilidades para checkout-based order creation ---
 
@@ -233,26 +336,32 @@ def create_order_from_checkout(payload: Dict[str, Any]) -> Order:
     - full_name, document_type, cedula, email?, phone?, city_code, address, notes?, payment_method?
     """
     # Soportar payload anidado (frontend): customer + shipping_address
-    customer_payload = payload.get("customer") if isinstance(payload.get("customer"), dict) else {}
+    payload_customer = payload.get("customer") if isinstance(payload.get("customer"), dict) else {}
     shipping_payload = payload.get("shipping_address") if isinstance(payload.get("shipping_address"), dict) else {}
 
-    # Flatten con fallback a llaves flat (backward compatible)
-    full_name = (payload.get("full_name") or customer_payload.get("full_name") or "").strip()
-    document_type = (payload.get("document_type") or customer_payload.get("document_type") or "").strip()
+    def _norm_email(value: Any) -> str:
+        return (value or "").strip().lower()
 
-    # Alias: backend históricamente usa `cedula`, frontend envía `document_number`
-    cedula = (
-        payload.get("cedula")
-        or customer_payload.get("cedula")
-        or customer_payload.get("document_number")
+    # --- Paso A: Normalizar snapshot desde payload["customer"] (NO desde customer.*) ---
+    snapshot_full_name = (payload_customer.get("full_name") or payload.get("full_name") or "").strip()
+    snapshot_document_type = (payload_customer.get("document_type") or payload.get("document_type") or "CC").strip() or "CC"
+
+    snapshot_cedula = (
+        payload_customer.get("cedula")
+        or payload_customer.get("document_number")
+        or payload_customer.get("document")
+        or payload.get("cedula")
+        or payload.get("document_number")
+        or payload.get("document")
         or ""
     ).strip()
 
+    snapshot_phone = (payload_customer.get("phone") or payload.get("phone") or "").strip()
+    snapshot_email = _norm_email(payload_customer.get("email") or payload.get("email"))
+
+    # --- Shipping snapshot (mantener compatibilidad: flat + shipping_address) ---
     city_code = (payload.get("city_code") or shipping_payload.get("city_code") or "").strip()
     address = (payload.get("address") or shipping_payload.get("address") or "").strip()
-
-    email = (payload.get("email") or customer_payload.get("email") or "") or ""
-    phone = (payload.get("phone") or customer_payload.get("phone") or "") or ""
     notes = (payload.get("notes") or shipping_payload.get("notes") or "") or ""
 
     items, rejected = _normalize_checkout_items(payload.get("items"))
@@ -296,23 +405,23 @@ def create_order_from_checkout(payload: Dict[str, Any]) -> Order:
             }
         )
 
-    if not full_name:
+    if not snapshot_full_name:
         raise ValidationError({"full_name": ["Este campo es requerido."]})
-    if not document_type or not cedula:
+    if not snapshot_document_type or not snapshot_cedula:
         raise ValidationError({"document_type": ["Este campo es requerido."], "cedula": ["Este campo es requerido."]})
     if not city_code:
         raise ValidationError({"city_code": ["Este campo es requerido."]})
     if not address:
         raise ValidationError({"address": ["Este campo es requerido."]})
 
-    # 1) Customer upsert centralizado (por doc)
-    customer = get_or_create_customer_from_checkout(
+    # 1) Resolver customer (prefer document, fallback email) to avoid UNIQUE(email) crashes
+    customer = resolve_customer_from_checkout(
         {
-            "full_name": full_name,
-            "document_type": document_type,
-            "cedula": cedula,
-            "email": email,
-            "phone": phone,
+            "full_name": snapshot_full_name,
+            "document_type": snapshot_document_type,
+            "cedula": snapshot_cedula,
+            "email": snapshot_email,
+            "phone": snapshot_phone,
         }
     )
 
@@ -324,39 +433,63 @@ def create_order_from_checkout(payload: Dict[str, Any]) -> Order:
     # Local import to avoid circular dependencies between services modules
     from apps.orders.services.shipping import calculate_shipping_cost
 
-    shipping_cost = int(calculate_shipping_cost(subtotal=int(subtotal), city_code=city_code))
+    try:
+        shipping_cost = int(calculate_shipping_cost(subtotal=int(subtotal), city_code=city_code))
+    except Exception as e:
+        logger.exception("checkout: shipping cost calculation failed", extra={"city_code": city_code, "subtotal": int(subtotal)})
+        raise ValidationError({"city_code": ["Ciudad inválida o no soportada para envío."], "detail": [str(e)]})
     total = int(subtotal) + int(shipping_cost)
 
     # 3) Crear Order en PENDING_PAYMENT + snapshot datos
-    order = Order.objects.create(
-        customer=customer,
-        status=Order.Status.PENDING_PAYMENT,
-        payment_method=(payload.get("payment_method") or "transferencia"),
-        payment_reference=generate_payment_reference(),
-        # Snapshot (cliente)
-        full_name=full_name,
-        cedula=cedula,
-        document_type=document_type,
-        phone=(phone or "") or "",
-        email=(email or "") or "",
-        # Snapshot (envío)
-        city_code=city_code,
-        address=address,
-        notes=(notes or "") or "",
-        # Totals (se recalculan abajo también)
-        subtotal=int(subtotal),
-        shipping_cost=int(shipping_cost),
-        total=int(total),
-    )
+    #    - payment_reference debe ser única; si colisiona, reintentar.
+    last_err: Exception | None = None
+    for _attempt in range(5):
+        try:
+            with transaction.atomic():
+                order = Order.objects.create(
+                    customer=customer,
+                    status=Order.Status.PENDING_PAYMENT,
+                    payment_method=(payload.get("payment_method") or "transferencia"),
+                    payment_reference=generate_payment_reference(),
+                    # Snapshot (cliente)
+                    full_name=snapshot_full_name,
+                    cedula=snapshot_cedula,
+                    document_type=snapshot_document_type,
+                    phone=snapshot_phone,
+                    email=snapshot_email,
+                    # Snapshot (envío)
+                    city_code=city_code,
+                    address=address,
+                    notes=(notes or "") or "",
+                    # Totals
+                    subtotal=int(subtotal),
+                    shipping_cost=int(shipping_cost),
+                    total=int(total),
+                )
+            break
+        except IntegrityError as e:
+            # Puede ser colisión de payment_reference o carrera de constraints
+            last_err = e
+            continue
+        except Exception as e:
+            logger.exception("checkout: order creation failed")
+            raise ValidationError({"detail": ["No fue posible crear la orden."], "error": [str(e)]})
+    else:
+        logger.exception("checkout: order creation failed after retries")
+        raise ValidationError({"detail": ["No fue posible crear la orden (reintentos agotados)."], "error": [str(last_err) if last_err else "unknown"]})
 
     # 4) Crear items
     for it in items:
-        OrderItem.objects.create(
-            order=order,
-            product_variant_id=int(it["product_variant_id"]),
-            quantity=int(it["quantity"]),
-            unit_price=int(it["unit_price"]),
-        )
+        try:
+            OrderItem.objects.create(
+                order=order,
+                product_variant_id=int(it["product_variant_id"]),
+                quantity=int(it["quantity"]),
+                unit_price=int(it["unit_price"]),
+            )
+        except Exception as e:
+            logger.exception("checkout: failed creating order item", extra={"item": it})
+            raise ValidationError({"items": ["No fue posible crear uno de los items."], "error": [str(e)]})
 
     # 5) Recalcular totales si el modelo lo soporta; si no, mantener lo calculado arriba.
     try:

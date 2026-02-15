@@ -45,15 +45,42 @@ class OrderAdminForm(forms.ModelForm):
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
     form = OrderAdminForm
-    list_display = ("id", "customer", "status", "total", "created_at")
+    list_display = (
+        "id",
+        "full_name",
+        "email",
+        "phone",
+        "document_type",
+        "cedula",
+        "status",
+        "total",
+        "created_at",
+    )
     autocomplete_fields = ("customer",)
     list_filter = ("status", "created_at")
     search_fields = (
-        "customer__first_name",
-        "customer__last_name",
-        "customer__email",
+        "full_name",
+        "email",
+        "phone",
+        "cedula",
+        "document_type",
+        "payment_reference",
     )
-    readonly_fields = ("status", "total", "stock_deducted_at", "created_at")
+    readonly_fields = (
+        "status",
+        "total",
+        "stock_deducted_at",
+        "created_at",
+        # Snapshot (histórico)
+        "full_name",
+        "email",
+        "phone",
+        "document_type",
+        "cedula",
+        "city_code",
+        "address",
+        "notes",
+    )
     inlines = (OrderItemInline,)
     actions = ("confirm_payment_action",)
 
