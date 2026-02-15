@@ -95,6 +95,11 @@ def homepage_banner_upload_path(instance, filename):
     ext = os.path.splitext(filename)[1].lower()
     return f"homepage_banners/{uuid.uuid4().hex}{ext}"
 
+def homepage_promo_upload_path(instance, filename):
+    """Generate upload path for homepage promo cards."""
+    ext = os.path.splitext(filename)[1].lower()
+    return f"homepage_promos/{uuid.uuid4().hex}{ext}"
+
 
 class ProductImage(models.Model):
     """Modelo para almacenar imágenes de variantes de productos.
@@ -343,6 +348,7 @@ class ProductVariant(models.Model):
         return f"{self.product.name} (sin variante)"
 
 
+
 class HomepageBanner(models.Model):
     """Hero banners para la página principal (administrables desde el admin).
 
@@ -416,6 +422,61 @@ class HomepageBanner(models.Model):
 
     class Meta:
         ordering = ["sort_order", "-created_at"]
+
+    def __str__(self) -> str:
+        return self.title
+
+
+class HomepagePromo(models.Model):
+    """Promos/cards para el Home (ej: identidad de marca, materiales, galería).
+
+    Similar a HomepageBanner, pero pensado como tarjetas en una grilla o carrusel.
+    """
+
+    title = models.CharField(max_length=150, blank=True, default="")
+    subtitle = models.CharField(max_length=200, blank=True, default="")
+
+    class Placement(models.TextChoices):
+        TOP = "TOP", "Top"
+        MID = "MID", "Mid"
+
+    placement = models.CharField(
+        max_length=10,
+        choices=Placement.choices,
+        default=Placement.MID,
+        db_index=True,
+        help_text="Dónde se muestra esta promo en el Home (Top/Mid).",
+    )
+
+    image = models.ImageField(upload_to=homepage_promo_upload_path)
+    alt_text = models.CharField(max_length=200, blank=True, default="")
+
+    cta_label = models.CharField(
+        max_length=80,
+        blank=True,
+        default="Ver más",
+        help_text="Texto del CTA (por ejemplo, 'Ver más').",
+    )
+    cta_url = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        help_text="Ruta relativa opcional (ej: /catalogo). Si está vacía, la tarjeta no tendrá link.",
+    )
+
+    is_active = models.BooleanField(default=True)
+    sort_order = models.PositiveIntegerField(
+        default=1,
+        help_text="Orden de aparición (menor = primero).",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["sort_order", "id"]
+        verbose_name = "Promo de Home"
+        verbose_name_plural = "Promos de Home"
 
     def __str__(self) -> str:
         return self.title

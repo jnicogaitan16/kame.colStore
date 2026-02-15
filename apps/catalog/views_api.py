@@ -11,11 +11,19 @@ from rest_framework import generics
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
-from .models import Category, HomepageBanner, HomepageSection, Product, ProductVariant
+from .models import (
+    Category,
+    HomepageBanner,
+    HomepageSection,
+    HomepagePromo,
+    Product,
+    ProductVariant,
+)
 from .serializers import (
     CategorySerializer,
     HomepageBannerSerializer,
     HomepageStorySerializer,
+    HomepagePromoSerializer,
     ProductDetailSerializer,
     ProductListSerializer,
 )
@@ -152,3 +160,23 @@ class HomepageStoryAPIView(APIView):
 
         serializer = HomepageStorySerializer(story)
         return Response(serializer.data)
+
+
+# ---------------------------------------------------------------------------
+# GET /api/homepage-promos/
+# ---------------------------------------------------------------------------
+@method_decorator(never_cache, name="dispatch")
+class HomepagePromoListAPIView(generics.ListAPIView):
+    """Listado de promos activas para la home."""
+
+    serializer_class = HomepagePromoSerializer
+    pagination_class = None
+
+    def get_queryset(self):
+        qs = HomepagePromo.objects.filter(is_active=True)
+
+        placement = (self.request.query_params.get("placement") or "").strip().upper()
+        if placement:
+            qs = qs.filter(placement=placement)
+
+        return qs.order_by("sort_order", "-id")
