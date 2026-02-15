@@ -170,12 +170,18 @@ export function MiniCart() {
                     {(() => {
                       const w = getStockWarning(item.variantId);
                       if (!w || w.status === "ok") return null;
+
+                      const isKnownStockIssue =
+                        String(w.status) === "exceeds_stock" || String(w.status) === "low_stock";
+
+                      const label = isKnownStockIssue ? "Stock con advertencias" : "Stock no confirmado";
+                      const availableSuffix =
+                        typeof w.available === "number" ? ` • disp: ${w.available}` : "";
+
                       return (
-                        <p className="mt-1 text-xs text-amber-300/90">
-                          {w.message}
-                          {typeof w.available === "number" && w.available >= 0 ? (
-                            <span className="text-amber-200/80"> (disp: {w.available})</span>
-                          ) : null}
+                        <p className="mt-2 text-xs leading-snug text-amber-200/80 whitespace-normal break-words">
+                          {label}
+                          {availableSuffix}
                         </p>
                       );
                     })()}
@@ -232,9 +238,9 @@ export function MiniCart() {
               <span className="text-white font-semibold text-base">${totalAmount().toLocaleString("es-CO")}</span>
             </div>
             {hasStockWarnings() && (
-              <div className="mb-3 rounded-lg border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs text-amber-100">
-                Hay productos con disponibilidad limitada. Puedes seguir al checkout y lo validamos antes de crear tu pedido.
-              </div>
+              <p className="mb-3 text-xs leading-snug text-amber-200/80 whitespace-normal break-words">
+                Algunos ítems podrían no estar disponibles al confirmar.
+              </p>
             )}
             <Link href="/checkout" onClick={closeCart} className="block">
               <Button variant="primary" fullWidth>
