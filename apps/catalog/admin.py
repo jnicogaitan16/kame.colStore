@@ -35,6 +35,18 @@ class HomepageBannerAdminForm(forms.ModelForm):
             self.fields["description"].required = False
 
 
+
+# ======================
+# Category
+# ======================
+
+@admin.register(Category)
+class CategoryAdmin(admin.ModelAdmin):
+    list_display = ("id", "name", "slug", "is_active")
+    search_fields = ("name", "slug")
+    list_filter = ("is_active",)
+    prepopulated_fields = {"slug": ("name",)}
+
 # ======================
 # Home content (Banner / Story / Promos)
 # ======================
