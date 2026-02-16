@@ -51,10 +51,15 @@ def _get_first_name(order) -> str | None:
 
 
 def _get_support_whatsapp() -> str:
-    """
-    Obtiene el WhatsApp desde settings o usa fallback seguro.
-    """
-    return getattr(settings, "SUPPORT_WHATSAPP", "573105564840")
+    """Obtiene el WhatsApp de soporte (solo dígitos) desde settings o fallback seguro."""
+    raw = getattr(
+        settings,
+        "SUPPORT_WHATSAPP",
+        getattr(settings, "NEXT_PUBLIC_WHATSAPP_PHONE", "573137008959"),
+    )
+    raw = (str(raw or "").strip())
+    digits = "".join(ch for ch in raw if ch.isdigit())
+    return digits or "573137008959"
 
 
 def _get_brand_name() -> str:
@@ -89,6 +94,14 @@ def build_payment_confirmed_context(order) -> dict:
     subject = f"Pago confirmado - Pedido #{order_number}"
     preheader = f"Pago confirmado para tu pedido #{order_number}"
 
+    support_whatsapp = _get_support_whatsapp()
+    whatsapp_url = None
+    if support_whatsapp:
+        msg = f"Hola 👋 Necesito ayuda con mi pedido #{order_number}."
+        # wa.me requires urlencoded text
+        from urllib.parse import quote
+        whatsapp_url = f"https://wa.me/{support_whatsapp}?text={quote(msg)}"
+
     return {
         "first_name": first_name,
         "brand_name": _get_brand_name(),
@@ -98,7 +111,8 @@ def build_payment_confirmed_context(order) -> dict:
         "reference": reference,
         "order": order,
         "order_public_url": _get_order_public_url(order),
-        "support_whatsapp": _get_support_whatsapp(),
+        "support_whatsapp": support_whatsapp,
+        "whatsapp_url": whatsapp_url,
         "payment_method": payment_method,
         "to_email": to_email,
         "total_fmt": total_fmt,

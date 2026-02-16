@@ -14,10 +14,12 @@ from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import never_cache
+from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.exceptions import ValidationError
+from rest_framework.permissions import AllowAny
 
 from apps.catalog.models import ProductVariant
 
@@ -45,11 +47,31 @@ class CitiesAPIView(APIView):
         return Response({"cities": cities})
 
 
+# CSRF cookie setter endpoint
+class CsrfCookieAPIView(APIView):
+    """GET /api/orders/csrf/
+
+    Fuerza el seteo de la cookie `csrftoken` para el dominio actual.
+    Útil si en el futuro quieres enviar X-CSRFToken desde el frontend.
+    """
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    @method_decorator(never_cache)
+    @method_decorator(ensure_csrf_cookie)
+    def get(self, request, *args, **kwargs):
+        return Response({"ok": True})
+
+
+@method_decorator(csrf_exempt, name="dispatch")
 class StockValidateAPIView(APIView):
     """POST /api/orders/stock-validate/
 
     Validates that the requested items are sellable given current stock.
     """
+    permission_classes = [AllowAny]
+    authentication_classes = []
 
     @method_decorator(never_cache)
     def post(self, request, *args, **kwargs):
@@ -180,11 +202,15 @@ class ShippingQuoteAPIView(APIView):
 CITY_CODES = {code for code, _label in CITY_CHOICES}
 
 
+@method_decorator(csrf_exempt, name="dispatch")
 class CheckoutAPIView(APIView):
     """
     POST /api/orders/checkout/
     """
+    permission_classes = [AllowAny]
+    authentication_classes = []
 
+    @method_decorator(never_cache)
     def post(self, request, *args, **kwargs):
         serializer = CheckoutSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)

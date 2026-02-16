@@ -4,6 +4,14 @@ import Link from "next/link";
 import { getHomepagePromos } from "@/lib/api";
 import type { HomepagePromo } from "@/types/catalog";
 
+// Extiende el tipo del frontend sin tocar el archivo de tipos.
+// Esto resuelve los errores TS de image_*_url.
+type HomepagePromoWithOptimizedImages = HomepagePromo & {
+  image_thumb_url?: string | null;
+  image_medium_url?: string | null;
+  image_large_url?: string | null;
+};
+
 const HERO_OVERLAY_CLASS =
   "absolute inset-0 bg-gradient-to-b from-black/65 via-black/35 to-black/75";
 
@@ -16,31 +24,35 @@ const HERO_TITLE_CLASS =
 const HERO_SUBTITLE_CLASS =
   "mb-3 inline-flex rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-semibold tracking-widest text-white/85";
 
-function getGridColsClass(count: number): string {
-  // Mobile: 1 column always. Desktop: 2 cols for 1-2 items, 3 cols for 3+.
-  if (count <= 2) return "md:grid-cols-2";
-  return "md:grid-cols-3";
-}
-
 function normalizeHref(href: string | null | undefined): string | null {
   const raw = (href || "").trim();
   if (!raw) return null;
-  // Ensure relative route. Backend already enforces, this is just extra safety.
   if (raw.startsWith("http://") || raw.startsWith("https://")) return null;
   return raw.startsWith("/") ? raw : `/${raw}`;
 }
+
+function normalizeImageSrc(src: string | null | undefined): string | null {
+  const raw = (src || "").trim();
+  if (!raw) return null;
+  if (raw.startsWith("http://") || raw.startsWith("https://")) return raw;
+  return raw.startsWith("/") ? raw : `/${raw}`;
+}
+
+// Blur placeholder liviano (mejora LCP/percepción sin depender del optimizador)
+const BLUR_DATA_URL =
+  "data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAA=";
 
 export default async function HomepagePromos({
   placement = "MID",
 }: {
   placement?: "TOP" | "MID";
 }) {
-  let promos: HomepagePromo[] = [];
+  let promos: HomepagePromoWithOptimizedImages[] = [];
 
   try {
-    promos = await getHomepagePromos(placement);
+    const res = await getHomepagePromos(placement);
+    promos = res as HomepagePromoWithOptimizedImages[];
   } catch {
-    // Home should never hard-fail if promos endpoint has an issue.
     return null;
   }
 
@@ -50,12 +62,10 @@ export default async function HomepagePromos({
 
   if (list.length === 0) return null;
 
-  // const gridColsClass = getGridColsClass(list.length);
-
   return (
     <section>
       <div className="flex flex-col gap-10">
-        {list.map((promo) => {
+        {list.map((promo, idx) => {
           const href = normalizeHref(promo.cta_url);
           const hasCta = !!href;
 
@@ -66,19 +76,30 @@ export default async function HomepagePromos({
 
           const isTop = placement === "TOP";
 
+          // Preferir URLs optimizadas (ImageKit). Fallback a `promo.image` por compatibilidad.
+          const preferred = isTop
+            ? promo.image_large_url || promo.image
+            : promo.image_medium_url || promo.image;
+
+          let imageSrc = normalizeImageSrc(preferred);
+
+          // Paracaídas: si el preferred viene de ImageKit CACHE y en tu entorno falla,
+          // hacemos fallback al original (promo.image) para evitar bloque negro.
+          if (imageSrc?.includes("/media/CACHE/") && promo.image) {
+            imageSrc = normalizeImageSrc(promo.image);
+          }
+
+          const imageSizes = isTop ? "100vw" : "(max-width: 768px) 100vw, 33vw";
+          const imagePriority = isTop && idx === 0;
+
           const breakoutClass = isTop
             ? "relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] w-screen"
             : "";
 
-          const PROMO_HEIGHT_TOP =
-            "min-h-[75vh] md:min-h-[85vh]";
-
-          const PROMO_HEIGHT_MID =
-            "min-h-[45vh] md:min-h-[55vh]";
-
-          const promoHeightClass = isTop
-            ? PROMO_HEIGHT_TOP
-            : PROMO_HEIGHT_MID;
+          // Alturas más cortas para diferenciarse del Hero (aprox. la mitad)
+          const PROMO_HEIGHT_TOP = "min-h-[40vh] md:min-h-[44vh]";
+          const PROMO_HEIGHT_MID = "min-h-[28vh] md:min-h-[32vh]";
+          const promoHeightClass = isTop ? PROMO_HEIGHT_TOP : PROMO_HEIGHT_MID;
 
           const CardInner = (
             <div
@@ -89,14 +110,18 @@ export default async function HomepagePromos({
             >
               {/* Background image */}
               <div className="absolute inset-0">
-                {promo.image ? (
+                {imageSrc ? (
                   <Image
-                    src={promo.image}
+                    src={imageSrc}
                     alt={promo.alt_text || title || "Promo"}
                     fill
-                    sizes="(max-width: 768px) 100vw, 33vw"
+                    sizes={imageSizes}
+                    priority={imagePriority}
+                    unoptimized
+                    placeholder="blur"
+                    blurDataURL={BLUR_DATA_URL}
+                    {...(!isTop ? { loading: "lazy" as const } : {})}
                     className="object-cover transition-transform duration-300 group-hover:scale-[1.01]"
-                    priority={false}
                   />
                 ) : (
                   <div className="h-full w-full bg-neutral-900" />
@@ -104,16 +129,28 @@ export default async function HomepagePromos({
               </div>
 
               {/* Banner-like overlay for readability */}
-              <div
-                className={`pointer-events-none ${HERO_OVERLAY_CLASS}`}
-              />
+              <div className={`pointer-events-none ${HERO_OVERLAY_CLASS}`} />
 
               {/* Content */}
-              <div className={`relative w-full ${promoHeightClass} flex items-end py-12 md:py-16`}>
+              <div
+                className={`relative w-full ${promoHeightClass} flex items-end py-10 md:py-12`}
+              >
                 <div className={HERO_CONTAINER_CLASS}>
                   <div className="w-full">
                     {hasText ? (
                       <div>
+                        {subtitle ? (
+                          <p
+                            className={
+                              isTop
+                                ? HERO_SUBTITLE_CLASS
+                                : "mb-3 inline-flex rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-semibold tracking-widest text-white/85"
+                            }
+                          >
+                            {subtitle}
+                          </p>
+                        ) : null}
+
                         {title ? (
                           <h3
                             className={
@@ -124,17 +161,6 @@ export default async function HomepagePromos({
                           >
                             {title}
                           </h3>
-                        ) : null}
-                        {subtitle ? (
-                          <p
-                            className={
-                              isTop
-                                ? "mt-4 text-sm leading-relaxed text-white/80 md:text-base"
-                                : "mt-2 text-sm text-white/80 md:text-base max-w-prose"
-                            }
-                          >
-                            {subtitle}
-                          </p>
                         ) : null}
                       </div>
                     ) : null}
@@ -164,7 +190,9 @@ export default async function HomepagePromos({
                 <Link
                   href={href as string}
                   className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
-                  aria-label={promo.cta_label?.trim() || `Ver más: ${title || "promo"}`}
+                  aria-label={
+                    promo.cta_label?.trim() || `Ver más: ${title || "promo"}`
+                  }
                 >
                   {CardInner}
                 </Link>

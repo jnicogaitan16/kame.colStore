@@ -543,8 +543,13 @@ export default function CheckoutClient() {
       const res = await validateCartStock(stockValidateItems);
       setStockWarnings(res.warningsByVariantId || {});
       setStockValidateFailed(false);
-    } catch {
-      // Non-blocking: only surface a technical message when we have no real stock warnings
+    } catch (e: any) {
+      if (e?.name === "AbortError") return;
+
+      // Safety: si stock-validate falla (ej. 403 CSRF),
+      // no bloqueamos UX ni marcamos errores por ítem.
+      // Limpiamos warnings y mostramos el aviso técnico no bloqueante.
+      setStockWarnings({});
       setStockValidateFailed(true);
     }
   }

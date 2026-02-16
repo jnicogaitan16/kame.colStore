@@ -3,9 +3,6 @@ import { HeroCarousel } from "@/components/home/HeroCarousel";
 import { BrandStory } from "@/components/home/BrandStory";
 import HomepagePromos from "@/components/home/HomepagePromos";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-
 export default async function HomePage() {
   const [banners, story] = await Promise.all([
     getHomepageBanners(),
