@@ -63,6 +63,7 @@ export function HeroCarousel({ banners }: { banners: HomepageBanner[] }) {
                     alt={alt}
                     fill
                     priority={idx === 0}
+                    unoptimized
                     className="object-cover"
                     sizes="100vw"
                   />

@@ -2,6 +2,7 @@
 Serializers para la API del catálogo (DRF).
 Incluyen imágenes con URL absoluta y orden primary + gallery.
 """
+
 from rest_framework import serializers
 
 from .models import (
@@ -23,6 +24,38 @@ def _absolute_uri(request, url):
     return url if url else None
 
 
+def _spec_url(obj, spec_attr: str):
+    """Retorna URL del spec asegurando que el cachefile exista.
+
+    - Fuerza `generate()` si está disponible.
+    - Solo devuelve la URL si el archivo existe en el storage.
+    - Si algo falla, retorna None para que el caller haga fallback al original.
+    """
+    try:
+        spec = getattr(obj, spec_attr, None)
+        if not spec:
+            return None
+
+        generate = getattr(spec, "generate", None)
+        if callable(generate):
+            generate()
+
+        url = getattr(spec, "url", None)
+        if not url:
+            return None
+
+        # Verificación extra: confirmar que el archivo existe en el storage
+        storage = getattr(spec, "storage", None)
+        name = getattr(spec, "name", None)
+        exists = getattr(storage, "exists", None) if storage else None
+        if callable(exists) and name and not exists(name):
+            return None
+
+        return url
+    except Exception:
+        return None
+
+
 # ---------------------------------------------------------------------------
 # Category
 # ---------------------------------------------------------------------------
@@ -37,16 +70,46 @@ class CategorySerializer(serializers.ModelSerializer):
 # ---------------------------------------------------------------------------
 class ProductImageSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
+    image_thumb_url = serializers.SerializerMethodField()
+    image_medium_url = serializers.SerializerMethodField()
+    image_large_url = serializers.SerializerMethodField()
 
     class Meta:
         model = ProductImage
-        fields = ["id", "image", "alt_text", "is_primary", "sort_order"]
+        fields = [
+            "id",
+            "image",
+            "image_thumb_url",
+            "image_medium_url",
+            "image_large_url",
+            "alt_text",
+            "is_primary",
+            "sort_order",
+        ]
 
     def get_image(self, obj):
         if not obj.image:
             return None
         request = self.context.get("request")
         return _absolute_uri(request, obj.image.url)
+
+    def get_image_thumb_url(self, obj):
+        if not obj.image:
+            return None
+        request = self.context.get("request")
+        return _absolute_uri(request, _spec_url(obj, "image_thumb"))
+
+    def get_image_medium_url(self, obj):
+        if not obj.image:
+            return None
+        request = self.context.get("request")
+        return _absolute_uri(request, _spec_url(obj, "image_medium"))
+
+    def get_image_large_url(self, obj):
+        if not obj.image:
+            return None
+        request = self.context.get("request")
+        return _absolute_uri(request, _spec_url(obj, "image_large"))
 
 
 # ---------------------------------------------------------------------------
@@ -100,8 +163,6 @@ class ProductListSerializer(serializers.ModelSerializer):
 
     def get_primary_image(self, obj):
         """Primera imagen disponible: primary de la primera variante con imágenes, o primera imagen."""
-        from .models import ProductImage
-
         img = (
             ProductImage.objects.filter(variant__product=obj)
             .order_by("-is_primary", "sort_order", "created_at")
@@ -110,7 +171,8 @@ class ProductListSerializer(serializers.ModelSerializer):
         if not img or not img.image:
             return None
         request = self.context.get("request")
-        return _absolute_uri(request, img.image.url)
+        # Preferir tamaño optimizado para listas (mejor performance)
+        return _absolute_uri(request, _spec_url(img, "image_medium") or img.image.url)
 
 
 # ---------------------------------------------------------------------------
@@ -147,6 +209,9 @@ class ProductDetailSerializer(serializers.ModelSerializer):
 # ---------------------------------------------------------------------------
 class HomepageBannerSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
+    image_thumb_url = serializers.SerializerMethodField()
+    image_medium_url = serializers.SerializerMethodField()
+    image_large_url = serializers.SerializerMethodField()
 
     class Meta:
         model = HomepageBanner
@@ -157,6 +222,9 @@ class HomepageBannerSerializer(serializers.ModelSerializer):
             "description",
             "show_text",
             "image",
+            "image_thumb_url",
+            "image_medium_url",
+            "image_large_url",
             "alt_text",
             "cta_label",
             "cta_url",
@@ -167,7 +235,30 @@ class HomepageBannerSerializer(serializers.ModelSerializer):
         if not obj.image:
             return None
         request = self.context.get("request")
-        return _absolute_uri(request, obj.image.url)
+        return _absolute_uri(
+            request,
+            _spec_url(obj, "image_hero")
+            or _spec_url(obj, "image_large")
+            or obj.image.url,
+        )
+
+    def get_image_thumb_url(self, obj):
+        if not obj.image:
+            return None
+        request = self.context.get("request")
+        return _absolute_uri(request, _spec_url(obj, "image_thumb"))
+
+    def get_image_medium_url(self, obj):
+        if not obj.image:
+            return None
+        request = self.context.get("request")
+        return _absolute_uri(request, _spec_url(obj, "image_medium"))
+
+    def get_image_large_url(self, obj):
+        if not obj.image:
+            return None
+        request = self.context.get("request")
+        return _absolute_uri(request, _spec_url(obj, "image_large"))
 
 
 # ---------------------------------------------------------------------------
@@ -184,6 +275,9 @@ class HomepageStorySerializer(serializers.ModelSerializer):
 # ---------------------------------------------------------------------------
 class HomepagePromoSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
+    image_thumb_url = serializers.SerializerMethodField()
+    image_medium_url = serializers.SerializerMethodField()
+    image_large_url = serializers.SerializerMethodField()
 
     class Meta:
         model = HomepagePromo
@@ -194,6 +288,9 @@ class HomepagePromoSerializer(serializers.ModelSerializer):
             "show_text",
             "placement",
             "image",
+            "image_thumb_url",
+            "image_medium_url",
+            "image_large_url",
             "alt_text",
             "cta_label",
             "cta_url",
@@ -204,4 +301,27 @@ class HomepagePromoSerializer(serializers.ModelSerializer):
         if not obj.image:
             return None
         request = self.context.get("request")
-        return _absolute_uri(request, obj.image.url)
+        return _absolute_uri(
+            request,
+            _spec_url(obj, "image_card")
+            or _spec_url(obj, "image_large")
+            or obj.image.url,
+        )
+
+    def get_image_thumb_url(self, obj):
+        if not obj.image:
+            return None
+        request = self.context.get("request")
+        return _absolute_uri(request, _spec_url(obj, "image_thumb"))
+
+    def get_image_medium_url(self, obj):
+        if not obj.image:
+            return None
+        request = self.context.get("request")
+        return _absolute_uri(request, _spec_url(obj, "image_medium"))
+
+    def get_image_large_url(self, obj):
+        if not obj.image:
+            return None
+        request = self.context.get("request")
+        return _absolute_uri(request, _spec_url(obj, "image_large"))

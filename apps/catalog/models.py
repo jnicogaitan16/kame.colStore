@@ -1,8 +1,12 @@
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Sum
+from django.conf import settings
 import os
 import uuid
+
+from imagekit.models import ImageSpecField
+from imagekit.processors import ResizeToFit
 
 from .variant_rules import get_variant_rule, normalize_variant_value
 
@@ -120,6 +124,38 @@ class ProductImage(models.Model):
         help_text="Variante del producto a la que pertenece esta imagen"
     )
     image = models.ImageField(upload_to=product_image_upload_path)
+
+    # Derivados optimizados (no alteran el original). Generan WebP bajo demanda.
+    image_thumb = ImageSpecField(
+        source='image',
+        processors=[ResizeToFit(400, 400)],
+        format='WEBP',
+        options={'quality': 82},
+    )
+    image_medium = ImageSpecField(
+        source='image',
+        processors=[ResizeToFit(900, 900)],
+        format='WEBP',
+        options={'quality': 82},
+    )
+    image_large = ImageSpecField(
+        source='image',
+        processors=[ResizeToFit(1600, 1600)],
+        format='WEBP',
+        options={'quality': 82},
+    )
+
+    @property
+    def image_thumb_url(self) -> str:
+        return getattr(self.image_thumb, 'url', '') if self.image else ''
+
+    @property
+    def image_medium_url(self) -> str:
+        return getattr(self.image_medium, 'url', '') if self.image else ''
+
+    @property
+    def image_large_url(self) -> str:
+        return getattr(self.image_large, 'url', '') if self.image else ''
     alt_text = models.CharField(
         max_length=200,
         blank=True,
@@ -172,29 +208,37 @@ class ProductImage(models.Model):
     def save(self, *args, **kwargs):
         # Validar antes de guardar
         self.full_clean()
-        
+
         # Si es la primera imagen y no hay primaria, marcarla como primaria
         if not self.pk and self.variant_id:
             if not ProductImage.objects.filter(variant_id=self.variant_id, is_primary=True).exists():
                 self.is_primary = True
-        
+
         super().save(*args, **kwargs)
-        
-        # Optimizar imagen si es necesario (opcional, requiere Pillow)
-        if self.image:
+
+        # Optimizar imagen original post-save (opcional).
+        # Deshabilitado por defecto para no interferir con ImageKit (CACHE) mientras aislamos issues.
+        # Para habilitarlo, define en settings:
+        #   ENABLE_PRODUCTIMAGE_POSTSAVE_OPTIMIZATION = True
+        if self.image and getattr(settings, "ENABLE_PRODUCTIMAGE_POSTSAVE_OPTIMIZATION", False):
             try:
                 from PIL import Image as PILImage
+
                 img = PILImage.open(self.image.path)
+
                 # Convertir RGBA a RGB si es necesario (para JPEG)
-                if img.mode in ('RGBA', 'LA', 'P'):
-                    rgb_img = PILImage.new('RGB', img.size, (255, 255, 255))
-                    if img.mode == 'P':
-                        img = img.convert('RGBA')
-                    rgb_img.paste(img, mask=img.split()[-1] if img.mode in ('RGBA', 'LA') else None)
+                if img.mode in ("RGBA", "LA", "P"):
+                    rgb_img = PILImage.new("RGB", img.size, (255, 255, 255))
+                    if img.mode == "P":
+                        img = img.convert("RGBA")
+                    rgb_img.paste(
+                        img,
+                        mask=img.split()[-1] if img.mode in ("RGBA", "LA") else None,
+                    )
                     img = rgb_img
-                
+
                 # Guardar optimizado (solo si es JPEG/PNG)
-                if img.format in ('JPEG', 'PNG'):
+                if img.format in ("JPEG", "PNG"):
                     img.save(self.image.path, optimize=True, quality=85)
             except Exception:
                 # Si falla la optimización, continuar sin error
@@ -365,6 +409,49 @@ class HomepageBanner(models.Model):
     )
 
     image = models.ImageField(upload_to=homepage_banner_upload_path)
+
+    # Derivados optimizados (WebP) para servir en frontend sin usar el original.
+    image_thumb = ImageSpecField(
+        source='image',
+        processors=[ResizeToFit(400, 400)],
+        format='WEBP',
+        options={'quality': 82},
+    )
+    image_medium = ImageSpecField(
+        source='image',
+        processors=[ResizeToFit(900, 900)],
+        format='WEBP',
+        options={'quality': 82},
+    )
+    image_large = ImageSpecField(
+        source='image',
+        processors=[ResizeToFit(1600, 1600)],
+        format='WEBP',
+        options={'quality': 82},
+    )
+    # Hero optimizado para Home (mejor balance peso/calidad)
+    image_hero = ImageSpecField(
+        source='image',
+        processors=[ResizeToFit(1400, 1400)],
+        format='WEBP',
+        options={'quality': 75},
+    )
+
+    @property
+    def image_hero_url(self) -> str:
+        return getattr(self.image_hero, 'url', '') if self.image else ''
+
+    @property
+    def image_thumb_url(self) -> str:
+        return getattr(self.image_thumb, 'url', '') if self.image else ''
+
+    @property
+    def image_medium_url(self) -> str:
+        return getattr(self.image_medium, 'url', '') if self.image else ''
+
+    @property
+    def image_large_url(self) -> str:
+        return getattr(self.image_large, 'url', '') if self.image else ''
     alt_text = models.CharField(max_length=200, blank=True, default="")
 
     cta_label = models.CharField(
@@ -459,6 +546,49 @@ class HomepagePromo(models.Model):
     )
 
     image = models.ImageField(upload_to=homepage_promo_upload_path)
+
+    # Derivados optimizados (WebP) para servir en frontend sin usar el original.
+    image_thumb = ImageSpecField(
+        source='image',
+        processors=[ResizeToFit(400, 400)],
+        format='WEBP',
+        options={'quality': 82},
+    )
+    image_medium = ImageSpecField(
+        source='image',
+        processors=[ResizeToFit(900, 900)],
+        format='WEBP',
+        options={'quality': 82},
+    )
+    image_large = ImageSpecField(
+        source='image',
+        processors=[ResizeToFit(1600, 1600)],
+        format='WEBP',
+        options={'quality': 82},
+    )
+    # Promo optimizado (más liviano que hero)
+    image_card = ImageSpecField(
+        source='image',
+        processors=[ResizeToFit(1000, 1000)],
+        format='WEBP',
+        options={'quality': 75},
+    )
+
+    @property
+    def image_card_url(self) -> str:
+        return getattr(self.image_card, 'url', '') if self.image else ''
+
+    @property
+    def image_thumb_url(self) -> str:
+        return getattr(self.image_thumb, 'url', '') if self.image else ''
+
+    @property
+    def image_medium_url(self) -> str:
+        return getattr(self.image_medium, 'url', '') if self.image else ''
+
+    @property
+    def image_large_url(self) -> str:
+        return getattr(self.image_large, 'url', '') if self.image else ''
     alt_text = models.CharField(max_length=200, blank=True, default="")
 
     cta_label = models.CharField(

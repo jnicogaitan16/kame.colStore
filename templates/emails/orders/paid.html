@@ -89,10 +89,16 @@ Pago confirmado para tu pedido #{% if order_number %}{{ order_number }}{% else %
             VER MI PEDIDO
           </a>
         {% elif whatsapp_url %}
-          <a href="{{ whatsapp_url }}"
-             style="display:inline-block; background:#ffffff; color:#0b0f14; border-radius:999px; padding:12px 18px; font-size:13px; font-weight:800; letter-spacing:0.3px; border:1px solid #e6e6e6;">
-            HABLAR POR WHATSAPP
-          </a>
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+            <tr>
+              <td bgcolor="#25D366" style="border-radius:999px;" align="center">
+                <a href="{{ whatsapp_url }}"
+                   style="display:inline-block; background:#25D366; color:#ffffff; border-radius:999px; padding:12px 18px; font-size:13px; font-weight:800; letter-spacing:0.3px; border:1px solid #1ebe5d; text-decoration:none;">
+                  HABLAR POR WHATSAPP
+                </a>
+              </td>
+            </tr>
+          </table>
         {% else %}
           <p class="p" style="margin:0; font-size:14px; line-height:22px; color:#a9b1bd; text-align:center;">
             Si necesitas algo, responde a este correo y te ayudamos.

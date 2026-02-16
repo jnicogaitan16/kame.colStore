@@ -86,6 +86,21 @@ const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "/api").replace(/\/$/, "");
 const DJANGO_BASE = (process.env.DJANGO_API_BASE || "").replace(/\/$/, "");
 const SERVER_API_BASE = DJANGO_BASE ? `${DJANGO_BASE}/api` : "";
 
+const getCookie = (name: string): string | null => {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie
+    .split(";")
+    .map((c) => c.trim())
+    .find((c) => c.startsWith(`${name}=`));
+  if (!match) return null;
+  return decodeURIComponent(match.split("=").slice(1).join("="));
+};
+
+const isUnsafeMethod = (method?: string) => {
+  const m = (method || "GET").toUpperCase();
+  return !(m === "GET" || m === "HEAD" || m === "OPTIONS" || m === "TRACE");
+};
+
 export async function apiFetch<T>(
   path: string,
   options: RequestInit = {}
@@ -102,20 +117,55 @@ export async function apiFetch<T>(
     // IMPORTANT: do NOT prepend an origin (APP_ORIGIN). Relative URLs must stay relative.
   }
 
+  const method = (options.method || "GET").toUpperCase();
+  const headers = new Headers(options.headers || undefined);
+
+  // Ensure JSON content-type when body exists (do not override if caller set it)
+  if (options.body != null && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  // CSRF header for unsafe methods (client-side only)
+  if (typeof window !== "undefined" && isUnsafeMethod(method)) {
+    const csrf = getCookie("csrftoken");
+    if (csrf && !headers.has("X-CSRFToken")) {
+      headers.set("X-CSRFToken", csrf);
+    }
+  }
+
   const res = await fetch(url, {
     ...options,
+    method,
+    credentials: "include",
     cache: options.cache ?? "no-store",
     // Next.js fetch option (supported in Next runtime)
     next: (options as any).next ?? { revalidate: 0 },
-    headers: {
-      ...(options.body ? { "Content-Type": "application/json" } : {}),
-      ...(options.headers || {}),
-    },
+    headers,
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`API ${res.status}: ${text || res.statusText}`);
+    let payload: any = null;
+    try {
+      payload = await res.json();
+    } catch {
+      // ignore
+    }
+
+    let text = "";
+    if (payload == null) {
+      try {
+        text = await res.text();
+      } catch {
+        // ignore
+      }
+    }
+
+    const err: any = new Error(
+      `API ${res.status}: ${text || res.statusText || "Request failed"}`
+    );
+    err.status = res.status;
+    err.payload = payload;
+    throw err;
   }
 
   return res.json() as Promise<T>;

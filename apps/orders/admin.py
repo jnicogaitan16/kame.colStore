@@ -202,34 +202,14 @@ class OrderAdmin(admin.ModelAdmin):
                             order.payment_reference,
                         )
 
-                    recipient = (getattr(order, "email", "") or "").strip()
-
-                    if recipient:
-                        try:
-                            send_order_paid_email(order)
-                            self.message_user(
-                                request,
-                                f"Pedido #{order.pk}: ✅ Pago confirmado.",
-                                level=messages.SUCCESS,
-                            )
-                        except Exception as mail_err:
-                            # Pago ya confirmado; el correo no debe romper el flujo.
-                            self.message_user(
-                                request,
-                                f"Pedido #{order.pk}: ⚠️ Pago confirmado, pero no se pudo enviar el correo (ver logs).",
-                                level=messages.WARNING,
-                            )
-                            # Trazabilidad para debugging (stacktrace)
-                            logger.exception(
-                                "[admin] Failed to send paid email for order_id=%s",
-                                getattr(order, "pk", None),
-                            )
-                    else:
-                        self.message_user(
-                            request,
-                            f"Pedido #{order.pk}: pago confirmado, pero no se envió correo porque la orden no tiene email.",
-                            level=messages.WARNING,
-                        )
+                    # Email: DEPRECADO en Admin.
+                    # El correo "Pago confirmado" se dispara únicamente desde el service layer
+                    # (apps.orders.services.payments.confirm_order_payment) para evitar dobles envíos.
+                    self.message_user(
+                        request,
+                        f"Pedido #{order.pk}: ✅ Pago confirmado.",
+                        level=messages.SUCCESS,
+                    )
 
                 ok += 1
             except ValidationError as e:

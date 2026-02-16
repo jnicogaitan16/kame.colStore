@@ -5,11 +5,12 @@ const nextConfig = {
   skipTrailingSlashRedirect: true,
 
   async rewrites() {
-    // Read from .env.local (DJANGO_API_BASE=...) with a safe dev fallback.
-    const raw = process.env.DJANGO_API_BASE;
+    // Read from .env.local (DJANGO_API_BASE=...) with a stricter, non-hardcoded approach.
+    const raw = (process.env.DJANGO_API_BASE || "").trim();
+
     if (!raw) {
       throw new Error(
-        "DJANGO_API_BASE is not defined. Set it in frontend/.env.local"
+        "DJANGO_API_BASE is not defined. Set it in frontend/.env.local (e.g. http://127.0.0.1:8000)"
       );
     }
 
@@ -25,10 +26,16 @@ const nextConfig = {
         source: "/media/:path*",
         destination: `${base}/media/:path*`,
       },
+      {
+        source: "/static/:path*",
+        destination: `${base}/static/:path*`,
+      },
     ];
   },
 
   images: {
+    formats: ['image/avif', 'image/webp'],
+    minimumCacheTTL: 86400,
     remotePatterns: [
       // Local Django media (dev)
       {
@@ -40,6 +47,12 @@ const nextConfig = {
       {
         protocol: "http",
         hostname: "127.0.0.1",
+        port: "8000",
+        pathname: "/media/**",
+      },
+      {
+        protocol: "http",
+        hostname: "192.168.20.128",
         port: "8000",
         pathname: "/media/**",
       },

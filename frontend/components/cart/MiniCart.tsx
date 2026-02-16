@@ -50,16 +50,11 @@ export function MiniCart() {
       setStockWarnings(res.warningsByVariantId || {});
     } catch (e: any) {
       if (e?.name === "AbortError") return;
-      // If API fails, mark items with an "error" warning (non-blocking)
-      const fallback: Record<number, { status: StockWarningStatus; available: number; message: string }> = {};
-      for (const it of normalizeValidateItems) {
-        fallback[it.product_variant_id] = {
-          status: "error",
-          available: 0,
-          message: "No pudimos validar stock en este momento.",
-        };
-      }
-      setStockWarnings(fallback);
+
+      // Safety: si stock-validate falla (ej. 403 CSRF),
+      // no bloqueamos UX ni marcamos errores por ítem.
+      // Simplemente limpiamos warnings y mantenemos el carrito usable.
+      setStockWarnings({});
     }
   }
 

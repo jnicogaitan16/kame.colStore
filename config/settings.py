@@ -94,6 +94,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     'rest_framework',
+    'imagekit',
 
     # local apps
     'apps.catalog.apps.CatalogConfig',
