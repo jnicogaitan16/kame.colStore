@@ -18,7 +18,11 @@ function normalizeHref(href: string | null | undefined): string | null {
   return raw.startsWith("/") ? raw : `/${raw}`;
 }
 
-export default async function HomepagePromos({ placement = "MID" }: { placement?: "TOP" | "MID" }) {
+export default async function HomepagePromos({
+  placement = "MID",
+}: {
+  placement?: "TOP" | "MID";
+}) {
   let promos: HomepagePromo[] = [];
 
   try {
@@ -37,7 +41,7 @@ export default async function HomepagePromos({ placement = "MID" }: { placement?
   const gridColsClass = getGridColsClass(list.length);
 
   return (
-    <section className="mt-10">
+    <section>
       <div className={`grid grid-cols-1 gap-4 ${gridColsClass} md:gap-6`}>
         {list.map((promo) => {
           const href = normalizeHref(promo.cta_url);
@@ -45,7 +49,8 @@ export default async function HomepagePromos({ placement = "MID" }: { placement?
 
           const title = (promo.title || "").trim();
           const subtitle = (promo.subtitle || "").trim();
-          const hasText = !!title || !!subtitle;
+          const showText = promo.show_text !== false;
+          const hasText = showText && (!!title || !!subtitle);
 
           const CardInner = (
             <div
@@ -82,8 +87,8 @@ export default async function HomepagePromos({ placement = "MID" }: { placement?
               </div>
 
               {/* Content */}
-              {hasText ? (
-                <div className="relative flex min-h-[220px] flex-col justify-end p-5 md:min-h-[260px]">
+              <div className="relative flex min-h-[220px] flex-col justify-end p-5 md:min-h-[260px]">
+                {hasText ? (
                   <div>
                     {title ? (
                       <h3 className="text-lg font-semibold text-neutral-50 md:text-xl">
@@ -96,22 +101,22 @@ export default async function HomepagePromos({ placement = "MID" }: { placement?
                       </p>
                     ) : null}
                   </div>
+                ) : null}
 
-                  {hasCta ? (
-                    <div className="mt-4">
-                      <span
-                        className={
-                          "inline-flex items-center rounded-full border border-neutral-700 bg-black/40 " +
-                          "px-4 py-2 text-sm font-medium text-neutral-100 backdrop-blur-sm " +
-                          "transition-colors duration-200 group-hover:border-neutral-600"
-                        }
-                      >
-                        {promo.cta_label?.trim() || "Ver más"}
-                      </span>
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
+                {hasCta ? (
+                  <div className={hasText ? "mt-4" : ""}>
+                    <span
+                      className={
+                        "inline-flex items-center rounded-full border border-neutral-700 bg-black/40 " +
+                        "px-4 py-2 text-sm font-medium text-neutral-100 backdrop-blur-sm " +
+                        "transition-colors duration-200 group-hover:border-neutral-600"
+                      }
+                    >
+                      {promo.cta_label?.trim() || "Ver más"}
+                    </span>
+                  </div>
+                ) : null}
+              </div>
             </div>
           );
 

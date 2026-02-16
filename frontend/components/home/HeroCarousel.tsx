@@ -50,7 +50,8 @@ export function HeroCarousel({ banners }: { banners: HomepageBanner[] }) {
             const isActive = idx === activeIndex;
 
             const img = normalizeBannerImage(b);
-            const alt = b.alt_text || b.title || "Kame.col";
+            const alt = b.alt_text || b.title || "Banner";
+            const showText = b.show_text !== false;
 
             return (
               <SwiperSlide key={b.id}>
@@ -88,20 +89,26 @@ export function HeroCarousel({ banners }: { banners: HomepageBanner[] }) {
                   {/* Copy */}
                   <div className="relative z-10 mx-auto flex min-h-[70vh] md:min-h-[calc(100vh-72px)] max-w-6xl items-center px-4">
                     <div className="max-w-xl">
-                      {b.subtitle ? (
-                        <p className="mb-3 inline-flex rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-semibold tracking-widest text-white/85">
-                          {b.subtitle}
-                        </p>
-                      ) : null}
+                      {showText ? (
+                        <>
+                          {b.subtitle ? (
+                            <p className="mb-3 inline-flex rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-semibold tracking-widest text-white/85">
+                              {b.subtitle}
+                            </p>
+                          ) : null}
 
-                      <h1 className="text-3xl font-extrabold tracking-tight text-white md:text-5xl">
-                        {b.title}
-                      </h1>
+                          {b.title ? (
+                            <h1 className="text-3xl font-extrabold tracking-tight text-white md:text-5xl">
+                              {b.title}
+                            </h1>
+                          ) : null}
 
-                      {b.description ? (
-                        <p className="mt-4 text-sm leading-relaxed text-white/80 md:text-base">
-                          {b.description}
-                        </p>
+                          {b.description ? (
+                            <p className="mt-4 text-sm leading-relaxed text-white/80 md:text-base">
+                              {b.description}
+                            </p>
+                          ) : null}
+                        </>
                       ) : null}
 
                       <div className="mt-6 flex flex-wrap gap-3">

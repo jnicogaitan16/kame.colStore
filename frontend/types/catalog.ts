@@ -54,6 +54,7 @@ export interface HomepageBanner {
   title: string;
   subtitle: string;
   description: string;
+  show_text?: boolean;
   image: string | null;
   alt_text: string;
   cta_label: string;
@@ -63,8 +64,9 @@ export interface HomepageBanner {
 
 export interface HomepagePromo {
   id: number;
-  title: string;
+  title?: string | null;
   subtitle?: string | null;
+  show_text?: boolean;
   image: string | null;
   alt_text?: string | null;
   cta_label?: string | null;

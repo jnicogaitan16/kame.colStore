@@ -66,7 +66,7 @@ export function BrandStory({ story }: { story: HomepageStory | null }) {
     <section
       ref={sectionRef}
       className={[
-        "relative mx-auto max-w-6xl px-6 py-20 md:py-28",
+        "relative mx-auto max-w-6xl px-6",
         "brand-story-reveal",
         isVisible ? "is-visible" : "",
       ].join(" ")}

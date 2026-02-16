@@ -355,9 +355,14 @@ class HomepageBanner(models.Model):
     Pensados para un carrusel horizontal tipo Skeleton.
     """
 
-    title = models.CharField(max_length=150)
+    title = models.CharField(max_length=150, blank=True, default="")
     subtitle = models.CharField(max_length=200, blank=True, default="")
     description = models.TextField(blank=True, default="")
+
+    show_text = models.BooleanField(
+        default=True,
+        help_text="Si se desactiva, no se muestran título/subtítulo/descripcion aunque existan.",
+    )
 
     image = models.ImageField(upload_to=homepage_banner_upload_path)
     alt_text = models.CharField(max_length=200, blank=True, default="")
@@ -436,6 +441,11 @@ class HomepagePromo(models.Model):
     title = models.CharField(max_length=150, blank=True, default="")
     subtitle = models.CharField(max_length=200, blank=True, default="")
 
+    show_text = models.BooleanField(
+        default=True,
+        help_text="Si se desactiva, no se muestran título/subtítulo aunque existan.",
+    )
+
     class Placement(models.TextChoices):
         TOP = "TOP", "Top"
         MID = "MID", "Mid"
@@ -479,7 +489,7 @@ class HomepagePromo(models.Model):
         verbose_name_plural = "Promos de Home"
 
     def __str__(self) -> str:
-        return self.title
+        return self.title or f"Promo #{self.pk or 'nuevo'}"
 
 
 class HomepageSection(models.Model):

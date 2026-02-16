@@ -15,9 +15,121 @@ from .models import (
 )
 from .variant_rules import get_variant_rule
 
+
+# ======================
+# HomepageBanner Form
+# ======================
+class HomepageBannerAdminForm(forms.ModelForm):
+    class Meta:
+        model = HomepageBanner
+        fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Si el modelo permite vacío, no obligar título/subtítulo/descripcion desde el admin.
+        if "title" in self.fields:
+            self.fields["title"].required = False
+        if "subtitle" in self.fields:
+            self.fields["subtitle"].required = False
+        if "description" in self.fields:
+            self.fields["description"].required = False
+
+
+# ======================
+# Home content (Banner / Story / Promos)
+# ======================
+
+@admin.register(HomepageBanner)
+class HomepageBannerAdmin(admin.ModelAdmin):
+    form = HomepageBannerAdminForm
+    list_display = ("title", "show_text", "cta_label", "cta_url", "is_active", "sort_order", "updated_at")
+    list_filter = ("is_active",)
+    search_fields = ("title", "subtitle", "description", "alt_text")
+    ordering = ("sort_order", "id")
+
+    fieldsets = (
+        (
+            "Contenido",
+            {
+                "fields": (
+                    "title",
+                    "subtitle",
+                    "description",
+                    "show_text",
+                    "alt_text",
+                )
+            },
+        ),
+        ("Media", {"fields": ("image",)}),
+        (
+            "CTA",
+            {
+                "fields": (
+                    "cta_label",
+                    "cta_url",
+                )
+            },
+        ),
+        (
+            "Visibilidad",
+            {
+                "fields": (
+                    "is_active",
+                    "sort_order",
+                )
+            },
+        ),
+    )
+
+
+@admin.register(HomepageSection)
+class HomepageSectionAdmin(admin.ModelAdmin):
+    list_display = ("title", "is_active", "updated_at")
+    list_filter = ("is_active",)
+    search_fields = ("title", "subtitle", "body")
+    ordering = ("id",)
+
+    fieldsets = (
+        (
+            "Contenido",
+            {
+                "fields": (
+                    "title",
+                    "subtitle",
+                    "body",
+                )
+            },
+        ),
+        (
+            "Visibilidad",
+            {
+                "fields": (
+                    "is_active",
+                )
+            },
+        ),
+    )
+
+# ======================
+# HomepagePromo Form
+# ======================
+class HomepagePromoAdminForm(forms.ModelForm):
+    class Meta:
+        model = HomepagePromo
+        fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Si el modelo permite vacío, no obligar título/subtítulo desde el admin.
+        if "title" in self.fields:
+            self.fields["title"].required = False
+        if "subtitle" in self.fields:
+            self.fields["subtitle"].required = False
+
 @admin.register(HomepagePromo)
 class HomepagePromoAdmin(admin.ModelAdmin):
-    list_display = ("title", "placement", "is_active", "sort_order", "updated_at")
+    form = HomepagePromoAdminForm
+    list_display = ("title", "show_text", "placement", "is_active", "sort_order", "updated_at")
     list_filter = ("placement", "is_active")
     search_fields = ("title", "subtitle", "alt_text")
     ordering = ("placement", "sort_order", "id")
@@ -29,6 +141,7 @@ class HomepagePromoAdmin(admin.ModelAdmin):
                 "fields": (
                     "title",
                     "subtitle",
+                    "show_text",
                     "alt_text",
                 )
             },
