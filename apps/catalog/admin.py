@@ -13,7 +13,23 @@ from .models import (
     HomepageSection,
     HomepagePromo,
 )
+
 from .variant_rules import get_variant_rule
+
+
+def _model_has_field(model, field_name: str) -> bool:
+    try:
+        model._meta.get_field(field_name)
+        return True
+    except Exception:
+        return False
+
+
+def _first_existing_field(model, candidates: tuple[str, ...]):
+    for name in candidates:
+        if _model_has_field(model, name):
+            return name
+    return None
 
 
 # ======================
@@ -94,33 +110,51 @@ class HomepageBannerAdmin(admin.ModelAdmin):
     )
 
 
+
+
 @admin.register(HomepageSection)
 class HomepageSectionAdmin(admin.ModelAdmin):
     list_display = ("title", "is_active", "updated_at")
     list_filter = ("is_active",)
-    search_fields = ("title", "subtitle", "body")
     ordering = ("id",)
 
-    fieldsets = (
-        (
-            "Contenido",
-            {
-                "fields": (
-                    "title",
-                    "subtitle",
-                    "body",
-                )
-            },
-        ),
-        (
-            "Visibilidad",
-            {
-                "fields": (
-                    "is_active",
-                )
-            },
-        ),
-    )
+    def get_search_fields(self, request):
+        # Evita FieldError si el modelo cambió (p.ej. body -> content/description)
+        fields = ["title", "subtitle"]
+        extra = _first_existing_field(self.model, ("body", "content", "description", "text"))
+        if extra:
+            fields.append(extra)
+        return tuple(f for f in fields if _model_has_field(self.model, f))
+
+    def get_fieldsets(self, request, obj=None):
+        # Construye fieldsets según campos reales del modelo.
+        content_fields = ["title"]
+
+        if _model_has_field(self.model, "subtitle"):
+            content_fields.append("subtitle")
+
+        long_text = _first_existing_field(self.model, ("body", "content", "description", "text"))
+        if long_text:
+            content_fields.append(long_text)
+
+        visibility_fields = []
+        if _model_has_field(self.model, "is_active"):
+            visibility_fields.append("is_active")
+
+        return (
+            (
+                "Contenido",
+                {
+                    "fields": tuple(content_fields),
+                },
+            ),
+            (
+                "Visibilidad",
+                {
+                    "fields": tuple(visibility_fields) or (),
+                },
+            ),
+        )
 
 # ======================
 # HomepagePromo Form
