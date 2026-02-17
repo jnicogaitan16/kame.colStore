@@ -228,9 +228,11 @@ class ProductVariantAdminForm(forms.ModelForm):
         self._parent_product = kwargs.pop("parent_product", None)
         super().__init__(*args, **kwargs)
 
-        # Reset help text
-        self.fields["value"].help_text = ""
-        self.fields["color"].help_text = ""
+        # Reset help text (guard: field may not exist depending on current model)
+        if "value" in self.fields:
+            self.fields["value"].help_text = ""
+        if "color" in self.fields:
+            self.fields["color"].help_text = ""
 
         category_slug = None
 
@@ -266,22 +268,22 @@ class ProductVariantAdminForm(forms.ModelForm):
                 choices=[(v, v) for v in rule["allowed_values"]]
             )
 
-        # Color field: select for apparel categories; hidden for non-apparel
+        # Color field: only configure if the model currently has `color`
         allowed_colors = rule.get("allowed_colors")
         slug_norm = (category_slug or "").strip().lower()
 
-        if slug_norm in {"camisetas", "hoodies"}:
-            self.fields["color"].required = True
-            # Render as list with available colors
-            if allowed_colors:
-                self.fields["color"].widget = forms.Select(
-                    choices=[("", "---------")] + [(c, c) for c in allowed_colors]
-                )
-        else:
-            # Keep the field rendered (JS will show/hide the row)
-            # Model.clean() already clears color for non-apparel
-            self.fields["color"].required = False
-            self.fields["color"].widget = forms.TextInput()
+        if "color" in self.fields:
+            # Apparel categories: require color + show dropdown when allowed colors exist
+            if slug_norm in {"camisetas", "hoodies"}:
+                self.fields["color"].required = True
+                if allowed_colors:
+                    self.fields["color"].widget = forms.Select(
+                        choices=[("", "---------")] + [(c, c) for c in allowed_colors]
+                    )
+            else:
+                # Non-apparel: keep optional and use text input
+                self.fields["color"].required = False
+                self.fields["color"].widget = forms.TextInput()
 
     def clean_value(self):
         value = self.cleaned_data.get("value")
@@ -290,6 +292,9 @@ class ProductVariantAdminForm(forms.ModelForm):
         return str(value).strip().upper()
 
     def clean_color(self):
+        # Guard: the model may not have `color`
+        if "color" not in self.fields:
+            return None
         color = self.cleaned_data.get("color")
         if color is None:
             return color
@@ -302,7 +307,7 @@ class ProductVariantAdminForm(forms.ModelForm):
 class ProductVariantInline(admin.TabularInline):
     model = ProductVariant
     form = ProductVariantAdminForm
-    extra = 1
+    extra = 0
 
     readonly_fields = ("kind",)
     fields = ("kind", "value", "color", "stock", "is_active")
@@ -398,12 +403,15 @@ class ProductAdmin(admin.ModelAdmin):
 @admin.register(ProductVariant)
 class ProductVariantAdmin(admin.ModelAdmin):
     form = ProductVariantAdminForm
-
-    list_display = ("id", "product", "kind", "value", "color", "stock", "is_active")
+    autocomplete_fields = ("product",)
+    list_display = ("product", "kind", "value", "color", "stock", "is_active")
     list_select_related = ("product", "product__category")
-    list_filter = ("kind", "is_active", "product__category")
+    list_filter = ("kind", "is_active")
     search_fields = ("product__name", "value", "color")
+    ordering = ("product", "kind", "value", "color")
     readonly_fields = ("kind",)
+    # Explicit fields to ensure `color` renders in the standalone add/edit form.
+    fields = ("product", "value", "color", "stock", "is_active", "kind")
     inlines = [ProductImageInline]
 
     def _is_orders_variant_selector(self, request) -> bool:

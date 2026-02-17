@@ -22,6 +22,13 @@
     return document.getElementById(id);
   }
 
+  function getJQ() {
+    // Django admin ships its own jQuery at django.jQuery
+    if (window.django && window.django.jQuery) return window.django.jQuery;
+    if (window.jQuery) return window.jQuery;
+    return null;
+  }
+
   function normalizeValue(v) {
     return String(v || "").trim();
   }
@@ -201,6 +208,10 @@
     return window.location.pathname.replace(/(add|\d+\/change)\/?$/, "");
   }
 
+  async function refreshFromProduct() {
+    return refreshValueWidget();
+  }
+
   async function fetchVariantRule(productId) {
     const base = getAdminBasePath();
     const url = base + "product-category/?product_id=" + encodeURIComponent(productId);
@@ -211,6 +222,7 @@
     });
 
     if (!res.ok) {
+      console.warn("[ProductVariantAdmin] product-category endpoint failed", res.status);
       throw new Error("Category endpoint returned " + res.status);
     }
 
@@ -219,6 +231,12 @@
 
   async function refreshValueWidget() {
     const productEl = $("id_product");
+
+    // Never leave the widgets disabled waiting for a validation error.
+    const valueEl0 = $("id_value");
+    if (valueEl0) setFieldEnabled(valueEl0, true);
+    const colorEl0 = $("id_color");
+    if (colorEl0) setFieldEnabled(colorEl0, true);
 
     // No product field => safest fallback is input + allow save
     if (!productEl) {
@@ -299,6 +317,7 @@
         hideColorFieldAndClear();
       }
     } catch (e) {
+      console.warn("[ProductVariantAdmin] Falling back to neutral widgets", e);
       // Conservative fallback: allow viewing/editing and allow save
       setValueAsInput();
       hideColorFieldAndClear();
@@ -308,11 +327,20 @@
 
   ready(function () {
     const productEl = $("id_product");
+
+    // Vanilla change hook (works for non-select2 selects)
     if (productEl) {
-      productEl.addEventListener("change", refreshValueWidget);
+      productEl.addEventListener("change", refreshFromProduct);
       // extra safety for widgets that change value without triggering change
-      productEl.addEventListener("input", refreshValueWidget);
+      productEl.addEventListener("input", refreshFromProduct);
     }
-    refreshValueWidget(); // run on load
+
+    // Select2 hook (autocomplete_fields): delegate so it works after select2 initializes
+    const jq = getJQ();
+    if (jq) {
+      jq(document).on("select2:select select2:clear", "#id_product", refreshFromProduct);
+    }
+
+    refreshFromProduct(); // run on load
   });
 })();
