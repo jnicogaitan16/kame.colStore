@@ -91,6 +91,30 @@ class CheckoutItemSerializer(serializers.Serializer):
     quantity = serializers.IntegerField(min_value=1)
 
 
+# --- Stock Validate endpoint serializers ---
+
+class StockValidateItemSerializer(serializers.Serializer):
+    """Item contract for /api/stock-validate/."""
+
+    product_variant_id = serializers.IntegerField(min_value=1)
+    quantity = serializers.IntegerField(min_value=1)
+
+
+class StockValidateRequestSerializer(serializers.Serializer):
+    """Request contract for /api/stock-validate/.
+
+    IMPORTANT:
+    - `items` is required but may be an empty list.
+    - When empty, the view should return 200 with empty maps.
+    """
+
+    items = serializers.ListField(
+        child=StockValidateItemSerializer(),
+        required=True,
+        allow_empty=True,
+    )
+
+
 @dataclass
 class ValidatedCart:
     items: Dict[int, Dict[str, int]]

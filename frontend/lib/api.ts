@@ -28,29 +28,48 @@ export interface StockValidateItemInput {
 export type StockValidateStatus =
   | "ok"
   | "exceeds_stock"
+  | "insufficient"
   | "missing"
   | "inactive"
-  | "error";
+  | "error"
+  // Tolerant: backend may add new statuses without breaking the frontend build.
+  | (string & {});
 
 export type StockValidateItem = {
   product_variant_id: number;
   quantity: number;
 };
 
+export type StockWarning = {
+  status: StockValidateStatus;
+  available: number;
+  requested: number;
+  message: string;
+};
+
+export type StockHintKind = "last_unit";
+
+export type StockHint = {
+  kind: StockHintKind;
+  message: string;
+};
+
+export type StockValidateRow = {
+  product_variant_id: number | null;
+  requested: number;
+  available: number;
+  is_active: boolean;
+  ok: boolean;
+  reason: string | null;
+};
+
 export type StockValidateResponse = {
   ok: boolean;
-  warningsByVariantId: Record<
-    number,
-    { status: StockValidateStatus; available: number; message: string }
-  >;
-  items?: Array<{
-    product_variant_id: number | null;
-    requested: number;
-    available: number;
-    is_active: boolean;
-    ok: boolean;
-    reason: string | null;
-  }>;
+  // IMPORTANT: keys are ALWAYS strings to match JSON behavior and avoid number/string ambiguity.
+  warningsByVariantId: Record<string, StockWarning>;
+  // Non-blocking informational hints (e.g. last unit). Never used as blocking warnings.
+  hintsByVariantId: Record<string, StockHint>;
+  items?: StockValidateRow[];
 };
 
 export type CheckoutPayload = {
@@ -133,13 +152,19 @@ export async function apiFetch<T>(
     }
   }
 
+  const cacheOpt = options.cache ?? "no-store";
+
+  // IMPORTANT: Do not mix `cache: "no-store"` with `next.revalidate`.
+  // If caller wants ISR-style revalidate, they must provide a non-"no-store" cache option.
+  const nextOpt =
+    cacheOpt === "no-store" ? undefined : (options as any).next;
+
   const res = await fetch(url, {
     ...options,
     method,
     credentials: "include",
-    cache: options.cache ?? "no-store",
-    // Next.js fetch option (supported in Next runtime)
-    next: (options as any).next ?? { revalidate: 0 },
+    cache: cacheOpt,
+    ...(nextOpt ? { next: nextOpt } : {}),
     headers,
   });
 
@@ -240,46 +265,46 @@ export async function getHomepageStory(): Promise<HomepageStory | null> {
 }
 
 export async function validateCartStock(
-  items: StockValidateItem[]
+  items: StockValidateItem[],
+  opts?: { signal?: AbortSignal }
 ): Promise<StockValidateResponse> {
-  const payload = { items: items || [] };
+  const payload: { items: StockValidateItem[] } = { items: items || [] };
 
-  const raw = await apiFetch<any>("/stock-validate/", {
+  type RawStockValidate = {
+    ok?: unknown;
+    items?: unknown;
+    warningsByVariantId?: unknown;
+    hintsByVariantId?: unknown;
+  };
+
+  const raw = await apiFetch<RawStockValidate>("/stock-validate/", {
     method: "POST",
     body: JSON.stringify(payload),
+    signal: opts?.signal,
   });
 
-  const rows = Array.isArray(raw?.items) ? raw.items : [];
+  const rows: StockValidateRow[] = Array.isArray(raw?.items)
+    ? (raw.items as StockValidateRow[])
+    : [];
 
-  const warningsByVariantId: StockValidateResponse["warningsByVariantId"] = {};
+  // Backend is the source of truth. Pass-through maps as-is (keys remain strings).
+  const warningsByVariantId =
+    raw?.warningsByVariantId && typeof raw.warningsByVariantId === "object"
+      ? (raw.warningsByVariantId as Record<string, StockWarning>)
+      : {};
 
-  for (const row of rows) {
-    const variantId = row?.product_variant_id;
-    if (typeof variantId !== "number") continue;
+  const hintsByVariantId =
+    raw?.hintsByVariantId && typeof raw.hintsByVariantId === "object"
+      ? (raw.hintsByVariantId as Record<string, StockHint>)
+      : {};
 
-    let status: StockValidateStatus = "error";
-
-    if (row?.ok === true) status = "ok";
-    else if (row?.is_active === false) status = "inactive";
-    else if (row?.reason === "missing") status = "missing";
-    else if (row?.reason === "exceeds_stock") status = "exceeds_stock";
-
-    const available = typeof row?.available === "number" ? row.available : 0;
-
-    let message = "";
-    if (status === "exceeds_stock") message = "Stock insuficiente.";
-    else if (status === "missing") message = "Variante no disponible.";
-    else if (status === "inactive") message = "Variante inactiva.";
-    else if (status === "error") message = "No pudimos validar stock en este momento.";
-
-    warningsByVariantId[variantId] = { status, available, message };
-  }
-
-  const ok = typeof raw?.ok === "boolean" ? raw.ok : true;
+  // Do NOT invent ok=true. Default safe if backend sends something unexpected.
+  const ok = raw?.ok === true;
 
   return {
     ok,
     warningsByVariantId,
+    hintsByVariantId,
     items: rows.length ? rows : undefined,
   };
 }

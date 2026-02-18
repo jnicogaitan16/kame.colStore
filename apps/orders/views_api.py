@@ -19,6 +19,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.exceptions import ValidationError
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework.permissions import AllowAny
 
 from apps.catalog.models import ProductVariant
@@ -28,7 +29,7 @@ from apps.orders.serializers import CheckoutSerializer
 from apps.orders.services.create_order_from_cart import create_order_from_cart, resolve_customer_from_checkout
 from apps.orders.services.shipping import calculate_shipping_cost
 
-from apps.orders.services.stock import validate_items_stock
+from apps.orders.services.cart_validation import validate_cart_stock
 
 
 logger = logging.getLogger(__name__)
@@ -77,15 +78,31 @@ class StockValidateAPIView(APIView):
     def post(self, request, *args, **kwargs):
         raw_items = request.data.get("items")
 
-        if not isinstance(raw_items, list) or not raw_items:
+        # Contract: items is required and must be a list.
+        # If it's an empty list, we return 200 with empty maps (no guessing needed in frontend).
+        if raw_items is None or not isinstance(raw_items, list):
             return Response(
-                {"detail": "items es requerido y debe ser una lista no vacía."},
+                {
+                    "ok": False,
+                    "warningsByVariantId": {},
+                    "hintsByVariantId": {},
+                    "error": "items es requerido y debe ser una lista.",
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        normalized = []
-        variant_ids = []
+        if raw_items == []:
+            return Response(
+                {
+                    "ok": True,
+                    "warningsByVariantId": {},
+                    "hintsByVariantId": {},
+                },
+                status=status.HTTP_200_OK,
+            )
 
+        # Normalize input (only what the service needs)
+        normalized = []
         for it in raw_items:
             if not isinstance(it, dict):
                 continue
@@ -100,57 +117,124 @@ class StockValidateAPIView(APIView):
             except (TypeError, ValueError):
                 qty_int = 0
 
-            normalized.append({"product_variant_id": vid_int, "quantity": qty_int})
-            if vid_int is not None:
-                variant_ids.append(vid_int)
+            if vid_int is None or vid_int <= 0 or qty_int <= 0:
+                continue
 
-        if not variant_ids:
+            normalized.append({"product_variant_id": vid_int, "quantity": qty_int})
+
+        if not normalized:
             return Response(
-                {"detail": "items debe incluir al menos un product_variant_id válido."},
+                {
+                    "ok": False,
+                    "warningsByVariantId": {},
+                    "hintsByVariantId": {},
+                    "error": "items debe incluir al menos un product_variant_id válido.",
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        variants = ProductVariant.objects.filter(id__in=variant_ids)
-        variants_by_id = {v.id: v for v in variants}
+        try:
+            # Contract: MUST use the same service as checkout, no parallel logic here.
+            result = validate_cart_stock(normalized, strict_stock=True)
 
-        service_items = []
-        for it in normalized:
-            vid = it.get("product_variant_id")
-            service_items.append(
+            warnings_raw = result.get("warnings") or {}
+            hints_raw = result.get("hints") or {}
+
+            # JSON keys must be strings
+            warnings_by_variant_id = {str(k): v for k, v in warnings_raw.items()}
+            hints_by_variant_id = {str(k): v for k, v in hints_raw.items()}
+
+            # Safety rule (final layer): never return a hint for a variant that already has a warning
+            if warnings_by_variant_id and hints_by_variant_id:
+                for k in list(warnings_by_variant_id.keys()):
+                    hints_by_variant_id.pop(k, None)
+
+            ok_all = not bool(warnings_by_variant_id)
+
+            return Response(
                 {
-                    "product_variant": variants_by_id.get(vid),
-                    "quantity": it.get("quantity", 0),
-                    "product_variant_id": vid,
+                    "ok": ok_all,
+                    "warningsByVariantId": warnings_by_variant_id,
+                    "hintsByVariantId": hints_by_variant_id,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        except ValidationError:
+            # Let DRF return a 400 with JSON details
+            raise
+
+        except DjangoValidationError as e:
+            # Some stock validations may raise Django ValidationError (e.g. {'stock': [...]})
+            # For the stock-validate endpoint we must return warnings/hints instead of 500.
+            try:
+                variant_ids = [it["product_variant_id"] for it in normalized]
+                variants = ProductVariant.objects.filter(id__in=variant_ids)
+                variants_by_id = {v.id: v for v in variants}
+
+                warnings_by_variant_id = {}
+                hints_by_variant_id = {}
+
+                for it in normalized:
+                    vid = int(it["product_variant_id"])
+                    requested = int(it["quantity"])
+                    v = variants_by_id.get(vid)
+                    available = int(getattr(v, "stock", 0) or 0) if v is not None else 0
+
+                    if requested > available:
+                        warnings_by_variant_id[str(vid)] = {
+                            "status": "insufficient",
+                            "available": available,
+                            "requested": requested,
+                            "message": f"Stock insuficiente. Disponible: {available}",
+                        }
+                    elif available == 1 and requested == 1:
+                        hints_by_variant_id[str(vid)] = {
+                            "kind": "last_unit",
+                            "message": "⚡ Última unidad disponible",
+                        }
+
+                # Safety rule (final layer): never return a hint for a variant that already has a warning
+                if warnings_by_variant_id and hints_by_variant_id:
+                    for k in list(warnings_by_variant_id.keys()):
+                        hints_by_variant_id.pop(k, None)
+
+                ok_all = not bool(warnings_by_variant_id)
+
+                return Response(
+                    {
+                        "ok": ok_all,
+                        "warningsByVariantId": warnings_by_variant_id,
+                        "hintsByVariantId": hints_by_variant_id,
+                    },
+                    status=status.HTTP_200_OK,
+                )
+            except Exception:
+                # If fallback fails, return a controlled 400 instead of 500
+                payload = {
+                    "ok": False,
+                    "warningsByVariantId": {},
+                    "hintsByVariantId": {},
+                    "error": "Error de validación al validar stock.",
                 }
-            )
+                if settings.DEBUG:
+                    payload["debug_error"] = str(e)
+                return Response(payload, status=status.HTTP_400_BAD_REQUEST)
 
-        results = validate_items_stock(service_items)
+        except Exception as e:
+            logger.exception("stock-validate: unexpected error")
 
-        payload_items = []
-        ok_all = True
-
-        for idx, r in enumerate(results):
-            sent_id = (
-                normalized[idx].get("product_variant_id")
-                if idx < len(normalized)
-                else r.variant_id
-            )
-            row = {
-                "product_variant_id": sent_id,
-                "requested": r.requested,
-                "available": r.available,
-                "is_active": r.is_active,
-                "ok": r.ok,
-                "reason": r.reason,
+            payload = {
+                "ok": False,
+                "warningsByVariantId": {},
+                "hintsByVariantId": {},
+                "error": "Error inesperado al validar stock.",
             }
-            payload_items.append(row)
-            if not r.ok:
-                ok_all = False
 
-        return Response(
-            {"ok": ok_all, "items": payload_items},
-            status=status.HTTP_200_OK,
-        )
+            if settings.DEBUG:
+                payload["debug_error"] = str(e)
+
+            return Response(payload, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class ShippingQuoteAPIView(APIView):
