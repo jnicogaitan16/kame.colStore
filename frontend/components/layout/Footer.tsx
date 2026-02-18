@@ -38,9 +38,7 @@ export default function Footer() {
           <div className="md:col-span-2 text-center md:text-left">
             <h3 className="mb-3 text-xl font-semibold text-white">Kame.col</h3>
             <p className="mx-auto max-w-md text-sm leading-relaxed text-neutral-400 md:mx-0">
-              Marca independiente de arte y diseño. Camisetas, hoodies y piezas
-              personalizadas creadas con identidad urbana y cuidado por el
-              detalle.
+              Arte urbano y diseño con identidad. Camisetas, hoodies y piezas personalizadas hechas con calidad, detalle y actitud.
             </p>
           </div>
 
