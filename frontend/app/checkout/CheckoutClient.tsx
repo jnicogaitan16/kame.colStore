@@ -436,9 +436,9 @@ export default function CheckoutClient() {
     return `${String(name)}-error`;
   }
 
-  function inputBaseClass(extra?: string) {
+function inputBaseClass(extra?: string) {
     return (
-      "w-full rounded-xl border bg-white/5 px-3 py-2 text-sm text-zinc-100 placeholder:text-white/35 outline-none transition focus:border-white/20 focus:ring-2 focus:ring-white/20 " +
+      "w-full rounded-xl border bg-white/5 px-3 py-2 text-base md:text-sm text-zinc-100 placeholder:text-white/35 outline-none transition focus:border-white/20 focus:ring-2 focus:ring-white/20 " +
       (extra || "")
     ).trim();
   }
@@ -1213,7 +1213,7 @@ export default function CheckoutClient() {
                         placeholder="310 000 0000"
                         inputMode="numeric"
                         autoComplete="tel"
-                        className="h-10 w-full rounded-r-xl border-0 bg-transparent px-3 py-2 text-sm text-zinc-100 placeholder:text-white/35 focus:outline-none"
+                        className="h-10 w-full rounded-r-xl border-0 bg-transparent px-3 py-2 text-base md:text-sm text-zinc-100 placeholder:text-white/35 focus:outline-none"
                         aria-invalid={
                           submitAttempted && errors.phone ? true : undefined
                         }
@@ -1267,11 +1267,24 @@ export default function CheckoutClient() {
                       Número de documento
                     </label>
                     <input
-                      type="text"
+                      type="tel"
                       id="cedula"
                       data-field="cedula"
-                      {...register("cedula")}
+                      {...register("cedula", {
+                        onChange: (e) => {
+                          const raw = String(e.target.value ?? "");
+                          const digitsOnly = raw.replace(/\D/g, "");
+                          // keep only numbers in the form state
+                          setValue("cedula", digitsOnly, {
+                            shouldDirty: true,
+                            shouldValidate: submitAttempted,
+                          });
+                        },
+                      })}
                       placeholder="1234567890"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      autoComplete="off"
                       className={inputBaseClass(
                         inputBorderClass(!!(submitAttempted && errors.cedula))
                       )}
@@ -1369,7 +1382,7 @@ export default function CheckoutClient() {
                     className={
                       "min-h-[96px] w-full resize-none" +
                       inputBorderClass(!!(submitAttempted && errors.notes)) +
-                      " rounded-xl bg-white/5 px-3 py-2 text-sm text-zinc-100 placeholder:text-white/35 outline-none transition focus:border-white/20 focus:ring-2 focus:ring-white/20"
+                      " rounded-xl bg-white/5 px-3 py-2 text-base md:text-sm text-zinc-100 placeholder:text-white/35 outline-none transition focus:border-white/20 focus:ring-2 focus:ring-white/20"
                     }
                     aria-invalid={
                       submitAttempted && errors.notes ? true : undefined
@@ -1507,23 +1520,22 @@ export default function CheckoutClient() {
                           return (
                             <div className="mt-1">
                               <Notice variant="warning" tone="soft" compact title="Stock insuficiente">
-                                <span>
-                                  {available !== null && Number.isFinite(available) ? (
-                                    <>
-                                      Pediste <span className="font-semibold">{item.quantity}</span>, pero solo quedan{" "}
-                                      <span className="font-semibold">{available}</span> en stock.
-                                    </>
-                                  ) : (
-                                    <>La cantidad que pediste supera el stock disponible.</>
-                                  )}
-                                </span>
+                                {available !== null && Number.isFinite(available) ? (
+                                  <p className="text-xs leading-snug text-amber-100/90">
+                                    Pediste {item.quantity}, pero solo quedan {available} en stock.
+                                  </p>
+                                ) : (
+                                  <p className="text-xs leading-snug text-amber-100/90">
+                                    La cantidad que pediste supera el stock disponible.
+                                  </p>
+                                )}
                               </Notice>
 
                               {canAdjust ? (
                                 <button
                                   type="button"
                                   onClick={(e) => handleAdjustToAvailable(e, item.variantId)}
-                                  className="mt-2 inline-flex items-center justify-center rounded-lg border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-xs font-semibold text-amber-100 hover:bg-amber-400/15"
+                                  className="mt-2 inline-flex items-center justify-center border border-amber-400/25 bg-amber-400/10 hover:bg-amber-400/15 text-amber-100 rounded-lg px-3 py-2 text-xs font-semibold"
                                 >
                                   Ajustar a disponible
                                 </button>

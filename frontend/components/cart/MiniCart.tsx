@@ -127,11 +127,38 @@ export function MiniCart() {
 
                       // Warning only when status indicates insufficient stock.
                       if (isInsufficient) {
-                        const msg = String(w?.message || "Stock insuficiente.");
+                        const qty = Number(item.quantity || 0);
+
+                        // Be defensive: backend keys may vary. Try common shapes.
+                        const availableRaw =
+                          w?.available ??
+                          w?.available_stock ??
+                          w?.available_qty ??
+                          w?.stock_available ??
+                          w?.stock ??
+                          w?.remaining;
+
+                        const available =
+                          typeof availableRaw === "number"
+                            ? availableRaw
+                            : availableRaw != null
+                              ? parseFloat(String(availableRaw))
+                              : NaN;
+
+                        const hasAvailable = Number.isFinite(available);
+
                         return (
                           <div className="mt-2">
                             <Notice variant="warning" tone="soft" compact title="Stock insuficiente">
-                              {msg}
+                              {hasAvailable ? (
+                                <p className="text-xs leading-snug text-amber-100/90">
+                                  Pediste {qty}, pero solo quedan {available} en stock.
+                                </p>
+                              ) : (
+                                <p className="text-xs leading-snug text-amber-100/90">
+                                  La cantidad que pediste supera el stock disponible.
+                                </p>
+                              )}
                             </Notice>
                           </div>
                         );

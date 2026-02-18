@@ -21,7 +21,7 @@ function MenuIcon({ className = "" }: { className?: string }) {
     <svg
       viewBox="0 0 24 24"
       aria-hidden="true"
-      className={className}
+      className={`block ${className}`}
       fill="none"
       stroke="currentColor"
       strokeWidth="1.8"
@@ -40,7 +40,7 @@ function BagIcon({ className = "" }: { className?: string }) {
     <svg
       viewBox="0 0 24 24"
       aria-hidden="true"
-      className={className}
+      className={`block ${className}`}
       fill="none"
       stroke="currentColor"
       strokeWidth="1.8"
@@ -67,9 +67,8 @@ export default function Navbar({
 
   const rootText = isOverlay ? "text-white" : "text-zinc-100";
 
-  const iconBtnClass = isOverlay
-    ? "md:hidden inline-flex h-10 w-10 items-center justify-center rounded-lg border border-white/15 text-white hover:bg-white/10"
-    : "md:hidden inline-flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 text-zinc-100 hover:bg-white/5";
+  const iconBtnClass =
+    "md:hidden inline-flex h-10 w-10 items-center justify-center text-white/80 transition hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30 leading-none";
 
   const desktopNavClass = isOverlay
     ? "hidden md:flex items-center gap-6 pr-4 text-xs font-semibold uppercase tracking-[0.18em] text-white/85"
@@ -80,8 +79,8 @@ export default function Navbar({
   const brandClass = "justify-self-center text-base font-extrabold uppercase tracking-[0.22em] text-white md:text-lg";
 
   const cartBtnClass = isOverlay
-    ? "relative rounded-lg p-2 text-white/90 transition hover:bg-white/10 hover:text-white"
-    : "relative rounded-lg p-2 text-white/80 transition hover:bg-white/5 hover:text-white";
+    ? "relative rounded-lg p-2 text-white/90 transition hover:bg-white/10 hover:text-white leading-none"
+    : "relative rounded-lg p-2 text-white/80 transition hover:bg-white/5 hover:text-white leading-none";
 
   return (
     <div className={`mx-auto grid h-14 max-w-6xl grid-cols-[1fr_auto_1fr] items-center px-4 md:h-16 ${rootText}`}>
