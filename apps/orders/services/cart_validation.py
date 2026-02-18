@@ -41,29 +41,76 @@ def _safe_int(value: Any, default: int = 0) -> int:
         return default
 
 
-def _get_available_stock(variant: Any) -> Optional[int]:
+def _get_available_stock(variant: Any) -> int:
     """Return available stock for a variant.
 
-    We keep this defensive because field names can vary between iterations.
+    Contract: stock validation MUST use EXCLUSIVELY `variant.stock`.
+    No fallbacks to product stock, stock_total, annotations, or other fields.
     """
-    for attr in ("stock", "stock_qty", "available_stock", "quantity", "qty"):
-        if hasattr(variant, attr):
-            raw = getattr(variant, attr)
-            if raw is None:
-                return None
-            return _safe_int(raw, default=0)
+    raw = getattr(variant, "stock", 0)
+    return _safe_int(raw, default=0)
+def validate_cart_stock(items: List[dict], *, strict_stock: bool = True) -> Dict[str, Dict[int, dict]]:
+    """Validate stock for a cart payload.
 
-    # Fallback to product (only if variant has none)
-    product = getattr(variant, "product", None)
-    if product is not None:
-        for attr in ("stock", "stock_qty", "available_stock", "quantity", "qty"):
-            if hasattr(product, attr):
-                raw = getattr(product, attr)
-                if raw is None:
-                    return None
-                return _safe_int(raw, default=0)
+    This function is intentionally minimal and ONLY depends on `variant.stock`.
 
-    return None
+    items: [{"product_variant_id": int, "quantity": int}, ...]
+
+    Returns:
+      {"warnings": {variant_id: {...}}, "hints": {variant_id: {...}}}
+
+    If strict_stock=True and any insufficient stock is found, raises ValidationError.
+    """
+
+    warnings: Dict[int, dict] = {}
+    hints: Dict[int, dict] = {}
+
+    if not items:
+        return {"warnings": warnings, "hints": hints}
+
+    # Normalize and collect variant ids
+    normalized: List[Tuple[int, int]] = []
+    variant_ids: List[int] = []
+    for item in items:
+        variant_id = _safe_int((item or {}).get("product_variant_id"), default=0)
+        requested = _safe_int((item or {}).get("quantity"), default=0)
+        if variant_id <= 0 or requested <= 0:
+            continue
+        normalized.append((variant_id, requested))
+        variant_ids.append(variant_id)
+
+    if not normalized:
+        return {"warnings": warnings, "hints": hints}
+
+    variants = list(_fetch_variants(variant_ids))
+    by_id = {v.id: v for v in variants}
+
+    missing_ids = [vid for vid in variant_ids if vid not in by_id]
+    if missing_ids:
+        raise ValidationError({"items": "Hay variantes inexistentes en el carrito."})
+
+    for variant_id, requested in normalized:
+        variant = by_id[variant_id]
+        available = _get_available_stock(variant)
+
+        if requested > available:
+            warnings[variant_id] = {
+                "status": "insufficient",
+                "available": available,
+                "requested": requested,
+                "message": f"Solo hay {available} unidad(es) disponible(s)",
+            }
+
+        elif available == 1 and requested == 1:
+            hints[variant_id] = {
+                "kind": "last_unit",
+                "message": "Última unidad disponible",
+            }
+
+    if strict_stock and warnings:
+        raise ValidationError({"stock": "Cantidad solicitada supera el stock disponible."})
+
+    return {"warnings": warnings, "hints": hints}
 
 
 def _get_unit_price(variant: Any) -> Decimal:
@@ -175,7 +222,7 @@ def validate_cart(cart: dict, *, strict_stock: bool = True) -> Tuple[Dict[int, d
     - subtotal_int: subtotal en entero (p.ej. COP)
 
     Nota:
-    - Este módulo NO maneja lógica de sesión. Eso vive en `apps.orders.services.cart`.
+    - Este módulo NO maneja lógica de sesión. Eso vive en `apps.orders.services.cart` (u otro servicio de sesión).
     - `strict_stock` por defecto es True para evitar sobreventa.
     """
 

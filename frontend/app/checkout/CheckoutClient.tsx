@@ -67,7 +67,10 @@ function formatCoPhoneDisplay(input: string): string {
 
 function computeSubtotal(items: Array<{ price: string; quantity: number }>) {
   return Math.round(
-    (items || []).reduce((acc, item) => acc + parseFloat(item.price) * item.quantity, 0)
+    (items || []).reduce(
+      (acc, item) => acc + parseFloat(item.price) * item.quantity,
+      0
+    )
   );
 }
 
@@ -88,6 +91,7 @@ async function fetchCities(): Promise<City[]> {
   return data.cities;
 }
 
+
 async function fetchShippingQuote(params: {
   city_code: string;
   subtotal: number;
@@ -97,6 +101,21 @@ async function fetchShippingQuote(params: {
     `/shipping-quote/?city_code=${encodeURIComponent(params.city_code)}&subtotal=${params.subtotal}`
   );
 }
+
+function toNum(v: any): number {
+  const n = typeof v === "number" ? v : Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function normalizeWarningsKeys(input: any): Record<string, any> {
+  if (!input || typeof input !== "object") return {};
+  const out: Record<string, any> = {};
+  for (const [k, v] of Object.entries(input)) {
+    out[String(k)] = v;
+  }
+  return out;
+}
+
 
 /* ---------------------------------------------
  * Schema + Types
@@ -303,15 +322,76 @@ export default function CheckoutClient() {
     (state) => state.applyOptimisticStockCheck
   );
   const setStockWarnings = useCartStore((state) => state.setStockWarnings);
-  const getStockWarning = useCartStore((state) => state.getStockWarning);
-  const hasStockWarnings = useCartStore((state) => state.hasStockWarnings);
+  const setStockHints = useCartStore((state) => state.setStockHints);
+
+  // Read maps directly from the store (source of truth)
+  const stockWarningsByVariantId = useCartStore(
+    (s: any) => (s.stockWarningsByVariantId as Record<string, any>) || {}
+  );
+  const stockHintsByVariantId = useCartStore(
+    (s: any) => (s.stockHintsByVariantId as Record<string, any>) || {}
+  );
+
+  // Optional flag if your store exposes it (safe fallback)
+  const isStockValidating = useCartStore(
+    (s: any) => (typeof s.isStockValidating === "boolean" ? s.isStockValidating : false)
+  );
+  const hasBlockingWarnings = useMemo(() => {
+    return (items || []).some((item) => {
+      const w = stockWarningsByVariantId[String(item.variantId)];
+      const status = String(w?.status || "ok");
+      return status === "insufficient" || status === "exceeds_stock";
+    });
+  }, [items, stockWarningsByVariantId]);
+
+  const adjustments = useMemo(() => {
+    return (items || [])
+      .map((item) => {
+        const w = stockWarningsByVariantId[String(item.variantId)];
+        const status = String(w?.status || "ok");
+        if (!(status === "insufficient" || status === "exceeds_stock")) return null;
+
+        const availableRaw = w?.available;
+        const available = typeof availableRaw === "number" ? availableRaw : Number(availableRaw);
+        const safeAvailable = Number.isFinite(available) ? available : 0;
+
+        // Política: si available es 0, NO auto-removemos aquí.
+        // Dejamos qty mínimo 1 (se mantendrá el warning y el usuario deberá remover).
+        const targetQty = Math.max(1, safeAvailable);
+        if (item.quantity > targetQty) {
+          return { variantId: item.variantId, qty: targetQty };
+        }
+        return null;
+      })
+      .filter(Boolean) as Array<{ variantId: number; qty: number }>;
+  }, [items, stockWarningsByVariantId]);
+
+  function handleAdjustToAvailable(e?: React.MouseEvent, onlyVariantId?: number) {
+    if (e) e.preventDefault();
+
+    const list = onlyVariantId
+      ? adjustments.filter((a) => a.variantId === onlyVariantId)
+      : adjustments;
+
+    if (!list.length) return;
+
+    for (const adj of list) {
+      updateQuantity(adj.variantId, adj.qty);
+    }
+    // No revalidate manual aquí: el store ya revalida al cambiar cantidades.
+  }
 
   const [cities, setCities] = useState<City[]>([]);
-  const [shipping, setShipping] = useState<{ amount: number; label: string } | null>(null);
+  const [shipping, setShipping] = useState<{
+    amount: number;
+    label: string;
+  } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // (kept) map for future: “Ajustar todos”
-  const [exceedsByVariantId, setExceedsByVariantId] = useState<Record<number, number>>({});
+  const [exceedsByVariantId, setExceedsByVariantId] = useState<
+    Record<number, number>
+  >({});
 
   const stockValidateTimerRef = useRef<number | null>(null);
   const lastStockKeyRef = useRef<string>("");
@@ -342,6 +422,7 @@ export default function CheckoutClient() {
 
   const subtotal = useMemo(() => computeSubtotal(items), [items]);
 
+
   const watchedCity = watch("city_code");
 
   const stockValidateItems = useMemo(() => {
@@ -368,21 +449,26 @@ export default function CheckoutClient() {
       : " border-white/10";
   }
 
-
   // --- Robust field focusing helpers ---
   function findFieldElement(field: string): HTMLElement | null {
     try {
-      const byName = document.querySelector(`[name="${field}"]`) as HTMLElement | null;
+      const byName = document.querySelector(
+        `[name="${field}"]`
+      ) as HTMLElement | null;
       if (byName) return byName;
 
       const byId = document.getElementById(field) as HTMLElement | null;
       if (byId) return byId;
 
-      const byData = document.querySelector(`[data-field="${field}"]`) as HTMLElement | null;
+      const byData = document.querySelector(
+        `[data-field="${field}"]`
+      ) as HTMLElement | null;
       if (byData) return byData;
 
       // Last resort: find a wrapper marked with data-field-wrapper and pick first focusable
-      const wrapper = document.querySelector(`[data-field-wrapper="${field}"]`) as HTMLElement | null;
+      const wrapper = document.querySelector(
+        `[data-field-wrapper="${field}"]`
+      ) as HTMLElement | null;
       if (wrapper) {
         const focusable = wrapper.querySelector(
           "input, select, textarea, button, [tabindex]:not([tabindex='-1'])"
@@ -475,7 +561,10 @@ export default function CheckoutClient() {
           (i as any).product_variant_id ?? (i as any).variantId ?? (i as any).id;
         const rawQty: any = (i as any).quantity ?? (i as any).qty ?? 1;
         const rawPrice: any =
-          (i as any).unit_price ?? (i as any).unitPrice ?? (i as any).price ?? 0;
+          (i as any).unit_price ??
+          (i as any).unitPrice ??
+          (i as any).price ??
+          0;
 
         const product_variant_id = Number(rawId);
         const quantity = Number(rawQty);
@@ -541,7 +630,15 @@ export default function CheckoutClient() {
 
     try {
       const res = await validateCartStock(stockValidateItems);
-      setStockWarnings(res.warningsByVariantId || {});
+
+      // Store-only contract: backend is the source of truth.
+      // Keep keys as strings; do not filter or compute locally.
+      const warnings = (res as any)?.warningsByVariantId || {};
+      const hints = (res as any)?.hintsByVariantId || {};
+
+      setStockWarnings(warnings as any);
+      setStockHints(hints as any);
+
       setStockValidateFailed(false);
     } catch (e: any) {
       if (e?.name === "AbortError") return;
@@ -550,6 +647,7 @@ export default function CheckoutClient() {
       // no bloqueamos UX ni marcamos errores por ítem.
       // Limpiamos warnings y mostramos el aviso técnico no bloqueante.
       setStockWarnings({});
+      setStockHints({});
       setStockValidateFailed(true);
     }
   }
@@ -565,14 +663,16 @@ export default function CheckoutClient() {
   }, []);
 
   useEffect(() => {
-    if (stockValidateTimerRef.current) window.clearTimeout(stockValidateTimerRef.current);
+    if (stockValidateTimerRef.current)
+      window.clearTimeout(stockValidateTimerRef.current);
 
     stockValidateTimerRef.current = window.setTimeout(() => {
       runStockValidate();
-    }, 400);
+    }, 250);
 
     return () => {
-      if (stockValidateTimerRef.current) window.clearTimeout(stockValidateTimerRef.current);
+      if (stockValidateTimerRef.current)
+        window.clearTimeout(stockValidateTimerRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stockValidateItems]);
@@ -673,7 +773,9 @@ export default function CheckoutClient() {
           if (looksLikeItemsError(key)) hasItemsValidation = true;
         }
 
-        const applied = applyServerFieldErrors(e.fieldErrors as Record<string, any>);
+        const applied = applyServerFieldErrors(
+          e.fieldErrors as Record<string, any>
+        );
         for (const f of applied) nextErrs[f] = true;
       }
 
@@ -690,13 +792,30 @@ export default function CheckoutClient() {
       }
 
       if (e.kind === "stock") {
-        const wbv = (e.meta as any)?.warningsByVariantId;
-        if (wbv && typeof wbv === "object") {
-          setStockWarnings(wbv || {});
+        const wbvRaw = (e.meta as any)?.warningsByVariantId;
+        // Normalize keys before storing (same rule as MiniCart)
+        const normalizedWarnings = normalizeWarningsKeys(wbvRaw);
+        if (normalizedWarnings && typeof normalizedWarnings === "object") {
+          setStockWarnings(normalizedWarnings as any);
+        } else {
+          setStockWarnings({});
+        }
+
+        // If backend provided hints, store them as-is too.
+        try {
+          const hbvRaw = (e.meta as any)?.hintsByVariantId;
+          const normalizedHints = normalizeWarningsKeys(hbvRaw);
+          if (normalizedHints && typeof normalizedHints === "object") {
+            setStockHints(normalizedHints as any);
+          } else {
+            setStockHints({});
+          }
+        } catch {
+          // ignore
         }
 
         try {
-          const src: any = wbv || null;
+          const src: any = normalizedWarnings || null;
           const nextExceeds: Record<number, number> = {};
           if (src && typeof src === "object") {
             for (const [k, v] of Object.entries(src)) {
@@ -738,11 +857,17 @@ export default function CheckoutClient() {
             if (fe) {
               // find matching raw key mapped to this field
               const rawEntry = Object.entries(fe).find(([k]) => {
-                const mapped = FIELD_ALIASES[String(k)] || (ALLOWED_FIELDS.includes(k as any) ? (k as any) : null);
+                const mapped =
+                  FIELD_ALIASES[String(k)] ||
+                  (ALLOWED_FIELDS.includes(k as any) ? (k as any) : null);
                 return mapped === first;
               });
               const rawMsgs = rawEntry ? rawEntry[1] : undefined;
-              const arr = Array.isArray(rawMsgs) ? rawMsgs : rawMsgs != null ? [rawMsgs] : [];
+              const arr = Array.isArray(rawMsgs)
+                ? rawMsgs
+                : rawMsgs != null
+                ? [rawMsgs]
+                : [];
               msg = String(arr?.[0] ?? "").trim();
             }
           } catch {
@@ -794,7 +919,8 @@ export default function CheckoutClient() {
         variant: "error",
         tone: "strong",
         title: e.title || "Sin conexión",
-        message: e.message || "No pudimos conectar. Revisa tu internet e intenta de nuevo.",
+        message:
+          e.message || "No pudimos conectar. Revisa tu internet e intenta de nuevo.",
       });
     } finally {
       setIsSubmitting(false);
@@ -813,11 +939,11 @@ export default function CheckoutClient() {
       typeof orderSummary.total === "number"
         ? orderSummary.total
         : typeof orderSummary.subtotal === "number"
-          ? orderSummary.subtotal +
-            (typeof orderSummary.shipping_cost === "number"
-              ? orderSummary.shipping_cost
-              : 0)
-          : 0;
+        ? orderSummary.subtotal +
+          (typeof orderSummary.shipping_cost === "number"
+            ? orderSummary.shipping_cost
+            : 0)
+        : 0;
 
     const totalText = totalNumber.toLocaleString("es-CO");
 
@@ -917,9 +1043,7 @@ export default function CheckoutClient() {
               {typeof orderSummary.subtotal === "number" && (
                 <div className="flex justify-between">
                   <span>Subtotal</span>
-                  <span>
-                    ${orderSummary.subtotal.toLocaleString("es-CO")}
-                  </span>
+                  <span>${orderSummary.subtotal.toLocaleString("es-CO")}</span>
                 </div>
               )}
               {typeof orderSummary.shipping_cost === "number" && (
@@ -942,7 +1066,12 @@ export default function CheckoutClient() {
 
         <div className="flex flex-col gap-3">
           {whatsapp ? (
-            <a href={whatsapp} target="_blank" rel="noreferrer" className="inline-flex w-full">
+            <a
+              href={whatsapp}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex w-full"
+            >
               <Button type="button" variant="primary" fullWidth>
                 Confirmar pago
               </Button>
@@ -986,7 +1115,10 @@ export default function CheckoutClient() {
         )}
 
         {items.length > 0 && (
-          <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-6">
+          <form
+            onSubmit={handleSubmit(onSubmit, onInvalid)}
+            className="space-y-6"
+          >
             <div>
               <h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-white/60">
                 Datos de contacto
@@ -1005,8 +1137,12 @@ export default function CheckoutClient() {
                     className={inputBaseClass(
                       inputBorderClass(!!(submitAttempted && errors.full_name))
                     )}
-                    aria-invalid={submitAttempted && errors.full_name ? true : undefined}
-                    aria-describedby={errors.full_name ? fieldErrorId("full_name") : undefined}
+                    aria-invalid={
+                      submitAttempted && errors.full_name ? true : undefined
+                    }
+                    aria-describedby={
+                      errors.full_name ? fieldErrorId("full_name") : undefined
+                    }
                   />
                   <FieldError
                     id={fieldErrorId("full_name")}
@@ -1028,8 +1164,12 @@ export default function CheckoutClient() {
                       className={inputBaseClass(
                         inputBorderClass(!!(submitAttempted && errors.email))
                       )}
-                      aria-invalid={submitAttempted && errors.email ? true : undefined}
-                      aria-describedby={errors.email ? fieldErrorId("email") : undefined}
+                      aria-invalid={
+                        submitAttempted && errors.email ? true : undefined
+                      }
+                      aria-describedby={
+                        errors.email ? fieldErrorId("email") : undefined
+                      }
                     />
                     <FieldError
                       id={fieldErrorId("email")}
@@ -1052,7 +1192,9 @@ export default function CheckoutClient() {
                     >
                       <div className="flex items-center gap-1 border-r border-white/10 bg-white/5 px-3 text-white/80">
                         <span aria-hidden>🇨🇴</span>
-                        <span className="text-xs font-semibold text-white/80">+57</span>
+                        <span className="text-xs font-semibold text-white/80">
+                          +57
+                        </span>
                       </div>
 
                       <input
@@ -1072,8 +1214,12 @@ export default function CheckoutClient() {
                         inputMode="numeric"
                         autoComplete="tel"
                         className="h-10 w-full rounded-r-xl border-0 bg-transparent px-3 py-2 text-sm text-zinc-100 placeholder:text-white/35 focus:outline-none"
-                        aria-invalid={submitAttempted && errors.phone ? true : undefined}
-                        aria-describedby={errors.phone ? fieldErrorId("phone") : undefined}
+                        aria-invalid={
+                          submitAttempted && errors.phone ? true : undefined
+                        }
+                        aria-describedby={
+                          errors.phone ? fieldErrorId("phone") : undefined
+                        }
                       />
                     </div>
 
@@ -1094,11 +1240,17 @@ export default function CheckoutClient() {
                       data-field="document_type"
                       {...register("document_type")}
                       className={inputBaseClass(
-                        inputBorderClass(!!(submitAttempted && errors.document_type))
+                        inputBorderClass(
+                          !!(submitAttempted && errors.document_type)
+                        )
                       )}
-                      aria-invalid={submitAttempted && errors.document_type ? true : undefined}
+                      aria-invalid={
+                        submitAttempted && errors.document_type ? true : undefined
+                      }
                       aria-describedby={
-                        errors.document_type ? fieldErrorId("document_type") : undefined
+                        errors.document_type
+                          ? fieldErrorId("document_type")
+                          : undefined
                       }
                     >
                       <option value="CC">CC</option>
@@ -1123,8 +1275,12 @@ export default function CheckoutClient() {
                       className={inputBaseClass(
                         inputBorderClass(!!(submitAttempted && errors.cedula))
                       )}
-                      aria-invalid={submitAttempted && errors.cedula ? true : undefined}
-                      aria-describedby={errors.cedula ? fieldErrorId("cedula") : undefined}
+                      aria-invalid={
+                        submitAttempted && errors.cedula ? true : undefined
+                      }
+                      aria-describedby={
+                        errors.cedula ? fieldErrorId("cedula") : undefined
+                      }
                     />
                     <FieldError
                       id={fieldErrorId("cedula")}
@@ -1153,8 +1309,12 @@ export default function CheckoutClient() {
                       className={inputBaseClass(
                         inputBorderClass(!!(submitAttempted && errors.city_code))
                       )}
-                      aria-invalid={submitAttempted && errors.city_code ? true : undefined}
-                      aria-describedby={errors.city_code ? fieldErrorId("city_code") : undefined}
+                      aria-invalid={
+                        submitAttempted && errors.city_code ? true : undefined
+                      }
+                      aria-describedby={
+                        errors.city_code ? fieldErrorId("city_code") : undefined
+                      }
                     >
                       <option value="">Selecciona una ciudad</option>
                       {cities.map((city) => (
@@ -1182,8 +1342,12 @@ export default function CheckoutClient() {
                       className={inputBaseClass(
                         inputBorderClass(!!(submitAttempted && errors.address))
                       )}
-                      aria-invalid={submitAttempted && errors.address ? true : undefined}
-                      aria-describedby={errors.address ? fieldErrorId("address") : undefined}
+                      aria-invalid={
+                        submitAttempted && errors.address ? true : undefined
+                      }
+                      aria-describedby={
+                        errors.address ? fieldErrorId("address") : undefined
+                      }
                     />
                     <FieldError
                       id={fieldErrorId("address")}
@@ -1207,8 +1371,12 @@ export default function CheckoutClient() {
                       inputBorderClass(!!(submitAttempted && errors.notes)) +
                       " rounded-xl bg-white/5 px-3 py-2 text-sm text-zinc-100 placeholder:text-white/35 outline-none transition focus:border-white/20 focus:ring-2 focus:ring-white/20"
                     }
-                    aria-invalid={submitAttempted && errors.notes ? true : undefined}
-                    aria-describedby={errors.notes ? fieldErrorId("notes") : undefined}
+                    aria-invalid={
+                      submitAttempted && errors.notes ? true : undefined
+                    }
+                    aria-describedby={
+                      errors.notes ? fieldErrorId("notes") : undefined
+                    }
                   />
                   <FieldError
                     id={fieldErrorId("notes")}
@@ -1219,12 +1387,21 @@ export default function CheckoutClient() {
             </div>
 
             {submitNotice && (
-              <Notice variant={submitNotice.variant} tone={submitNotice.tone} title={submitNotice.title}>
+              <Notice
+                variant={submitNotice.variant}
+                tone={submitNotice.tone}
+                title={submitNotice.title}
+              >
                 {submitNotice.message}
               </Notice>
             )}
 
-            <Button type="submit" variant="primary" fullWidth disabled={isSubmitting}>
+            <Button
+              type="submit"
+              variant="primary"
+              fullWidth
+              disabled={isSubmitting || isStockValidating || hasBlockingWarnings}
+            >
               {isSubmitting ? "Procesando pedido..." : "Confirmar pedido"}
             </Button>
           </form>
@@ -1240,7 +1417,10 @@ export default function CheckoutClient() {
           {items.length === 0 ? (
             <p className="text-sm text-white/70">
               No hay productos en tu carrito.{" "}
-              <Link href="/" className="font-medium text-white/85 hover:text-white hover:underline">
+              <Link
+                href="/"
+                className="font-medium text-white/85 hover:text-white hover:underline"
+              >
                 Ver productos
               </Link>
             </p>
@@ -1248,7 +1428,10 @@ export default function CheckoutClient() {
             <>
               <ul className="mb-4 max-h-56 space-y-3 overflow-y-auto text-sm">
                 {items.map((item) => (
-                  <li key={item.variantId} className="flex items-start justify-between gap-3">
+                  <li
+                    key={item.variantId}
+                    className="flex items-start justify-between gap-3"
+                  >
                     <div className="flex min-w-0 items-start gap-3">
                       <div className="relative h-16 w-16 shrink-0 overflow-hidden product-media-surface">
                         {item.imageUrl ? (
@@ -1286,20 +1469,38 @@ export default function CheckoutClient() {
                       </div>
 
                       <div className="min-w-0">
-                        <p className="truncate font-medium text-zinc-100">{item.productName}</p>
+                        <p className="truncate font-medium text-zinc-100">
+                          {item.productName}
+                        </p>
                         <p className="truncate text-xs text-white/60">
                           {item.variantLabel} × {item.quantity}
                         </p>
 
                         {(() => {
-                          const w = getStockWarning(item.variantId);
+                          const hint: any = stockHintsByVariantId[String(item.variantId)];
+                          if (!hint || hint.kind !== "last_unit" || !hint.message) return null;
+                          return (
+                            <p className="mt-1 whitespace-normal break-words text-xs leading-snug text-white/70">
+                              ⚡ {hint.message}
+                            </p>
+                          );
+                        })()}
+
+                        {(() => {
+                          const w = stockWarningsByVariantId[String(item.variantId)];
                           if (!w || w.status === "ok") return null;
 
                           const available =
-                            typeof w.available === "number" ? w.available : null;
+                            typeof w.available === "number" ? w.available : w.available != null ? Number(w.available) : null;
+
+                          const status = String((w as any)?.status || "ok");
+                          const isStockInsufficientStatus =
+                            status === "exceeds_stock" || status === "insufficient";
 
                           const canAdjust =
+                            isStockInsufficientStatus &&
                             available !== null &&
+                            Number.isFinite(available) &&
                             available >= 0 &&
                             available < item.quantity;
 
@@ -1307,14 +1508,13 @@ export default function CheckoutClient() {
                             <div className="mt-1">
                               <Notice variant="warning" tone="soft" compact title="Stock insuficiente">
                                 <span>
-                                  {available !== null ? (
+                                  {available !== null && Number.isFinite(available) ? (
                                     <>
-                                      Solicitaste <span className="font-semibold">{item.quantity}</span>{" "}
-                                      unidades, pero solo hay{" "}
-                                      <span className="font-semibold">{available}</span> disponibles.
+                                      Pediste <span className="font-semibold">{item.quantity}</span>, pero solo quedan{" "}
+                                      <span className="font-semibold">{available}</span> en stock.
                                     </>
                                   ) : (
-                                    <>La cantidad solicitada supera el stock disponible.</>
+                                    <>La cantidad que pediste supera el stock disponible.</>
                                   )}
                                 </span>
                               </Notice>
@@ -1322,14 +1522,7 @@ export default function CheckoutClient() {
                               {canAdjust ? (
                                 <button
                                   type="button"
-                                  onClick={() => {
-                                    if (available === 0) {
-                                      removeItem(item.variantId);
-                                    } else {
-                                      applyOptimisticStockCheck(item.variantId, available);
-                                      updateQuantity(item.variantId, available);
-                                    }
-                                  }}
+                                  onClick={(e) => handleAdjustToAvailable(e, item.variantId)}
                                   className="mt-2 inline-flex items-center justify-center rounded-lg border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-xs font-semibold text-amber-100 hover:bg-amber-400/15"
                                 >
                                   Ajustar a disponible
@@ -1342,7 +1535,10 @@ export default function CheckoutClient() {
                     </div>
 
                     <span className="shrink-0 text-sm font-medium text-white">
-                      ${(parseFloat(item.price) * item.quantity).toLocaleString("es-CO")}
+                      $
+                      {(parseFloat(item.price) * item.quantity).toLocaleString(
+                        "es-CO"
+                      )}
                     </span>
                   </li>
                 ))}
@@ -1363,27 +1559,31 @@ export default function CheckoutClient() {
 
                 <div className="mt-2 flex justify-between border-t border-white/10 pt-2 text-base font-semibold">
                   <span>Total estimado</span>
-                  <span>${(subtotal + (shipping ? shipping.amount : 0)).toLocaleString("es-CO")}</span>
+                  <span>
+                    $
+                    {(subtotal + (shipping ? shipping.amount : 0)).toLocaleString(
+                      "es-CO"
+                    )}
+                  </span>
                 </div>
 
                 <p className="mt-2 text-xs text-white/50">
-                  El pedido se crea al confirmar y luego podrás realizar el pago por transferencia. Actualmente es el único medio de pago disponible.
+                  El pedido se crea al confirmar y luego podrás realizar el pago
+                  por transferencia. Actualmente es el único medio de pago
+                  disponible.
                 </p>
 
-                {hasStockWarnings() && (
-                  <div className="mt-3">
-                    <Notice variant="warning" tone="soft" compact title="Stock insuficiente">
-                      Hay productos cuya cantidad solicitada supera el stock disponible. Te recomendamos ajustar
-                      cantidades antes de confirmar.
-                    </Notice>
-                  </div>
-                )}
 
-                {!hasStockWarnings() && stockValidateFailed && (
+                {!hasBlockingWarnings && stockValidateFailed && (
                   <div className="mt-3">
-                    <Notice variant="warning" tone="soft" compact title="No pudimos validar el stock">
-                      Intenta de nuevo en unos segundos. Si el problema persiste, continúa y confirmamos
-                      disponibilidad por WhatsApp.
+                    <Notice
+                      variant="warning"
+                      tone="soft"
+                      compact
+                      title="No pudimos validar el stock"
+                    >
+                      Intenta de nuevo en unos segundos. Si el problema persiste,
+                      continúa y confirmamos disponibilidad por WhatsApp.
                     </Notice>
                   </div>
                 )}

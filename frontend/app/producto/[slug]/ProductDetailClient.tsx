@@ -42,11 +42,6 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
 
   const variants = useMemo(() => product.variants ?? [], [product.variants]);
 
-  const soldOutProduct = useMemo(
-    () => variants.length > 0 && variants.every((v: any) => (v.stock ?? 0) <= 0),
-    [variants]
-  );
-
   const hasValue = variants.some((v) => v.value);
   const hasColor = variants.some((v) => v.color);
 
@@ -73,6 +68,20 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
     () => variants.find((v: any) => (v.stock ?? 0) > 0) ?? null,
     [variants]
   );
+
+  const findByColorPreferImages = (color: string) => {
+    const c = (color || "").trim();
+    if (!c) return null;
+    const withImages = variants.find((v) => v.color === c && (v.images?.length ?? 0) > 0) ?? null;
+    return withImages ?? (variants.find((v) => v.color === c) ?? null);
+  };
+
+  const findByValuePreferImages = (val: string) => {
+    const v0 = (val || "").trim();
+    if (!v0) return null;
+    const withImages = variants.find((v) => v.value === v0 && (v.images?.length ?? 0) > 0) ?? null;
+    return withImages ?? (variants.find((v) => v.value === v0) ?? null);
+  };
 
   const defaultValue = (firstAvailableVariant?.value ?? firstWithValue) as string;
   const defaultColor = (firstAvailableVariant?.color ?? firstWithColor) as string;
@@ -113,59 +122,83 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
     );
   };
 
-  const finalVariant = useMemo(() => {
+  const selectedVariant = useMemo(() => {
     if (!variants.length) return null;
 
-    const exact = variants.find(
-      (v) =>
-        (selectedValue ? v.value === selectedValue : true) &&
-        (selectedColor ? v.color === selectedColor : true)
+    // Only consider an "exact" match when both selectors are defined.
+    if (!selectedValue || !selectedColor) return null;
+
+    return (
+      variants.find(
+        (v) => v.value === selectedValue && v.color === selectedColor
+      ) ?? null
     );
-    if (exact) return exact;
-
-    // Fallbacks to avoid jumping to unrelated variants
-    if (selectedColor) {
-      const sameColor = variants.find((v) => v.color === selectedColor);
-      if (sameColor) return sameColor;
-    }
-
-    if (selectedValue) {
-      const sameValue = variants.find((v) => v.value === selectedValue);
-      if (sameValue) return sameValue;
-    }
-
-    return variants[0];
   }, [variants, selectedValue, selectedColor]);
 
+  const displayVariant = useMemo(() => {
+    if (!variants.length) return null;
+
+    // UI-only fallback order (do NOT affect cart):
+    // 1) exact selectedVariant (even if stock is 0)
+    // 2) same color (prefer a variant of that color that has images)
+    // 3) same value/size (prefer a variant of that value that has images)
+    // 4) first available by stock
+    // 5) first variant
+    const byColor = selectedColor ? findByColorPreferImages(selectedColor) : null;
+    const byValue = selectedValue ? findByValuePreferImages(selectedValue) : null;
+
+    return (
+      selectedVariant ??
+      byColor ??
+      byValue ??
+      firstAvailableVariant ??
+      variants[0] ??
+      null
+    );
+  }, [variants, selectedVariant, selectedColor, selectedValue, firstAvailableVariant]);
+
+  const isInvalidCombo =
+    hasValue &&
+    hasColor &&
+    !!selectedValue &&
+    !!selectedColor &&
+    !selectedVariant;
+
   const primaryImage =
-    finalVariant?.images?.find((i) => i.is_primary)?.image ??
-    finalVariant?.images?.[0]?.image ??
+    displayVariant?.images?.find((i) => i.is_primary)?.image ??
+    displayVariant?.images?.[0]?.image ??
     null;
 
   const galleryImages =
-    finalVariant?.images?.length
-      ? finalVariant.images
+    displayVariant?.images?.length
+      ? displayVariant.images
       : (((product as any).images as any[]) ?? []);
 
   const handleAddToCart = () => {
-    if (!finalVariant) return;
+    if (!selectedVariant) return;
+    if (isInvalidCombo) return;
+
     addItem(
       {
-        variantId: finalVariant.id,
+        variantId: selectedVariant.id,
         productId: product.id,
         productName: product.name,
         productSlug: product.slug,
-        variantLabel: buildVariantLabel(finalVariant),
+        variantLabel: buildVariantLabel(selectedVariant),
         price: product.price,
         imageUrl: primaryImage,
       },
       1
     );
+
     openCart();
   };
 
-  const selectedOutOfStock = !!finalVariant && (finalVariant.stock ?? 0) <= 0;
-  const canAdd = !!finalVariant && (finalVariant.stock ?? 0) > 0;
+  const selectedOutOfStock =
+    isInvalidCombo || !selectedVariant || (selectedVariant.stock ?? 0) <= 0;
+
+  const canAdd =
+    !!selectedVariant && (selectedVariant.stock ?? 0) > 0 && !isInvalidCombo;
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 md:py-10">
@@ -253,18 +286,21 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
 
           {/* Stock + CTA */}
           <div className="mt-6">
-            {finalVariant && (
+            {(isInvalidCombo || selectedVariant) && (
               <div className="mb-4 flex flex-wrap items-center gap-2 text-sm text-neutral-400">
-                {!selectedOutOfStock ? (
+                {isInvalidCombo ? (
+                  <span className="text-neutral-400">
+                    Esta combinación no está disponible. Prueba otra talla o color.
+                  </span>
+                ) : !selectedOutOfStock && selectedVariant ? (
                   <span>
-                    Stock: {finalVariant.stock} disponible{finalVariant.stock !== 1 ? "s" : ""}
+                    Stock: {selectedVariant.stock} disponible
+                    {selectedVariant.stock !== 1 ? "s" : ""}
                   </span>
                 ) : (
-                  <>
-                    <span className="text-neutral-400">
-                      No hay unidades disponibles por ahora. Prueba otra talla o color.
-                    </span>
-                  </>
+                  <span className="text-neutral-400">
+                    No hay unidades disponibles por ahora. Prueba otra talla o color.
+                  </span>
                 )}
               </div>
             )}

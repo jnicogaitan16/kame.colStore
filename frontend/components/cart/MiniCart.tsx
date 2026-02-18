@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useCartStore } from "@/store/cart";
-import type { StockWarningStatus } from "@/store/cart";
 import { Button } from "@/components/ui/Button";
-import { validateCartStock } from "@/lib/api";
+import Notice from "@/components/ui/Notice";
 
 export function MiniCart() {
   const items = useCartStore((s) => s.items);
@@ -14,49 +13,9 @@ export function MiniCart() {
   const closeCart = useCartStore((s) => s.closeCart);
   const removeItem = useCartStore((s) => s.removeItem);
   const updateQuantity = useCartStore((s) => s.updateQuantity);
-  const applyOptimisticStockCheck = useCartStore((s) => s.applyOptimisticStockCheck);
-  const totalItems = useCartStore((s) => s.totalItems);
-  const totalAmount = useCartStore((s) => s.totalAmount);
-  const setStockWarnings = useCartStore((s) => s.setStockWarnings);
-  const hasStockWarnings = useCartStore((s) => s.hasStockWarnings);
-  const getStockWarning = useCartStore((s) => s.getStockWarning);
+  const stockWarningsByVariantId = useCartStore((s) => s.stockWarningsByVariantId);
+  const stockHintsByVariantId = useCartStore((s) => s.stockHintsByVariantId);
   const [animateIn, setAnimateIn] = useState(false);
-
-  const validateTimerRef = useRef<number | null>(null);
-  const lastPayloadRef = useRef<string>("");
-  const abortRef = useRef<AbortController | null>(null);
-
-  const normalizeValidateItems = useMemo(() => {
-    return (items || []).map((i) => ({
-      product_variant_id: i.variantId,
-      quantity: i.quantity,
-    }));
-  }, [items]);
-
-  async function runStockValidation(signal?: AbortSignal) {
-    // Avoid calling when cart is empty
-    if (!normalizeValidateItems.length) return;
-
-    // Deduplicate identical payloads (prevents spam on re-renders)
-    const key = JSON.stringify(normalizeValidateItems);
-    if (key === lastPayloadRef.current) return;
-    lastPayloadRef.current = key;
-
-    try {
-      // NOTE: validateCartStock may not support signal argument; if so, call without it
-      // const res = await validateCartStock(normalizeValidateItems, { signal });
-      const res = await validateCartStock(normalizeValidateItems);
-      // Store expects a map by variantId
-      setStockWarnings(res.warningsByVariantId || {});
-    } catch (e: any) {
-      if (e?.name === "AbortError") return;
-
-      // Safety: si stock-validate falla (ej. 403 CSRF),
-      // no bloqueamos UX ni marcamos errores por ítem.
-      // Simplemente limpiamos warnings y mantenemos el carrito usable.
-      setStockWarnings({});
-    }
-  }
 
   useEffect(() => {
     if (isOpen) {
@@ -72,35 +31,18 @@ export function MiniCart() {
     };
   }, [isOpen]);
 
-  useEffect(() => {
-    // clear any pending timer
-    if (validateTimerRef.current) window.clearTimeout(validateTimerRef.current);
 
-    // Only validate when drawer is open (best UX + less noise)
-    if (!isOpen) return;
+  function totalItems() {
+    return (items || []).reduce((acc, it) => acc + (it.quantity || 0), 0);
+  }
 
-    // Abort previous in-flight request
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-
-    // Leading call: validate immediately
-    runStockValidation(controller.signal);
-
-    // Trailing call: validate again after 500ms to cover rapid clicks
-    validateTimerRef.current = window.setTimeout(() => {
-      // abort any request started by the leading call before starting trailing
-      abortRef.current?.abort();
-      const trailingController = new AbortController();
-      abortRef.current = trailingController;
-      runStockValidation(trailingController.signal);
-    }, 500);
-
-    return () => {
-      if (validateTimerRef.current) window.clearTimeout(validateTimerRef.current);
-      abortRef.current?.abort();
-    };
-  }, [isOpen, normalizeValidateItems]);
+  function totalAmount() {
+    return (items || []).reduce((acc, it) => {
+      const price = typeof it.price === "number" ? it.price : parseFloat(String(it.price || 0));
+      const qty = Number(it.quantity || 0);
+      return acc + (Number.isFinite(price) ? price : 0) * (Number.isFinite(qty) ? qty : 0);
+    }, 0);
+  }
 
   if (!isOpen) return null;
 
@@ -162,23 +104,40 @@ export function MiniCart() {
                       {item.productName}
                     </Link>
                     <p className="text-sm text-white/60">{item.variantLabel}</p>
+
                     {(() => {
-                      const w = getStockWarning(item.variantId);
-                      if (!w || w.status === "ok") return null;
+                      // Store contract: getters normalize keys via String(variantId)
+                      const key = String(item.variantId);
+                      const h: any = stockHintsByVariantId[key];
+                      const w: any = stockWarningsByVariantId[key];
 
-                      const isKnownStockIssue =
-                        String(w.status) === "exceeds_stock" || String(w.status) === "low_stock";
+                      const warningStatus = String(w?.status || "ok");
+                      const hasWarningForItem = Boolean(w);
+                      const isInsufficient =
+                        warningStatus === "insufficient" || warningStatus === "exceeds_stock";
 
-                      const label = isKnownStockIssue ? "Stock con advertencias" : "Stock no confirmado";
-                      const availableSuffix =
-                        typeof w.available === "number" ? ` • disp: ${w.available}` : "";
+                      // Hint only when there is NO warning object for this item.
+                      if (!hasWarningForItem && h?.kind === "last_unit" && h?.message) {
+                        return (
+                          <p className="mt-2 text-xs leading-snug text-white/70 whitespace-normal break-words">
+                            ⚡ {h.message}
+                          </p>
+                        );
+                      }
 
-                      return (
-                        <p className="mt-2 text-xs leading-snug text-amber-200/80 whitespace-normal break-words">
-                          {label}
-                          {availableSuffix}
-                        </p>
-                      );
+                      // Warning only when status indicates insufficient stock.
+                      if (isInsufficient) {
+                        const msg = String(w?.message || "Stock insuficiente.");
+                        return (
+                          <div className="mt-2">
+                            <Notice variant="warning" tone="soft" compact title="Stock insuficiente">
+                              {msg}
+                            </Notice>
+                          </div>
+                        );
+                      }
+
+                      return null;
                     })()}
                     <div className="mt-1 flex items-center justify-between">
                       <div className="flex items-center gap-1">
@@ -186,7 +145,6 @@ export function MiniCart() {
                           type="button"
                           onClick={() => {
                             const nextQty = item.quantity - 1;
-                            applyOptimisticStockCheck(item.variantId, nextQty);
                             updateQuantity(item.variantId, nextQty);
                           }}
                           className="pill w-8 h-8 p-0 bg-white/5 border border-white/10 hover:bg-white/10"
@@ -198,7 +156,6 @@ export function MiniCart() {
                           type="button"
                           onClick={() => {
                             const nextQty = item.quantity + 1;
-                            applyOptimisticStockCheck(item.variantId, nextQty);
                             updateQuantity(item.variantId, nextQty);
                           }}
                           className="pill w-8 h-8 p-0 bg-white/5 border border-white/10 hover:bg-white/10"
@@ -232,11 +189,6 @@ export function MiniCart() {
               <span>Total</span>
               <span className="text-white font-semibold text-base">${totalAmount().toLocaleString("es-CO")}</span>
             </div>
-            {hasStockWarnings() && (
-              <p className="mb-3 text-xs leading-snug text-amber-200/80 whitespace-normal break-words">
-                Algunos ítems podrían no estar disponibles al confirmar.
-              </p>
-            )}
             <Link href="/checkout" onClick={closeCart} className="block">
               <Button variant="primary" fullWidth>
                 Ir al checkout
