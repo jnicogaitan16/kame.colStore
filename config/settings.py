@@ -219,12 +219,29 @@ R2_ENDPOINT_URL = os.getenv(
 # URL pública desde donde se servirán los archivos
 R2_PUBLIC_BASE_URL = os.getenv("R2_PUBLIC_BASE_URL", "").rstrip("/")
 
+# Derive the public media host for django-storages URL generation.
+# Example R2_PUBLIC_BASE_URL: https://pub-xxxx.r2.dev
+# We need only the hostname part (pub-xxxx.r2.dev).
+R2_PUBLIC_MEDIA_HOST = ""
+if R2_PUBLIC_BASE_URL:
+    # Avoid importing urlparse at module top if not needed.
+    from urllib.parse import urlparse
+
+    parsed = urlparse(R2_PUBLIC_BASE_URL)
+    R2_PUBLIC_MEDIA_HOST = parsed.netloc or parsed.path  # supports values with/without scheme
+    R2_PUBLIC_MEDIA_HOST = R2_PUBLIC_MEDIA_HOST.strip("/")
+
 AWS_ACCESS_KEY_ID = R2_ACCESS_KEY_ID
 AWS_SECRET_ACCESS_KEY = R2_SECRET_ACCESS_KEY
 AWS_STORAGE_BUCKET_NAME = R2_BUCKET_NAME
 AWS_S3_ENDPOINT_URL = R2_ENDPOINT_URL
 AWS_S3_REGION_NAME = "auto"
 AWS_S3_SIGNATURE_VERSION = "s3v4"
+
+# IMPORTANT: Use the PUBLIC host for generating .url values (do NOT use the S3 endpoint host)
+# This is what fixes the frontend 400s against *.r2.cloudflarestorage.com.
+AWS_S3_CUSTOM_DOMAIN = R2_PUBLIC_MEDIA_HOST or None
+AWS_S3_URL_PROTOCOL = "https:"
 
 AWS_DEFAULT_ACL = None
 AWS_QUERYSTRING_AUTH = False
@@ -244,6 +261,9 @@ STORAGES = {
             "endpoint_url": AWS_S3_ENDPOINT_URL,
             "region_name": AWS_S3_REGION_NAME,
             "signature_version": AWS_S3_SIGNATURE_VERSION,
+            # Generate public URLs using the public host (r2.dev or your custom domain)
+            "custom_domain": AWS_S3_CUSTOM_DOMAIN,
+            "url_protocol": AWS_S3_URL_PROTOCOL,
         },
     },
     "staticfiles": {
