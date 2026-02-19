@@ -96,6 +96,7 @@ INSTALLED_APPS = [
 
     'rest_framework',
     'imagekit',
+    'storages',
 
     # local apps
     'apps.catalog.apps.CatalogConfig',
@@ -200,9 +201,61 @@ STATIC_URL = 'static/'
 
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
-# Media files (user uploaded content)
-MEDIA_URL = '/media/'
-MEDIA_ROOT = Path(os.getenv("DJANGO_MEDIA_ROOT", str(BASE_DIR / "media")))
+# =========================
+# R2 / S3-compatible storage (Cloudflare R2)
+# =========================
+
+R2_BUCKET_NAME = os.getenv("R2_BUCKET_NAME", "")
+R2_ACCESS_KEY_ID = os.getenv("R2_ACCESS_KEY_ID", "")
+R2_SECRET_ACCESS_KEY = os.getenv("R2_SECRET_ACCESS_KEY", "")
+R2_ACCOUNT_ID = os.getenv("R2_ACCOUNT_ID", "")
+
+# Endpoint S3 compatible de R2
+R2_ENDPOINT_URL = os.getenv(
+    "R2_ENDPOINT_URL",
+    f"https://{R2_ACCOUNT_ID}.r2.cloudflarestorage.com" if R2_ACCOUNT_ID else "",
+)
+
+# URL pública desde donde se servirán los archivos
+R2_PUBLIC_BASE_URL = os.getenv("R2_PUBLIC_BASE_URL", "").rstrip("/")
+
+AWS_ACCESS_KEY_ID = R2_ACCESS_KEY_ID
+AWS_SECRET_ACCESS_KEY = R2_SECRET_ACCESS_KEY
+AWS_STORAGE_BUCKET_NAME = R2_BUCKET_NAME
+AWS_S3_ENDPOINT_URL = R2_ENDPOINT_URL
+AWS_S3_REGION_NAME = "auto"
+AWS_S3_SIGNATURE_VERSION = "s3v4"
+
+AWS_DEFAULT_ACL = None
+AWS_QUERYSTRING_AUTH = False
+AWS_S3_FILE_OVERWRITE = False
+AWS_S3_OBJECT_PARAMETERS = {
+    "CacheControl": "public, max-age=31536000, immutable",
+}
+
+# Django 4.2+ / 5 / 6
+STORAGES = {
+    "default": {
+        "BACKEND": "storages.backends.s3.S3Storage",
+        "OPTIONS": {
+            "bucket_name": AWS_STORAGE_BUCKET_NAME,
+            "access_key": AWS_ACCESS_KEY_ID,
+            "secret_key": AWS_SECRET_ACCESS_KEY,
+            "endpoint_url": AWS_S3_ENDPOINT_URL,
+            "region_name": AWS_S3_REGION_NAME,
+            "signature_version": AWS_S3_SIGNATURE_VERSION,
+        },
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+}
+
+# MEDIA_URL debe apuntar a la URL pública del bucket
+if R2_PUBLIC_BASE_URL:
+    MEDIA_URL = f"{R2_PUBLIC_BASE_URL}/"
+else:
+    MEDIA_URL = "/media/"
 
 
 # Django REST Framework
