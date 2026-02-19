@@ -41,6 +41,13 @@ const nextConfig = {
         hostname: "*.trycloudflare.com",
         pathname: "/media/**",
       },
+
+      // Cloudflare R2 public bucket (e.g. https://<accountid>.r2.cloudflarestorage.com/<bucket>/...)
+      {
+        protocol: "https",
+        hostname: "*.r2.cloudflarestorage.com",
+        pathname: "/**",
+      },
     ],
   },
 };
