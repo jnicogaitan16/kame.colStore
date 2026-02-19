@@ -4,6 +4,7 @@ Incluyen imágenes con URL absoluta y orden primary + gallery.
 """
 
 from rest_framework import serializers
+from imagekit.cachefiles import ImageCacheFile
 
 from .models import (
     Category,
@@ -117,6 +118,8 @@ class ProductImageSerializer(serializers.ModelSerializer):
 # ---------------------------------------------------------------------------
 class ProductVariantSerializer(serializers.ModelSerializer):
     images = serializers.SerializerMethodField()
+    image_url = serializers.SerializerMethodField()
+    image_thumb_url = serializers.SerializerMethodField()
     kind_display = serializers.CharField(source="get_kind_display", read_only=True)
 
     class Meta:
@@ -129,6 +132,8 @@ class ProductVariantSerializer(serializers.ModelSerializer):
             "color",
             "stock",
             "is_active",
+            "image_url",
+            "image_thumb_url",
             "images",
         ]
 
@@ -136,6 +141,30 @@ class ProductVariantSerializer(serializers.ModelSerializer):
         # Orden: primary primero, luego por sort_order (galería)
         qs = obj.images.all().order_by("-is_primary", "sort_order", "created_at")
         return ProductImageSerializer(qs, many=True, context=self.context).data
+
+    def get_image_url(self, obj):
+        # Usa la primera imagen asociada a la variante
+        img = obj.images.order_by("-is_primary", "sort_order", "created_at").first()
+        if not img or not img.image:
+            return None
+        return img.image.url
+
+    def get_image_thumb_url(self, obj):
+        img = obj.images.order_by("-is_primary", "sort_order", "created_at").first()
+        if not img:
+            return None
+
+        # Si no existe spec/thumb en el modelo, retornar None
+        if not hasattr(img, "image_thumb") or not img.image_thumb:
+            return None
+
+        try:
+            cachefile = ImageCacheFile(img.image_thumb)
+            cachefile.generate()  # Generación explícita en R2
+            return cachefile.url
+        except Exception:
+            # Fallback a original
+            return self.get_image_url(obj)
 
 
 # ---------------------------------------------------------------------------

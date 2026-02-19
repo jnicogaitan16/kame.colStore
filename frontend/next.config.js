@@ -48,6 +48,13 @@ const nextConfig = {
         hostname: "*.r2.cloudflarestorage.com",
         pathname: "/**",
       },
+
+      // Cloudflare R2 public domain (r2.dev) e.g. https://pub-xxxx.r2.dev/...
+      {
+        protocol: "https",
+        hostname: "*.r2.dev",
+        pathname: "/**",
+      },
     ],
   },
 };

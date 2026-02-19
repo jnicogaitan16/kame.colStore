@@ -12,9 +12,13 @@ const buildTargetUrl = (req: Request, params: { path?: string[] }) => {
 
   const incoming = new URL(req.url);
 
-  // Django expects trailing slash for most DRF endpoints.
+  // Preserve trailing slash from the incoming request.
+  // Some endpoints may be defined with or without trailing slashes.
+  const incomingHasTrailingSlash = incoming.pathname.endsWith("/");
+
   // Avoid double slashes when path is empty.
-  const target = new URL(path ? `${base}/api/${path}/` : `${base}/api/`);
+  const targetPath = path ? `${base}/api/${path}` : `${base}/api`;
+  const target = new URL(incomingHasTrailingSlash ? `${targetPath}/` : targetPath);
 
   // Preserve querystring exactly
   target.search = incoming.search;
@@ -77,9 +81,25 @@ const forwardRequest = async (
     return Response.json({ error: "Failed to reach backend" }, { status: 502 });
   }
 
-  return new Response(backendRes.body, {
+  // NOTE: When proxying through a Next Route Handler, forwarding a streaming body
+  // together with hop-by-hop / encoding headers can break clients (and DevTools).
+  // Buffer the response and sanitize headers.
+  const data = await backendRes.arrayBuffer();
+
+  const outHeaders = new Headers(backendRes.headers);
+
+  // Remove hop-by-hop and encoding headers that don't apply after buffering.
+  outHeaders.delete("content-encoding");
+  outHeaders.delete("content-length");
+  outHeaders.delete("transfer-encoding");
+  outHeaders.delete("connection");
+
+  // Ensure proxy responses are not cached by Next.
+  outHeaders.set("cache-control", "no-store");
+
+  return new Response(data, {
     status: backendRes.status,
-    headers: backendRes.headers,
+    headers: outHeaders,
   });
 };
 

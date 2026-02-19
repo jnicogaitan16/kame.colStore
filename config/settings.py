@@ -271,6 +271,10 @@ STORAGES = {
     },
 }
 
+# ImageKit: generate cachefiles and store them in the default storage (R2 via STORAGES["default"]).
+# Optimistic strategy generates on-demand and reuses if present.
+IMAGEKIT_DEFAULT_CACHEFILE_STRATEGY = "imagekit.cachefiles.strategies.Optimistic"
+
 # MEDIA_URL debe apuntar a la URL pública del bucket
 if R2_PUBLIC_BASE_URL:
     MEDIA_URL = f"{R2_PUBLIC_BASE_URL}/"
