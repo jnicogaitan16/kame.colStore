@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 from pathlib import Path
 import os
 
+import dj_database_url
 from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -95,15 +96,18 @@ INSTALLED_APPS = [
 
     'rest_framework',
     'imagekit',
+    'storages',
 
     # local apps
     'apps.catalog.apps.CatalogConfig',
     'apps.orders.apps.OrdersConfig',
     'apps.customers.apps.CustomersConfig',
+    'apps.common',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -135,12 +139,24 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
+
+if DATABASE_URL:
+    DATABASES = {
+        "default": dj_database_url.parse(
+            DATABASE_URL,
+            conn_max_age=int(os.getenv("DB_CONN_MAX_AGE", "600")),
+            ssl_require=os.getenv("DB_SSL_REQUIRE", "True").lower()
+            in ("1", "true", "yes", "on"),
+        )
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
 
 
 # Password validation
@@ -183,9 +199,91 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 STATIC_URL = 'static/'
 
-# Media files (user uploaded content)
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+# =========================
+# R2 / S3-compatible storage (Cloudflare R2)
+# =========================
+
+R2_BUCKET_NAME = os.getenv("R2_BUCKET_NAME", "")
+R2_ACCESS_KEY_ID = os.getenv("R2_ACCESS_KEY_ID", "")
+R2_SECRET_ACCESS_KEY = os.getenv("R2_SECRET_ACCESS_KEY", "")
+R2_ACCOUNT_ID = os.getenv("R2_ACCOUNT_ID", "")
+
+# Endpoint S3 compatible de R2
+R2_ENDPOINT_URL = os.getenv(
+    "R2_ENDPOINT_URL",
+    f"https://{R2_ACCOUNT_ID}.r2.cloudflarestorage.com" if R2_ACCOUNT_ID else "",
+)
+
+# URL pública desde donde se servirán los archivos
+R2_PUBLIC_BASE_URL = os.getenv("R2_PUBLIC_BASE_URL", "").rstrip("/")
+
+# Derive the public media host for django-storages URL generation.
+# Example R2_PUBLIC_BASE_URL: https://pub-xxxx.r2.dev
+# We need only the hostname part (pub-xxxx.r2.dev).
+R2_PUBLIC_MEDIA_HOST = ""
+if R2_PUBLIC_BASE_URL:
+    # Avoid importing urlparse at module top if not needed.
+    from urllib.parse import urlparse
+
+    parsed = urlparse(R2_PUBLIC_BASE_URL)
+    R2_PUBLIC_MEDIA_HOST = parsed.netloc or parsed.path  # supports values with/without scheme
+    R2_PUBLIC_MEDIA_HOST = R2_PUBLIC_MEDIA_HOST.strip("/")
+
+AWS_ACCESS_KEY_ID = R2_ACCESS_KEY_ID
+AWS_SECRET_ACCESS_KEY = R2_SECRET_ACCESS_KEY
+AWS_STORAGE_BUCKET_NAME = R2_BUCKET_NAME
+AWS_S3_ENDPOINT_URL = R2_ENDPOINT_URL
+AWS_S3_REGION_NAME = "auto"
+AWS_S3_SIGNATURE_VERSION = "s3v4"
+
+# IMPORTANT: Use the PUBLIC host for generating .url values (do NOT use the S3 endpoint host)
+# This is what fixes the frontend 400s against *.r2.cloudflarestorage.com.
+AWS_S3_CUSTOM_DOMAIN = R2_PUBLIC_MEDIA_HOST or None
+AWS_S3_URL_PROTOCOL = "https:"
+
+AWS_DEFAULT_ACL = None
+AWS_QUERYSTRING_AUTH = False
+AWS_S3_FILE_OVERWRITE = False
+AWS_S3_OBJECT_PARAMETERS = {
+    "CacheControl": "public, max-age=31536000, immutable",
+}
+
+# Django 4.2+ / 5 / 6
+STORAGES = {
+    "default": {
+        "BACKEND": "storages.backends.s3.S3Storage",
+        "OPTIONS": {
+            "bucket_name": AWS_STORAGE_BUCKET_NAME,
+            "access_key": AWS_ACCESS_KEY_ID,
+            "secret_key": AWS_SECRET_ACCESS_KEY,
+            "endpoint_url": AWS_S3_ENDPOINT_URL,
+            "region_name": AWS_S3_REGION_NAME,
+            "signature_version": AWS_S3_SIGNATURE_VERSION,
+            # Generate public URLs using the public host (r2.dev or your custom domain)
+            "custom_domain": AWS_S3_CUSTOM_DOMAIN,
+            "url_protocol": AWS_S3_URL_PROTOCOL,
+        },
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+}
+
+# Backwards compatibility: some libs still read DEFAULT_FILE_STORAGE.
+# Keep it aligned with STORAGES["default"] (R2/S3 compatible).
+DEFAULT_FILE_STORAGE = "storages.backends.s3.S3Storage"
+
+# ImageKit: generate cachefiles and store them in the default storage (R2 via STORAGES["default"]).
+# Optimistic strategy generates on-demand and reuses if present.
+IMAGEKIT_DEFAULT_CACHEFILE_STRATEGY = "imagekit.cachefiles.strategies.Optimistic"
+
+# MEDIA_URL debe apuntar a la URL pública del bucket
+if R2_PUBLIC_BASE_URL:
+    MEDIA_URL = f"{R2_PUBLIC_BASE_URL}/"
+else:
+    MEDIA_URL = "/media/"
 
 
 # Django REST Framework

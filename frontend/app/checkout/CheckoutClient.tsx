@@ -5,12 +5,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 
-import {
-  apiFetch,
-  checkout,
-  validateCartStock,
-  type CheckoutResponse,
-} from "@/lib/api";
+import { apiFetch, checkout, type CheckoutResponse } from "@/lib/api";
 import { useCartStore } from "@/store/cart";
 import Link from "next/link";
 import Image from "next/image";
@@ -91,7 +86,6 @@ async function fetchCities(): Promise<City[]> {
   return data.cities;
 }
 
-
 async function fetchShippingQuote(params: {
   city_code: string;
   subtotal: number;
@@ -102,11 +96,6 @@ async function fetchShippingQuote(params: {
   );
 }
 
-function toNum(v: any): number {
-  const n = typeof v === "number" ? v : Number(v);
-  return Number.isFinite(n) ? n : 0;
-}
-
 function normalizeWarningsKeys(input: any): Record<string, any> {
   if (!input || typeof input !== "object") return {};
   const out: Record<string, any> = {};
@@ -115,7 +104,6 @@ function normalizeWarningsKeys(input: any): Record<string, any> {
   }
   return out;
 }
-
 
 /* ---------------------------------------------
  * Schema + Types
@@ -135,10 +123,8 @@ const checkoutSchema = z.object({
     .trim()
     .min(1, "Documento obligatorio")
     .superRefine((val, ctx) => {
-      // If empty after trim, the `.min(1, ...)` above will handle the message.
       if (!val) return;
 
-      // Must be numeric only
       if (!/^\d+$/.test(val)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
@@ -147,7 +133,6 @@ const checkoutSchema = z.object({
         return;
       }
 
-      // Numeric but too short
       if (val.length < 4) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
@@ -185,13 +170,11 @@ const FIELD_LABELS: Record<keyof CheckoutFormValues, string> = {
 };
 
 const FIELD_ALIASES: Record<string, keyof CheckoutFormValues> = {
-  // backend / nested
   "customer.cedula": "cedula",
   document_number: "cedula",
   "customer.phone": "phone",
   "customer.full_name": "full_name",
   "customer.email": "email",
-  // direct / alternates
   cedula: "cedula",
   phone: "phone",
   full_name: "full_name",
@@ -222,11 +205,8 @@ type CopyButtonProps = {
   label?: string;
   copiedLabel?: string;
   className?: string;
-  /** When true, renders as a full-width field (row) where the whole area copies */
   asField?: boolean;
-  /** Optional left icon/content for field mode */
   leading?: ReactNode;
-  /** Optional displayed value for field mode (defaults to valueToCopy) */
   displayValue?: string;
 };
 
@@ -254,7 +234,6 @@ function CopyButton({
         };
 
         try {
-          // Modern API (may fail on http or without user gesture permissions)
           if (navigator.clipboard?.writeText) {
             await navigator.clipboard.writeText(text);
             markCopied();
@@ -265,7 +244,6 @@ function CopyButton({
         }
 
         try {
-          // Fallback for http / older browsers
           const ta = document.createElement("textarea");
           ta.value = text;
           ta.setAttribute("readonly", "true");
@@ -321,8 +299,21 @@ export default function CheckoutClient() {
   const applyOptimisticStockCheck = useCartStore(
     (state) => state.applyOptimisticStockCheck
   );
+
   const setStockWarnings = useCartStore((state) => state.setStockWarnings);
   const setStockHints = useCartStore((state) => state.setStockHints);
+
+  // ✅ Centralized scheduler from store (store uses validateCartStock from api.ts)
+  const scheduleValidate = useCartStore((state: any) => state.scheduleValidate);
+
+  // ✅ Prefer status; fallback to legacy boolean if present
+  const stockValidateStatus = useCartStore((s: any) => {
+    const v = s?.stockValidateStatus;
+    if (v === "idle" || v === "loading" || v === "ok" || v === "error") return v;
+    return typeof s?.isStockValidating === "boolean" && s.isStockValidating
+      ? "loading"
+      : "idle";
+  });
 
   // Read maps directly from the store (source of truth)
   const stockWarningsByVariantId = useCartStore(
@@ -332,10 +323,6 @@ export default function CheckoutClient() {
     (s: any) => (s.stockHintsByVariantId as Record<string, any>) || {}
   );
 
-  // Optional flag if your store exposes it (safe fallback)
-  const isStockValidating = useCartStore(
-    (s: any) => (typeof s.isStockValidating === "boolean" ? s.isStockValidating : false)
-  );
   const hasBlockingWarnings = useMemo(() => {
     return (items || []).some((item) => {
       const w = stockWarningsByVariantId[String(item.variantId)];
@@ -382,22 +369,15 @@ export default function CheckoutClient() {
   }
 
   const [cities, setCities] = useState<City[]>([]);
-  const [shipping, setShipping] = useState<{
-    amount: number;
-    label: string;
-  } | null>(null);
+  const [shipping, setShipping] = useState<{ amount: number; label: string } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // (kept) map for future: “Ajustar todos”
-  const [exceedsByVariantId, setExceedsByVariantId] = useState<
-    Record<number, number>
-  >({});
+  const [exceedsByVariantId, setExceedsByVariantId] = useState<Record<number, number>>({});
 
-  const stockValidateTimerRef = useRef<number | null>(null);
   const lastStockKeyRef = useRef<string>("");
 
   const [orderSummary, setOrderSummary] = useState<CheckoutResponse | null>(null);
-  const [stockValidateFailed, setStockValidateFailed] = useState(false);
 
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [submitNotice, setSubmitNotice] = useState<{
@@ -421,8 +401,6 @@ export default function CheckoutClient() {
   });
 
   const subtotal = useMemo(() => computeSubtotal(items), [items]);
-
-
   const watchedCity = watch("city_code");
 
   const stockValidateItems = useMemo(() => {
@@ -436,7 +414,7 @@ export default function CheckoutClient() {
     return `${String(name)}-error`;
   }
 
-function inputBaseClass(extra?: string) {
+  function inputBaseClass(extra?: string) {
     return (
       "w-full rounded-xl border bg-white/5 px-3 py-2 text-base md:text-sm text-zinc-100 placeholder:text-white/35 outline-none transition focus:border-white/20 focus:ring-2 focus:ring-white/20 " +
       (extra || "")
@@ -452,27 +430,24 @@ function inputBaseClass(extra?: string) {
   // --- Robust field focusing helpers ---
   function findFieldElement(field: string): HTMLElement | null {
     try {
-      const byName = document.querySelector(
-        `[name="${field}"]`
-      ) as HTMLElement | null;
+      const byName = document.querySelector(`[name="${field}"]`) as HTMLElement | null;
       if (byName) return byName;
 
       const byId = document.getElementById(field) as HTMLElement | null;
       if (byId) return byId;
 
-      const byData = document.querySelector(
-        `[data-field="${field}"]`
-      ) as HTMLElement | null;
+      const byData = document.querySelector(`[data-field="${field}"]`) as HTMLElement | null;
       if (byData) return byData;
 
-      // Last resort: find a wrapper marked with data-field-wrapper and pick first focusable
       const wrapper = document.querySelector(
         `[data-field-wrapper="${field}"]`
       ) as HTMLElement | null;
+
       if (wrapper) {
         const focusable = wrapper.querySelector(
           "input, select, textarea, button, [tabindex]:not([tabindex='-1'])"
         ) as HTMLElement | null;
+
         if (focusable) return focusable;
       }
 
@@ -483,14 +458,12 @@ function inputBaseClass(extra?: string) {
   }
 
   function focusAndScrollField(field: keyof CheckoutFormValues) {
-    // 1) RHF focus first
     try {
       setFocus(field as any);
     } catch {
       // ignore
     }
 
-    // 2) DOM lookup after next paint (handles wrappers / delayed render)
     try {
       window.requestAnimationFrame(() => {
         const el = findFieldElement(String(field));
@@ -577,7 +550,6 @@ function inputBaseClass(extra?: string) {
         return {
           product_variant_id,
           quantity,
-          // Snapshot del precio unitario (backend espera int)
           unit_price: Math.round(unit_price || 0),
         };
       })
@@ -598,7 +570,6 @@ function inputBaseClass(extra?: string) {
       const key = String(path || "");
       if (!key) continue;
 
-      // items.* errors are handled separately
       if (looksLikeItemsError(key)) continue;
 
       const mapped =
@@ -621,37 +592,6 @@ function inputBaseClass(extra?: string) {
     return ordered;
   }
 
-  async function runStockValidate() {
-    if (!stockValidateItems.length) return;
-
-    const key = JSON.stringify(stockValidateItems);
-    if (key === lastStockKeyRef.current) return;
-    lastStockKeyRef.current = key;
-
-    try {
-      const res = await validateCartStock(stockValidateItems);
-
-      // Store-only contract: backend is the source of truth.
-      // Keep keys as strings; do not filter or compute locally.
-      const warnings = (res as any)?.warningsByVariantId || {};
-      const hints = (res as any)?.hintsByVariantId || {};
-
-      setStockWarnings(warnings as any);
-      setStockHints(hints as any);
-
-      setStockValidateFailed(false);
-    } catch (e: any) {
-      if (e?.name === "AbortError") return;
-
-      // Safety: si stock-validate falla (ej. 403 CSRF),
-      // no bloqueamos UX ni marcamos errores por ítem.
-      // Limpiamos warnings y mostramos el aviso técnico no bloqueante.
-      setStockWarnings({});
-      setStockHints({});
-      setStockValidateFailed(true);
-    }
-  }
-
   /* ---------------------------------------------
    * Effects
    * ------------------------------------------- */
@@ -662,20 +602,21 @@ function inputBaseClass(extra?: string) {
       .catch(() => setCities([]));
   }, []);
 
+  // ✅ Centralized stock validate (store is the only place that calls validateCartStock)
   useEffect(() => {
-    if (stockValidateTimerRef.current)
-      window.clearTimeout(stockValidateTimerRef.current);
+    if (!stockValidateItems.length) return;
 
-    stockValidateTimerRef.current = window.setTimeout(() => {
-      runStockValidate();
-    }, 250);
+    const key = JSON.stringify(stockValidateItems);
+    if (key === lastStockKeyRef.current) return;
+    lastStockKeyRef.current = key;
 
-    return () => {
-      if (stockValidateTimerRef.current)
-        window.clearTimeout(stockValidateTimerRef.current);
-    };
+    try {
+      scheduleValidate?.("checkout");
+    } catch {
+      // ignore
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stockValidateItems]);
+  }, [stockValidateItems, scheduleValidate]);
 
   useEffect(() => {
     if (!watchedCity || subtotal <= 0) return;
@@ -697,7 +638,6 @@ function inputBaseClass(extra?: string) {
   const onSubmit = async (values: CheckoutFormValues) => {
     setSubmitAttempted(true);
 
-    // Prevent double submit
     if (isSubmitting) return;
 
     if (!items.length) {
@@ -726,7 +666,6 @@ function inputBaseClass(extra?: string) {
     setIsSubmitting(true);
 
     try {
-      // --- phone sanitizer ---
       const phoneCheck = sanitizeCoPhone(values.phone);
       if (!phoneCheck.ok) {
         setError("phone", { type: "manual", message: phoneCheck.message });
@@ -779,7 +718,6 @@ function inputBaseClass(extra?: string) {
         for (const f of applied) nextErrs[f] = true;
       }
 
-      // If backend complains about items/qty/etc, treat as stock warning (human copy)
       if (e.kind === "validation" && hasItemsValidation) {
         setSubmitNotice({
           variant: "warning",
@@ -793,15 +731,14 @@ function inputBaseClass(extra?: string) {
 
       if (e.kind === "stock") {
         const wbvRaw = (e.meta as any)?.warningsByVariantId;
-        // Normalize keys before storing (same rule as MiniCart)
         const normalizedWarnings = normalizeWarningsKeys(wbvRaw);
+
         if (normalizedWarnings && typeof normalizedWarnings === "object") {
           setStockWarnings(normalizedWarnings as any);
         } else {
           setStockWarnings({});
         }
 
-        // If backend provided hints, store them as-is too.
         try {
           const hbvRaw = (e.meta as any)?.hintsByVariantId;
           const normalizedHints = normalizeWarningsKeys(hbvRaw);
@@ -845,7 +782,6 @@ function inputBaseClass(extra?: string) {
       if (e.kind === "validation") {
         const hasFieldErrors = Object.keys(nextErrs).length > 0;
 
-        // Personalizado: si solo hay 1 error, mostramos label + mensaje específico.
         const orderedFields = FIELD_ORDER.filter((f) => !!nextErrs?.[f]);
         const count = orderedFields.length;
         const first = orderedFields[0];
@@ -855,7 +791,6 @@ function inputBaseClass(extra?: string) {
           try {
             const fe = (e as any).fieldErrors as Record<string, any> | undefined;
             if (fe) {
-              // find matching raw key mapped to this field
               const rawEntry = Object.entries(fe).find(([k]) => {
                 const mapped =
                   FIELD_ALIASES[String(k)] ||
@@ -893,7 +828,6 @@ function inputBaseClass(extra?: string) {
         }
 
         if (hasFieldErrors) {
-          // Regla D: si hay 1 solo error, enfoca SIEMPRE ese campo.
           if (count === 1 && first) {
             focusAndScrollField(first);
           } else {
@@ -914,7 +848,6 @@ function inputBaseClass(extra?: string) {
         return;
       }
 
-      // network (or unknown)
       setSubmitNotice({
         variant: "error",
         tone: "strong",
@@ -1115,10 +1048,7 @@ function inputBaseClass(extra?: string) {
         )}
 
         {items.length > 0 && (
-          <form
-            onSubmit={handleSubmit(onSubmit, onInvalid)}
-            className="space-y-6"
-          >
+          <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-6">
             <div>
               <h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-white/60">
                 Datos de contacto
@@ -1137,12 +1067,8 @@ function inputBaseClass(extra?: string) {
                     className={inputBaseClass(
                       inputBorderClass(!!(submitAttempted && errors.full_name))
                     )}
-                    aria-invalid={
-                      submitAttempted && errors.full_name ? true : undefined
-                    }
-                    aria-describedby={
-                      errors.full_name ? fieldErrorId("full_name") : undefined
-                    }
+                    aria-invalid={submitAttempted && errors.full_name ? true : undefined}
+                    aria-describedby={errors.full_name ? fieldErrorId("full_name") : undefined}
                   />
                   <FieldError
                     id={fieldErrorId("full_name")}
@@ -1164,12 +1090,8 @@ function inputBaseClass(extra?: string) {
                       className={inputBaseClass(
                         inputBorderClass(!!(submitAttempted && errors.email))
                       )}
-                      aria-invalid={
-                        submitAttempted && errors.email ? true : undefined
-                      }
-                      aria-describedby={
-                        errors.email ? fieldErrorId("email") : undefined
-                      }
+                      aria-invalid={submitAttempted && errors.email ? true : undefined}
+                      aria-describedby={errors.email ? fieldErrorId("email") : undefined}
                     />
                     <FieldError
                       id={fieldErrorId("email")}
@@ -1214,12 +1136,8 @@ function inputBaseClass(extra?: string) {
                         inputMode="numeric"
                         autoComplete="tel"
                         className="h-10 w-full rounded-r-xl border-0 bg-transparent px-3 py-2 text-base md:text-sm text-zinc-100 placeholder:text-white/35 focus:outline-none"
-                        aria-invalid={
-                          submitAttempted && errors.phone ? true : undefined
-                        }
-                        aria-describedby={
-                          errors.phone ? fieldErrorId("phone") : undefined
-                        }
+                        aria-invalid={submitAttempted && errors.phone ? true : undefined}
+                        aria-describedby={errors.phone ? fieldErrorId("phone") : undefined}
                       />
                     </div>
 
@@ -1240,17 +1158,11 @@ function inputBaseClass(extra?: string) {
                       data-field="document_type"
                       {...register("document_type")}
                       className={inputBaseClass(
-                        inputBorderClass(
-                          !!(submitAttempted && errors.document_type)
-                        )
+                        inputBorderClass(!!(submitAttempted && errors.document_type))
                       )}
-                      aria-invalid={
-                        submitAttempted && errors.document_type ? true : undefined
-                      }
+                      aria-invalid={submitAttempted && errors.document_type ? true : undefined}
                       aria-describedby={
-                        errors.document_type
-                          ? fieldErrorId("document_type")
-                          : undefined
+                        errors.document_type ? fieldErrorId("document_type") : undefined
                       }
                     >
                       <option value="CC">CC</option>
@@ -1274,7 +1186,6 @@ function inputBaseClass(extra?: string) {
                         onChange: (e) => {
                           const raw = String(e.target.value ?? "");
                           const digitsOnly = raw.replace(/\D/g, "");
-                          // keep only numbers in the form state
                           setValue("cedula", digitsOnly, {
                             shouldDirty: true,
                             shouldValidate: submitAttempted,
@@ -1288,12 +1199,8 @@ function inputBaseClass(extra?: string) {
                       className={inputBaseClass(
                         inputBorderClass(!!(submitAttempted && errors.cedula))
                       )}
-                      aria-invalid={
-                        submitAttempted && errors.cedula ? true : undefined
-                      }
-                      aria-describedby={
-                        errors.cedula ? fieldErrorId("cedula") : undefined
-                      }
+                      aria-invalid={submitAttempted && errors.cedula ? true : undefined}
+                      aria-describedby={errors.cedula ? fieldErrorId("cedula") : undefined}
                     />
                     <FieldError
                       id={fieldErrorId("cedula")}
@@ -1322,12 +1229,8 @@ function inputBaseClass(extra?: string) {
                       className={inputBaseClass(
                         inputBorderClass(!!(submitAttempted && errors.city_code))
                       )}
-                      aria-invalid={
-                        submitAttempted && errors.city_code ? true : undefined
-                      }
-                      aria-describedby={
-                        errors.city_code ? fieldErrorId("city_code") : undefined
-                      }
+                      aria-invalid={submitAttempted && errors.city_code ? true : undefined}
+                      aria-describedby={errors.city_code ? fieldErrorId("city_code") : undefined}
                     >
                       <option value="">Selecciona una ciudad</option>
                       {cities.map((city) => (
@@ -1355,12 +1258,8 @@ function inputBaseClass(extra?: string) {
                       className={inputBaseClass(
                         inputBorderClass(!!(submitAttempted && errors.address))
                       )}
-                      aria-invalid={
-                        submitAttempted && errors.address ? true : undefined
-                      }
-                      aria-describedby={
-                        errors.address ? fieldErrorId("address") : undefined
-                      }
+                      aria-invalid={submitAttempted && errors.address ? true : undefined}
+                      aria-describedby={errors.address ? fieldErrorId("address") : undefined}
                     />
                     <FieldError
                       id={fieldErrorId("address")}
@@ -1384,12 +1283,8 @@ function inputBaseClass(extra?: string) {
                       inputBorderClass(!!(submitAttempted && errors.notes)) +
                       " rounded-xl bg-white/5 px-3 py-2 text-base md:text-sm text-zinc-100 placeholder:text-white/35 outline-none transition focus:border-white/20 focus:ring-2 focus:ring-white/20"
                     }
-                    aria-invalid={
-                      submitAttempted && errors.notes ? true : undefined
-                    }
-                    aria-describedby={
-                      errors.notes ? fieldErrorId("notes") : undefined
-                    }
+                    aria-invalid={submitAttempted && errors.notes ? true : undefined}
+                    aria-describedby={errors.notes ? fieldErrorId("notes") : undefined}
                   />
                   <FieldError
                     id={fieldErrorId("notes")}
@@ -1413,7 +1308,11 @@ function inputBaseClass(extra?: string) {
               type="submit"
               variant="primary"
               fullWidth
-              disabled={isSubmitting || isStockValidating || hasBlockingWarnings}
+              disabled={
+                isSubmitting ||
+                stockValidateStatus === "loading" ||
+                hasBlockingWarnings
+              }
             >
               {isSubmitting ? "Procesando pedido..." : "Confirmar pedido"}
             </Button>
@@ -1504,7 +1403,11 @@ function inputBaseClass(extra?: string) {
                           if (!w || w.status === "ok") return null;
 
                           const available =
-                            typeof w.available === "number" ? w.available : w.available != null ? Number(w.available) : null;
+                            typeof w.available === "number"
+                              ? w.available
+                              : w.available != null
+                              ? Number(w.available)
+                              : null;
 
                           const status = String((w as any)?.status || "ok");
                           const isStockInsufficientStatus =
@@ -1519,7 +1422,12 @@ function inputBaseClass(extra?: string) {
 
                           return (
                             <div className="mt-1">
-                              <Notice variant="warning" tone="soft" compact title="Stock insuficiente">
+                              <Notice
+                                variant="warning"
+                                tone="soft"
+                                compact
+                                title="Stock insuficiente"
+                              >
                                 {available !== null && Number.isFinite(available) ? (
                                   <p className="text-xs leading-snug text-amber-100/90">
                                     Pediste {item.quantity}, pero solo quedan {available} en stock.
@@ -1548,9 +1456,7 @@ function inputBaseClass(extra?: string) {
 
                     <span className="shrink-0 text-sm font-medium text-white">
                       $
-                      {(parseFloat(item.price) * item.quantity).toLocaleString(
-                        "es-CO"
-                      )}
+                      {(parseFloat(item.price) * item.quantity).toLocaleString("es-CO")}
                     </span>
                   </li>
                 ))}
@@ -1573,9 +1479,7 @@ function inputBaseClass(extra?: string) {
                   <span>Total estimado</span>
                   <span>
                     $
-                    {(subtotal + (shipping ? shipping.amount : 0)).toLocaleString(
-                      "es-CO"
-                    )}
+                    {(subtotal + (shipping ? shipping.amount : 0)).toLocaleString("es-CO")}
                   </span>
                 </div>
 
@@ -1585,8 +1489,7 @@ function inputBaseClass(extra?: string) {
                   disponible.
                 </p>
 
-
-                {!hasBlockingWarnings && stockValidateFailed && (
+                {!hasBlockingWarnings && stockValidateStatus === "error" && (
                   <div className="mt-3">
                     <Notice
                       variant="warning"

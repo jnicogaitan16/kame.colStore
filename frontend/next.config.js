@@ -4,36 +4,8 @@ const nextConfig = {
   // This is especially important for proxied Django/DRF endpoints that conventionally end with `/`.
   skipTrailingSlashRedirect: true,
 
-  async rewrites() {
-    // Read from .env.local (DJANGO_API_BASE=...) with a stricter, non-hardcoded approach.
-    const raw = (process.env.DJANGO_API_BASE || "").trim();
-
-    if (!raw) {
-      throw new Error(
-        "DJANGO_API_BASE is not defined. Set it in frontend/.env.local (e.g. http://127.0.0.1:8000)"
-      );
-    }
-
-    // Normalize: remove trailing slash and optional trailing /api
-    const base = raw.replace(/\/+$/, "").replace(/\/api$/, "");
-
-    return [
-      {
-        source: "/api/:path*",
-        destination: `${base}/api/:path*`,
-      },
-      {
-        source: "/media/:path*",
-        destination: `${base}/media/:path*`,
-      },
-      {
-        source: "/static/:path*",
-        destination: `${base}/static/:path*`,
-      },
-    ];
-  },
-
   images: {
+    unoptimized: true,
     formats: ['image/avif', 'image/webp'],
     minimumCacheTTL: 86400,
     remotePatterns: [
@@ -69,6 +41,27 @@ const nextConfig = {
         protocol: "https",
         hostname: "*.trycloudflare.com",
         pathname: "/media/**",
+      },
+
+      // Cloudflare R2 public bucket (e.g. https://<accountid>.r2.cloudflarestorage.com/<bucket>/...)
+      {
+        protocol: "https",
+        hostname: "*.r2.cloudflarestorage.com",
+        pathname: "/**",
+      },
+
+      // Cloudflare R2 public domain (r2.dev) e.g. https://pub-xxxx.r2.dev/...
+      {
+        protocol: "https",
+        hostname: "*.r2.dev",
+        pathname: "/**",
+      },
+
+      // Render domain (if it serves media as well)
+      {
+        protocol: "https",
+        hostname: "kame-colstore.onrender.com",
+        pathname: "/**",
       },
     ],
   },

@@ -126,23 +126,30 @@ class ProductImage(models.Model):
     image = models.ImageField(upload_to=product_image_upload_path)
 
     # Derivados optimizados (no alteran el original). Generan WebP bajo demanda.
+    # Objetivo:
+    # - Catálogo: thumbnail liviano
+    # - Detalle (PDP): tamaño "detail" con buena calidad/peso
+    # - Large queda disponible para zoom/futuro, pero sigue siendo WebP y CDN-friendly
     image_thumb = ImageSpecField(
-        source='image',
-        processors=[ResizeToFit(400, 400)],
-        format='WEBP',
-        options={'quality': 82},
+        source="image",
+        processors=[ResizeToFit(420, 420)],
+        format="WEBP",
+        # Más liviano para catálogo/listados
+        options={"quality": 75},
     )
     image_medium = ImageSpecField(
-        source='image',
-        processors=[ResizeToFit(900, 900)],
-        format='WEBP',
-        options={'quality': 82},
+        source="image",
+        # Tamaño detail recomendado para PDP
+        processors=[ResizeToFit(1200, 1200)],
+        format="WEBP",
+        options={"quality": 78},
     )
     image_large = ImageSpecField(
-        source='image',
+        source="image",
+        # Mantener un tamaño grande para zoom/futuro sin exagerar peso
         processors=[ResizeToFit(1600, 1600)],
-        format='WEBP',
-        options={'quality': 82},
+        format="WEBP",
+        options={"quality": 78},
     )
 
     @property
