@@ -6,7 +6,6 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { validateCartStock } from "@/lib/api";
 
-
 const toKey = (id: number | string) => String(id);
 const DEV_VALIDATE_LOGS = process.env.NODE_ENV !== "production";
 
@@ -50,35 +49,55 @@ export type StockHint = {
   updatedAt: number; // epoch ms
 };
 
+export type StockValidateStatus = "idle" | "checking" | "ok" | "error";
+
 interface CartState {
   items: CartItem[];
   isOpen: boolean;
   stockWarningsByVariantId: Record<string, StockWarning>;
   stockHintsByVariantId: Record<string, StockHint>;
   lastStockValidateRequestId: number;
-  isStockValidating: boolean;
+
+  // ✅ Centralizado (reemplaza isStockValidating)
+  stockValidateStatus: StockValidateStatus;
+  // ✅ Opcional anti-spam / telemetry
+  lastStockValidateAt: number;
+
   addItem: (item: Omit<CartItem, "quantity">, quantity?: number) => void;
   removeItem: (variantId: number) => void;
   updateQuantity: (variantId: number, quantity: number) => void;
+
   openCart: () => void;
   closeCart: () => void;
   toggleCart: () => void;
+
   validateStockNow: (reason?: "add" | "qty" | "open" | "checkout") => Promise<void>;
   scheduleValidate: (reason?: "add" | "qty" | "open" | "checkout") => void;
   refreshStockValidation: () => Promise<void>;
-  setStockWarnings: (payload: Record<string, Omit<StockWarning, "updatedAt">>) => void;
-  setStockHints: (payload: Record<string, Omit<StockHint, "updatedAt">>) => void;
+
+  // ✅ Reciben el mapa “crudo” del backend y normalizan aquí
+  setStockWarnings: (payload: Record<string, any>) => void;
+  setStockHints: (payload: Record<string, any>) => void;
+
+  setStockValidateStatus: (status: StockValidateStatus) => void;
+  setLastStockValidateAt: (ts: number) => void;
+
+  clearStockValidation: () => void;
+
   upsertStockWarning: (
     variantId: number,
     warning: Partial<Omit<StockWarning, "updatedAt">>
   ) => void;
   upsertStockHint: (variantId: number, hint: Partial<Omit<StockHint, "updatedAt">>) => void;
   clearStockHint: (variantId: number) => void;
+
   applyOptimisticStockCheck: (variantId: number, nextQty: number) => void;
+
   hasStockWarnings: () => boolean;
   hasBlockingStockIssues: () => boolean;
   getStockWarning: (variantId: number | string) => StockWarning | undefined;
   getStockHint: (variantId: number | string) => StockHint | undefined;
+
   totalItems: () => number;
   totalAmount: () => number;
   clearCart: () => void;
@@ -92,7 +111,9 @@ export const useCartStore = create<CartState>()(
       stockWarningsByVariantId: {},
       stockHintsByVariantId: {},
       lastStockValidateRequestId: 0,
-      isStockValidating: false,
+
+      stockValidateStatus: "idle",
+      lastStockValidateAt: 0,
 
       addItem: (item, quantity = 1) => {
         set((state) => {
@@ -105,20 +126,16 @@ export const useCartStore = create<CartState>()(
               )
             : [...state.items, { ...item, quantity }];
 
-          return {
-            items: next,
-          };
+          return { items: next };
         });
 
         get().scheduleValidate("add");
       },
 
       removeItem: (variantId) => {
-        set((state) => {
-          return {
-            items: state.items.filter((i) => i.variantId !== variantId),
-          };
-        });
+        set((state) => ({
+          items: state.items.filter((i) => i.variantId !== variantId),
+        }));
 
         get().scheduleValidate("qty");
       },
@@ -129,15 +146,11 @@ export const useCartStore = create<CartState>()(
           return;
         }
 
-        set((state) => {
-          const nextItems = state.items.map((i) =>
+        set((state) => ({
+          items: state.items.map((i) =>
             i.variantId === variantId ? { ...i, quantity } : i
-          );
-
-          return {
-            items: nextItems,
-          };
-        });
+          ),
+        }));
 
         get().scheduleValidate("qty");
       },
@@ -145,6 +158,19 @@ export const useCartStore = create<CartState>()(
       openCart: () => {
         set({ isOpen: true });
       },
+
+      closeCart: () => set({ isOpen: false }),
+      toggleCart: () => set((s) => ({ isOpen: !s.isOpen })),
+
+      setStockValidateStatus: (status) => set({ stockValidateStatus: status }),
+      setLastStockValidateAt: (ts) => set({ lastStockValidateAt: ts }),
+      clearStockValidation: () =>
+        set({
+          stockWarningsByVariantId: {},
+          stockHintsByVariantId: {},
+          stockValidateStatus: "idle",
+          lastStockValidateAt: 0,
+        }),
 
       // Debounced validation scheduler (150ms) to avoid request storms.
       scheduleValidate: (reason) => {
@@ -177,7 +203,12 @@ export const useCartStore = create<CartState>()(
             product_variant_id: i.variantId,
             quantity: i.quantity,
           }))
-          .filter((x) => Number.isFinite(x.product_variant_id) && x.product_variant_id > 0 && x.quantity > 0);
+          .filter(
+            (x) =>
+              Number.isFinite(x.product_variant_id) &&
+              x.product_variant_id > 0 &&
+              x.quantity > 0
+          );
 
         if (DEV_VALIDATE_LOGS) {
           console.log("VALIDATE payload", { reason, itemsPayload });
@@ -185,7 +216,6 @@ export const useCartStore = create<CartState>()(
 
         // If cart is empty, clear maps and stop.
         if (!itemsPayload.length) {
-          // Abort any in-flight request
           if (stockAbortController) {
             try {
               stockAbortController.abort();
@@ -194,7 +224,7 @@ export const useCartStore = create<CartState>()(
             }
             stockAbortController = null;
           }
-          set({ stockWarningsByVariantId: {}, stockHintsByVariantId: {}, isStockValidating: false });
+          get().clearStockValidation();
           return;
         }
 
@@ -223,10 +253,12 @@ export const useCartStore = create<CartState>()(
         if (DEV_VALIDATE_LOGS) {
           console.log("VALIDATE start", mySeq, { reason, itemsPayload });
         }
-        set({ lastStockValidateRequestId: mySeq, isStockValidating: true });
+        set({ lastStockValidateRequestId: mySeq, stockValidateStatus: "checking" });
 
         try {
-          const res = await validateCartStock(itemsPayload, { signal: stockAbortController.signal });
+          const res = await validateCartStock(itemsPayload, {
+            signal: stockAbortController.signal,
+          });
 
           if (DEV_VALIDATE_LOGS) {
             console.log("VALIDATE done", mySeq, {
@@ -242,53 +274,33 @@ export const useCartStore = create<CartState>()(
           }
           if (!isLatest) return;
 
-          const now = Date.now();
-
           const warningsPayload = (res as any)?.warningsByVariantId || {};
           const hintsPayload = (res as any)?.hintsByVariantId || {};
 
-          const nextWarnings: Record<string, StockWarning> = {};
-          for (const [rawKey, value] of Object.entries(warningsPayload || {})) {
-            const k = toKey(rawKey);
-            const v: any = value || {};
-            nextWarnings[k] = {
-              status: (v.status ?? "ok") as StockWarningStatus,
-              available: Number(v.available ?? 0),
-              requested: Number(v.requested ?? 0),
-              message: String(v.message ?? ""),
-              updatedAt: now,
-            };
-          }
+          // ✅ Centralizado: no recrear warnings/hints aquí
+          get().setStockWarnings(warningsPayload);
+          get().setStockHints(hintsPayload);
 
-          const nextHints: Record<string, StockHint> = {};
-          for (const [rawKey, value] of Object.entries(hintsPayload || {})) {
-            const k = toKey(rawKey);
-            // Safety: never keep a hint if the same variant has a warning
-            if (nextWarnings[k]) continue;
-            const v: any = value || {};
-            if (!v.message) continue;
-            nextHints[k] = {
-              kind: "last_unit",
-              message: String(v.message),
-              updatedAt: now,
-            };
-          }
-
-          set({ stockWarningsByVariantId: nextWarnings, stockHintsByVariantId: nextHints, isStockValidating: false });
+          set({ stockValidateStatus: "ok" });
+          get().setLastStockValidateAt(Date.now());
         } catch (e: any) {
           // Ignore aborts
           if (e?.name === "AbortError") return;
+
           if (DEV_VALIDATE_LOGS) {
             console.log("VALIDATE error", mySeq, e);
           }
           if (mySeq !== stockValidateSeq) return;
 
           // Non-blocking strategy: clear maps on failure (single consistent strategy)
-          set({ stockWarningsByVariantId: {}, stockHintsByVariantId: {}, isStockValidating: false });
+          set({
+            stockWarningsByVariantId: {},
+            stockHintsByVariantId: {},
+            stockValidateStatus: "error",
+          });
+          get().setLastStockValidateAt(Date.now());
         }
       },
-      closeCart: () => set({ isOpen: false }),
-      toggleCart: () => set((s) => ({ isOpen: !s.isOpen })),
 
       setStockWarnings: (payload) => {
         const now = Date.now();
@@ -314,6 +326,7 @@ export const useCartStore = create<CartState>()(
         for (const k of Object.keys(nextWarnings)) {
           delete nextHints[k];
         }
+
         set({ stockWarningsByVariantId: nextWarnings, stockHintsByVariantId: nextHints });
       },
 
@@ -325,6 +338,7 @@ export const useCartStore = create<CartState>()(
           const k = toKey(rawKey);
           // Safety: never store a hint if a warning exists for this variant
           if (get().stockWarningsByVariantId[k]) continue;
+
           const v: any = value || {};
           if (!v.message) continue;
 
@@ -343,13 +357,13 @@ export const useCartStore = create<CartState>()(
         const now = Date.now();
         set((state) => {
           const k = toKey(variantId);
+
           // Safety: warning mata hint
           const nextHints: Record<string, StockHint> = { ...state.stockHintsByVariantId };
           delete nextHints[k];
+
           const prev = state.stockWarningsByVariantId[k];
-          const next: Record<string, StockWarning> = {
-            ...state.stockWarningsByVariantId,
-          };
+          const next: Record<string, StockWarning> = { ...state.stockWarningsByVariantId };
 
           next[k] = {
             status: (warning.status ?? prev?.status ?? "ok") as StockWarningStatus,
@@ -367,12 +381,14 @@ export const useCartStore = create<CartState>()(
         const now = Date.now();
         set((state) => {
           const k = toKey(variantId);
+
           // Safety: never store a hint if a warning exists for this variant
           if (state.stockWarningsByVariantId[k]) {
             const nextNoop = { ...state.stockHintsByVariantId };
             delete nextNoop[k];
             return { stockHintsByVariantId: nextNoop };
           }
+
           const prev = state.stockHintsByVariantId[k];
           const next: Record<string, StockHint> = { ...state.stockHintsByVariantId };
 
@@ -445,8 +461,7 @@ export const useCartStore = create<CartState>()(
         return get().stockHintsByVariantId[key];
       },
 
-      totalItems: () =>
-        get().items.reduce((acc, i) => acc + i.quantity, 0),
+      totalItems: () => get().items.reduce((acc, i) => acc + i.quantity, 0),
 
       totalAmount: () =>
         get().items.reduce((acc, i) => acc + parseFloat(i.price) * i.quantity, 0),
@@ -460,7 +475,9 @@ export const useCartStore = create<CartState>()(
           }
           stockAbortController = null;
         }
-        set({ items: [], stockWarningsByVariantId: {}, stockHintsByVariantId: {}, isStockValidating: false });
+
+        set({ items: [] });
+        get().clearStockValidation();
       },
     }),
     { name: "kame-cart", skipHydration: true }

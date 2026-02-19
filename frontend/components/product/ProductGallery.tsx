@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import Image from "next/image";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Pagination } from "swiper/modules";
 import type { ProductImage as ProductImageType } from "@/types/catalog";
@@ -44,7 +43,7 @@ export function ProductGallery({ images, productName, soldOut }: ProductGalleryP
         pagination={{ clickable: true }}
         className="k-gallery-swiper h-full w-full"
       >
-        {slides.map((img) => (
+        {slides.map((img, index) => (
           <SwiperSlide key={img.id}>
             <div className="relative w-full aspect-square">
               {(() => {
@@ -52,14 +51,15 @@ export function ProductGallery({ images, productName, soldOut }: ProductGalleryP
                 if (!src) return null;
 
                 return (
-                  <Image
+                  <img
                     key={src}
                     src={src}
                     alt={img.alt_text || productName}
-                    fill
-                    className="object-contain"
-                    sizes="(max-width: 768px) 100vw, 50vw"
-                    priority
+                    loading={index === 0 ? "eager" : "lazy"}
+                    // Hint to the browser that the first slide is the highest priority request
+                    fetchPriority={index === 0 ? "high" : "auto"}
+                    decoding="async"
+                    className="h-full w-full object-contain"
                   />
                 );
               })()}

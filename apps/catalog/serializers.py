@@ -5,6 +5,7 @@ Incluyen imágenes con URL absoluta y orden primary + gallery.
 
 from rest_framework import serializers
 from imagekit.cachefiles import ImageCacheFile
+from django.conf import settings
 
 from .models import (
     Category,
@@ -17,12 +18,49 @@ from .models import (
 )
 
 
+def public_media_url(value, request=None):
+    """Construye una URL pública absoluta para cualquier ImageField/path.
+
+    Reglas:
+    1) Si value ya es http(s):// -> devolver tal cual
+    2) Si value es path relativo (/media/... o products/...) -> prefijar con settings.R2_PUBLIC_BASE_URL si existe
+    3) En dev/local, si no hay R2_PUBLIC_BASE_URL pero hay request -> request.build_absolute_uri(value)
+    """
+
+    if not value:
+        return None
+
+    # ImageField / FieldFile
+    try:
+        url = value.url
+    except Exception:
+        url = str(value)
+
+    if not url:
+        return None
+
+    if url.startswith("http://") or url.startswith("https://"):
+        return url
+
+    base = (getattr(settings, "R2_PUBLIC_BASE_URL", "") or "").rstrip("/")
+
+    if base:
+        if not url.startswith("/"):
+            url = f"/{url}"
+        return f"{base}{url}"
+
+    if request is not None:
+        try:
+            return request.build_absolute_uri(url)
+        except Exception:
+            return url
+
+    return url
+
+
 def _absolute_uri(request, url):
-    """
-    Devuelve siempre URL relativa (/media/...)
-    para evitar problemas con host 127.0.0.1 en túneles o LAN.
-    """
-    return url if url else None
+    # Compat wrapper
+    return public_media_url(url, request=request)
 
 
 def _spec_url(obj, spec_attr: str):
@@ -37,22 +75,35 @@ def _spec_url(obj, spec_attr: str):
         if not spec:
             return None
 
-        generate = getattr(spec, "generate", None)
-        if callable(generate):
-            generate()
+        # Preferimos cachefile explícito para evitar intermitencias (contract)
+        try:
+            cachefile = ImageCacheFile(spec)
+            cachefile.generate()
+            url = getattr(cachefile, "url", None)
+            if not url:
+                return None
 
-        url = getattr(spec, "url", None)
-        if not url:
-            return None
+            # Verificación extra: confirmar que el archivo existe en el storage
+            storage = getattr(cachefile, "storage", None)
+            name = getattr(cachefile, "name", None)
+            exists = getattr(storage, "exists", None) if storage else None
+            if callable(exists) and name and not exists(name):
+                return None
 
-        # Verificación extra: confirmar que el archivo existe en el storage
-        storage = getattr(spec, "storage", None)
-        name = getattr(spec, "name", None)
-        exists = getattr(storage, "exists", None) if storage else None
-        if callable(exists) and name and not exists(name):
-            return None
+            return url
+        except Exception:
+            # Fallback: si spec ya es cachefile y tiene url, úsala
+            url = getattr(spec, "url", None)
+            if not url:
+                return None
 
-        return url
+            storage = getattr(spec, "storage", None)
+            name = getattr(spec, "name", None)
+            exists = getattr(storage, "exists", None) if storage else None
+            if callable(exists) and name and not exists(name):
+                return None
+
+            return url
     except Exception:
         return None
 
@@ -89,28 +140,42 @@ class ProductImageSerializer(serializers.ModelSerializer):
         ]
 
     def get_image(self, obj):
+        """Devuelve SIEMPRE la URL pública final (cachefile/webp) si es posible.
+
+        Orden:
+        1) cachefile (image_large -> image_medium -> image_thumb)
+        2) fallback: original URL pública (último recurso)
+        """
         if not obj.image:
             return None
+
         request = self.context.get("request")
-        return _absolute_uri(request, obj.image.url)
+
+        cache_url = (
+            _spec_url(obj, "image_large")
+            or _spec_url(obj, "image_medium")
+            or _spec_url(obj, "image_thumb")
+        )
+
+        return public_media_url(cache_url or obj.image.url, request=request)
 
     def get_image_thumb_url(self, obj):
         if not obj.image:
             return None
         request = self.context.get("request")
-        return _absolute_uri(request, _spec_url(obj, "image_thumb"))
+        return public_media_url(_spec_url(obj, "image_thumb"), request=request)
 
     def get_image_medium_url(self, obj):
         if not obj.image:
             return None
         request = self.context.get("request")
-        return _absolute_uri(request, _spec_url(obj, "image_medium"))
+        return public_media_url(_spec_url(obj, "image_medium"), request=request)
 
     def get_image_large_url(self, obj):
         if not obj.image:
             return None
         request = self.context.get("request")
-        return _absolute_uri(request, _spec_url(obj, "image_large"))
+        return public_media_url(_spec_url(obj, "image_large"), request=request)
 
 
 # ---------------------------------------------------------------------------
@@ -147,7 +212,9 @@ class ProductVariantSerializer(serializers.ModelSerializer):
         img = obj.images.order_by("-is_primary", "sort_order", "created_at").first()
         if not img or not img.image:
             return None
-        return img.image.url
+        request = self.context.get("request")
+        cache_url = _spec_url(img, "image_large") or _spec_url(img, "image_medium")
+        return public_media_url(cache_url or img.image.url, request=request)
 
     def get_image_thumb_url(self, obj):
         img = obj.images.order_by("-is_primary", "sort_order", "created_at").first()
@@ -158,10 +225,12 @@ class ProductVariantSerializer(serializers.ModelSerializer):
         if not hasattr(img, "image_thumb") or not img.image_thumb:
             return None
 
+        request = self.context.get("request")
+
         try:
             cachefile = ImageCacheFile(img.image_thumb)
-            cachefile.generate()  # Generación explícita en R2
-            return cachefile.url
+            cachefile.generate()  # Generación explícita
+            return public_media_url(cachefile.url, request=request)
         except Exception:
             # Fallback a original
             return self.get_image_url(obj)
@@ -200,8 +269,8 @@ class ProductListSerializer(serializers.ModelSerializer):
         if not img or not img.image:
             return None
         request = self.context.get("request")
-        # Preferir tamaño optimizado para listas (mejor performance)
-        return _absolute_uri(request, _spec_url(img, "image_medium") or img.image.url)
+        cache_url = _spec_url(img, "image_medium") or _spec_url(img, "image_thumb")
+        return public_media_url(cache_url or img.image.url, request=request)
 
 
 # ---------------------------------------------------------------------------
@@ -264,30 +333,30 @@ class HomepageBannerSerializer(serializers.ModelSerializer):
         if not obj.image:
             return None
         request = self.context.get("request")
-        return _absolute_uri(
-            request,
+        return public_media_url(
             _spec_url(obj, "image_hero")
             or _spec_url(obj, "image_large")
             or obj.image.url,
+            request=request,
         )
 
     def get_image_thumb_url(self, obj):
         if not obj.image:
             return None
         request = self.context.get("request")
-        return _absolute_uri(request, _spec_url(obj, "image_thumb"))
+        return public_media_url(_spec_url(obj, "image_thumb"), request=request)
 
     def get_image_medium_url(self, obj):
         if not obj.image:
             return None
         request = self.context.get("request")
-        return _absolute_uri(request, _spec_url(obj, "image_medium"))
+        return public_media_url(_spec_url(obj, "image_medium"), request=request)
 
     def get_image_large_url(self, obj):
         if not obj.image:
             return None
         request = self.context.get("request")
-        return _absolute_uri(request, _spec_url(obj, "image_large"))
+        return public_media_url(_spec_url(obj, "image_large"), request=request)
 
 
 # ---------------------------------------------------------------------------
@@ -330,27 +399,27 @@ class HomepagePromoSerializer(serializers.ModelSerializer):
         if not obj.image:
             return None
         request = self.context.get("request")
-        return _absolute_uri(
-            request,
+        return public_media_url(
             _spec_url(obj, "image_card")
             or _spec_url(obj, "image_large")
             or obj.image.url,
+            request=request,
         )
 
     def get_image_thumb_url(self, obj):
         if not obj.image:
             return None
         request = self.context.get("request")
-        return _absolute_uri(request, _spec_url(obj, "image_thumb"))
+        return public_media_url(_spec_url(obj, "image_thumb"), request=request)
 
     def get_image_medium_url(self, obj):
         if not obj.image:
             return None
         request = self.context.get("request")
-        return _absolute_uri(request, _spec_url(obj, "image_medium"))
+        return public_media_url(_spec_url(obj, "image_medium"), request=request)
 
     def get_image_large_url(self, obj):
         if not obj.image:
             return None
         request = self.context.get("request")
-        return _absolute_uri(request, _spec_url(obj, "image_large"))
+        return public_media_url(_spec_url(obj, "image_large"), request=request)

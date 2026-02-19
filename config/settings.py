@@ -271,6 +271,10 @@ STORAGES = {
     },
 }
 
+# Backwards compatibility: some libs still read DEFAULT_FILE_STORAGE.
+# Keep it aligned with STORAGES["default"] (R2/S3 compatible).
+DEFAULT_FILE_STORAGE = "storages.backends.s3.S3Storage"
+
 # ImageKit: generate cachefiles and store them in the default storage (R2 via STORAGES["default"]).
 # Optimistic strategy generates on-demand and reuses if present.
 IMAGEKIT_DEFAULT_CACHEFILE_STRATEGY = "imagekit.cachefiles.strategies.Optimistic"

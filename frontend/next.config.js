@@ -5,6 +5,7 @@ const nextConfig = {
   skipTrailingSlashRedirect: true,
 
   images: {
+    unoptimized: true,
     formats: ['image/avif', 'image/webp'],
     minimumCacheTTL: 86400,
     remotePatterns: [
@@ -53,6 +54,13 @@ const nextConfig = {
       {
         protocol: "https",
         hostname: "*.r2.dev",
+        pathname: "/**",
+      },
+
+      // Render domain (if it serves media as well)
+      {
+        protocol: "https",
+        hostname: "kame-colstore.onrender.com",
         pathname: "/**",
       },
     ],

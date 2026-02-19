@@ -1,5 +1,4 @@
 import Link from "next/link";
-import Image from "next/image";
 import type { ProductList } from "@/types/catalog";
 import SoldOutBadge from "@/components/badges/SoldOutBadge";
 
@@ -86,12 +85,12 @@ export function ProductCard({ product }: ProductCardProps) {
         <SoldOutBadge show={soldOut === true} variant="card" />
 
         {product.primary_image ? (
-          <Image
+          <img
             src={product.primary_image}
             alt={product.name}
-            fill
-            className="object-cover transition group-hover:scale-105"
-            sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+            loading="lazy"
+            decoding="async"
+            className="h-full w-full object-cover transition group-hover:scale-105"
           />
         ) : (
           <div className="flex h-full items-center justify-center text-slate-300">
