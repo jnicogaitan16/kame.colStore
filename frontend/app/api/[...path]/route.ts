@@ -13,7 +13,8 @@ const buildTargetUrl = (req: Request, params: { path?: string[] }) => {
   const incoming = new URL(req.url);
 
   // Django expects trailing slash for most DRF endpoints.
-  const target = new URL(`${base}/api/${path}/`);
+  // Avoid double slashes when path is empty.
+  const target = new URL(path ? `${base}/api/${path}/` : `${base}/api/`);
 
   // Preserve querystring exactly
   target.search = incoming.search;
