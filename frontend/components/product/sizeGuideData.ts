@@ -10,7 +10,7 @@ export type SizeGuide = {
   rows: SizeGuideRow[];
 };
 
-export type SizeGuideKey = "oversize" | "hoodie";
+export type SizeGuideKey = "oversize" | "hoodie" | "frame_20x30";
 
 /**
  * Centralized size guide data.
@@ -46,6 +46,14 @@ export const sizeGuides: Record<SizeGuideKey, SizeGuide> = {
       { size: "XL", values: [74, 63, 65] },
       { size: "2XL", values: [76, 66, 66] },
     ],
+  },
+
+  frame_20x30: {
+    title: "Medidas del cuadro",
+    subtitle:
+      "Formato decorativo listo para enmarcar. Medidas exactas en centímetros (cm).",
+    columns: ["Formato", "Ancho (cm)", "Alto (cm)"],
+    rows: [{ size: "Único", values: [20, 30] }],
   },
 };
 

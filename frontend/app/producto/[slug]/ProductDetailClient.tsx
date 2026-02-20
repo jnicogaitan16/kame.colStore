@@ -91,6 +91,32 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
   const [detailsExpanded, setDetailsExpanded] = useState(false);
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
 
+  const resolveSizeGuideKey = (slug?: string) => {
+    if (!slug) return null;
+
+    if (slug === "camisetas") return "oversize" as const;
+    if (slug === "hoodies") return "hoodie" as const;
+    if (slug === "cuadros") return "frame_20x30" as const;
+
+    return null;
+  };
+
+  const sizeGuideKey = resolveSizeGuideKey(product.category?.slug);
+
+  const sizeGuideTrigger = sizeGuideKey ? (
+    <button
+      type="button"
+      onClick={() => setSizeGuideOpen(true)}
+      aria-label="Abrir guía de medidas"
+      className="inline-flex items-center gap-1 text-xs font-medium text-sky-300/90 underline underline-offset-4 decoration-white/15 hover:text-sky-200 hover:decoration-white/30"
+    >
+      <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-white/15 bg-white/5 text-[10px] leading-none text-neutral-200/90">
+        ?
+      </span>
+      <span className="tracking-normal">Guía de medidas</span>
+    </button>
+  ) : null;
+
   const optionBase =
     "inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold tracking-wide text-neutral-200 transition-colors hover:bg-white/10 hover:border-white/20 focus:outline-none";
 
@@ -233,18 +259,17 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
 
           {/* Selectores */}
           <div className="mt-6 space-y-4">
+            {product.category.slug === "cuadros" && sizeGuideTrigger && (
+              <div className="flex items-center">
+                {sizeGuideTrigger}
+              </div>
+            )}
             {/* Variantes: valor (talla) */}
-            {hasValue && valueOptions.length > 0 && (
+            {hasValue && valueOptions.length > 0 && product.category.slug !== "cuadros" && (
               <div>
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
                   <label className="block text-sm font-medium text-neutral-200">Talla</label>
-                  <button
-                    type="button"
-                    onClick={() => setSizeGuideOpen(true)}
-                    className="text-xs font-medium tracking-wide text-sky-300 underline underline-offset-4 decoration-white/20 hover:text-sky-200 hover:decoration-white/40"
-                  >
-                    Guía de tallas
-                  </button>
+                  {sizeGuideTrigger}
                 </div>
 
                 <div className="mt-2 flex flex-wrap gap-2">
@@ -341,11 +366,13 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
         </div>
       </div>
 
-      <SizeGuideDrawer
-        open={sizeGuideOpen}
-        onClose={() => setSizeGuideOpen(false)}
-        guideKey="oversize"
-      />
+      {sizeGuideKey && (
+        <SizeGuideDrawer
+          open={sizeGuideOpen}
+          onClose={() => setSizeGuideOpen(false)}
+          guideKey={sizeGuideKey}
+        />
+      )}
     </div>
   );
 }
