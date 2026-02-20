@@ -13,6 +13,8 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 from pathlib import Path
 import os
 
+from urllib.parse import urlparse
+
 import dj_database_url
 from dotenv import load_dotenv
 
@@ -142,12 +144,24 @@ WSGI_APPLICATION = 'config.wsgi.application'
 DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
 
 if DATABASE_URL:
+    # If the DB is local (Docker/localhost), Postgres typically does NOT support SSL.
+    # For managed/prod DBs, keep SSL required by default.
+    parsed_db = urlparse(DATABASE_URL)
+    db_host = (parsed_db.hostname or "").strip().lower()
+    is_local_db = db_host in {"localhost", "127.0.0.1", "0.0.0.0", "::1"}
+
+    raw_ssl_require = os.getenv("DB_SSL_REQUIRE", "").strip().lower()
+    if raw_ssl_require:
+        ssl_require = raw_ssl_require in ("1", "true", "yes", "on")
+    else:
+        # Default policy: require SSL unless DB is local.
+        ssl_require = not is_local_db
+
     DATABASES = {
         "default": dj_database_url.parse(
             DATABASE_URL,
             conn_max_age=int(os.getenv("DB_CONN_MAX_AGE", "600")),
-            ssl_require=os.getenv("DB_SSL_REQUIRE", "True").lower()
-            in ("1", "true", "yes", "on"),
+            ssl_require=ssl_require,
         )
     }
 else:
