@@ -61,7 +61,7 @@ export default function SizeGuideDrawer({ open, onClose, guideKey = "oversize" }
       className={`fixed inset-0 z-50 transition-opacity duration-200 ${overlayState}`}
       role="dialog"
       aria-modal="true"
-      aria-label="Guía de tallas"
+      aria-label="Guía de medidas"
       onMouseDown={(e) => {
         // click outside
         if (e.target === e.currentTarget) onClose();
@@ -79,7 +79,7 @@ export default function SizeGuideDrawer({ open, onClose, guideKey = "oversize" }
           <div className="flex items-center justify-between gap-3 border-b border-white/10 px-5 py-4">
             <div>
               <p className="text-sm font-semibold text-neutral-100">
-                Guía de tallas
+                Guía de medidas
               </p>
               {guide.subtitle ? (
                 <p className="mt-1 text-sm text-neutral-400">{guide.subtitle}</p>
