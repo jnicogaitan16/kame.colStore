@@ -12,10 +12,10 @@ import "swiper/css/pagination";
 interface ProductGalleryProps {
   images: ProductImageType[];
   productName: string;
-  soldOut?: boolean;
+  soldOut: boolean;
 }
 
-export function ProductGallery({ images, productName, soldOut }: ProductGalleryProps) {
+export function ProductGallery({ images, productName, soldOut = false }: ProductGalleryProps) {
   const slides = useMemo(() => {
     if (!images?.length) return [];
     return images.filter((img) => img.image);

@@ -6,73 +6,9 @@ interface ProductCardProps {
   product: ProductList;
 }
 
-type AnyRecord = Record<string, any>;
-
-function toNumber(value: unknown): number | null {
-  if (value === null || value === undefined) return null;
-  const n = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(n) ? n : null;
-}
-
 export function ProductCard({ product }: ProductCardProps) {
-  // Some list endpoints may not include variants; keep this resilient.
-  const p = product as unknown as AnyRecord;
-  const variants: AnyRecord[] = Array.isArray(p.variants) ? p.variants : [];
-
-  // 1) Prefer explicit backend flags when present (most reliable for list views).
-  const soldOutFlagRaw =
-    p.sold_out ??
-    p.is_sold_out ??
-    p.isSoldOut ??
-    p.soldOut;
-
-  const soldOutFlag =
-    typeof soldOutFlagRaw === "boolean" ? soldOutFlagRaw : null;
-
-  // 2) Next, try stock totals if available.
-  const stockTotal =
-    toNumber(p.stock_total) ??
-    toNumber(p.stockTotal) ??
-    toNumber(p.total_stock) ??
-    toNumber(p.totalStock) ??
-    toNumber(p.stock);
-
-  const soldOutFromStockTotal =
-    stockTotal !== null ? stockTotal <= 0 : null;
-
-  // 3) Finally, derive from variants only if variant stock is actually present.
-  const soldOutFromVariants = (() => {
-    if (variants.length === 0) return null;
-
-    let anyKnown = false;
-    let allSoldOut = true;
-
-    for (const v of variants) {
-      const vStock =
-        toNumber(v?.stock) ??
-        toNumber(v?.stock_available) ??
-        toNumber(v?.stockAvailable) ??
-        toNumber(v?.available_stock) ??
-        toNumber(v?.availableStock);
-
-      if (vStock === null) continue;
-      anyKnown = true;
-      if (vStock > 0) {
-        allSoldOut = false;
-        break;
-      }
-    }
-
-    return anyKnown ? allSoldOut : null;
-  })();
-
-  // 4) Compose final value. If we don't know, don't invent (hide badge).
-  const soldOut: boolean | null =
-    soldOutFlag !== null
-      ? soldOutFlag
-      : soldOutFromStockTotal !== null
-        ? soldOutFromStockTotal
-        : soldOutFromVariants;
+  // Fuente de verdad (backend): usar sold_out estrictamente.
+  const soldOut = product.sold_out === true;
 
   const categoryName = (product as any)?.category?.name ?? "";
 
@@ -82,7 +18,7 @@ export function ProductCard({ product }: ProductCardProps) {
       className="group bg-neutral-900 card-surface border border-white/10 rounded-2xl elevation-soft transition will-change-transform hover:border-white/20 hover:-translate-y-[1px]"
     >
       <div className="relative aspect-square w-full overflow-hidden product-media-surface">
-        <SoldOutBadge show={soldOut === true} variant="card" />
+        <SoldOutBadge show={soldOut} variant="card" />
 
         {product.primary_image ? (
           <img

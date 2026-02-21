@@ -201,16 +201,17 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
       : (((product as any).images as any[]) ?? []);
 
   const handleAddToCart = () => {
-    if (!selectedVariant) return;
+    const variantToAdd = selectedVariant ?? (variants.length === 1 ? variants[0] : null);
+    if (!variantToAdd) return;
     if (isInvalidCombo) return;
 
     addItem(
       {
-        variantId: selectedVariant.id,
+        variantId: variantToAdd.id,
         productId: product.id,
         productName: product.name,
         productSlug: product.slug,
-        variantLabel: buildVariantLabel(selectedVariant),
+        variantLabel: buildVariantLabel(variantToAdd),
         price: product.price,
         imageUrl: primaryImage,
       },
@@ -221,10 +222,15 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
   };
 
   const selectedOutOfStock =
-    isInvalidCombo || !selectedVariant || (selectedVariant.stock ?? 0) <= 0;
+    isInvalidCombo ||
+    (selectedVariant ? (selectedVariant.stock ?? 0) <= 0 : (product.stock_total ?? 0) <= 0);
 
   const canAdd =
-    !!selectedVariant && (selectedVariant.stock ?? 0) > 0 && !isInvalidCombo;
+    !isInvalidCombo &&
+    (selectedVariant ? (selectedVariant.stock ?? 0) > 0 : (product.stock_total ?? 0) > 0);
+  const availableStock = selectedVariant
+    ? (selectedVariant.stock ?? 0)
+    : (product.stock_total ?? 0);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 md:py-10">
@@ -245,7 +251,11 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
         <div>
-          <ProductGallery images={galleryImages} productName={product.name} soldOut={selectedOutOfStock} />
+          <ProductGallery
+            images={galleryImages}
+            productName={product.name}
+            soldOut={product.sold_out === true}
+          />
         </div>
 
         <div>
@@ -311,24 +321,21 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
 
           {/* Stock + CTA */}
           <div className="mt-6">
-            {(isInvalidCombo || selectedVariant) && (
-              <div className="mb-4 flex flex-wrap items-center gap-2 text-sm text-neutral-400">
-                {isInvalidCombo ? (
-                  <span className="text-neutral-400">
-                    Esta combinación no está disponible. Prueba otra talla o color.
-                  </span>
-                ) : !selectedOutOfStock && selectedVariant ? (
-                  <span>
-                    Stock: {selectedVariant.stock} disponible
-                    {selectedVariant.stock !== 1 ? "s" : ""}
-                  </span>
-                ) : (
-                  <span className="text-neutral-400">
-                    No hay unidades disponibles por ahora. Prueba otra talla o color.
-                  </span>
-                )}
-              </div>
-            )}
+            <div className="mb-4 flex flex-wrap items-center gap-2 text-sm text-neutral-400">
+              {isInvalidCombo ? (
+                <span className="text-neutral-400">
+                  Esta combinación no está disponible. Prueba otra talla o color.
+                </span>
+              ) : availableStock > 0 ? (
+                <span>
+                  Stock: {availableStock} disponible{availableStock !== 1 ? "s" : ""}
+                </span>
+              ) : (
+                <span className="text-neutral-400">
+                  No hay unidades disponibles por ahora.
+                </span>
+              )}
+            </div>
 
             <Button
               type="button"

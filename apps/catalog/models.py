@@ -69,6 +69,18 @@ class Product(models.Model):
         agg = self.variants.filter(is_active=True).aggregate(total=Sum("stock"))
         return int(agg["total"] or 0)
 
+    def get_stock_total(self) -> int:
+        """Fuente de verdad del stock del producto (suma de variantes activas).
+
+        Útil para reuso en serializers/admin/servicios sin duplicar lógica.
+        """
+        return self.total_stock
+
+    @property
+    def stock_total_calc(self) -> int:
+        """Alias explícito para consumir el stock calculado desde variantes activas."""
+        return self.total_stock
+
     @property
     def variants_stock_total(self) -> int:
         """Alias retrocompatible usado por el admin."""
