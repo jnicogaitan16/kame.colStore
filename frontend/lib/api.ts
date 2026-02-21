@@ -223,6 +223,7 @@ export async function getProducts(params?: {
   return apiFetch<PaginatedResponse<ProductList>>(url);
 }
 
+
 export async function getCatalogo(params?: {
   category?: string;
   search?: string;
@@ -241,8 +242,36 @@ export async function getCatalogo(params?: {
   return apiFetch<PaginatedResponse<ProductList>>(url);
 }
 
+function normalizeProductDetail(raw: any): ProductDetail {
+  // Defensive normalization: ensure runtime types are stable even if backend returns strings.
+  const soldRaw = raw?.sold_out;
+  const stockRaw = raw?.stock_total;
+
+  const sold_out =
+    typeof soldRaw === "boolean"
+      ? soldRaw
+      : typeof soldRaw === "string"
+        ? soldRaw.toLowerCase() === "true"
+        : false;
+
+  const stock_total =
+    typeof stockRaw === "number"
+      ? stockRaw
+      : typeof stockRaw === "string"
+        ? Number(stockRaw)
+        : 0;
+
+  return {
+    ...(raw || {}),
+    sold_out,
+    stock_total: Number.isFinite(stock_total) ? stock_total : 0,
+  } as ProductDetail;
+}
+
+
 export async function getProductBySlug(slug: string): Promise<ProductDetail> {
-  return apiFetch<ProductDetail>(`/products/${encodeURIComponent(slug)}/`);
+  const raw = await apiFetch<any>(`/products/${encodeURIComponent(slug)}/`);
+  return normalizeProductDetail(raw);
 }
 
 export async function getHomepageBanners(): Promise<HomepageBanner[]> {

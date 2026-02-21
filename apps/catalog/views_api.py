@@ -115,7 +115,7 @@ class ProductDetailAPIView(generics.RetrieveAPIView):
         return (
             Product.objects.filter(is_active=True)
             .select_related("category")
-            .prefetch_related(Prefetch("variants", queryset=active_variants))
+            .prefetch_related(Prefetch("variants", queryset=active_variants, to_attr="active_variants"))
             .order_by("-created_at", "id")
         )
 

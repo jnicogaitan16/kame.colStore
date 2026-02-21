@@ -37,8 +37,8 @@ export interface ProductList {
   is_active: boolean;
 
   // Backend-computed fields (list endpoint)
-  stock_total?: number;
-  sold_out?: boolean;
+  stock_total: number;
+  sold_out: boolean;
 }
 
 export interface ProductDetail extends ProductList {

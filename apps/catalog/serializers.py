@@ -108,6 +108,31 @@ def _spec_url(obj, spec_attr: str):
         return None
 
 
+def _effective_inventory_from_variants(variants_qs_or_list):
+    """Fuente de verdad de inventario efectivo desde variantes activas.
+
+    Reglas contractuales:
+    - stock_total = sum(v.stock for v in variants if v.is_active)
+    - sold_out = stock_total <= 0
+
+    Nota: trata None como 0 y evita contar variantes inactivas.
+    """
+    stock_total = 0
+    for v in variants_qs_or_list:
+        try:
+            is_active = bool(getattr(v, "is_active", False))
+        except Exception:
+            is_active = False
+        if not is_active:
+            continue
+        try:
+            stock_total += int(getattr(v, "stock", 0) or 0)
+        except Exception:
+            stock_total += 0
+    sold_out = stock_total <= 0
+    return stock_total, sold_out
+
+
 # ---------------------------------------------------------------------------
 # Category
 # ---------------------------------------------------------------------------
@@ -279,6 +304,8 @@ class ProductListSerializer(serializers.ModelSerializer):
 class ProductDetailSerializer(serializers.ModelSerializer):
     category = CategorySerializer(read_only=True)
     variants = serializers.SerializerMethodField()
+    stock_total = serializers.SerializerMethodField()
+    sold_out = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -290,7 +317,8 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             "price",
             "category",
             "is_active",
-            "stock",
+            "stock_total",
+            "sold_out",
             "created_at",
             "updated_at",
             "variants",
@@ -300,6 +328,17 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         # No exponer variantes inactivas/eliminadas en la API
         qs = obj.variants.filter(is_active=True).order_by("kind", "value")
         return ProductVariantSerializer(qs, many=True, context=self.context).data
+
+    def get_stock_total(self, obj):
+        # Fuente de verdad: suma de stock de variantes activas (NO usar product.stock)
+        variants = obj.variants.all()
+        stock_total, _sold_out = _effective_inventory_from_variants(variants)
+        return stock_total
+
+    def get_sold_out(self, obj):
+        variants = obj.variants.all()
+        _stock_total, sold_out = _effective_inventory_from_variants(variants)
+        return sold_out
 
 
 # ---------------------------------------------------------------------------
