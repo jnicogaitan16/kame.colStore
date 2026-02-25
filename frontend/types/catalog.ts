@@ -70,11 +70,11 @@ export interface Product {
 // Imágenes
 // =============================
 
-export interface ProductImage {
-  id?: number;
-  url: string;            // <- CLAVE: fuente de verdad
-  alt?: string | null;
-}
+export type ProductImage = {
+  url: string;
+  thumb_url?: string | null;
+  alt_text?: string | null;
+};
 
 // =============================
 // Variante (Detail)

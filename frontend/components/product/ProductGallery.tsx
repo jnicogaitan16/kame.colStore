@@ -88,17 +88,20 @@ export function ProductGallery({ images, productName, soldOut = false }: Product
         className="k-gallery-swiper h-full w-full"
       >
         {slides.map((img, index) => (
-          <SwiperSlide key={img.id}>
+          <SwiperSlide key={`${img.url}-${index}`}>
             <div className="relative w-full aspect-square">
               {(() => {
-                const src = img.url ? `${img.url}?v=${img.id}` : null;
+                const baseSrc = (img.thumb_url ?? img.url) || null;
+                const src = baseSrc ? `${baseSrc}?v=${index}` : null;
                 if (!src) return null;
+
+                const alt = img.alt_text ?? productName ?? "Producto";
 
                 return (
                   <img
                     key={src}
                     src={src}
-                    alt={img.alt_text || productName}
+                    alt={alt}
                     loading={index === 0 ? "eager" : "lazy"}
                     // Hint to the browser that the first slide is the highest priority request
                     fetchPriority={index === 0 ? "high" : "auto"}
@@ -155,12 +158,16 @@ export function ProductGallery({ images, productName, soldOut = false }: Product
               <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-white/10 bg-black">
                 {(() => {
                   const img = slides[lightboxIndex];
-                  const src = img?.url ? `${img.url}?v=${img.id}` : null;
+                  const baseSrc = (img?.thumb_url ?? img?.url) || null;
+                  const src = baseSrc ? `${baseSrc}?v=${lightboxIndex}` : null;
                   if (!src) return null;
+
+                  const alt = img?.alt_text ?? productName ?? "Producto";
+
                   return (
                     <img
                       src={src}
-                      alt={img.alt_text || productName}
+                      alt={alt}
                       decoding="async"
                       className="h-full w-full object-contain"
                       draggable={false}

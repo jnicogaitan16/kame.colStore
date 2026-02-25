@@ -269,7 +269,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
   // Primary image for cart/UI: prefer selected/display variant, then fallback to product canonical image
   const primaryImage = getPrimaryImageUrl((displayVariant as any) || (product as any)) || img || null;
 
-  const normalizeImages = (input: any): Array<{ url: string; thumb_url?: string | null }> => {
+  const normalizeImages = (input: any): Array<{ url: string; thumb_url?: string | null; alt_text?: string | null }> => {
     const arr: any[] = Array.isArray(input) ? input : input ? [input] : [];
 
     return arr
@@ -283,19 +283,41 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
         // Case 2: object with different possible keys
         if (img && typeof img === "object") {
           const url = (img.url || img.image || img.src || img.image_url || "").toString().trim();
+
           const thumb = (
-            img.thumb_url || img.image_thumb || img.thumbnail || img.thumb || img.thumbUrl || url
+            img.thumb_url ||
+            img.image_thumb ||
+            img.thumbnail ||
+            img.thumb ||
+            img.thumbUrl ||
+            url
+          )
+            .toString()
+            .trim();
+
+          const altTextRaw = (
+            img.alt_text ||
+            img.altText ||
+            img.alt ||
+            ""
           )
             .toString()
             .trim();
 
           if (!url) return null;
-          return { ...img, url, thumb_url: thumb || url };
+
+          // Ensure we always return the ProductImage-ish contract
+          return {
+            ...img,
+            url,
+            thumb_url: thumb || url,
+            alt_text: altTextRaw || null,
+          };
         }
 
         return null;
       })
-      .filter(Boolean) as Array<{ url: string; thumb_url?: string | null }>;
+      .filter(Boolean) as Array<{ url: string; thumb_url?: string | null; alt_text?: string | null }>;
   };
 
   const galleryImages =
