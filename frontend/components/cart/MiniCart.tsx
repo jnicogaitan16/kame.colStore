@@ -1,16 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { useCartStore } from "@/store/cart";
 import { Button } from "@/components/ui/Button";
 import Notice from "@/components/ui/Notice";
+import { productPath } from "@/lib/routes";
 
-export function MiniCart() {
+type MiniCartProps = {
+  open?: boolean;
+  onClose?: () => void;
+};
+
+function MiniCart({ open, onClose }: MiniCartProps) {
   const items = useCartStore((s) => s.items);
-  const isOpen = useCartStore((s) => s.isOpen);
+  const storeIsOpen = useCartStore((s) => s.isOpen);
   const closeCart = useCartStore((s) => s.closeCart);
+
+  const isOpen = typeof open === "boolean" ? open : storeIsOpen;
+  const close = typeof onClose === "function" ? onClose : closeCart;
   const removeItem = useCartStore((s) => s.removeItem);
   const updateQuantity = useCartStore((s) => s.updateQuantity);
   const stockWarningsByVariantId = useCartStore((s) => s.stockWarningsByVariantId);
@@ -44,17 +52,23 @@ export function MiniCart() {
     }, 0);
   }
 
-  if (!isOpen) return null;
-
   return (
     <>
       <div
-        className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm supports-[backdrop-filter]:backdrop-blur-sm md:bg-transparent md:backdrop-blur-0"
-        onClick={closeCart}
-        aria-hidden
+        className={[
+          "fixed inset-0 z-[90] bg-black/40 backdrop-blur-sm supports-[backdrop-filter]:backdrop-blur-sm transition-opacity",
+          isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none",
+        ].join(" ")}
+        onClick={close}
+        aria-hidden={!isOpen}
       />
       <aside
-        className={`fixed right-0 top-0 z-[60] h-full w-[90%] max-w-md bg-black/45 backdrop-blur-2xl border-l border-white/10 elevation-soft flex flex-col transform transition-transform duration-300 ease-out will-change-transform ${animateIn ? "translate-x-0" : "translate-x-full"}`}
+        className={[
+          "fixed right-0 top-0 z-[100] h-full w-[90%] max-w-md",
+          "bg-black/45 backdrop-blur-2xl border-l border-white/10 elevation-soft flex flex-col",
+          "transform transition-transform duration-300 ease-out will-change-transform",
+          isOpen && animateIn ? "translate-x-0" : "translate-x-full",
+        ].join(" ")}
         role="dialog"
         aria-label="Carrito"
       >
@@ -62,7 +76,7 @@ export function MiniCart() {
           <h2 className="text-lg font-semibold">Carrito ({totalItems()})</h2>
           <button
             type="button"
-            onClick={closeCart}
+            onClick={close}
             className="rounded p-2 text-white/60 hover:bg-white/10 hover:text-white"
             aria-label="Cerrar carrito"
           >
@@ -96,8 +110,8 @@ export function MiniCart() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <Link
-                      href={`/producto/${item.productSlug}`}
-                      onClick={closeCart}
+                      href={productPath(item.productSlug)}
+                      onClick={close}
                       className="font-medium text-neutral-100 line-clamp-2 hover:text-white/90 hover:underline"
                     >
                       {item.productName}
@@ -110,10 +124,7 @@ export function MiniCart() {
                       const h: any = stockHintsByVariantId[key];
                       const w: any = stockWarningsByVariantId[key];
 
-                      const warningStatus = String(w?.status || "ok");
                       const hasWarningForItem = Boolean(w);
-                      const isInsufficient =
-                        warningStatus === "insufficient" || warningStatus === "exceeds_stock";
 
                       // Hint only when there is NO warning object for this item.
                       if (!hasWarningForItem && h?.kind === "last_unit" && h?.message) {
@@ -124,11 +135,26 @@ export function MiniCart() {
                         );
                       }
 
-                      // Warning only when status indicates insufficient stock.
-                      if (isInsufficient) {
+                      // Warning: show whenever backend returns a warning object for this variant.
+                      // Pool-based validation may not include a `status`, so we treat presence of `w` as authoritative.
+                      if (hasWarningForItem) {
                         const qty = Number(item.quantity || 0);
 
-                        // Be defensive: backend keys may vary. Try common shapes.
+                        const requestedRaw =
+                          w?.requested ??
+                          w?.qty ??
+                          w?.quantity ??
+                          w?.requested_total ??
+                          qty;
+
+                        const requested =
+                          typeof requestedRaw === "number"
+                            ? requestedRaw
+                            : requestedRaw != null
+                              ? parseFloat(String(requestedRaw))
+                              : qty;
+
+                        // Be defensive: backend keys may vary.
                         const availableRaw =
                           w?.available ??
                           w?.available_stock ??
@@ -151,7 +177,7 @@ export function MiniCart() {
                             <Notice variant="warning" tone="soft" compact title="Stock insuficiente">
                               {hasAvailable ? (
                                 <p className="text-xs leading-snug text-amber-100/90">
-                                  Pediste {qty}, pero solo quedan {available} en stock.
+                                  Pediste {requested}, pero solo quedan {available} en stock.
                                 </p>
                               ) : (
                                 <p className="text-xs leading-snug text-amber-100/90">
@@ -215,7 +241,7 @@ export function MiniCart() {
               <span>Total</span>
               <span className="text-white font-semibold text-base">${totalAmount().toLocaleString("es-CO")}</span>
             </div>
-            <Link href="/checkout" onClick={closeCart} className="block">
+            <Link href="/checkout" onClick={close} className="block">
               <Button variant="primary" fullWidth>
                 Ir al checkout
               </Button>
@@ -226,3 +252,6 @@ export function MiniCart() {
     </>
   );
 }
+
+export default MiniCart;
+export { MiniCart };

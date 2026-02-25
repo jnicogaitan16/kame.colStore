@@ -11,14 +11,34 @@ import type {
   HomepagePromo,
   PaginatedResponse,
   ProductDetail,
-  ProductList,
+  Product,
 } from "@/types/catalog";
 
-export interface HomepageStory {
+export type HomepageStory = {
+  id: number;
   title: string;
-  subtitle?: string;
+  subtitle?: string | null;
   content: string;
-}
+  is_active?: boolean | null;
+  active?: boolean | null;
+};
+
+export type CategoryNav = {
+  id: number;
+  name: string;
+  slug: string;
+};
+
+export type DepartmentNav = {
+  id: number;
+  name: string;
+  slug: string;
+  categories: CategoryNav[];
+};
+
+export type NavigationResponse = {
+  departments: DepartmentNav[];
+};
 
 export interface StockValidateItemInput {
   product_variant_id: number;
@@ -120,6 +140,19 @@ const isUnsafeMethod = (method?: string) => {
   return !(m === "GET" || m === "HEAD" || m === "OPTIONS" || m === "TRACE");
 };
 
+export async function fetchJSON<T>(url: string, init?: RequestInit): Promise<T> {
+  const r = await fetch(url, {
+    ...init,
+    // si estás usando Next app router y quieres frescura:
+    cache: "no-store",
+  });
+  if (!r.ok) {
+    const txt = await r.text().catch(() => "");
+    throw new Error(`API ${r.status}: ${txt || r.statusText}`);
+  }
+  return (await r.json()) as T;
+}
+
 export async function apiFetch<T>(
   path: string,
   options: RequestInit = {}
@@ -156,8 +189,7 @@ export async function apiFetch<T>(
 
   // IMPORTANT: Do not mix `cache: "no-store"` with `next.revalidate`.
   // If caller wants ISR-style revalidate, they must provide a non-"no-store" cache option.
-  const nextOpt =
-    cacheOpt === "no-store" ? undefined : (options as any).next;
+  const nextOpt = cacheOpt === "no-store" ? undefined : (options as any).next;
 
   const res = await fetch(url, {
     ...options,
@@ -205,31 +237,69 @@ export async function getCategories(): Promise<Category[]> {
   return [];
 }
 
-export async function getProducts(params?: {
-  category?: string;
-  search?: string;
-  page?: number;
-  page_size?: number;
-}): Promise<PaginatedResponse<ProductList>> {
-  const searchParams = new URLSearchParams();
-  if (params?.category) searchParams.set("category", params.category);
-  if (params?.search) searchParams.set("search", params.search);
-  if (params?.page) searchParams.set("page", String(params.page));
-  if (params?.page_size) searchParams.set("page_size", String(params.page_size));
-  const qs = searchParams.toString();
+export async function getNavigation(): Promise<NavigationResponse> {
+  const data = await apiFetch<any>("/navigation/");
 
-  const url = `/products/${qs ? `?${qs}` : ""}`;
+  const rawDepartments = data?.departments;
+  const departments: DepartmentNav[] = Array.isArray(rawDepartments)
+    ? rawDepartments
+        .map((d: any) => {
+          const rawCategories = d?.categories;
+          const categories: CategoryNav[] = Array.isArray(rawCategories)
+            ? rawCategories
+                .map((c: any) => ({
+                  id: Number(c?.id) || 0,
+                  name: String(c?.name || ""),
+                  slug: String(c?.slug || ""),
+                }))
+                .filter((c: CategoryNav) => Boolean(c.id) && Boolean(c.slug))
+            : [];
 
-  return apiFetch<PaginatedResponse<ProductList>>(url);
+          return {
+            id: Number(d?.id) || 0,
+            name: String(d?.name || ""),
+            slug: String(d?.slug || ""),
+            categories,
+          } as DepartmentNav;
+        })
+        .filter((d: DepartmentNav) => Boolean(d.id) && Boolean(d.slug))
+    : [];
+
+  return { departments };
 }
 
+export async function getProducts(params?: {
+  category?: string;
+  department?: string;
+  page?: number;
+  page_size?: number;
+  search?: string;
+}): Promise<PaginatedResponse<Product>> {
+  const qs = new URLSearchParams();
+
+  if (params?.category) qs.set("category", params.category);
+  if (params?.department) qs.set("department", params.department);
+  if (params?.page) qs.set("page", String(params.page));
+  if (params?.page_size) qs.set("page_size", String(params.page_size));
+  if (params?.search) qs.set("search", params.search);
+
+  const query = qs.toString();
+  return apiFetch<PaginatedResponse<Product>>(`/products/${query ? `?${query}` : ""}`);
+}
+
+// Endpoint estable para filtrar productos por categoría (slug)
+// Nota: `apiFetch` ya prefixea con `/api`, por eso acá usamos `/products/...` (sin duplicar `/api`).
+export async function getProductsByCategorySlug(slug: string) {
+  const s = encodeURIComponent(String(slug || "").trim());
+  return apiFetch<any>(`/products/?category=${s}`);
+}
 
 export async function getCatalogo(params?: {
   category?: string;
   search?: string;
   page?: number;
   page_size?: number;
-}): Promise<PaginatedResponse<ProductList>> {
+}): Promise<PaginatedResponse<Product>> {
   const searchParams = new URLSearchParams();
   if (params?.category) searchParams.set("category", params.category);
   if (params?.search) searchParams.set("search", params.search);
@@ -239,7 +309,7 @@ export async function getCatalogo(params?: {
 
   const url = `/catalogo/${qs ? `?${qs}` : ""}`;
 
-  return apiFetch<PaginatedResponse<ProductList>>(url);
+  return apiFetch<PaginatedResponse<Product>>(url);
 }
 
 function normalizeProductDetail(raw: any): ProductDetail {
@@ -268,7 +338,6 @@ function normalizeProductDetail(raw: any): ProductDetail {
   } as ProductDetail;
 }
 
-
 export async function getProductBySlug(slug: string): Promise<ProductDetail> {
   const raw = await apiFetch<any>(`/products/${encodeURIComponent(slug)}/`);
   return normalizeProductDetail(raw);
@@ -285,12 +354,89 @@ export async function getHomepagePromos(
   return apiFetch<HomepagePromo[]>(`/homepage-promos/${qs}`);
 }
 
+function extractArray<T>(res: any): T[] {
+  if (Array.isArray(res)) return res as T[];
+  if (Array.isArray(res?.results)) return res.results as T[];
+  if (Array.isArray(res?.data)) return res.data as T[];
+  if (Array.isArray(res?.sections)) return res.sections as T[];
+  if (Array.isArray(res?.items)) return res.items as T[];
+  if (Array.isArray(res?.story)) return res.story as T[];
+  return [];
+}
+
+function isActiveRow(row: any): boolean {
+  if (!row) return false;
+  // soporta is_active o active (y null/undefined = true por defecto)
+  if (typeof row.is_active === "boolean") return row.is_active;
+  if (typeof row.active === "boolean") return row.active;
+  return true;
+}
+
+/**
+ * Sección de Home (Brand Story).
+ * Soporta múltiples variantes de endpoint y payload:
+ * - Listas: {results:[...]}, {sections:[...]}, [...]
+ * - Objeto: {title, content, ...} (legacy)
+ * - Wrapper: {story: {...}} o {story: [...]} 
+ */
 export async function getHomepageStory(): Promise<HomepageStory | null> {
-  try {
-    return await apiFetch<HomepageStory>("/homepage-story/");
-  } catch {
-    return null;
+  // Preferimos `apiFetch` para mantener tunnel-safe (/api en browser)
+  // y call directo al Django en server-side cuando `DJANGO_API_BASE` está seteado.
+  const candidates = [
+    "/home_sections/",
+    "/home-sections/",
+    "/homepage-story/", // legacy: devolvía un objeto
+  ];
+
+  let lastStatus: number | null = null;
+
+  for (const path of candidates) {
+    try {
+      const data = await apiFetch<any>(path);
+
+      // 1) Si viene una lista (o wrappers comunes), tomamos la primera activa.
+      const rows = extractArray<HomepageStory>(data);
+      if (rows.length) {
+        const active = rows.filter(isActiveRow);
+        return active[0] || rows[0] || null;
+      }
+
+      // 2) Si viene un objeto directo (legacy), lo aceptamos.
+      const maybe = (data?.story ?? data) as any;
+      const hasFields =
+        maybe &&
+        (typeof maybe.title === "string" || typeof maybe.content === "string");
+
+      if (hasFields && isActiveRow(maybe)) {
+        // Normaliza a HomepageStory mínimo
+        return {
+          id: Number(maybe.id) || 0,
+          title: String(maybe.title || ""),
+          subtitle: (maybe.subtitle ?? null) as any,
+          content: String(maybe.content || ""),
+          is_active:
+            typeof maybe.is_active === "boolean"
+              ? maybe.is_active
+              : (maybe.is_active ?? null),
+          active:
+            typeof maybe.active === "boolean" ? maybe.active : (maybe.active ?? null),
+        } as HomepageStory;
+      }
+
+      // Si llegó pero no tiene forma esperada, seguimos probando.
+      lastStatus = 200;
+    } catch (e: any) {
+      lastStatus = typeof e?.status === "number" ? e.status : lastStatus;
+      continue;
+    }
   }
+
+  // útil para diagnóstico
+  console.warn(
+    "getHomepageStory: no usable data from candidates. lastStatus=",
+    lastStatus
+  );
+  return null;
 }
 
 export async function validateCartStock(
@@ -338,14 +484,12 @@ export async function validateCartStock(
   };
 }
 
-export async function checkout(payload: CheckoutPayload): Promise<CheckoutResponse> {
+export async function checkout(
+  payload: CheckoutPayload
+): Promise<CheckoutResponse> {
   if (!payload.items?.length) {
     throw new Error("Checkout inválido: items vacío");
   }
-  // DRF expects nested objects:
-  // - customer: { full_name, document_type, document_number, email?, phone? }
-  // - shipping_address: { city_code, address, notes? }
-  // Keep current CheckoutPayload for the UI and adapt here.
 
   const apiPayload = {
     items: payload.items,

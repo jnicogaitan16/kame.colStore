@@ -1,9 +1,10 @@
 import Link from "next/link";
-import type { ProductList } from "@/types/catalog";
+import { productPath } from "@/lib/routes";
+import type { Product } from "@/types/catalog";
 import SoldOutBadge from "@/components/badges/SoldOutBadge";
 
 interface ProductCardProps {
-  product: ProductList;
+  product: Product;
 }
 
 export function ProductCard({ product }: ProductCardProps) {
@@ -14,7 +15,7 @@ export function ProductCard({ product }: ProductCardProps) {
 
   return (
     <Link
-      href={`/producto/${product.slug}`}
+      href={productPath(product.slug)}
       className="group bg-neutral-900 card-surface border border-white/10 rounded-2xl elevation-soft transition will-change-transform hover:border-white/20 hover:-translate-y-[1px]"
     >
       <div className="relative aspect-square w-full overflow-hidden product-media-surface">

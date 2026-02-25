@@ -5,7 +5,9 @@ from django.shortcuts import get_object_or_404
 from django.urls import path
 
 from .models import (
+    Department,
     Category,
+    InventoryPool,
     Product,
     ProductVariant,
     ProductImage,
@@ -53,15 +55,59 @@ class HomepageBannerAdminForm(forms.ModelForm):
 
 
 # ======================
+# Department
+# ======================
+
+@admin.register(Department)
+class DepartmentAdmin(admin.ModelAdmin):
+    list_display = ("name", "slug", "sort_order", "is_active")
+    search_fields = ("name", "slug")
+    list_filter = ("is_active",)
+    prepopulated_fields = {"slug": ("name",)}
+    ordering = ("sort_order", "name")
+
+
+# ======================
 # Category
 # ======================
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
-    list_display = ("id", "name", "slug", "is_active")
+    list_display = (
+        "id",
+        "name",
+        "slug",
+        "department",
+        "parent",
+        "sort_order",
+        "variant_schema",
+        "is_active",
+    )
     search_fields = ("name", "slug")
-    list_filter = ("is_active",)
+    list_filter = ("department", "is_active")
     prepopulated_fields = {"slug": ("name",)}
+    list_select_related = ("department", "parent")
+    ordering = (
+        "department__sort_order",
+        "sort_order",
+        "name",
+    )
+
+
+# ======================
+# InventoryPool (Fuente de verdad)
+# ======================
+
+@admin.register(InventoryPool)
+class InventoryPoolAdmin(admin.ModelAdmin):
+    list_display = ("category", "value", "color", "quantity", "is_active", "updated_at")
+    list_filter = ("category__department", "category", "color", "is_active")
+    search_fields = ("value", "color", "category__name")
+    list_select_related = ("category", "category__department")
+    ordering = ("category__department__sort_order", "category__name", "value", "color", "id")
+
+    # El stock solo se edita acá.
+    fields = ("category", "value", "color", "quantity", "is_active")
 
 # ======================
 # Home content (Banner / Story / Promos)
@@ -309,19 +355,18 @@ class ProductVariantInline(admin.TabularInline):
     form = ProductVariantAdminForm
     extra = 0
 
-    readonly_fields = ("kind",)
-    fields = ("kind", "value", "color", "stock", "is_active")
-    ordering = ("kind", "value", "color", "id")
+    # Stock en variante es LEGACY: visible pero no editable.
+    readonly_fields = ("stock",)
+    fields = ("value", "color", "stock", "is_active")
+    ordering = ("value", "color", "id")
 
     def get_formset(self, request, obj=None, **kwargs):
         """Pasa el producto padre al formulario para que Talla y Color sean listas desplegables."""
         formset_class = super().get_formset(request, obj=obj, **kwargs)
-        parent_product = obj  # Product cuando estamos en "Change product"
 
         class ProductVariantFormSetWithParent(formset_class):
             def __init__(self, *args, **kwargs):
                 super().__init__(*args, **kwargs)
-                # Django mezcla form_kwargs al crear cada form; así el form recibe parent_product
                 if self.instance is not None:
                     self.form_kwargs = getattr(self, "form_kwargs", {}) or {}
                     self.form_kwargs["parent_product"] = self.instance
@@ -388,7 +433,7 @@ class ProductAdmin(admin.ModelAdmin):
     def get_form(self, request, obj=None, **kwargs):
         """Oculta el stock del modelo Product.
 
-        El stock real vive en ProductVariant.stock; en Product se usa un total calculado
+        El stock real vive en InventoryPool.quantity; en Product se usa un total calculado
         (p.ej. `variants_stock_total`). Este pop mantiene el admin consistente incluso
         antes/después de eliminar el campo `stock` de Product.
         """
@@ -404,14 +449,14 @@ class ProductAdmin(admin.ModelAdmin):
 class ProductVariantAdmin(admin.ModelAdmin):
     form = ProductVariantAdminForm
     autocomplete_fields = ("product",)
-    list_display = ("product", "kind", "value", "color", "stock", "is_active")
+    list_display = ("product", "value", "color", "stock", "is_active")
     list_select_related = ("product", "product__category")
-    list_filter = ("kind", "is_active")
+    list_filter = ("product__category__department", "product__category", "is_active")
     search_fields = ("product__name", "value", "color")
-    ordering = ("product", "kind", "value", "color")
-    readonly_fields = ("kind",)
+    ordering = ("product", "value", "color")
+    readonly_fields = ("stock",)
     # Explicit fields to ensure `color` renders in the standalone add/edit form.
-    fields = ("product", "value", "color", "stock", "is_active", "kind")
+    fields = ("product", "value", "color", "stock", "is_active")
     inlines = [ProductImageInline]
 
     def _is_orders_variant_selector(self, request) -> bool:
@@ -436,12 +481,12 @@ class ProductVariantAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         """Restringe variantes SOLO cuando se seleccionan desde Orders (popup/autocomplete).
 
-        Evita mostrar variantes sin stock (stock <= 0) y/o inactivas.
+        Evita mostrar variantes inactivas.
         """
         qs = super().get_queryset(request)
 
         if self._is_orders_variant_selector(request):
-            return qs.filter(is_active=True, stock__gt=0)
+            return qs.filter(is_active=True)
 
         return qs
 
@@ -450,7 +495,7 @@ class ProductVariantAdmin(admin.ModelAdmin):
         queryset, use_distinct = super().get_search_results(request, queryset, search_term)
 
         if self._is_orders_variant_selector(request):
-            queryset = queryset.filter(is_active=True, stock__gt=0)
+            queryset = queryset.filter(is_active=True)
 
         return queryset, use_distinct
 

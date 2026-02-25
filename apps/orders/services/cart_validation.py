@@ -2,12 +2,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from collections import defaultdict
+from typing import Any, DefaultDict, Dict, Iterable, List, Optional, Tuple
 
 from django.core.exceptions import ValidationError
 from django.db.models import QuerySet
 
 from apps.orders.services.product_variants import get_product_variant_model
+from apps.catalog.services.inventory import get_pool_map, get_variant_available_stock
 
 
 @dataclass(frozen=True)
@@ -41,32 +43,100 @@ def _safe_int(value: Any, default: int = 0) -> int:
         return default
 
 
-def _get_available_stock(variant: Any) -> int:
-    """Return available stock for a variant.
+def _norm_value(v: Any) -> str:
+    return (str(v or "")).strip().upper()
 
-    Contract: stock validation MUST use EXCLUSIVELY `variant.stock`.
-    No fallbacks to product stock, stock_total, annotations, or other fields.
+
+def _norm_color(c: Any) -> str:
+    return (str(c or "")).strip()
+
+
+def _variant_pool_key(variant: Any) -> Tuple[int, str, str]:
+    """Pool key = (category_id, value_norm, color_norm)."""
+    category_id = _get_variant_category_id(variant)
+    value = _norm_value(getattr(variant, "value", None))
+    color = _norm_color(getattr(variant, "color", None))
+    return int(category_id or 0), value, color
+
+
+def _get_variant_category_id(variant: Any) -> int:
+    """Best-effort category id extraction for pooling.
+
+    InventoryPool is keyed by category_id + (value,color).
     """
-    raw = getattr(variant, "stock", 0)
-    return _safe_int(raw, default=0)
-def validate_cart_stock(items: List[dict], *, strict_stock: bool = True) -> Dict[str, Dict[int, dict]]:
-    """Validate stock for a cart payload.
+    # Direct field on variant
+    cid = _safe_int(getattr(variant, "category_id", None), default=0)
+    if cid > 0:
+        return cid
 
-    This function is intentionally minimal and ONLY depends on `variant.stock`.
+    product = getattr(variant, "product", None)
+    if product is None:
+        return 0
+
+    # Common patterns: product.category_id or product.category.id
+    cid = _safe_int(getattr(product, "category_id", None), default=0)
+    if cid > 0:
+        return cid
+
+    category = getattr(product, "category", None)
+    cid = _safe_int(getattr(category, "id", None), default=0)
+    if cid > 0:
+        return cid
+
+    return 0
+
+
+def _get_available_stock(
+    variant: Any,
+    *,
+    pool_maps_by_category: Optional[Dict[int, Dict[Tuple[str, str], int]]] = None,
+) -> int:
+    """Return available stock for a variant from InventoryPool.
+
+    Contract:
+    - Stock validation MUST use InventoryPool as source of truth.
+    - If `pool_maps_by_category` is provided, it will be used as a cache to avoid N queries.
+    """
+    category_id = _get_variant_category_id(variant)
+    if category_id <= 0:
+        return 0
+
+    pool_map: Optional[Dict[Tuple[str, str], int]] = None
+    if pool_maps_by_category is not None:
+        pool_map = pool_maps_by_category.get(category_id)
+        if pool_map is None:
+            pool_map = get_pool_map(category_id)
+            pool_maps_by_category[category_id] = pool_map
+
+    return int(get_variant_available_stock(variant, pool_map=pool_map) or 0)
+
+
+def validate_cart_stock(items: List[dict], *, strict_stock: bool | None = None, **_kwargs: Any) -> Dict[str, Any]:
+    """Validate stock for a cart payload against InventoryPool.
+
+    New contract (Pool):
+      - For each item, calculate availability from InventoryPool.
+      - Compare requested vs available.
+      - If requested > available: add a warning keyed by variant.id.
+      - Do NOT raise ValidationError for stock.
+      - Always return a uniform structure:
+        {"ok": bool, "warningsByVariantId": {...}, "hintsByVariantId": {...}}
 
     items: [{"product_variant_id": int, "quantity": int}, ...]
-
-    Returns:
-      {"warnings": {variant_id: {...}}, "hints": {variant_id: {...}}}
-
-    If strict_stock=True and any insufficient stock is found, raises ValidationError.
+    strict_stock is accepted for backward-compatibility and is ignored.
     """
 
     warnings: Dict[int, dict] = {}
     hints: Dict[int, dict] = {}
 
     if not items:
-        return {"warnings": warnings, "hints": hints}
+        return {
+            "ok": True,
+            "warnings": {str(k): v for k, v in warnings.items()},
+            "hints": {str(k): v for k, v in hints.items()},
+            "warningsByVariantId": {str(k): v for k, v in warnings.items()},
+            "hintsByVariantId": {str(k): v for k, v in hints.items()},
+        }
 
     # Normalize and collect variant ids
     normalized: List[Tuple[int, int]] = []
@@ -80,7 +150,13 @@ def validate_cart_stock(items: List[dict], *, strict_stock: bool = True) -> Dict
         variant_ids.append(variant_id)
 
     if not normalized:
-        return {"warnings": warnings, "hints": hints}
+        return {
+            "ok": True,
+            "warnings": {str(k): v for k, v in warnings.items()},
+            "hints": {str(k): v for k, v in hints.items()},
+            "warningsByVariantId": {str(k): v for k, v in warnings.items()},
+            "hintsByVariantId": {str(k): v for k, v in hints.items()},
+        }
 
     variants = list(_fetch_variants(variant_ids))
     by_id = {v.id: v for v in variants}
@@ -89,28 +165,76 @@ def validate_cart_stock(items: List[dict], *, strict_stock: bool = True) -> Dict
     if missing_ids:
         raise ValidationError({"items": "Hay variantes inexistentes en el carrito."})
 
+    # Cache pool maps by category to avoid N queries
+    pool_maps_by_category: Dict[int, Dict[Tuple[str, str], int]] = {}
+
+    # Pool-first aggregation: group requested qty per pool key (category_id, value, color)
+    grouped_qty_by_key: DefaultDict[Tuple[int, str, str], int] = defaultdict(int)
+    variant_key_by_id: Dict[int, Tuple[int, str, str]] = {}
+
     for variant_id, requested in normalized:
         variant = by_id[variant_id]
-        available = _get_available_stock(variant)
+        key = _variant_pool_key(variant)
+        grouped_qty_by_key[key] += int(requested)
+        variant_key_by_id[variant_id] = key
 
-        if requested > available:
+    # Compute availability per pool key once (with strict pool resolution: any failure => 0)
+    key_available: Dict[Tuple[int, str, str], int] = {}
+    for (category_id, value, color), _requested_total in grouped_qty_by_key.items():
+        # Contract: if pool cannot be resolved/mapped, availability must be treated as 0.
+        if category_id <= 0:
+            key_available[(category_id, value, color)] = 0
+            continue
+
+        # If we cannot compute a meaningful (value,color), treat as unmappable => 0
+        if not value or not color:
+            key_available[(category_id, value, color)] = 0
+            continue
+
+        pool_map = pool_maps_by_category.get(category_id)
+        if pool_map is None:
+            try:
+                pool_map = get_pool_map(category_id)
+            except Exception:
+                pool_map = {}
+            pool_maps_by_category[category_id] = pool_map
+
+        try:
+            available = int((pool_map or {}).get((value, color), 0) or 0)
+        except Exception:
+            available = 0
+
+        key_available[(category_id, value, color)] = max(0, available)
+
+    # Emit warnings/hints per variant id, but using pooled totals
+    for variant_id, _requested in normalized:
+        key = variant_key_by_id[variant_id]
+        available = int(key_available.get(key, 0) or 0)
+        requested_total = int(grouped_qty_by_key.get(key, 0) or 0)
+
+        # Hint: last unit
+        if available == 1 and requested_total == 1:
+            hints[variant_id] = {"kind": "last_unit", "message": "Última unidad disponible"}
+
+        if requested_total > available:
             warnings[variant_id] = {
                 "status": "insufficient",
+                "requested": requested_total,
                 "available": available,
-                "requested": requested,
-                "message": f"Solo hay {available} unidad(es) disponible(s)",
+                "message": "Stock insuficiente",
             }
 
-        elif available == 1 and requested == 1:
-            hints[variant_id] = {
-                "kind": "last_unit",
-                "message": "Última unidad disponible",
-            }
+    ok = len(warnings) == 0
+    warnings_s = {str(k): v for k, v in warnings.items()}
+    hints_s = {str(k): v for k, v in hints.items()}
 
-    if strict_stock and warnings:
-        raise ValidationError({"stock": "Cantidad solicitada supera el stock disponible."})
-
-    return {"warnings": warnings, "hints": hints}
+    return {
+        "ok": ok,
+        "warnings": warnings_s,
+        "hints": hints_s,
+        "warningsByVariantId": warnings_s,
+        "hintsByVariantId": hints_s,
+    }
 
 
 def _get_unit_price(variant: Any) -> Decimal:
@@ -176,6 +300,29 @@ def validate_cart_lines(cart: dict, *, strict_stock: bool = False) -> Tuple[List
     lines: List[CartLine] = []
     subtotal = Decimal("0")
 
+    # Precompute grouped requested qty per pool-key and availability per key
+    grouped_qty_by_key: DefaultDict[Tuple[int, str, str], int] = defaultdict(int)
+    variant_key_by_id: Dict[int, Tuple[int, str, str]] = {}
+
+    for variant_id, qty in normalized.items():
+        variant = by_id[variant_id]
+        key = _variant_pool_key(variant)
+        grouped_qty_by_key[key] += int(qty)
+        variant_key_by_id[variant_id] = key
+
+    pool_maps_by_category: Dict[int, Dict[Tuple[str, str], int]] = {}
+    key_available: Dict[Tuple[int, str, str], int] = {}
+
+    for (category_id, value, color), _requested_total in grouped_qty_by_key.items():
+        if category_id <= 0:
+            key_available[(category_id, value, color)] = 0
+            continue
+        pool_map = pool_maps_by_category.get(category_id)
+        if pool_map is None:
+            pool_map = get_pool_map(category_id)
+            pool_maps_by_category[category_id] = pool_map
+        key_available[(category_id, value, color)] = int(pool_map.get((value, color), 0) or 0)
+
     for variant_id, qty in normalized.items():
         variant = by_id[variant_id]
         product = getattr(variant, "product", None)
@@ -185,10 +332,16 @@ def validate_cart_lines(cart: dict, *, strict_stock: bool = False) -> Tuple[List
             raise ValidationError(f"No se pudo determinar el precio para '{variant}'.")
 
         line_total = unit_price * Decimal(qty)
-        available = _get_available_stock(variant)
+
+        # Pool-first + aggregated validation: group by (category_id, value, color)
+        # We compute grouped totals once per call (outside the loop) and then reuse here.
+        # (Implementation below relies on two dicts: grouped_qty_by_key and key_available.)
+        key = _variant_pool_key(variant)
+        available = key_available.get(key, 0)
+        requested_total = grouped_qty_by_key.get(key, 0)
 
         is_ok = True
-        if available is not None and qty > available:
+        if requested_total > available:
             is_ok = False
             if strict_stock:
                 raise ValidationError({"qty": "Cantidad solicitada supera el stock disponible."})

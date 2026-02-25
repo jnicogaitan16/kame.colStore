@@ -8,7 +8,12 @@ from apps.customers.models import Customer
 
 class Order(models.Model):
     class Status(models.TextChoices):
+        # Workflow mínimo recomendado:
+        # - pending_payment -> paid
+        # - cancelled
         PENDING_PAYMENT = "pending_payment", "Pending payment"
+
+        # Legacy/extra (mantenidos por compatibilidad)
         CREATED = "created", "Created"
         PAID = "paid", "Paid"
         CANCELLED = "cancelled", "Cancelled"
@@ -97,12 +102,57 @@ class Order(models.Model):
 
         self.total = int((self.subtotal or 0) + (self.shipping_cost or 0))
 
-    def save(self, *args, **kwargs):
-        """Ensure totals are always consistent on save.
+    def _should_confirm_on_save(self) -> bool:
+        """Return True if we should run confirm_payment() on this save.
 
-        If `update_fields` is provided, we extend it to include `subtotal`/`total`
-        so recalculated values are persisted.
+        Rule:
+        - Stock is deducted ONLY when the order transitions into PAID.
+
+        We auto-run confirmation when:
+        - the order already exists (has PK)
+        - status is being set to PAID
+        - previously it was NOT PAID
+        - stock has not been deducted yet (stock_deducted_at is null)
+
+        This supports admin/manual transitions while keeping the source of truth in services.
         """
+        if not self.pk:
+            return False
+
+        # If already deducted, do nothing (idempotency)
+        if self.stock_deducted_at is not None:
+            return False
+
+        # Only care about transitions into PAID
+        if self.status != self.Status.PAID:
+            return False
+
+        prev = (
+            type(self).objects
+            .filter(pk=self.pk)
+            .values("status", "stock_deducted_at")
+            .first()
+        )
+        if not prev:
+            return False
+
+        prev_status = prev.get("status")
+        prev_deducted = prev.get("stock_deducted_at")
+
+        if prev_deducted is not None:
+            return False
+
+        return prev_status != self.Status.PAID
+
+    def save(self, *args, **kwargs):
+        # Si alguien (admin/API) cambia el estado a PAID, el stock debe descontarse
+        # solo en ese momento, usando el flujo oficial (servicios + locks).
+        if self._should_confirm_on_save():
+            # confirm_payment() ya maneja idempotencia con stock_deducted_at
+            # y operaciones atómicas con locks.
+            self.confirm_payment()
+            return
+
         self._recalc_totals_in_memory()
 
         update_fields = kwargs.get("update_fields")

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { HomepageStory } from "@/lib/api";
 
 function splitParagraphs(content: string): string[] {
@@ -25,19 +25,28 @@ function splitParagraphs(content: string): string[] {
 export function BrandStory({ story }: { story: HomepageStory | null }) {
   if (!story) return null;
 
+  const hasSomething =
+    Boolean(String(story.title || "").trim()) ||
+    Boolean(String(story.content || "").trim());
+
+  if (!hasSomething) return null;
+
   const sectionRef = useRef<HTMLElement | null>(null);
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
-    const el = sectionRef.current;
-    if (!el || isVisible) return;
+    if (isVisible) return;
 
-    const observer = new IntersectionObserver(
+    const el = sectionRef.current;
+    if (!el) return;
+
+    let observer: IntersectionObserver | null = new IntersectionObserver(
       (entries) => {
         const entry = entries[0];
         if (entry?.isIntersecting) {
           setIsVisible(true);
-          observer.disconnect();
+          observer?.disconnect();
+          observer = null;
         }
       },
       {
@@ -49,18 +58,28 @@ export function BrandStory({ story }: { story: HomepageStory | null }) {
     );
 
     observer.observe(el);
-    return () => observer.disconnect();
+
+    return () => {
+      observer?.disconnect();
+      observer = null;
+    };
   }, [isVisible]);
 
-  const paragraphs = splitParagraphs(story.content);
+  const paragraphs = useMemo(() => splitParagraphs(story.content || ""), [story.content]);
 
   // Headline with two levels (title + claim in italic).
   // If the CMS content already has 2+ paragraphs, use the first one as the claim.
   // Otherwise, fall back to the subtitle as the claim (if provided).
-  const claim = paragraphs.length >= 2 ? paragraphs[0] : story.subtitle || "";
+  const claim = useMemo(
+    () => (paragraphs.length >= 2 ? paragraphs[0] : story.subtitle || ""),
+    [paragraphs, story.subtitle]
+  );
 
   // Body paragraphs: if claim comes from content, use the rest; otherwise use content as body.
-  const body = paragraphs.length >= 2 ? paragraphs.slice(1) : paragraphs;
+  const body = useMemo(
+    () => (paragraphs.length >= 2 ? paragraphs.slice(1) : paragraphs),
+    [paragraphs]
+  );
 
   return (
     <section

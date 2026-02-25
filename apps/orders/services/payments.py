@@ -12,7 +12,7 @@ from django.utils import timezone
 
 from apps.orders.models import Order
 from apps.orders.services.product_variants import get_product_variant_model
-from apps.orders.services.stock import assert_items_stock
+from apps.orders.services.stock import assert_items_stock, decrement_items_stock
 
 logger = logging.getLogger(__name__)
 
@@ -117,11 +117,8 @@ def confirm_order_payment(order: Order) -> None:
         ]
         assert_items_stock(stock_items)
 
-        # Descontar stock
-        for vid, required_qty in required_by_variant.items():
-            variant = variants_by_id[vid]
-            variant.stock -= required_qty
-            variant.save(update_fields=["stock"])
+        # Descontar stock (fuente de verdad: InventoryPool)
+        decrement_items_stock(stock_items)
 
         # Asegurar referencia (si el modelo tiene el campo)
         payment_reference = getattr(locked_order, "payment_reference", None)

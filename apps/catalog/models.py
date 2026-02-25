@@ -5,28 +5,148 @@ from django.conf import settings
 import os
 import uuid
 
+from django.utils.text import slugify
+
 from imagekit.models import ImageSpecField
 from imagekit.processors import ResizeToFit
 
-from .variant_rules import get_variant_rule, normalize_variant_value
+from .variant_rules import get_variant_rule
 
 
-class Category(models.Model):
+
+class Department(models.Model):
+    """Nivel 1 de navegación (Hombre / Mujer / Accesorios / Otros).
+
+    E-commerce estándar: Department -> Category (árbol).
+    """
+
     name = models.CharField(max_length=120, unique=True)
     slug = models.SlugField(max_length=140, unique=True)
 
+    sort_order = models.PositiveIntegerField(default=0)
     is_active = models.BooleanField(default=True)
 
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def _generate_unique_slug(self) -> str:
+        base = slugify(self.name or "").strip("-")
+        base = base or "department"
+        slug = base
+        i = 2
+        while type(self).objects.filter(slug=slug).exclude(pk=self.pk).exists():
+            slug = f"{base}-{i}"
+            i += 1
+        return slug
+
+    def save(self, *args, **kwargs):
+        # Autogenerar slug si viene vacío
+        if not (self.slug or "").strip():
+            self.slug = self._generate_unique_slug()
+        return super().save(*args, **kwargs)
+
     class Meta:
-        ordering = ["name"]
+        ordering = ["sort_order", "name"]
 
     def __str__(self) -> str:
         return self.name
 
 
+class Category(models.Model):
+    """Categorías en árbol (nivel 2/3/etc) colgadas de un Department.
+
+    Ej:
+    - Hombre > Ropa > Camisetas
+    - Mujer > Camisetas
+
+    Nota de migración:
+    - `department` se deja nullable inicialmente para facilitar migraciones.
+      Luego puedes hacerlo NOT NULL cuando ya tengas data poblada.
+    """
+
+    class VariantSchema(models.TextChoices):
+        SIZE_COLOR = "size_color", "Talla + Color"          # camisetas/hoodies
+        JEAN_SIZE = "jean_size", "Talla Jean"              # 28/30/32...
+        NO_VARIANT = "no_variant", "Sin variantes"          # accesorios simples
+        DIMENSION = "dimension", "Medida/Dimensión"         # cuadros u otros
+
+    name = models.CharField(max_length=120)
+    slug = models.SlugField(max_length=140)
+
+    department = models.ForeignKey(
+        Department,
+        on_delete=models.PROTECT,
+        related_name="categories",
+    )
+    parent = models.ForeignKey(
+        "self",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="children",
+    )
+
+    sort_order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+
+    # Define cómo se comportan variantes en esta categoría.
+    variant_schema = models.CharField(
+        max_length=20,
+        choices=VariantSchema.choices,
+        default=VariantSchema.SIZE_COLOR,
+        db_index=True,
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def _generate_unique_slug(self) -> str:
+        base = slugify(self.name or "").strip("-")
+        base = base or "category"
+        slug = base
+        i = 2
+        qs = type(self).objects.all()
+        # La constraint es (department, parent, slug)
+        if self.department_id:
+            qs = qs.filter(department_id=self.department_id)
+        if self.parent_id:
+            qs = qs.filter(parent_id=self.parent_id)
+        else:
+            qs = qs.filter(parent__isnull=True)
+
+        while qs.filter(slug=slug).exclude(pk=self.pk).exists():
+            slug = f"{base}-{i}"
+            i += 1
+        return slug
+
+    def save(self, *args, **kwargs):
+        # Autogenerar slug si viene vacío
+        if not (self.slug or "").strip():
+            self.slug = self._generate_unique_slug()
+        return super().save(*args, **kwargs)
+
+    class Meta:
+        ordering = ["sort_order", "name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["department", "parent", "slug"],
+                name="uniq_category_department_parent_slug",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        if self.department_id:
+            return f"{self.department.name} / {self.name}"
+        return self.name
+
+    @property
+    def is_leaf(self) -> bool:
+        return not self.children.exists()
+
+
 
 class Product(models.Model):
-    category = models.ForeignKey(Category, on_delete=models.PROTECT, related_name="products")
+    category = models.ForeignKey(Category, on_delete=models.PROTECT, related_name="products")  # debe ser leaf
 
     name = models.CharField(max_length=200)
     slug = models.SlugField(max_length=220, unique=True)
@@ -37,8 +157,9 @@ class Product(models.Model):
 
     is_active = models.BooleanField(default=True)
 
-    # SOLO LECTURA: el stock del producto se deriva de la suma del stock de sus variantes.
-    # Se inicializa en 0 y se mantiene sincronizado.
+    # LEGACY / SOLO LECTURA: mantenido para no romper admin/serializers.
+    # En el modelo nuevo, la verdad de stock vive en InventoryPool (pool global por base).
+    # Este campo puede reflejar un agregado del pool para la categoría del producto.
     stock = models.PositiveIntegerField(default=0, editable=False)
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -50,23 +171,35 @@ class Product(models.Model):
     def clean(self):
         super().clean()
 
-        # En el admin "Add product", el Product aún no tiene PK y no puedes usar self.variants.
-        # Además, los inlines todavía no están guardados, así que validar stock aquí sería incorrecto.
-        if not self.pk:
+        # En el admin "Add product", el Product aún no tiene PK.
+        if not self.category_id:
             return
 
-        # Stock source of truth is ProductVariant. Do not allow active products with no stock.
+        # El producto debe apuntar a una categoría leaf (sin hijos).
+        if self.category and self.category.children.exists():
+            raise ValidationError({
+                "category": "Selecciona una categoría final (leaf). No puede tener subcategorías."  # noqa: E501
+            })
+
+        # Si está activo, debe haber stock disponible (derivado del InventoryPool).
         if self.is_active and self.total_stock <= 0:
-            raise ValidationError(
-                {"is_active": "No puedes activar un producto sin stock disponible en sus variantes."}
-            )
+            raise ValidationError({
+                "is_active": "No puedes activar un producto sin stock disponible (InventoryPool)."
+            })
 
     @property
     def total_stock(self) -> int:
-        """Stock real (suma de stock de variantes activas)."""
-        if not self.pk:
+        """Stock real agregado desde InventoryPool para la categoría del producto.
+
+        Ojo: al ser un pool global, este stock NO es exclusivo del producto/diseño;
+        es la disponibilidad de la base en esa categoría.
+        """
+        if not self.category_id:
             return 0
-        agg = self.variants.filter(is_active=True).aggregate(total=Sum("stock"))
+        agg = InventoryPool.objects.filter(
+            category_id=self.category_id,
+            is_active=True,
+        ).aggregate(total=Sum("quantity"))
         return int(agg["total"] or 0)
 
     def get_stock_total(self) -> int:
@@ -87,15 +220,64 @@ class Product(models.Model):
         return self.total_stock
 
     def save(self, *args, **kwargs):
-        # Stock en Product es SOLO LECTURA (derivado de variantes)
-        if not self.pk:
-            self.stock = 0
-        else:
-            self.stock = self.total_stock
+        # Mantener campo legacy sincronizado con agregado del pool.
+        self.stock = self.total_stock
         return super().save(*args, **kwargs)
+class InventoryPool(models.Model):
+    """Fuente de verdad de inventario (pool global por base).
+
+    Ejemplos:
+    - Camisetas / Negro / S = 12
+    - Jean / 32 (color vacío) = 5
+
+    El checkout debe descontar SIEMPRE de este pool.
+    """
+
+    category = models.ForeignKey(
+        Category,
+        on_delete=models.PROTECT,
+        related_name="inventory_pools",
+        help_text="Categoría leaf (Camisetas/Hoodies/Jean/etc).",
+    )
+
+    value = models.CharField(max_length=32, blank=True, default="")
+    color = models.CharField(max_length=32, blank=True, default="")
+
+    quantity = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["category__name", "value", "color", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["category", "value", "color"],
+                name="uniq_inventorypool_category_value_color",
+            ),
+        ]
+
+    def clean(self):
+        super().clean()
+
+        # Debe ser leaf para evitar pools ambiguos.
+        if self.category_id and self.category.children.exists():
+            raise ValidationError({
+                "category": "InventoryPool debe apuntar a una categoría final (leaf)."
+            })
+
+        # Normalización simple
+        self.value = (self.value or "").strip().upper()
+        self.color = (self.color or "").strip()
 
     def __str__(self) -> str:
-        return self.name
+        parts = [self.category.name]
+        if self.value:
+            parts.append(self.value)
+        if self.color:
+            parts.append(self.color)
+        return " / ".join(parts) + f" = {self.quantity}"
 
 
 def product_image_upload_path(instance, filename):
@@ -275,134 +457,112 @@ class ProductImage(models.Model):
         return f"Imagen {self.id}"
 
 
+
 class ProductVariant(models.Model):
-    """A generic variant model.
+    """Variante comprable de un producto (combinación de atributos).
 
-    Requirements:
-    - Camisetas: talla -> S/M/L/XL/2XL
-    OrderItem should reference ProductVariant (handled in orders app).
+    En el modelo nuevo:
+    - El stock NO es fuente de verdad aquí (legacy). Se descuenta del InventoryPool.
+    - La validez de atributos depende de `product.category.variant_schema`.
     """
-
-    # Backward-compatible alias used by admin/forms.
-    TSHIRT_SIZES = get_variant_rule("camisetas").get("allowed_values") or []
-
-    # Shared colors for apparel (camisetas/hoodies) - comes from variant_rules
-    APPAREL_COLORS = get_variant_rule("camisetas").get("allowed_colors") or []
-
-    class Kind(models.TextChoices):
-        GENERIC = "GENERIC", "Genérico"
-        SIZE = "SIZE", "Talla"
-        DIMENSION = "DIMENSION", "Medida"
-        MUG_TYPE = "MUG_TYPE", "Tipo de mug"
-
-    CATEGORY_TO_KIND = {
-        "camisetas": Kind.SIZE,
-        "hoodies": Kind.SIZE,
-        "cuadros": Kind.DIMENSION,
-        "mugs": Kind.MUG_TYPE,
-    }
 
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="variants")
 
-    # Derived from product.category for the supported categories.
-    kind = models.CharField(max_length=20, choices=Kind.choices, default=Kind.SIZE)
-
-    # Stores the variant value (e.g. "M", "30x40", "MAGICO").
-    # For categories that require variants (camisetas/cuadros/mugs) this is required.
-    value = models.CharField(max_length=32)
-    # Apparel-only attribute. Required for camisetas/hoodies.
+    # Atributos flexibles
+    value = models.CharField(max_length=32, blank=True, default="")  # talla/numero/medida
     color = models.CharField(max_length=32, blank=True, default="")
 
-
+    # LEGACY: mantenido para compatibilidad con admin y vistas actuales.
+    # NO usar como fuente de verdad para descontar en checkout.
     stock = models.PositiveIntegerField(default=0)
+
     is_active = models.BooleanField(default=True)
 
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=["product", "kind", "value", "color"],
-                name="uniq_product_variant_kind_value_color",
+                fields=["product", "value", "color"],
+                name="uniq_product_variant_value_color",
             ),
         ]
-        ordering = ["product__name", "kind", "value", "id"]
+        ordering = ["product__name", "value", "id"]
 
-    def _normalized_category_key(self) -> str:
-        """Returns a normalized category key based on slug or name."""
+    def _schema(self) -> str:
         if not self.product_id or not getattr(self.product, "category", None):
-            return ""
-        slug = (getattr(self.product.category, "slug", "") or "").strip().lower()
-        if slug:
-            return slug
-        return (getattr(self.product.category, "name", "") or "").strip().lower()
-
+            return Category.VariantSchema.SIZE_COLOR
+        return getattr(self.product.category, "variant_schema", Category.VariantSchema.SIZE_COLOR)
 
     def clean(self):
         super().clean()
 
-        category_slug = None
-        if self.product and getattr(self.product, "category", None):
-            category_slug = self.product.category.slug
+        schema = self._schema()
 
-        # Derive kind from category (so admin/validation behave consistently)
-        slug_norm = (category_slug or "").strip().lower()
-        self.kind = self.CATEGORY_TO_KIND.get(slug_norm, self.Kind.GENERIC)
-
-        # Normalize value: required, trim, uppercase (avoid m vs M)
         raw_value = (self.value or "").strip()
-        if not raw_value:
-            label = "talla" if self.kind == self.Kind.SIZE else "valor"
-            raise ValidationError({"value": f"Selecciona {label}."})
+        raw_color = (self.color or "").strip()
 
+        if schema == Category.VariantSchema.NO_VARIANT:
+            # Accesorios simples: no se exige nada.
+            self.value = ""
+            self.color = ""
+            return
+
+        # Para el resto, value suele ser requerido.
+        if not raw_value:
+            raise ValidationError({"value": "Selecciona un valor de variante (talla/número/medida)."})
+
+        # Normalización
         self.value = raw_value.upper()
 
-        # Strict validation for apparel sizes/colors (camisetas/hoodies)
-        if self.kind == self.Kind.SIZE and slug_norm in {"camisetas", "hoodies"}:
-            rule = get_variant_rule(category_slug)
-
-            # Validate talla
-            allowed_sizes = rule.get("allowed_values")
-            if allowed_sizes and self.value not in allowed_sizes:
-                raise ValidationError({"value": f"Talla inválida. Usa: {', '.join(allowed_sizes)}."})
-
-            # Validate color (required)
-            raw_color = (self.color or "").strip()
+        if schema == Category.VariantSchema.SIZE_COLOR:
+            # Camisetas/Hoodies: talla + color obligatorio
             if not raw_color:
                 raise ValidationError({"color": "Selecciona un color."})
-
-            # Keep original casing for display, but normalize whitespace
             self.color = raw_color
 
-            allowed_colors = rule.get("allowed_colors")
-            if allowed_colors and self.color not in allowed_colors:
-                raise ValidationError({"color": f"Color inválido. Usa: {', '.join(allowed_colors)}."})
-        else:
-            # Non-apparel: normalize color to empty
-            self.color = (self.color or "").strip()
+            # Validación opcional usando reglas existentes por slug (si aplica)
+            # Si tu variant_rules aún mapea camisetas/hoodies, se mantiene.
+            try:
+                slug = (getattr(self.product.category, "slug", "") or "").strip().lower()
+                if slug in {"camisetas", "hoodies"}:
+                    rule = get_variant_rule(slug)
+                    allowed_sizes = rule.get("allowed_values")
+                    if allowed_sizes and self.value not in allowed_sizes:
+                        raise ValidationError({"value": f"Talla inválida. Usa: {', '.join(allowed_sizes)}."})
+                    allowed_colors = rule.get("allowed_colors")
+                    if allowed_colors and self.color not in allowed_colors:
+                        raise ValidationError({"color": f"Color inválido. Usa: {', '.join(allowed_colors)}."})
+            except Exception:
+                # No bloquear si no existe regla para esa categoría.
+                pass
 
-        # Prevent duplicates (same product + kind + value + color)
-        if self.product_id and self.kind and self.value is not None:
+        elif schema == Category.VariantSchema.JEAN_SIZE:
+            # Jean: talla requerida, color opcional
+            self.color = raw_color
+
+        elif schema == Category.VariantSchema.DIMENSION:
+            # Cuadros u otros: value requerido, color normalmente vacío
+            self.color = ""
+
+        # Prevent duplicates (same product + value + color)
+        if self.product_id:
             exists = (
                 type(self).objects
-                .filter(
-                    product_id=self.product_id,
-                    kind=self.kind,
-                    value=self.value,
-                    color=(self.color or ""),
-                )
+                .filter(product_id=self.product_id, value=self.value, color=self.color)
                 .exclude(pk=self.pk)
                 .exists()
             )
             if exists:
                 raise ValidationError({
-                    "value": "Ya existe una variante con este tipo/valor para este producto.",
-                    "color": "Ya existe una variante con este tipo/valor/color para este producto.",
+                    "value": "Ya existe una variante con este valor para este producto.",
+                    "color": "Ya existe una variante con este valor/color para este producto.",
                 })
 
     def __str__(self) -> str:
-        if self.value:
-            color_part = f" / {self.color}" if (self.color or "").strip() else ""
-            return f"{self.product.name} - {self.get_kind_display()}: {self.value}{color_part}"
-        return f"{self.product.name} (sin variante)"
+        schema = self._schema()
+        if schema == Category.VariantSchema.NO_VARIANT:
+            return f"{self.product.name}"
+        color_part = f" / {self.color}" if (self.color or "").strip() else ""
+        return f"{self.product.name} - {self.value}{color_part}"
 
 
 

@@ -42,8 +42,19 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
 
   const variants = useMemo(() => product.variants ?? [], [product.variants]);
 
-  const hasValue = variants.some((v) => v.value);
-  const hasColor = variants.some((v) => v.color);
+  const variantSchema = (product.category?.variant_schema || "size_color") as
+    | "size_color"
+    | "jean_size"
+    | "no_variant"
+    | "dimension"
+    | string;
+
+  const requiresValue = variantSchema !== "no_variant";
+  const requiresColor = variantSchema === "size_color";
+  const colorOptional = variantSchema === "jean_size";
+
+  const hasValue = requiresValue && variants.some((v) => v.value);
+  const hasColor = requiresColor && variants.some((v) => v.color);
 
   const valueOptions = useMemo(() => {
     const set = new Set<string>();
@@ -131,6 +142,14 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
     `${optionBase} ${isSelected ? optionSelected : ""} ${isAvailable ? "" : optionUnavailable}`;
 
   const tallaDisponible = (val: string) => {
+    if (!requiresValue) return (product.stock_total ?? 0) > 0;
+
+    // jean_size: color opcional -> basta con que exista cualquier variante con esa talla y stock
+    if (variantSchema === "jean_size") {
+      return variants.some((v: any) => v.value === val && (v.stock ?? 0) > 0);
+    }
+
+    // size_color: depende de color seleccionado (si hay)
     return variants.some(
       (v: any) =>
         v.value === val &&
@@ -140,6 +159,9 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
   };
 
   const colorDisponible = (color: string) => {
+    // Solo aplica a size_color
+    if (!requiresColor) return true;
+
     return variants.some(
       (v: any) =>
         v.color === color &&
@@ -151,15 +173,73 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
   const selectedVariant = useMemo(() => {
     if (!variants.length) return null;
 
-    // Only consider an "exact" match when both selectors are defined.
-    if (!selectedValue || !selectedColor) return null;
+    if (variantSchema === "no_variant") return null;
 
-    return (
-      variants.find(
-        (v) => v.value === selectedValue && v.color === selectedColor
-      ) ?? null
-    );
-  }, [variants, selectedValue, selectedColor]);
+    // size_color: requiere value + color
+    if (variantSchema === "size_color") {
+      if (!selectedValue || !selectedColor) return null;
+      return (
+        variants.find((v) => v.value === selectedValue && v.color === selectedColor) ??
+        null
+      );
+    }
+
+    // jean_size: requiere value; color opcional
+    if (variantSchema === "jean_size") {
+      if (!selectedValue) return null;
+
+      // If user selected a color, try exact match first
+      if (selectedColor) {
+        const exact = variants.find((v) => v.value === selectedValue && v.color === selectedColor) ?? null;
+        if (exact) return exact;
+      }
+
+      // Otherwise, pick an available one (stock>0) for that value, else any
+      const available = variants.find((v: any) => v.value === selectedValue && (v.stock ?? 0) > 0) ?? null;
+      return available ?? (variants.find((v) => v.value === selectedValue) ?? null);
+    }
+
+    // dimension u otros: trata como requiere value (sin color)
+    if (!selectedValue) return null;
+    const available = variants.find((v: any) => v.value === selectedValue && (v.stock ?? 0) > 0) ?? null;
+    return available ?? (variants.find((v) => v.value === selectedValue) ?? null);
+  }, [variants, selectedValue, selectedColor, variantSchema]);
+
+  const isInvalidCombo = useMemo(() => {
+    if (!variants.length) return false;
+
+    if (variantSchema === "no_variant") return false;
+
+    if (variantSchema === "size_color") {
+      return (
+        hasValue &&
+        hasColor &&
+        !!selectedValue &&
+        !!selectedColor &&
+        !selectedVariant
+      );
+    }
+
+    if (variantSchema === "jean_size") {
+      if (!selectedValue) return false;
+
+      // invalid if there is no variant for that value at all
+      const anyForValue = variants.some((v) => v.value === selectedValue);
+      if (!anyForValue) return true;
+
+      // If a color is explicitly chosen, and no exact match exists, treat as invalid combo.
+      if (selectedColor) {
+        const exact = variants.some((v) => v.value === selectedValue && v.color === selectedColor);
+        return !exact;
+      }
+
+      return false;
+    }
+
+    // dimension/others: invalid if selectedValue exists but no variant
+    if (!selectedValue) return false;
+    return !variants.some((v) => v.value === selectedValue);
+  }, [variants, variantSchema, hasValue, hasColor, selectedValue, selectedColor, selectedVariant]);
 
   const displayVariant = useMemo(() => {
     if (!variants.length) return null;
@@ -183,27 +263,48 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
     );
   }, [variants, selectedVariant, selectedColor, selectedValue, firstAvailableVariant]);
 
-  const isInvalidCombo =
-    hasValue &&
-    hasColor &&
-    !!selectedValue &&
-    !!selectedColor &&
-    !selectedVariant;
-
   const primaryImage =
-    displayVariant?.images?.find((i) => i.is_primary)?.image ??
-    displayVariant?.images?.[0]?.image ??
+    displayVariant?.images?.find((i) => i.is_primary)?.url ??
+    displayVariant?.images?.[0]?.url ??
     null;
 
   const galleryImages =
     displayVariant?.images?.length
       ? displayVariant.images
-      : (((product as any).images as any[]) ?? []);
+      : ((((product as any).images as any[]) ?? []).map((img: any) => ({
+          ...img,
+          url: img?.url ?? img?.image ?? null,
+          thumb_url: img?.thumb_url ?? img?.image_thumb ?? img?.thumb ?? null,
+        })));
 
   const handleAddToCart = () => {
+    if (isInvalidCombo) return;
+
+    // no_variant: no selector; if there is a single variant use it, otherwise allow product-level stock only.
+    if (variantSchema === "no_variant") {
+      const v0 = variants.length === 1 ? variants[0] : null;
+      if (!v0) return;
+      if ((product.stock_total ?? 0) <= 0) return;
+
+      addItem(
+        {
+          variantId: v0.id,
+          productId: product.id,
+          productName: product.name,
+          productSlug: product.slug,
+          variantLabel: buildVariantLabel(v0),
+          price: product.price,
+          imageUrl: primaryImage,
+        },
+        1
+      );
+
+      openCart();
+      return;
+    }
+
     const variantToAdd = selectedVariant ?? (variants.length === 1 ? variants[0] : null);
     if (!variantToAdd) return;
-    if (isInvalidCombo) return;
 
     addItem(
       {
@@ -221,16 +322,33 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
     openCart();
   };
 
-  const selectedOutOfStock =
-    isInvalidCombo ||
-    (selectedVariant ? (selectedVariant.stock ?? 0) <= 0 : (product.stock_total ?? 0) <= 0);
+  const selectedOutOfStock = useMemo(() => {
+    if (isInvalidCombo) return true;
 
-  const canAdd =
-    !isInvalidCombo &&
-    (selectedVariant ? (selectedVariant.stock ?? 0) > 0 : (product.stock_total ?? 0) > 0);
-  const availableStock = selectedVariant
-    ? (selectedVariant.stock ?? 0)
-    : (product.stock_total ?? 0);
+    if (variantSchema === "no_variant") {
+      return (product.stock_total ?? 0) <= 0;
+    }
+
+    // If schema requires a selection, and no selectedVariant, treat as out-of-stock/disabled.
+    if (variantSchema === "size_color") {
+      if (!selectedVariant) return true;
+      return (selectedVariant.stock ?? 0) <= 0;
+    }
+
+    // jean_size / dimension: require value; if no selectedValue yet, disable
+    if (!selectedValue) return true;
+    if (!selectedVariant) return true;
+    return (selectedVariant.stock ?? 0) <= 0;
+  }, [isInvalidCombo, variantSchema, product.stock_total, selectedVariant, selectedValue]);
+
+  const canAdd = !selectedOutOfStock;
+
+  const availableStock = useMemo(() => {
+    if (variantSchema === "no_variant") return product.stock_total ?? 0;
+    return selectedVariant ? (selectedVariant.stock ?? 0) : 0;
+  }, [variantSchema, product.stock_total, selectedVariant]);
+
+  const uiSoldOut = (product.sold_out === true) || selectedOutOfStock;
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 md:py-10">
@@ -254,7 +372,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
           <ProductGallery
             images={galleryImages}
             productName={product.name}
-            soldOut={product.sold_out === true}
+            soldOut={uiSoldOut}
           />
         </div>
 
@@ -275,7 +393,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
               </div>
             )}
             {/* Variantes: valor (talla) */}
-            {hasValue && valueOptions.length > 0 && product.category.slug !== "cuadros" && (
+            {requiresValue && valueOptions.length > 0 && variantSchema !== "no_variant" && product.category.slug !== "cuadros" && (
               <div>
                 <div className="flex items-center gap-2">
                   <label className="block text-sm font-medium text-neutral-200">Talla</label>
@@ -298,7 +416,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
             )}
 
             {/* Variantes: color */}
-            {hasColor && colorOptions.length > 0 && (
+            {requiresColor && colorOptions.length > 0 && (
               <div>
                 <label className="block text-sm font-medium text-neutral-200">Color</label>
                 <div className="mt-2 flex flex-wrap gap-2">
