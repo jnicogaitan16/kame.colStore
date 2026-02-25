@@ -67,7 +67,7 @@ export interface Product {
 }
 
 // =============================
-// Imágenes
+// Imágenes  
 // =============================
 
 export type ProductImage = {
