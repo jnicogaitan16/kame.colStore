@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 
-import { apiFetch, checkout, type CheckoutResponse } from "@/lib/api";
+import { apiFetch, checkout, getPrimaryImageUrl, type CheckoutResponse } from "@/lib/api";
 import { useCartStore } from "@/store/cart";
 import Link from "next/link";
 import Image from "next/image";
@@ -1346,38 +1346,47 @@ export default function CheckoutClient() {
                   >
                     <div className="flex min-w-0 items-start gap-3">
                       <div className="relative h-16 w-16 shrink-0 overflow-hidden product-media-surface">
-                        {item.imageUrl ? (
-                          <Image
-                            src={item.imageUrl}
-                            alt={item.productName}
-                            fill
-                            className="object-contain p-2"
-                            sizes="64px"
-                          />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center text-white/40">
-                            <svg
-                              className="h-6 w-6"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                              aria-hidden="true"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={1.5}
-                                d="M3 7a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"
-                              />
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={1.5}
-                                d="M8 11l2.5 3 3.5-4.5L19 16"
-                              />
-                            </svg>
-                          </div>
-                        )}
+                        {(() => {
+                          const p: any = (item as any)?.product || item;
+                          const thumb =
+                            getPrimaryImageUrl(p) ||
+                            (item as any)?.imageUrl ||
+                            "";
+                          const alt =
+                            p?.name || (item as any)?.productName || "Producto";
+
+                          return thumb ? (
+                            <img
+                              src={thumb}
+                              alt={alt}
+                              loading="lazy"
+                              className="h-full w-full object-contain p-2"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-white/40">
+                              <svg
+                                className="h-6 w-6"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                                aria-hidden="true"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={1.5}
+                                  d="M3 7a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"
+                                />
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={1.5}
+                                  d="M8 11l2.5 3 3.5-4.5L19 16"
+                                />
+                              </svg>
+                            </div>
+                          );
+                        })()}
                       </div>
 
                       <div className="min-w-0">

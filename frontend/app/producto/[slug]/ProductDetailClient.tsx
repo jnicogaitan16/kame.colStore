@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
+import { getPrimaryImageUrl } from "@/lib/api";
 
 import { useCartStore } from "@/store/cart";
 import { ProductGallery } from "@/components/product/ProductGallery";
@@ -263,19 +264,44 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
     );
   }, [variants, selectedVariant, selectedColor, selectedValue, firstAvailableVariant]);
 
-  const primaryImage =
-    displayVariant?.images?.find((i) => i.is_primary)?.url ??
-    displayVariant?.images?.[0]?.url ??
-    null;
+  const img = useMemo(() => getPrimaryImageUrl(product as any), [product]);
+
+  // Primary image for cart/UI: prefer selected/display variant, then fallback to product canonical image
+  const primaryImage = getPrimaryImageUrl((displayVariant as any) || (product as any)) || img || null;
+
+  const normalizeImages = (input: any): Array<{ url: string; thumb_url?: string | null }> => {
+    const arr: any[] = Array.isArray(input) ? input : input ? [input] : [];
+
+    return arr
+      .map((img: any) => {
+        // Case 1: already a URL string
+        if (typeof img === "string") {
+          const u = img.trim();
+          return u ? { url: u, thumb_url: u } : null;
+        }
+
+        // Case 2: object with different possible keys
+        if (img && typeof img === "object") {
+          const url = (img.url || img.image || img.src || img.image_url || "").toString().trim();
+          const thumb = (
+            img.thumb_url || img.image_thumb || img.thumbnail || img.thumb || img.thumbUrl || url
+          )
+            .toString()
+            .trim();
+
+          if (!url) return null;
+          return { ...img, url, thumb_url: thumb || url };
+        }
+
+        return null;
+      })
+      .filter(Boolean) as Array<{ url: string; thumb_url?: string | null }>;
+  };
 
   const galleryImages =
-    displayVariant?.images?.length
-      ? displayVariant.images
-      : ((((product as any).images as any[]) ?? []).map((img: any) => ({
-          ...img,
-          url: img?.url ?? img?.image ?? null,
-          thumb_url: img?.thumb_url ?? img?.image_thumb ?? img?.thumb ?? null,
-        })));
+    displayVariant && (displayVariant as any).images
+      ? normalizeImages((displayVariant as any).images)
+      : normalizeImages((product as any).images);
 
   const handleAddToCart = () => {
     if (isInvalidCombo) return;
@@ -369,11 +395,29 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
         <div>
-          <ProductGallery
-            images={galleryImages}
-            productName={product.name}
-            soldOut={uiSoldOut}
-          />
+          {Array.isArray(galleryImages) && galleryImages.length > 0 ? (
+            <ProductGallery
+              images={galleryImages}
+              productName={product.name}
+              soldOut={uiSoldOut}
+            />
+          ) : img ? (
+            <div className="aspect-square w-full overflow-hidden rounded-2xl border border-white/10 bg-black/20">
+              <img
+                src={img}
+                alt={product?.name || "Producto"}
+                className="h-full w-full object-cover"
+                loading="eager"
+              />
+            </div>
+          ) : (
+            <div className="aspect-square w-full overflow-hidden rounded-2xl border border-white/10 bg-black/20">
+              <div className="flex h-full w-full items-center justify-center text-neutral-600">
+                {/* placeholder */}
+                Sin imagen
+              </div>
+            </div>
+          )}
         </div>
 
         <div>
