@@ -4,10 +4,13 @@ import { BrandStory } from "@/components/home/BrandStory";
 import HomepagePromos from "@/components/home/HomepagePromos";
 
 export default async function HomePage() {
-  const [banners, story] = await Promise.all([
+  const [bannersRes, storyRes] = await Promise.allSettled([
     getHomepageBanners(),
     getHomepageStory(),
   ]);
+
+  const banners = bannersRes.status === "fulfilled" ? bannersRes.value : [];
+  const story = storyRes.status === "fulfilled" ? storyRes.value : null;
 
   return (
     <>
@@ -33,6 +36,11 @@ export default async function HomePage() {
         {story ? (
           <section>
             <BrandStory story={story} />
+          </section>
+        ) : process.env.NODE_ENV !== "production" ? (
+          <section className="rounded-xl border border-white/10 bg-neutral-900/40 p-4 text-sm text-neutral-400">
+            No llegó contenido de <code className="text-neutral-200">/api/home_sections/</code>. Revisa que exista al menos 1
+            registro activo en Django Admin → <span className="text-neutral-200">Secciones de Home</span>.
           </section>
         ) : null}
       </main>

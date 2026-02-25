@@ -1,36 +1,132 @@
 "use client";
 
 import Link from "next/link";
+import { categoryPath } from "@/lib/routes";
+import { useEffect, useMemo, useState } from "react";
 
 export type MobileMenuCategory = {
   id: number | string;
   name: string;
   slug: string;
+  // Optional fields used only for legacy flat category lists
+  department_id?: number;
+  parent_id?: number | null;
+  sort_order?: number;
+};
+
+export type MobileMenuNavDepartment = {
+  id: number;
+  name: string;
+  slug: string;
+  sort_order?: number;
+  categories: Array<{
+    id: number | string;
+    name: string;
+    slug: string;
+    sort_order?: number;
+  }>;
 };
 
 export type MobileMenuProps = {
-  categories: MobileMenuCategory[];
+  /** Preferred: Navigation departments (from GET /api/navigation/) */
+  navDepartments?: MobileMenuNavDepartment[];
+
+  /** Legacy fallback: flat categories list (will render as plain list if nav is missing) */
+  categories?: MobileMenuCategory[];
+
   /** Controls whether the component exists in the DOM (used to keep mounted during exit animation). */
-  rendered: boolean;
+  rendered?: boolean;
   /** Visual open state (used to drive transitions). */
-  open: boolean;
+  open?: boolean;
   /** Close handler (backdrop + X + link clicks). */
   onClose: () => void;
   /** Brand label shown at the top. */
   brandLabel?: string;
-  /** Base path for category links (defaults to /categoria). */
-  categoryBasePath?: string;
+
+  /** Default active dept for tabs (KOAJ-like). */
+  defaultDeptSlug?: "mujer" | "hombre" | string;
 };
 
 export default function MobileMenu({
+  navDepartments,
   categories,
-  rendered,
-  open,
+  rendered = true,
+  open = false,
   onClose,
   brandLabel = "Kame.col",
-  categoryBasePath = "/categoria",
+  defaultDeptSlug = "mujer",
 }: MobileMenuProps) {
-  if (!rendered) return null;
+  // `rendered` can be omitted by callers; only hide when explicitly false.
+  if (rendered === false) return null;
+
+  const navDepts: MobileMenuNavDepartment[] = Array.isArray(navDepartments)
+    ? navDepartments
+    : [];
+
+  const legacyCats: MobileMenuCategory[] = Array.isArray(categories)
+    ? categories
+    : [];
+
+  const isOpen = open === true;
+
+  const orderedNavDepartments = useMemo(() => {
+    return [...navDepts].sort((a, b) => {
+      const ao = typeof a.sort_order === "number" ? a.sort_order : 0;
+      const bo = typeof b.sort_order === "number" ? b.sort_order : 0;
+      if (ao !== bo) return ao - bo;
+      return a.name.localeCompare(b.name);
+    });
+  }, [navDepts]);
+
+  const [activeDeptSlug, setActiveDeptSlug] = useState<string>(defaultDeptSlug);
+
+  useEffect(() => {
+    // When menu opens or nav changes, ensure active dept is valid.
+    if (!isOpen) return;
+    const slugs = orderedNavDepartments.map((d) => d.slug).filter(Boolean);
+    if (slugs.length === 0) return;
+
+    if (!slugs.includes(activeDeptSlug)) {
+      // Prefer default dept if present, otherwise first.
+      const preferred = slugs.includes(defaultDeptSlug) ? defaultDeptSlug : slugs[0];
+      setActiveDeptSlug(preferred);
+    }
+  }, [isOpen, orderedNavDepartments, activeDeptSlug, defaultDeptSlug]);
+
+  const activeDept = orderedNavDepartments.find((d) => d.slug === activeDeptSlug) || null;
+
+  const orderedActiveCategories = useMemo(() => {
+    const cats = Array.isArray(activeDept?.categories) ? activeDept!.categories : [];
+    return [...cats].sort((a, b) => {
+      const ao = typeof a.sort_order === "number" ? a.sort_order : 0;
+      const bo = typeof b.sort_order === "number" ? b.sort_order : 0;
+      if (ao !== bo) return ao - bo;
+      return String(a.name || "").localeCompare(String(b.name || ""));
+    });
+  }, [activeDept]);
+
+  const orderedLegacyCategories = useMemo(() => {
+    return [...legacyCats].sort((a, b) => {
+      const ao = typeof a.sort_order === "number" ? a.sort_order : 0;
+      const bo = typeof b.sort_order === "number" ? b.sort_order : 0;
+      if (ao !== bo) return ao - bo;
+      return String(a.name || "").localeCompare(String(b.name || ""));
+    });
+  }, [legacyCats]);
+
+  const renderCategoryLink = (node: { id: number | string; name: string; slug: string }) => {
+    return (
+      <li key={String(node.id ?? node.slug)}>
+        <Link
+          href={categoryPath(node.slug)}
+          onClick={onClose}
+          className="block w-full rounded-2xl px-5 py-3 text-[15px] font-semibold tracking-wide text-white/90 transition hover:bg-white/5"
+        >
+          {node.name}
+        </Link>
+      </li>
+    );
+  };
 
   return (
     <div
@@ -43,7 +139,7 @@ export default function MobileMenu({
       <button
         type="button"
         className={`absolute inset-0 transition-[opacity,backdrop-filter] duration-200 ease-out ${
-          open
+          isOpen
             ? "pointer-events-auto bg-black/70 opacity-100 backdrop-blur-[22px]"
             : "pointer-events-none bg-transparent opacity-0 backdrop-blur-0"
         }`}
@@ -54,7 +150,7 @@ export default function MobileMenu({
       {/* Panel */}
       <div
         className={`relative w-full max-w-[420px] overflow-hidden rounded-[28px] border border-white/10 bg-neutral-950/85 shadow-[0_28px_80px_rgba(0,0,0,0.65)] ring-1 ring-white/10 backdrop-blur-[60px] backdrop-saturate-[180%] transition-[opacity,transform] duration-200 ease-out ${
-          open ? "opacity-100 translate-y-0 scale-100" : "opacity-0 -translate-y-2 scale-[0.98]"
+          isOpen ? "opacity-100 translate-y-0 scale-100" : "opacity-0 -translate-y-2 scale-[0.98]"
         }`}
       >
         {/* Diffusion layer: blocks background text bleed */}
@@ -93,22 +189,50 @@ export default function MobileMenu({
         </div>
 
         <nav className="relative z-10 px-3 pb-4 text-center" aria-label="Categorías mobile">
-          {categories?.length > 0 ? (
-            <ul className="space-y-2">
-              {categories.map((c) => (
-                <li key={String(c.id ?? c.slug)}>
-                  <Link
-                    href={`${categoryBasePath}/${c.slug}`}
-                    onClick={onClose}
-                    className="block w-full rounded-2xl px-5 py-4 text-[15px] font-semibold tracking-wide text-white/90 transition hover:bg-white/5"
-                  >
-                    {c.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
+          {orderedNavDepartments.length > 0 ? (
+            <div className="space-y-4">
+              {/* Tabs: Mujer / Hombre (or whatever depts exist) */}
+              <div className="flex items-center justify-center gap-2 px-2">
+                {orderedNavDepartments.map((d) => {
+                  const isActive = d.slug === activeDeptSlug;
+                  return (
+                    <button
+                      key={d.slug}
+                      type="button"
+                      onClick={() => setActiveDeptSlug(d.slug)}
+                      className={`rounded-full border px-4 py-2 text-[13px] font-semibold tracking-wide transition ${
+                        isActive
+                          ? "border-white/20 bg-white/10 text-white"
+                          : "border-white/10 bg-white/5 text-white/70 hover:bg-white/10"
+                      }`}
+                      aria-pressed={isActive}
+                    >
+                      {d.name}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Active dept categories */}
+              <ul className="space-y-2 px-2">
+                {orderedActiveCategories.length > 0 ? (
+                  orderedActiveCategories.map((c) => renderCategoryLink(c))
+                ) : (
+                  <li className="px-5 py-6 text-[15px] font-medium text-white/70">Menú no disponible.</li>
+                )}
+              </ul>
+            </div>
+          ) : orderedLegacyCategories.length > 0 ? (
+            <div className="space-y-3">
+              <div className="px-5 pb-1 pt-1 text-left text-[12px] font-semibold uppercase tracking-[0.14em] text-white/60">
+                Categorías
+              </div>
+              <ul className="space-y-2 px-2">
+                {orderedLegacyCategories.map((c) => renderCategoryLink(c))}
+              </ul>
+            </div>
           ) : (
-            <div className="px-5 py-8 text-[15px] font-medium text-white/70">Sin categorías por ahora.</div>
+            <div className="px-5 py-8 text-[15px] font-medium text-white/70">Menú no disponible.</div>
           )}
         </nav>
       </div>

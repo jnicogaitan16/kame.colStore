@@ -182,7 +182,7 @@ class CheckoutSerializer(serializers.Serializer):
         cart = {vid: {"qty": qty} for vid, qty in consolidated.items()}
 
         try:
-            validated_items, subtotal = validate_cart(cart, strict_stock=True)
+            validated_items, subtotal = validate_cart(cart)
         except DjangoValidationError as exc:
             raise serializers.ValidationError(exc.message_dict or exc.messages) from exc
 

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { categoryPath } from "@/lib/routes";
 import { getCategories } from "@/lib/api";
 
 type Props = {
@@ -22,7 +23,7 @@ export default async function CategoryMenu({
       {categories.map((c) => (
         <Link
           key={c.id}
-          href={`/categoria/${c.slug}`}
+          href={categoryPath(c.slug)}
           // next/link permite onClick; esto lo usamos para cerrar el drawer en mobile
           onClick={onNavigate}
           className="hover:opacity-80"

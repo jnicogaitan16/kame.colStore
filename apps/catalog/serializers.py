@@ -7,8 +7,10 @@ from rest_framework import serializers
 from imagekit.cachefiles import ImageCacheFile
 from django.conf import settings
 
+
 from .models import (
     Category,
+    Department,
     HomepageBanner,
     HomepageSection,
     HomepagePromo,
@@ -16,6 +18,8 @@ from .models import (
     ProductImage,
     ProductVariant,
 )
+
+from .services.inventory import get_pool_map, get_variant_available_stock
 
 
 def public_media_url(value, request=None):
@@ -108,16 +112,43 @@ def _spec_url(obj, spec_attr: str):
         return None
 
 
-def _effective_inventory_from_variants(variants_qs_or_list):
-    """Fuente de verdad de inventario efectivo desde variantes activas.
 
-    Reglas contractuales:
-    - stock_total = sum(v.stock for v in variants if v.is_active)
-    - sold_out = stock_total <= 0
 
-    Nota: trata None como 0 y evita contar variantes inactivas.
+# --- POOL MAP CACHE HELPER ---
+def _pool_map_cached(category_id: int, ctx: dict) -> dict:
+    """Cache get_pool_map per-category inside serializer context."""
+    cache = ctx.setdefault("_pool_maps_by_category", {})
+    cid = int(category_id or 0)
+    if cid <= 0:
+        return {}
+    if cid not in cache:
+        cache[cid] = get_pool_map(cid)
+    return cache[cid]
+
+
+def _effective_inventory_from_pool(category_id: int, variants_qs_or_list):
+    """Fuente de verdad de inventario efectivo desde InventoryPool.
+
+    Contrato:
+    - Variant.stock se calcula desde InventoryPool (no ProductVariant.stock legacy)
+    - sold_out: boolean real
+    - stock_total: NO sumar (puede inflar).
+      Usamos: max(stock_variants) o 0.
+
+    Retorna:
+    - stock_total (int)
+    - sold_out (bool)
+    - pool_map (dict)
     """
-    stock_total = 0
+    pool_map = _pool_map_cached(category_id, {}) if variants_qs_or_list is None else None
+    # Prefer using serializer context cache when possible (caller can pass ctx via setattr)
+    ctx = getattr(variants_qs_or_list, "_serializer_ctx", None) if hasattr(variants_qs_or_list, "__class__") else None
+    if isinstance(ctx, dict):
+        pool_map = _pool_map_cached(category_id, ctx)
+    if pool_map is None:
+        pool_map = get_pool_map(int(category_id or 0))
+
+    max_stock = 0
     for v in variants_qs_or_list:
         try:
             is_active = bool(getattr(v, "is_active", False))
@@ -125,21 +156,82 @@ def _effective_inventory_from_variants(variants_qs_or_list):
             is_active = False
         if not is_active:
             continue
+
         try:
-            stock_total += int(getattr(v, "stock", 0) or 0)
+            available = int(get_variant_available_stock(v, pool_map=pool_map) or 0)
         except Exception:
-            stock_total += 0
-    sold_out = stock_total <= 0
-    return stock_total, sold_out
+            available = 0
+
+        if available > max_stock:
+            max_stock = available
+
+    sold_out = max_stock <= 0
+    return max_stock, sold_out, pool_map
+
+
+
+# ---------------------------------------------------------------------------
+# Department
+# ---------------------------------------------------------------------------
+class DepartmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Department
+        fields = ["id", "name", "slug", "sort_order"]
 
 
 # ---------------------------------------------------------------------------
 # Category
 # ---------------------------------------------------------------------------
 class CategorySerializer(serializers.ModelSerializer):
+    department = DepartmentSerializer(read_only=True)
+
     class Meta:
         model = Category
-        fields = ["id", "name", "slug"]
+        fields = ["id", "name", "slug", "sort_order", "is_active", "department"]
+
+
+# Lightweight serializer for menu categories (no nested department)
+class CategoryMenuSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = ["id", "name", "slug", "sort_order"]
+
+
+# Department + categories[] (only active) for menu
+
+class DepartmentWithCategoriesSerializer(serializers.ModelSerializer):
+    categories = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Department
+        fields = ["id", "name", "slug", "sort_order", "categories"]
+
+    def get_categories(self, obj):
+        qs = obj.categories.filter(is_active=True).order_by("sort_order", "name")
+        return CategoryMenuSerializer(qs, many=True, context=self.context).data
+
+
+# ---------------------------------------------------------------------------
+# Navigation serializers (departments + categories) for GET /api/navigation/
+# Lightweight: no products.
+# ---------------------------------------------------------------------------
+class NavCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = ("id", "name", "slug", "sort_order")
+
+
+class NavDepartmentSerializer(serializers.ModelSerializer):
+    categories = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Department
+        fields = ("id", "name", "slug", "sort_order", "categories")
+
+    def get_categories(self, obj):
+        # Only active categories and consistently ordered for navigation
+        qs = obj.categories.filter(is_active=True).order_by("sort_order", "name")
+        return NavCategorySerializer(qs, many=True, context=self.context).data
 
 
 # ---------------------------------------------------------------------------
@@ -203,6 +295,7 @@ class ProductImageSerializer(serializers.ModelSerializer):
         return public_media_url(_spec_url(obj, "image_large"), request=request)
 
 
+
 # ---------------------------------------------------------------------------
 # Variant (con imágenes ordenadas: primary + gallery)
 # ---------------------------------------------------------------------------
@@ -210,14 +303,14 @@ class ProductVariantSerializer(serializers.ModelSerializer):
     images = serializers.SerializerMethodField()
     image_url = serializers.SerializerMethodField()
     image_thumb_url = serializers.SerializerMethodField()
-    kind_display = serializers.CharField(source="get_kind_display", read_only=True)
+
+    # Fuente de verdad: InventoryPool
+    stock = serializers.SerializerMethodField()
 
     class Meta:
         model = ProductVariant
         fields = [
             "id",
-            "kind",
-            "kind_display",
             "value",
             "color",
             "stock",
@@ -226,6 +319,13 @@ class ProductVariantSerializer(serializers.ModelSerializer):
             "image_thumb_url",
             "images",
         ]
+
+    def get_stock(self, obj):
+        pool_map = self.context.get("pool_map")
+        try:
+            return int(get_variant_available_stock(obj, pool_map=pool_map) or 0)
+        except Exception:
+            return 0
 
     def get_images(self, obj):
         # Orden: primary primero, luego por sort_order (galería)
@@ -264,11 +364,12 @@ class ProductVariantSerializer(serializers.ModelSerializer):
 # ---------------------------------------------------------------------------
 # Product list (para GET /api/products/)
 # ---------------------------------------------------------------------------
+
 class ProductListSerializer(serializers.ModelSerializer):
     category = CategorySerializer(read_only=True)
     primary_image = serializers.SerializerMethodField()
-    stock_total = serializers.IntegerField(read_only=True)
-    sold_out = serializers.BooleanField(read_only=True)
+    stock_total = serializers.SerializerMethodField()
+    sold_out = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -297,10 +398,43 @@ class ProductListSerializer(serializers.ModelSerializer):
         cache_url = _spec_url(img, "image_medium") or _spec_url(img, "image_thumb")
         return public_media_url(cache_url or img.image.url, request=request)
 
+    def get_stock_total(self, obj):
+        variants = obj.variants.filter(is_active=True)
+        # Attach serializer context for caching inside helper
+        try:
+            setattr(variants, "_serializer_ctx", self.context)
+        except Exception:
+            pass
+
+        stock_total, sold_out, pool_map = _effective_inventory_from_pool(obj.category_id, variants)
+        # Cache on serializer instance to avoid recomputing for sold_out
+        cache = getattr(self, "_product_inventory_cache", None)
+        if cache is None:
+            cache = {}
+            setattr(self, "_product_inventory_cache", cache)
+        cache[obj.id] = (stock_total, sold_out)
+        return stock_total
+
+    def get_sold_out(self, obj):
+        cache = getattr(self, "_product_inventory_cache", None) or {}
+        if obj.id in cache:
+            _stock_total, sold_out = cache[obj.id]
+            return bool(sold_out)
+
+        variants = obj.variants.filter(is_active=True)
+        try:
+            setattr(variants, "_serializer_ctx", self.context)
+        except Exception:
+            pass
+
+        _stock_total, sold_out, _pool_map = _effective_inventory_from_pool(obj.category_id, variants)
+        return bool(sold_out)
+
 
 # ---------------------------------------------------------------------------
 # Product detail (producto + variantes + imágenes)
 # ---------------------------------------------------------------------------
+
 class ProductDetailSerializer(serializers.ModelSerializer):
     category = CategorySerializer(read_only=True)
     variants = serializers.SerializerMethodField()
@@ -326,19 +460,41 @@ class ProductDetailSerializer(serializers.ModelSerializer):
 
     def get_variants(self, obj):
         # No exponer variantes inactivas/eliminadas en la API
-        qs = obj.variants.filter(is_active=True).order_by("kind", "value")
-        return ProductVariantSerializer(qs, many=True, context=self.context).data
+        qs = obj.variants.filter(is_active=True).order_by("value", "color", "id")
+        pool_map = get_pool_map(obj.category_id)
+        ctx = dict(self.context)
+        ctx["pool_map"] = pool_map
+        return ProductVariantSerializer(qs, many=True, context=ctx).data
 
     def get_stock_total(self, obj):
-        # Fuente de verdad: suma de stock de variantes activas (NO usar product.stock)
-        variants = obj.variants.all()
-        stock_total, _sold_out = _effective_inventory_from_variants(variants)
+        variants = obj.variants.filter(is_active=True)
+        try:
+            setattr(variants, "_serializer_ctx", self.context)
+        except Exception:
+            pass
+
+        stock_total, sold_out, _pool_map = _effective_inventory_from_pool(obj.category_id, variants)
+        cache = getattr(self, "_product_inventory_cache", None)
+        if cache is None:
+            cache = {}
+            setattr(self, "_product_inventory_cache", cache)
+        cache[obj.id] = (stock_total, sold_out)
         return stock_total
 
     def get_sold_out(self, obj):
-        variants = obj.variants.all()
-        _stock_total, sold_out = _effective_inventory_from_variants(variants)
-        return sold_out
+        cache = getattr(self, "_product_inventory_cache", None) or {}
+        if obj.id in cache:
+            _stock_total, sold_out = cache[obj.id]
+            return bool(sold_out)
+
+        variants = obj.variants.filter(is_active=True)
+        try:
+            setattr(variants, "_serializer_ctx", self.context)
+        except Exception:
+            pass
+
+        _stock_total, sold_out, _pool_map = _effective_inventory_from_pool(obj.category_id, variants)
+        return bool(sold_out)
 
 
 # ---------------------------------------------------------------------------

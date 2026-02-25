@@ -18,7 +18,7 @@ interface ProductGalleryProps {
 export function ProductGallery({ images, productName, soldOut = false }: ProductGalleryProps) {
   const slides = useMemo(() => {
     if (!images?.length) return [];
-    return images.filter((img) => img.image);
+    return images.filter((img) => img.url);
   }, [images]);
 
   const [activeIndex, setActiveIndex] = useState(0);
@@ -91,7 +91,7 @@ export function ProductGallery({ images, productName, soldOut = false }: Product
           <SwiperSlide key={img.id}>
             <div className="relative w-full aspect-square">
               {(() => {
-                const src = img.image ? `${img.image}?v=${img.id}` : null;
+                const src = img.url ? `${img.url}?v=${img.id}` : null;
                 if (!src) return null;
 
                 return (
@@ -155,7 +155,7 @@ export function ProductGallery({ images, productName, soldOut = false }: Product
               <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-white/10 bg-black">
                 {(() => {
                   const img = slides[lightboxIndex];
-                  const src = img?.image ? `${img.image}?v=${img.id}` : null;
+                  const src = img?.url ? `${img.url}?v=${img.id}` : null;
                   if (!src) return null;
                   return (
                     <img

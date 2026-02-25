@@ -7,11 +7,14 @@ Prefijo: /api/orders/
 from __future__ import annotations
 
 import logging
+import json
 
 from urllib.parse import quote
 from django.conf import settings
 
 from django.db import IntegrityError, transaction
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
@@ -32,7 +35,181 @@ from apps.orders.services.shipping import calculate_shipping_cost
 from apps.orders.services.cart_validation import validate_cart_stock
 
 
+
 logger = logging.getLogger(__name__)
+
+
+# Helper to normalize stock result for warnings/hints
+def _normalize_stock_result(result: dict) -> tuple[dict, dict]:
+    """Return (warnings_by_variant_id, hints_by_variant_id) with string keys.
+
+    Supports these shapes:
+      - result['warnings'] as {variant_id: {requested, available, message?}}
+      - result['warnings'] as [{variant_id|product_variant_id, requested, available, message?}, ...]
+      - same for result['hints']
+    """
+
+    def _to_map(raw):
+        if not raw:
+            return {}
+
+        # Map already
+        if isinstance(raw, dict):
+            out = {}
+            for k, v in raw.items():
+                try:
+                    vid = str(int(k))
+                except Exception:
+                    continue
+                out[vid] = v if isinstance(v, dict) else {"message": str(v)}
+            return out
+
+        # List of rows
+        if isinstance(raw, list):
+            out = {}
+            for row in raw:
+                if not isinstance(row, dict):
+                    continue
+                vid = row.get("variant_id")
+                if vid is None:
+                    vid = row.get("product_variant_id")
+                if vid is None:
+                    continue
+                try:
+                    vid_s = str(int(vid))
+                except Exception:
+                    continue
+
+                requested = row.get("requested")
+                available = row.get("available")
+                message = row.get("message") or row.get("error")
+
+                data = {}
+                if requested is not None:
+                    try:
+                        data["requested"] = int(requested)
+                    except Exception:
+                        pass
+                if available is not None:
+                    try:
+                        data["available"] = int(available)
+                    except Exception:
+                        pass
+                if message:
+                    data["message"] = str(message)
+
+                out[vid_s] = data or {"message": "Stock insuficiente"}
+            return out
+
+        return {}
+
+    warnings_by_variant_id = _to_map((result or {}).get("warningsByVariantId") or (result or {}).get("warnings"))
+    hints_by_variant_id = _to_map((result or {}).get("hintsByVariantId") or (result or {}).get("hints"))
+
+    # Never show a hint when there is already a warning for that variant
+    if warnings_by_variant_id and hints_by_variant_id:
+        for k in list(warnings_by_variant_id.keys()):
+            hints_by_variant_id.pop(k, None)
+
+    return warnings_by_variant_id, hints_by_variant_id
+
+
+@require_POST
+def stock_validate_view(request):
+    """POST /api/stock-validate/
+
+    Lightweight endpoint for Next.js proxying.
+    Uses InventoryPool as source of truth via validate_cart_stock().
+
+    Expected payload (minimum):
+      {"items": [{"variant_id": 123, "qty": 2}, ...]}
+
+    Also accepts:
+      - items with keys: product_variant_id / quantity
+      - cart_items as alias of items
+    """
+    try:
+        payload = json.loads(request.body.decode("utf-8") or "{}")
+    except Exception:
+        return JsonResponse({"ok": False, "error": "JSON inválido."}, status=400)
+
+    items = payload.get("items") or payload.get("cart_items") or []
+    if not isinstance(items, list):
+        return JsonResponse({"ok": False, "error": "items debe ser una lista."}, status=400)
+
+    # Allow empty calls (frontend can validate even when cart is empty)
+    if items == []:
+        return JsonResponse({"ok": True, "warningsByVariantId": {}, "hintsByVariantId": {}}, status=200)
+
+    # Normalize to the shared service contract
+    normalized = []
+    for it in items:
+        if not isinstance(it, dict):
+            continue
+
+        # Accept both naming styles
+        vid = it.get("product_variant_id")
+        if vid is None:
+            vid = it.get("variant_id")
+
+        qty = it.get("quantity")
+        if qty is None:
+            qty = it.get("qty")
+
+        try:
+            vid_int = int(vid)
+        except (TypeError, ValueError):
+            vid_int = 0
+
+        try:
+            qty_int = int(qty)
+        except (TypeError, ValueError):
+            qty_int = 0
+
+        if vid_int > 0 and qty_int > 0:
+            normalized.append({"product_variant_id": vid_int, "quantity": qty_int})
+
+    if not normalized:
+        return JsonResponse({"ok": False, "error": "items debe incluir variantes válidas."}, status=400)
+
+    try:
+        result = validate_cart_stock(normalized)
+        warnings_by_variant_id, hints_by_variant_id = _normalize_stock_result(result)
+
+        # Always return the map contract.
+        # IMPORTANT: return 200 so the frontend can read the body and show the warning UI.
+        if not bool(warnings_by_variant_id):
+            # No warnings, return consistent shape
+            return JsonResponse(
+                {
+                    "ok": True,
+                    "warningsByVariantId": {},
+                    "hintsByVariantId": {},
+                },
+                status=200,
+            )
+        return JsonResponse(
+            {
+                "ok": False,
+                "warningsByVariantId": warnings_by_variant_id,
+                "hintsByVariantId": hints_by_variant_id,
+            },
+            status=200,
+        )
+
+    except ValidationError as e:
+        # DRF ValidationError (already JSON-serializable-ish)
+        return JsonResponse({"ok": False, "error": "Error de validación.", "detail": str(e)}, status=400)
+
+    except DjangoValidationError as e:
+        return JsonResponse({"ok": False, "error": "Error de validación.", "detail": str(e)}, status=400)
+
+    except Exception as e:
+        logger.exception("stock-validate-view: unexpected error")
+        payload = {"ok": False, "error": "Error inesperado al validar stock."}
+        if settings.DEBUG:
+            payload["debug_error"] = str(e)
+        return JsonResponse(payload, status=500)
 
 
 class CitiesAPIView(APIView):
@@ -135,20 +312,8 @@ class StockValidateAPIView(APIView):
 
         try:
             # Contract: MUST use the same service as checkout, no parallel logic here.
-            result = validate_cart_stock(normalized, strict_stock=True)
-
-            warnings_raw = result.get("warnings") or {}
-            hints_raw = result.get("hints") or {}
-
-            # JSON keys must be strings
-            warnings_by_variant_id = {str(k): v for k, v in warnings_raw.items()}
-            hints_by_variant_id = {str(k): v for k, v in hints_raw.items()}
-
-            # Safety rule (final layer): never return a hint for a variant that already has a warning
-            if warnings_by_variant_id and hints_by_variant_id:
-                for k in list(warnings_by_variant_id.keys()):
-                    hints_by_variant_id.pop(k, None)
-
+            result = validate_cart_stock(normalized)
+            warnings_by_variant_id, hints_by_variant_id = _normalize_stock_result(result)
             ok_all = not bool(warnings_by_variant_id)
 
             return Response(
@@ -165,40 +330,10 @@ class StockValidateAPIView(APIView):
             raise
 
         except DjangoValidationError as e:
-            # Some stock validations may raise Django ValidationError (e.g. {'stock': [...]})
-            # For the stock-validate endpoint we must return warnings/hints instead of 500.
+            # Reintentar usando la fuente de verdad (InventoryPool) y el servicio compartido
             try:
-                variant_ids = [it["product_variant_id"] for it in normalized]
-                variants = ProductVariant.objects.filter(id__in=variant_ids)
-                variants_by_id = {v.id: v for v in variants}
-
-                warnings_by_variant_id = {}
-                hints_by_variant_id = {}
-
-                for it in normalized:
-                    vid = int(it["product_variant_id"])
-                    requested = int(it["quantity"])
-                    v = variants_by_id.get(vid)
-                    available = int(getattr(v, "stock", 0) or 0) if v is not None else 0
-
-                    if requested > available:
-                        warnings_by_variant_id[str(vid)] = {
-                            "status": "insufficient",
-                            "available": available,
-                            "requested": requested,
-                            "message": f"Stock insuficiente. Disponible: {available}",
-                        }
-                    elif available == 1 and requested == 1:
-                        hints_by_variant_id[str(vid)] = {
-                            "kind": "last_unit",
-                            "message": "⚡ Última unidad disponible",
-                        }
-
-                # Safety rule (final layer): never return a hint for a variant that already has a warning
-                if warnings_by_variant_id and hints_by_variant_id:
-                    for k in list(warnings_by_variant_id.keys()):
-                        hints_by_variant_id.pop(k, None)
-
+                result = validate_cart_stock(normalized)
+                warnings_by_variant_id, hints_by_variant_id = _normalize_stock_result(result)
                 ok_all = not bool(warnings_by_variant_id)
 
                 return Response(
@@ -419,6 +554,22 @@ class CheckoutAPIView(APIView):
             payment_method = "transferencia"
         else:
             payment_method = payment_method.strip()
+
+        # ✅ Validar stock con pool (InventoryPool) antes de crear la orden
+        stock_payload = [
+            {"product_variant_id": int(ci["product_variant_id"]), "quantity": int(ci["qty"])}
+            for ci in cart_items
+        ]
+        stock_result = validate_cart_stock(stock_payload)
+        warnings_raw = stock_result.get("warningsByVariantId") or stock_result.get("warnings") or {}
+        if warnings_raw:
+            # Bloquear checkout si hay stock insuficiente, devolviendo detalle por variante
+            raise ValidationError(
+                {
+                    "items": ["Stock insuficiente para uno o más productos."],
+                    "warningsByVariantId": warnings_raw,
+                }
+            )
 
         try:
             with transaction.atomic():

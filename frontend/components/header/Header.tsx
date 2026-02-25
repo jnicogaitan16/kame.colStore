@@ -1,134 +1,297 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
+import { useEffect, useMemo, useState, useCallback } from "react";
+import Link from "next/link";
 
+import Navbar, { NavbarCategory, NavbarNavDepartment } from "./Navbar";
+import MiniCart from "@/components/cart/MiniCart";
+import { categoryPath } from "@/lib/routes";
 import { useCartStore } from "@/store/cart";
 
-import Navbar from "./Navbar";
-import MobileMenu from "@/components/navigation/MobileMenu";
+export type HeaderProps = {
+  navDepartments?: NavbarNavDepartment[];
+  categories?: NavbarCategory[];
+  cartCount?: number;
 
-export type HeaderCategory = {
-  id: number | string;
-  name: string;
-  slug: string;
+  // Optional external control hooks (if parent wants to drive UI)
+  onToggleCart?: () => void;
 };
 
-type HeaderProps = {
-  /**
-   * Categorías vienen desde un Server Component (layout/page) para no romper App Router.
-   * Ej: const categories = await getCategories(); <Header categories={categories} />
-   */
-  categories?: HeaderCategory[];
-};
+function ChevronRight({ className = "" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M9 5l7 7-7 7" />
+    </svg>
+  );
+}
 
-export function Header({ categories = [] }: HeaderProps) {
-  const pathname = usePathname();
+function MobileMenuContent({
+  navDepartments,
+  categories,
+  onNavigate,
+}: {
+  navDepartments?: NavbarNavDepartment[];
+  categories?: NavbarCategory[];
+  onNavigate: () => void;
+}) {
+  const orderedDepts = useMemo(() => {
+    const depts: NavbarNavDepartment[] = Array.isArray(navDepartments) ? navDepartments : [];
+    return [...depts].sort((a, b) => {
+      const ao = typeof a.sort_order === "number" ? a.sort_order : 0;
+      const bo = typeof b.sort_order === "number" ? b.sort_order : 0;
+      if (ao !== bo) return ao - bo;
+      return String(a.name || "").localeCompare(String(b.name || ""));
+    });
+  }, [navDepartments]);
 
-  const isHome = pathname === "/";
+  const initialDeptSlug =
+    orderedDepts.find((d) => d.slug === "mujer")?.slug ||
+    orderedDepts.find((d) => d.slug === "hombre")?.slug ||
+    orderedDepts[0]?.slug ||
+    "";
 
-  const totalItems = useCartStore((s) => s.totalItems());
-  const toggleCart = useCartStore((s) => s.toggleCart);
+  const [activeDeptSlug, setActiveDeptSlug] = useState<string>(initialDeptSlug);
 
-  const [mobileRendered, setMobileRendered] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
-
-  const openMobileMenu = () => {
-    setMobileRendered(true);
-    // allow first paint so transitions run
-    requestAnimationFrame(() => setMobileOpen(true));
-  };
-
-  const closeMobileMenu = () => {
-    setMobileOpen(false);
-    // keep in DOM until animation finishes
-    window.setTimeout(() => setMobileRendered(false), 220);
-  };
-
-  const prevPathnameRef = useRef(pathname);
-
-  // Cierra el drawer SOLO al cambiar de ruta (no al abrir)
   useEffect(() => {
-    if (prevPathnameRef.current !== pathname) {
-      prevPathnameRef.current = pathname;
-      closeMobileMenu();
-    }
-  }, [pathname]);
+    if (!activeDeptSlug && initialDeptSlug) setActiveDeptSlug(initialDeptSlug);
+  }, [activeDeptSlug, initialDeptSlug]);
 
-  // Header mode: overlay on Home (top), nav elsewhere / after scroll
+  const activeDept = orderedDepts.find((d) => d.slug === activeDeptSlug) || orderedDepts[0];
+
+  const deptCategories = useMemo(() => {
+    const raw = Array.isArray(activeDept?.categories) ? activeDept!.categories : [];
+    return [...raw].sort((a, b) => {
+      const ao = typeof a.sort_order === "number" ? a.sort_order : 0;
+      const bo = typeof b.sort_order === "number" ? b.sort_order : 0;
+      if (ao !== bo) return ao - bo;
+      return String(a.name || "").localeCompare(String(b.name || ""));
+    });
+  }, [activeDept]);
+
+  const flatCategories = useMemo(() => {
+    const raw = Array.isArray(categories) ? categories : [];
+    return [...raw].sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
+  }, [categories]);
+
+  // Única fuente de verdad de rutas
+  const categoryHref = (slug: string) => categoryPath(slug, activeDeptSlug || undefined);
+
+  const showDeptNav = orderedDepts.length > 0;
+  const showList = showDeptNav ? deptCategories : flatCategories;
+
+  return (
+    <div className="px-4 pb-6">
+      {/* Tabs: Mujer / Hombre / ... */}
+      {showDeptNav ? (
+        <div className="flex items-center gap-6 border-b border-white/10 pb-3 pt-2">
+          {orderedDepts.map((d) => {
+            const isActive = d.slug === activeDeptSlug;
+            return (
+              <button
+                key={d.slug}
+                type="button"
+                onClick={() => setActiveDeptSlug(d.slug)}
+                className={
+                  isActive
+                    ? "text-[14px] font-semibold text-white"
+                    : "text-[14px] font-semibold text-white/60 hover:text-white/90"
+                }
+                aria-pressed={isActive}
+              >
+                {d.name}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+
+      {/* Categories */}
+      <ul className="pt-3">
+        {showList.length > 0 ? (
+          showList.map((c) => (
+            <li key={String((c as any).id ?? (c as any).slug)}>
+              <Link
+                href={categoryHref((c as any).slug)}
+                onClick={onNavigate}
+                className="flex items-center justify-between py-3 text-[15px] font-medium text-white/90"
+              >
+                <span>{(c as any).name}</span>
+                <ChevronRight className="h-5 w-5 text-white/40" />
+              </Link>
+              <div className="h-px bg-white/10" />
+            </li>
+          ))
+        ) : (
+          <li className="py-3 text-[14px] font-medium text-white/70">Menú no disponible.</li>
+        )}
+      </ul>
+    </div>
+  );
+}
+
+export default function Header({
+  navDepartments,
+  categories,
+  cartCount,
+  onToggleCart,
+}: HeaderProps) {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isCartOpen, setIsCartOpen] = useState(false);
+
+  // Source of truth for the bag badge: total items (sum of quantities)
+  const storeCartCount = useCartStore((s) =>
+    Array.isArray((s as any).items)
+      ? (s as any).items.reduce((acc: number, it: any) => acc + Number(it?.quantity || 0), 0)
+      : 0
+  );
+
+  // Backwards compatibility: if a parent passes `cartCount`, we still prefer the store (it reflects quantity, not lines)
+  const effectiveCartCount = typeof cartCount === "number" ? Math.max(cartCount, storeCartCount) : storeCartCount;
+
+  const [isScrolled, setIsScrolled] = useState(false);
+
   useEffect(() => {
-    // Outside home: force nav mode
-    if (!isHome) {
-      setScrolled(true);
-      return;
+    function onScroll() {
+      // Small threshold so it changes quickly but avoids jitter.
+      setIsScrolled(window.scrollY > 8);
     }
-
-    // On home: listen scroll
-    const onScroll = () => {
-      setScrolled(window.scrollY > 24);
-    };
-
-    // Init on mount
     onScroll();
-
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-  }, [isHome]);
+  }, []);
 
-  // Escape para cerrar
   useEffect(() => {
-    if (!mobileOpen) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeMobileMenu();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [mobileOpen]);
-
-  // Lock scroll cuando el menú está abierto
-  useEffect(() => {
-    if (!mobileRendered) return;
+    if (!isCartOpen) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = prev;
     };
-  }, [mobileRendered]);
+  }, [isCartOpen]);
 
-  const headerMode = isHome && !scrolled ? "overlay" : "nav";
-  const headerClassName =
-    headerMode === "overlay"
-      ? "fixed top-0 left-0 right-0 z-50 w-full bg-transparent border-b border-transparent shadow-none header-transition"
-      : "fixed top-0 left-0 right-0 z-50 w-full bg-zinc-950/70 border-b border-white/10 shadow-sm will-change-transform header-transition";
+  // Close mobile menu on route changes? If you have next/navigation, you can wire it.
+  // Keeping it minimal: only close on ESC.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== "Escape") return;
+      // Close cart first if open; otherwise close mobile menu.
+      if (isCartOpen) setIsCartOpen(false);
+      else setMobileMenuOpen(false);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isCartOpen]);
+
+  const handleOpenMobileMenu = useMemo(() => {
+    return () => setMobileMenuOpen(true);
+  }, []);
+
+  const handleCloseMobileMenu = useMemo(() => {
+    return () => setMobileMenuOpen(false);
+  }, []);
+
+  const handleToggleCart = useCallback(() => {
+    // If parent controls cart, delegate. Otherwise open local drawer.
+    if (typeof onToggleCart === "function") {
+      onToggleCart();
+      return;
+    }
+    setIsCartOpen(true);
+  }, [onToggleCart]);
+
+  const handleCloseCart = useCallback(() => setIsCartOpen(false), []);
 
   return (
-    <header
-      className={headerClassName}
-      style={
-        headerMode === "nav"
-          ? { backdropFilter: "blur(12px) saturate(150%)" }
-          : { backdropFilter: "none" }
-      }
-    >
-      <Navbar
-        variant={headerMode}
-        categories={categories}
-        onOpenMobileMenu={openMobileMenu}
-        onToggleCart={toggleCart}
-        cartCount={totalItems}
-      />
+    <header className="fixed left-0 right-0 top-0 z-[80]">
+      {/*
+        Background strip:
+        - Top of page: solid black
+        - Scrolled: translucent + blur (liquid glass)
+      */}
+      <div
+        className={
+          "w-full border-b transition-all duration-300 " +
+          (isScrolled
+            ? "border-white/10 bg-zinc-950/45 shadow-[0_10px_30px_rgba(0,0,0,0.35)] backdrop-blur-2xl backdrop-saturate-150"
+            : "border-transparent bg-black")
+        }
+        style={
+          isScrolled
+            ? {
+                WebkitBackdropFilter: "blur(18px) saturate(1.4)",
+                backdropFilter: "blur(18px) saturate(1.4)",
+              }
+            : undefined
+        }
+      >
+        {/* Cart badge styling is handled inside Navbar.tsx */}
+        <Navbar
+          variant="nav"
+          navDepartments={navDepartments}
+          categories={categories}
+          cartCount={effectiveCartCount}
+          onOpenMobileMenu={handleOpenMobileMenu}
+          onToggleCart={handleToggleCart}
+        />
+      </div>
 
-      <MobileMenu
-        categories={categories}
-        rendered={mobileRendered}
-        open={mobileOpen}
-        onClose={closeMobileMenu}
-        brandLabel="Kame.col"
-        categoryBasePath="/categoria"
-      />
+      {/* Spacer so the fixed header doesn't cover the page content */}
+      <div aria-hidden className="h-12 md:h-14" />
+
+      {/*
+        Mobile menu container.
+        If you already have a MobileMenu component, replace this block with it.
+        Contract:
+          - Show when `mobileMenuOpen` is true.
+          - Provide a close button that calls `handleCloseMobileMenu`.
+          - The element id must match Navbar aria-controls="mobile-menu".
+      */}
+      {mobileMenuOpen ? (
+        <div id="mobile-menu" className="fixed inset-0 z-[60] md:hidden" role="dialog" aria-modal="true">
+          {/* Backdrop */}
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/60"
+            aria-label="Cerrar menú"
+            onClick={handleCloseMobileMenu}
+          />
+
+          {/* Panel */}
+          <div className="absolute left-0 top-0 h-full w-[86%] max-w-[360px] border-r border-white/10 bg-zinc-950/95 backdrop-blur-xl">
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 pb-3 pt-4">
+              <div className="text-sm font-extrabold uppercase tracking-[0.22em] text-white">Kame.col</div>
+              <button
+                type="button"
+                onClick={handleCloseMobileMenu}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-white/80 hover:bg-white/10 hover:text-white"
+                aria-label="Cerrar"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Tabs + list */}
+            <MobileMenuContent
+              navDepartments={navDepartments}
+              categories={categories}
+              onNavigate={handleCloseMobileMenu}
+            />
+          </div>
+        </div>
+      ) : null}
+
+      {/* MiniCart drawer (always mounted; controlled via state) */}
+      <MiniCart open={isCartOpen} onClose={handleCloseCart} />
     </header>
   );
 }
-
-export default Header;

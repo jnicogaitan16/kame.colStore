@@ -1,8 +1,7 @@
-
-
 "use client";
 
 import Link from "next/link";
+import { categoryPath } from "@/lib/routes";
 import { useEffect, useState } from "react";
 
 type Category = { id: number; name: string; slug: string };
@@ -35,7 +34,7 @@ export default function CategoryMenuClient({ onNavigate }: Props) {
       {categories.map((c) => (
         <Link
           key={c.id}
-          href={`/categoria/${c.slug}`}
+          href={categoryPath(c.slug)}
           onClick={onNavigate}
           className="hover:opacity-80"
         >

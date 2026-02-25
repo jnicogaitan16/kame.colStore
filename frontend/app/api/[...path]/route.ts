@@ -1,7 +1,7 @@
 // frontend/app/api/[...path]/route.ts
 // Catch-all API proxy for /api/*
 // Forwards any request to `${DJANGO_API_BASE}/api/*`.
-// IMPORTANT: Always add trailing slash to match DRF endpoints (you have APPEND_SLASH=False).
+// IMPORTANT: This proxy enforces trailing slashes to match DRF endpoints (APPEND_SLASH=False).
 
 const buildTargetUrl = (req: Request, params: { path?: string[] }) => {
   const base = (process.env.DJANGO_API_BASE || "").replace(/\/$/, "");
@@ -12,13 +12,11 @@ const buildTargetUrl = (req: Request, params: { path?: string[] }) => {
 
   const incoming = new URL(req.url);
 
-  // Preserve trailing slash from the incoming request.
-  // Some endpoints may be defined with or without trailing slashes.
-  const incomingHasTrailingSlash = incoming.pathname.endsWith("/");
-
+  // DRF endpoints in this project expect a trailing slash (APPEND_SLASH=False).
+  // Force trailing slash so both /api/foo and /api/foo/ from the frontend work.
   // Avoid double slashes when path is empty.
   const targetPath = path ? `${base}/api/${path}` : `${base}/api`;
-  const target = new URL(incomingHasTrailingSlash ? `${targetPath}/` : targetPath);
+  const target = new URL(`${targetPath}/`);
 
   // Preserve querystring exactly
   target.search = incoming.search;
