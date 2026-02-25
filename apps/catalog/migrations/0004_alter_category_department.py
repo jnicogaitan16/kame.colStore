@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('catalog', '0003_department_inventorypool_alter_category_options_and_more'),
+    ('catalog', '0003b_backfill_category_department'),
     ]
 
     operations = [
