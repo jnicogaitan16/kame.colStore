@@ -125,6 +125,99 @@ const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "/api").replace(/\/$/, "");
 const DJANGO_BASE = (process.env.DJANGO_API_BASE || "").replace(/\/$/, "");
 const SERVER_API_BASE = DJANGO_BASE ? `${DJANGO_BASE}/api` : "";
 
+// =============================
+// Media URL helpers (absolute URLs everywhere)
+// =============================
+export function normalizeMediaUrl(src?: string | null) {
+  const s = String(src || "").trim();
+  if (!s) return "";
+
+  // already absolute
+  if (s.startsWith("http://") || s.startsWith("https://")) return s;
+
+  // protocol-relative
+  if (s.startsWith("//")) return `https:${s}`;
+
+  // Normalize to a leading-slash relative path
+  const rel = s.startsWith("/") ? s : `/${s}`;
+
+  // If backend sends /media/... paths, route through Next proxy (/api) so it works on localhost:3000
+  // and in environments where the browser must stay same-origin.
+  if (rel.startsWith("/media/")) {
+    // API_BASE is usually "/api" in the browser. If it's an absolute URL, it still works (https://.../api + /media/...).
+    const base = (API_BASE || "/api").replace(/\/$/, "");
+    return `${base}${rel}`;
+  }
+
+  // Other relative paths: try to make absolute using known envs (if present)
+  const base =
+    (process.env.NEXT_PUBLIC_BACKEND_URL || "").replace(/\/$/, "") ||
+    (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "") ||
+    "";
+
+  // if no base, keep it relative (dev proxy / same-origin)
+  if (!base) return rel;
+
+  return `${base}${rel}`;
+}
+
+export function getPrimaryImageUrl(product: any) {
+  // Support multiple shapes:
+  // - images: string[]
+  // - images: [{url}] or [{image}] or [{src}] or [{image_url}] or thumbs
+  // - legacy fields: image_url | main_image | image | thumbnail | primary_image | thumb_url
+  const images = (product as any)?.images;
+
+  const fromImages = (() => {
+    if (!images) return "";
+
+    // images: string[]
+    if (Array.isArray(images)) {
+      if (!images.length) return "";
+      const first = images[0];
+
+      if (typeof first === "string") return first;
+
+      // images: [{...}]
+      if (first && typeof first === "object") {
+        const o: any = first;
+        return (
+          o.url ||
+          o.image ||
+          o.src ||
+          o.image_url ||
+          o.thumb_url ||
+          o.thumbnail ||
+          o.thumb ||
+          ""
+        );
+      }
+
+      return "";
+    }
+
+    // images: {url: ...} (rare but safe)
+    if (images && typeof images === "object") {
+      const o: any = images;
+      return o.url || o.image || o.src || o.image_url || o.thumb_url || o.thumbnail || o.thumb || "";
+    }
+
+    return "";
+  })();
+
+  const legacy =
+    (product as any)?.image_url ||
+    (product as any)?.main_image ||
+    (product as any)?.primary_image ||
+    (product as any)?.image ||
+    (product as any)?.thumbnail ||
+    (product as any)?.thumb_url ||
+    (product as any)?.thumb ||
+    "";
+
+  return normalizeMediaUrl(fromImages || legacy || "");
+}
+
 const getCookie = (name: string): string | null => {
   if (typeof document === "undefined") return null;
   const match = document.cookie

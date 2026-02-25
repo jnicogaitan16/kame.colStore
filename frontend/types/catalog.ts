@@ -59,6 +59,10 @@ export interface Product {
   category: Category;
 
   primary_image: string | null;
+  // Fuente de verdad para imágenes en todo el front
+  images?: ProductImage[];
+  // Legacy opcional (si algún endpoint aún lo envía)
+  image_url?: string | null;
   is_active: boolean;
 }
 
@@ -67,13 +71,9 @@ export interface Product {
 // =============================
 
 export interface ProductImage {
-  id: number;
-  url: string | null;
-  thumb_url: string | null;
-  alt_text: string;
-  is_primary: boolean;
-  sort_order: number;
-  created_at?: string;
+  id?: number;
+  url: string;            // <- CLAVE: fuente de verdad
+  alt?: string | null;
 }
 
 // =============================

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { productPath } from "@/lib/routes";
 import type { Product } from "@/types/catalog";
 import SoldOutBadge from "@/components/badges/SoldOutBadge";
+import { getPrimaryImageUrl } from "@/lib/api";
 
 interface ProductCardProps {
   product: Product;
@@ -12,6 +13,7 @@ export function ProductCard({ product }: ProductCardProps) {
   const soldOut = product.sold_out === true;
 
   const categoryName = (product as any)?.category?.name ?? "";
+  const img = getPrimaryImageUrl(product as any);
 
   return (
     <Link
@@ -21,9 +23,9 @@ export function ProductCard({ product }: ProductCardProps) {
       <div className="relative aspect-square w-full overflow-hidden product-media-surface">
         <SoldOutBadge show={soldOut} variant="card" />
 
-        {product.primary_image ? (
+        {img ? (
           <img
-            src={product.primary_image}
+            src={img}
             alt={product.name}
             loading="lazy"
             decoding="async"

@@ -6,6 +6,7 @@ import { useCartStore } from "@/store/cart";
 import { Button } from "@/components/ui/Button";
 import Notice from "@/components/ui/Notice";
 import { productPath } from "@/lib/routes";
+import { getPrimaryImageUrl } from "@/lib/api";
 
 type MiniCartProps = {
   open?: boolean;
@@ -93,20 +94,26 @@ function MiniCart({ open, onClose }: MiniCartProps) {
               {items.map((item) => (
                 <li key={item.variantId} className="px-5 py-4 flex gap-3 border-b border-white/5">
                   <div className="relative w-16 h-16 shrink-0 overflow-hidden product-media-surface">
-                    {item.imageUrl ? (
-                      <img
-                        src={item.imageUrl}
-                        alt={item.productName}
-                        loading="lazy"
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-full items-center justify-center text-white/40">
-                        <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14" />
-                        </svg>
-                      </div>
-                    )}
+                    {(() => {
+                      const p: any = (item as any)?.product || item;
+                      const thumb = getPrimaryImageUrl(p) || getPrimaryImageUrl((item as any)?.product) || (item as any)?.imageUrl || "";
+                      const alt = p?.name || (item as any)?.productName || "Producto";
+
+                      return thumb ? (
+                        <img
+                          src={thumb}
+                          alt={alt}
+                          loading="lazy"
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center text-white/40">
+                          <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14" />
+                          </svg>
+                        </div>
+                      );
+                    })()}
                   </div>
                   <div className="min-w-0 flex-1">
                     <Link
