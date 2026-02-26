@@ -5,6 +5,7 @@ import { Swiper, SwiperSlide } from "swiper/react";
 import { Pagination } from "swiper/modules";
 import type { Swiper as SwiperType } from "swiper";
 import type { ProductImage as ProductImageType } from "@/types/catalog";
+import { normalizeMediaUrl } from "@/lib/api";
 import SoldOutBadge from "@/components/badges/SoldOutBadge";
 import "swiper/css";
 import "swiper/css/pagination";
@@ -19,7 +20,19 @@ interface ProductGalleryProps {
 export function ProductGallery({ images, productName, soldOut = false }: ProductGalleryProps) {
   const slides = useMemo(() => {
     if (!images?.length) return [];
-    return images.filter((img) => img.url);
+
+    return images
+      .map((img) => {
+        const url = img?.url ? normalizeMediaUrl(img.url) : "";
+        const thumb = (img?.thumb_url ?? img?.url) ? normalizeMediaUrl(img.thumb_url ?? img.url) : "";
+        return {
+          ...img,
+          url,
+          // ensure we always have a usable thumb
+          thumb_url: thumb || url,
+        };
+      })
+      .filter((img) => Boolean(img.url));
   }, [images]);
 
   const [activeIndex, setActiveIndex] = useState(0);

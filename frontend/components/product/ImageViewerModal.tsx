@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useEffect, useMemo } from "react";
-import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Swiper, SwiperSlide } from "swiper/react";
+import type { Swiper as SwiperType } from "swiper";
 
 type ImageViewerModalProps = {
   open: boolean;
@@ -29,10 +30,22 @@ export default function ImageViewerModal({
     return Math.min(Math.max(index, 0), total - 1);
   }, [index, total]);
 
-  const current = images?.[safeIndex];
+  const swiperRef = useRef<SwiperType | null>(null);
+  const [active, setActive] = useState<number>(safeIndex);
 
-  const canPrev = safeIndex > 0;
-  const canNext = safeIndex < total - 1;
+  // Keep local active index aligned with controlled index
+  useEffect(() => {
+    if (!open) return;
+    setActive(safeIndex);
+  }, [open, safeIndex]);
+
+  // If parent changes index, sync Swiper
+  useEffect(() => {
+    if (!open) return;
+    const s = swiperRef.current;
+    if (!s) return;
+    if (s.activeIndex !== safeIndex) s.slideTo(safeIndex, 0);
+  }, [open, safeIndex]);
 
   useEffect(() => {
     if (!open) return;
@@ -42,8 +55,6 @@ export default function ImageViewerModal({
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
-      if (e.key === "ArrowLeft" && canPrev) setIndex(safeIndex - 1);
-      if (e.key === "ArrowRight" && canNext) setIndex(safeIndex + 1);
     };
 
     window.addEventListener("keydown", onKey);
@@ -52,108 +63,77 @@ export default function ImageViewerModal({
       document.body.style.overflow = prev;
       window.removeEventListener("keydown", onKey);
     };
-  }, [open, onClose, safeIndex, setIndex, canPrev, canNext]);
+  }, [open, onClose]);
 
-  if (!open || !current) return null;
+  if (!open || !total) return null;
 
   return (
-    <div className="fixed inset-0 z-[200]">
-      {/* Overlay (click to close) */}
-      <button
-        type="button"
-        className="absolute inset-0 bg-black/80"
-        onClick={onClose}
-        aria-label="Cerrar visor"
-      />
-
-      {/* Top bar */}
-      <div className="absolute left-0 right-0 top-0 z-[210] flex items-center justify-between px-4 pt-[calc(env(safe-area-inset-top)+12px)]">
+    <div className="fixed inset-0 z-[200] bg-black">
+      {/* Close button (minimal, no header bar) */}
+      <div className="absolute right-4 z-[210] pt-[calc(env(safe-area-inset-top)+12px)]">
         <button
           type="button"
           onClick={onClose}
-          className="h-10 w-10 rounded-full border border-white/10 bg-white/5 text-white/80 backdrop-blur-xl hover:bg-white/10"
-          aria-label="Cerrar"
+          className="p-2 text-white/70 hover:text-white/90 transition-colors"
+          aria-label="Cerrar visor de imagen"
         >
-          ✕
+          <span aria-hidden="true" className="text-xl font-light leading-none">×</span>
         </button>
-
-        <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/80 backdrop-blur-xl">
-          {safeIndex + 1}/{total}
-        </div>
-
-        {/* spacer for visual balance */}
-        <div className="h-10 w-10" />
       </div>
 
-      {/* Arrows */}
-      {total > 1 ? (
-        <>
-          <button
-            type="button"
-            disabled={!canPrev}
-            onClick={() => canPrev && setIndex(safeIndex - 1)}
-            className={[
-              "absolute left-3 top-1/2 z-[210] -translate-y-1/2",
-              "h-11 w-11 rounded-full border border-white/10 bg-white/5 text-white/80 backdrop-blur-xl",
-              "hover:bg-white/10 transition",
-              !canPrev ? "opacity-30 pointer-events-none" : "",
-            ].join(" ")}
-            aria-label="Anterior"
-          >
-            ‹
-          </button>
-
-          <button
-            type="button"
-            disabled={!canNext}
-            onClick={() => canNext && setIndex(safeIndex + 1)}
-            className={[
-              "absolute right-3 top-1/2 z-[210] -translate-y-1/2",
-              "h-11 w-11 rounded-full border border-white/10 bg-white/5 text-white/80 backdrop-blur-xl",
-              "hover:bg-white/10 transition",
-              !canNext ? "opacity-30 pointer-events-none" : "",
-            ].join(" ")}
-            aria-label="Siguiente"
-          >
-            ›
-          </button>
-        </>
-      ) : null}
-
-      {/* Zoom canvas */}
-      <div className="absolute inset-0 z-[205] flex items-center justify-center px-3 pb-[calc(env(safe-area-inset-bottom)+18px)] pt-[calc(env(safe-area-inset-top)+56px)]">
-        <div className="h-full w-full">
-          <TransformWrapper
-            initialScale={1}
-            minScale={1}
-            maxScale={4}
-            centerOnInit
-            wheel={{ step: 0.12 }}
-            doubleClick={{ mode: "zoomIn" }}
-            pinch={{ step: 5 }}
-            panning={{ velocityDisabled: true }}
-            limitToBounds
-          >
-            <TransformComponent wrapperClass="!w-full !h-full" contentClass="!w-full !h-full">
-              <div className="flex h-full w-full items-center justify-center">
+      {/* Swipe gallery */}
+      <div className="absolute inset-0 z-[205] pt-[calc(env(safe-area-inset-top)+56px)] pb-[calc(env(safe-area-inset-bottom)+24px)]">
+        <Swiper
+          key={`viewer-${total}`}
+          initialSlide={safeIndex}
+          slidesPerView={1}
+          spaceBetween={0}
+          onSwiper={(s) => {
+            swiperRef.current = s;
+          }}
+          onSlideChange={(s) => {
+            const i = s.activeIndex;
+            setActive(i);
+            setIndex(i);
+          }}
+          style={{ height: "100%" }}
+        >
+          {images.map((img, idx) => (
+            <SwiperSlide key={`${img.url}-${idx}`}>
+              <div className="flex h-full w-full items-center justify-center px-3">
                 <img
-                  src={current.url}
-                  alt={current.alt || "Imagen producto"}
+                  src={img.url}
+                  alt={img.alt || "Imagen producto"}
                   className="max-h-full max-w-full select-none object-contain"
                   draggable={false}
                 />
               </div>
-            </TransformComponent>
-          </TransformWrapper>
-        </div>
+            </SwiperSlide>
+          ))}
+        </Swiper>
       </div>
 
-      {/* Bottom hint */}
-      <div className="absolute bottom-4 left-0 right-0 z-[210] flex justify-center">
-        <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/60 backdrop-blur-xl">
-          Pellizca para zoom • Arrastra para mover • Doble toque para acercar
+      {/* Dots */}
+      {total > 1 ? (
+        <div className="absolute bottom-5 left-0 right-0 z-[210] flex justify-center gap-2">
+          {images.map((_, idx) => {
+            const isActive = idx === active;
+            return (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => swiperRef.current?.slideTo(idx)}
+                className={
+                  isActive
+                    ? "h-2 w-2 rounded-full bg-cyan-400"
+                    : "h-2 w-2 rounded-full bg-white/20"
+                }
+                aria-label={`Ir a imagen ${idx + 1}`}
+              />
+            );
+          })}
         </div>
-      </div>
+      ) : null}
     </div>
   );
 }
