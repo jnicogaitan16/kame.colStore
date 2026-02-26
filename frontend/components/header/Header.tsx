@@ -260,13 +260,13 @@ export default function Header({
           {/* Backdrop */}
           <button
             type="button"
-            className="absolute inset-0 bg-black/60"
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
             aria-label="Cerrar menú"
             onClick={handleCloseMobileMenu}
           />
 
           {/* Panel */}
-          <div className="absolute left-0 top-0 h-full w-[86%] max-w-[360px] border-r border-white/10 bg-zinc-950/95 backdrop-blur-xl">
+          <div className="absolute left-0 top-0 h-full w-[86%] max-w-[360px] drawer-glass border-r border-white/10">
             {/* Header */}
             <div className="flex items-center justify-between px-4 pb-3 pt-4">
               <div className="text-sm font-extrabold uppercase tracking-[0.22em] text-white">Kame.col</div>

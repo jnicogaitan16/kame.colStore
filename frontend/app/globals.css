@@ -437,3 +437,31 @@ html {
   border: 1px solid rgba(255, 255, 255, 0.04);
   border-radius: 1rem;
 }
+
+/* ============================= */
+/* DRAWER GLASS SYSTEM (Global) */
+/* ============================= */
+
+.drawer-glass {
+  background: rgba(0, 0, 0, 0.45);
+
+  border: 1px solid rgba(255, 255, 255, 0.10);
+
+  backdrop-filter: blur(22px) saturate(1.4);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4);
+
+  box-shadow:
+    0 28px 80px rgba(0, 0, 0, 0.65);
+
+  will-change: backdrop-filter, transform;
+}
+
+/* Footer section inside drawers */
+.drawer-glass-footer {
+  background: rgba(0, 0, 0, 0.45);
+
+  backdrop-filter: blur(22px) saturate(1.4);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4);
+
+  border-top: 1px solid rgba(255, 255, 255, 0.10);
+}
