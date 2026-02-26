@@ -54,24 +54,26 @@ export default function MobileMenu({ categories }: Props) {
 
               {/* Panel centrado (con scroll si hace falta) */}
               <div
-                className="w-full max-w-sm max-h-[80vh] overflow-y-auto rounded-xl bg-black/85 px-6 py-10 shadow-2xl"
+                className="relative w-full max-w-[420px] overflow-hidden rounded-2xl drawer-glass transition-[opacity,transform] duration-200 ease-out"
                 onClick={(e) => e.stopPropagation()}
               >
-                <nav
-                  className="flex flex-col items-center gap-6 text-center text-lg font-semibold tracking-widest text-white"
-                  aria-label="Categorías"
-                >
-                  {categories.map((c) => (
-                    <Link
-                      key={c.id}
-                      href={`/categoria/${c.slug}`}
-                      onClick={() => setOpen(false)}
-                      className="hover:opacity-80"
-                    >
-                      {String(c.name).toUpperCase()}
-                    </Link>
-                  ))}
-                </nav>
+                <div className="max-h-[80vh] overflow-y-auto px-6 py-10">
+                  <nav
+                    className="flex flex-col items-center gap-6 text-center text-lg font-semibold tracking-widest text-white"
+                    aria-label="Categorías"
+                  >
+                    {categories.map((c) => (
+                      <Link
+                        key={c.id}
+                        href={`/categoria/${c.slug}`}
+                        onClick={() => setOpen(false)}
+                        className="hover:opacity-80"
+                      >
+                        {String(c.name).toUpperCase()}
+                      </Link>
+                    ))}
+                  </nav>
+                </div>
               </div>
             </div>,
             document.body

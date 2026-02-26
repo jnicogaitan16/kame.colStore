@@ -243,7 +243,7 @@ function MiniCart({ open, onClose }: MiniCartProps) {
           )}
         </div>
         {items.length > 0 && (
-          <div className="mt-auto px-5 py-5 border-t border-white/10 bg-black/45 backdrop-blur-2xl text-neutral-100">
+          <div className="mt-auto px-5 py-5 border-t border-white/10 drawer-glass-footer text-neutral-100">
             <div className="mb-4 flex items-baseline justify-between text-sm text-white/70">
               <span>Total</span>
               <span className="text-white font-semibold text-base">${totalAmount().toLocaleString("es-CO")}</span>
