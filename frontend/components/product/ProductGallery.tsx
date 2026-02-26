@@ -8,6 +8,7 @@ import type { ProductImage as ProductImageType } from "@/types/catalog";
 import SoldOutBadge from "@/components/badges/SoldOutBadge";
 import "swiper/css";
 import "swiper/css/pagination";
+import ImageViewerModal from "@/components/product/ImageViewerModal";
 
 interface ProductGalleryProps {
   images: ProductImageType[];
@@ -31,36 +32,6 @@ export function ProductGallery({ images, productName, soldOut = false }: Product
   }, []);
 
   const closeLightbox = useCallback(() => setLightboxOpen(false), []);
-
-  const goPrev = useCallback(() => {
-    setLightboxIndex((i) => (i - 1 + slides.length) % slides.length);
-  }, [slides.length]);
-
-  const goNext = useCallback(() => {
-    setLightboxIndex((i) => (i + 1) % slides.length);
-  }, [slides.length]);
-
-  useEffect(() => {
-    if (!lightboxOpen) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [lightboxOpen]);
-
-  useEffect(() => {
-    if (!lightboxOpen) return;
-
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeLightbox();
-      if (e.key === "ArrowLeft") goPrev();
-      if (e.key === "ArrowRight") goNext();
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [lightboxOpen, closeLightbox, goPrev, goNext]);
 
   if (slides.length === 0) {
     return (
@@ -115,74 +86,16 @@ export function ProductGallery({ images, productName, soldOut = false }: Product
           </SwiperSlide>
         ))}
       </Swiper>
-      {lightboxOpen && slides.length > 0 && (
-        <div
-          className="fixed inset-0 z-[100] bg-black/90"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Imagen en pantalla completa"
-          onClick={closeLightbox}
-        >
-          <div className="absolute inset-0 flex items-center justify-center px-4">
-            <div className="relative w-full max-w-5xl" onClick={(e) => e.stopPropagation()}>
-              <button
-                type="button"
-                onClick={closeLightbox}
-                className="absolute left-3 top-3 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/40 text-white hover:bg-black/55"
-                aria-label="Cerrar"
-              >
-                ×
-              </button>
-
-              {slides.length > 1 && (
-                <>
-                  <button
-                    type="button"
-                    onClick={goPrev}
-                    className="absolute left-2 top-1/2 z-10 -translate-y-1/2 inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/40 text-white hover:bg-black/55"
-                    aria-label="Anterior"
-                  >
-                    ‹
-                  </button>
-                  <button
-                    type="button"
-                    onClick={goNext}
-                    className="absolute right-2 top-1/2 z-10 -translate-y-1/2 inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/40 text-white hover:bg-black/55"
-                    aria-label="Siguiente"
-                  >
-                    ›
-                  </button>
-                </>
-              )}
-
-              <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-white/10 bg-black">
-                {(() => {
-                  const img = slides[lightboxIndex];
-                  const baseSrc = (img?.thumb_url ?? img?.url) || null;
-                  const src = baseSrc ? `${baseSrc}?v=${lightboxIndex}` : null;
-                  if (!src) return null;
-
-                  const alt = img?.alt_text ?? productName ?? "Producto";
-
-                  return (
-                    <img
-                      src={src}
-                      alt={alt}
-                      decoding="async"
-                      className="h-full w-full object-contain"
-                      draggable={false}
-                    />
-                  );
-                })()}
-              </div>
-
-              <div className="mt-3 text-center text-xs text-white/70">
-                {lightboxIndex + 1}/{slides.length}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <ImageViewerModal
+        open={lightboxOpen && slides.length > 0}
+        onClose={closeLightbox}
+        images={slides.map((img) => ({
+          url: img.url,
+          alt: img.alt_text ?? productName ?? "Producto",
+        }))}
+        index={lightboxIndex}
+        setIndex={setLightboxIndex}
+      />
       <style jsx global>{`
         .k-gallery-swiper .swiper-pagination {
           bottom: 12px;
