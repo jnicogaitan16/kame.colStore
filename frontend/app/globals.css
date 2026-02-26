@@ -457,6 +457,7 @@ html {
 }
 
 /* Footer section inside drawers */
+
 .drawer-glass-footer {
   background: rgba(0, 0, 0, 0.45);
 
@@ -464,6 +465,17 @@ html {
   -webkit-backdrop-filter: blur(22px) saturate(1.4);
 
   border-top: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+/* ============================= */
+/* VIEWER GLASS SYSTEM (Global) */
+/* ============================= */
+
+.viewer-glass {
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
 }
 
 /* =========================

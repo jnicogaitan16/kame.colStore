@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { getPrimaryImageUrl } from "@/lib/api";
+import { getPrimaryImageUrl, normalizeMediaUrl } from "@/lib/api";
 
 import { useCartStore } from "@/store/cart";
 import { ProductGallery } from "@/components/product/ProductGallery";
@@ -276,41 +276,43 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
       .map((img: any) => {
         // Case 1: already a URL string
         if (typeof img === "string") {
-          const u = img.trim();
-          return u ? { url: u, thumb_url: u } : null;
+          const raw = img.trim();
+          if (!raw) return null;
+          const url = normalizeMediaUrl(raw);
+          if (!url) return null;
+          return { url, thumb_url: url };
         }
 
         // Case 2: object with different possible keys
         if (img && typeof img === "object") {
-          const url = (img.url || img.image || img.src || img.image_url || "").toString().trim();
+          const rawUrl = (img.url || img.image || img.src || img.image_url || "").toString().trim();
 
-          const thumb = (
+          const rawThumb = (
             img.thumb_url ||
             img.image_thumb ||
             img.thumbnail ||
             img.thumb ||
             img.thumbUrl ||
-            url
+            rawUrl
           )
             .toString()
             .trim();
 
-          const altTextRaw = (
-            img.alt_text ||
-            img.altText ||
-            img.alt ||
-            ""
-          )
-            .toString()
-            .trim();
+          const altTextRaw = (img.alt_text || img.altText || img.alt || "").toString().trim();
 
+          if (!rawUrl) return null;
+
+          const url = normalizeMediaUrl(rawUrl);
           if (!url) return null;
+
+          const thumbNorm = normalizeMediaUrl(rawThumb || rawUrl);
+          const thumb_url = thumbNorm || url;
 
           // Ensure we always return the ProductImage-ish contract
           return {
             ...img,
             url,
-            thumb_url: thumb || url,
+            thumb_url,
             alt_text: altTextRaw || null,
           };
         }
