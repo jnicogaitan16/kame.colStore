@@ -1,64 +1,43 @@
 import Link from "next/link";
 import { productPath } from "@/lib/routes";
-import type { Product } from "@/types/catalog";
-import SoldOutBadge from "@/components/badges/SoldOutBadge";
 import { getPrimaryImageUrl } from "@/lib/api";
 
 interface ProductCardProps {
-  product: Product;
+  product: any;
 }
 
 export function ProductCard({ product }: ProductCardProps) {
-  // Fuente de verdad (backend): usar sold_out estrictamente.
-  const soldOut = product.sold_out === true;
+  const img = getPrimaryImageUrl(product as any) || "";
 
-  const categoryName = (product as any)?.category?.name ?? "";
-  const img = getPrimaryImageUrl(product as any);
+  const name = (product as any)?.name ?? "";
+  const price = (product as any)?.price ?? "0";
+  const slug = (product as any)?.slug ?? "";
 
   return (
-    <Link
-      href={productPath(product.slug)}
-      className="group bg-neutral-900 card-surface border border-white/10 rounded-2xl elevation-soft transition will-change-transform hover:border-white/20 hover:-translate-y-[1px]"
-    >
-      <div className="relative aspect-square w-full overflow-hidden product-media-surface">
-        <SoldOutBadge show={soldOut} variant="card" />
-
+    <Link href={productPath(slug)} className="block card-premium">
+      {/* Media FULL-BLEED */}
+      <div className="relative card-premium-media card-premium-ratio">
         {img ? (
           <img
             src={img}
-            alt={product.name}
+            alt={name}
             loading="lazy"
             decoding="async"
-            className="h-full w-full object-cover transition group-hover:scale-105"
+            className="card-premium-img"
           />
         ) : (
-          <div className="flex h-full items-center justify-center text-slate-300">
-            <svg className="h-16 w-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14"
-              />
-            </svg>
+          <div className="absolute inset-0 flex items-center justify-center text-white/20">
+            <span className="text-xs tracking-[0.2em] uppercase">Kame.col</span>
           </div>
         )}
       </div>
 
-      <div className="p-3 md:p-4">
-        {categoryName ? (
-          <span className="inline-flex items-center rounded-full bg-white/5 border border-white/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-widest text-neutral-300">
-            {categoryName}
-          </span>
-        ) : null}
-
-        <h3 className="mt-2 text-[15px] md:text-base font-semibold leading-snug text-neutral-100 line-clamp-2 group-hover:text-white">
-          {product.name}
-        </h3>
-
-        <p className="mt-2 text-xl font-semibold text-cyan-300 transition-colors group-hover:text-cyan-200">
-          ${parseFloat(product.price).toLocaleString("es-CO")}
-        </p>
+      {/* Meta */}
+      <div className="card-premium-meta">
+        <div className="card-premium-name">{name}</div>
+        <div className="card-premium-price">
+          ${Number(price).toLocaleString("es-CO")}
+        </div>
       </div>
     </Link>
   );
