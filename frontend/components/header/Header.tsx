@@ -38,10 +38,12 @@ function MobileMenuContent({
   navDepartments,
   categories,
   onNavigate,
+  isOpen,
 }: {
   navDepartments?: NavbarNavDepartment[];
   categories?: NavbarCategory[];
   onNavigate: () => void;
+  isOpen: boolean;
 }) {
   const orderedDepts = useMemo(() => {
     const depts: NavbarNavDepartment[] = Array.isArray(navDepartments) ? navDepartments : [];
@@ -53,22 +55,18 @@ function MobileMenuContent({
     });
   }, [navDepartments]);
 
-  const initialDeptSlug =
-    orderedDepts.find((d) => d.slug === "mujer")?.slug ||
-    orderedDepts.find((d) => d.slug === "hombre")?.slug ||
-    orderedDepts[0]?.slug ||
-    "";
+  const [activeDeptSlug, setActiveDeptSlug] = useState<string | null>(null);
 
-  const [activeDeptSlug, setActiveDeptSlug] = useState<string>(initialDeptSlug);
-
+  // Optional reset on close (keeps UX: open -> no selection)
   useEffect(() => {
-    if (!activeDeptSlug && initialDeptSlug) setActiveDeptSlug(initialDeptSlug);
-  }, [activeDeptSlug, initialDeptSlug]);
+    if (!isOpen) setActiveDeptSlug(null);
+  }, [isOpen]);
 
-  const activeDept = orderedDepts.find((d) => d.slug === activeDeptSlug) || orderedDepts[0];
+  const activeDept = activeDeptSlug ? orderedDepts.find((d) => d.slug === activeDeptSlug) : undefined;
 
   const deptCategories = useMemo(() => {
-    const raw = Array.isArray(activeDept?.categories) ? activeDept!.categories : [];
+    if (!activeDept) return [];
+    const raw = Array.isArray(activeDept.categories) ? activeDept.categories : [];
     return [...raw].sort((a, b) => {
       const ao = typeof a.sort_order === "number" ? a.sort_order : 0;
       const bo = typeof b.sort_order === "number" ? b.sort_order : 0;
@@ -83,10 +81,10 @@ function MobileMenuContent({
   }, [categories]);
 
   // Única fuente de verdad de rutas
-  const categoryHref = (slug: string) => categoryPath(slug, activeDeptSlug || undefined);
+  const categoryHref = (slug: string) => categoryPath(slug, activeDeptSlug ?? undefined);
 
   const showDeptNav = orderedDepts.length > 0;
-  const showList = showDeptNav ? deptCategories : flatCategories;
+  const showList = showDeptNav ? (activeDeptSlug ? deptCategories : []) : flatCategories;
 
   return (
     <div className="px-4 pb-6">
@@ -131,7 +129,9 @@ function MobileMenuContent({
             </li>
           ))
         ) : (
-          <li className="py-3 text-[14px] font-medium text-white/70">Menú no disponible.</li>
+          <li className="py-3 text-[14px] font-medium text-white/70">
+            {showDeptNav ? "Selecciona una sección para ver categorías." : "Menú no disponible."}
+          </li>
         )}
       </ul>
     </div>
@@ -285,6 +285,7 @@ export default function Header({
               navDepartments={navDepartments}
               categories={categories}
               onNavigate={handleCloseMobileMenu}
+              isOpen={mobileMenuOpen}
             />
           </div>
         </div>
