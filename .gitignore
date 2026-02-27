@@ -15,3 +15,5 @@ logs/
 frontend/node_modules/
 frontend/.next/
 frontend/.env.local
+# deps
+node_modules/
