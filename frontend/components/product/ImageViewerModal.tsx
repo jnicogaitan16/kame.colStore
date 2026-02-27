@@ -3,6 +3,10 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Swiper, SwiperSlide } from "swiper/react";
 import type { Swiper as SwiperType } from "swiper";
+import { Zoom } from "swiper/modules";
+
+import "swiper/css";
+import "swiper/css/zoom";
 
 type ImageViewerModalProps = {
   open: boolean;
@@ -88,6 +92,11 @@ export default function ImageViewerModal({
           initialSlide={safeIndex}
           slidesPerView={1}
           spaceBetween={0}
+          modules={[Zoom]}
+          zoom={{
+            maxRatio: 3,
+            minRatio: 1,
+          }}
           onSwiper={(s) => {
             swiperRef.current = s;
           }}
@@ -101,12 +110,14 @@ export default function ImageViewerModal({
           {images.map((img, idx) => (
             <SwiperSlide key={`${img.url}-${idx}`}>
               <div className="flex h-full w-full items-center justify-center px-3">
-                <img
-                  src={img.url}
-                  alt={img.alt || "Imagen producto"}
-                  className="max-h-full max-w-full select-none object-contain"
-                  draggable={false}
-                />
+                <div className="swiper-zoom-container flex h-full w-full items-center justify-center">
+                  <img
+                    src={img.url}
+                    alt={img.alt || "Imagen producto"}
+                    className="max-h-full max-w-full select-none object-contain"
+                    draggable={false}
+                  />
+                </div>
               </div>
             </SwiperSlide>
           ))}
