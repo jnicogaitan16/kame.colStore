@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 import Navbar, { NavbarCategory, NavbarNavDepartment } from "./Navbar";
 import MiniCart from "@/components/cart/MiniCart";
@@ -146,6 +147,38 @@ export default function Header({
 }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
+
+  const pathname = usePathname();
+
+  useEffect(() => {
+    delete document.documentElement.dataset.routeLoading;
+  }, [pathname]);
+
+  useEffect(() => {
+    const onClickCapture = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+
+      const a = target.closest("a") as HTMLAnchorElement | null;
+      if (!a) return;
+
+      if (a.target && a.target !== "_self") return;
+      if (a.hasAttribute("download")) return;
+      if (!a.href) return;
+
+      const url = new URL(a.href);
+      if (url.origin !== window.location.origin) return;
+
+      // evita hash-only
+      if (url.pathname === window.location.pathname && url.search === window.location.search) return;
+
+      // activa overlay inmediatamente en la página actual
+      document.documentElement.dataset.routeLoading = "1";
+    };
+
+    document.addEventListener("click", onClickCapture, true);
+    return () => document.removeEventListener("click", onClickCapture, true);
+  }, []);
 
   // Source of truth for the bag badge: total items (sum of quantities)
   const storeCartCount = useCartStore((s) =>

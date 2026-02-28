@@ -55,6 +55,15 @@ export default function CatalogoClient() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (loading) document.documentElement.dataset.pageLoading = "1";
+    else delete document.documentElement.dataset.pageLoading;
+
+    return () => {
+      delete document.documentElement.dataset.pageLoading;
+    };
+  }, [loading]);
+
+  useEffect(() => {
     let cancelled = false;
 
     const loadProducts = async () => {
@@ -80,7 +89,7 @@ export default function CatalogoClient() {
   }, []);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-12 md:px-6 md:py-20">
+    <main className={`mx-auto max-w-6xl px-4 py-12 md:px-6 md:py-20 ${loading ? "" : "elegant-enter"}`}>
       <header className="mb-10 md:mb-12">
         <p className="text-xs font-semibold uppercase tracking-widest text-white/50">
           Catálogo
@@ -94,9 +103,7 @@ export default function CatalogoClient() {
       </header>
 
       {loading ? (
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-white/70">
-          Cargando productos...
-        </div>
+        <div className="min-h-[60vh]" aria-hidden="true" />
       ) : error ? (
         <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-6 text-white/80">
           {error}
@@ -118,6 +125,6 @@ export default function CatalogoClient() {
           Volver al inicio
         </Link>
       </div>
-    </div>
+    </main>
   );
 }

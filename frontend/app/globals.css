@@ -533,6 +533,7 @@ html {
   /* clamp elegante como H&M */
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -571,4 +572,133 @@ html {
     transition: none !important;
     transform: none !important;
   }
+}
+
+/* ===============================
+   Premium Circular Loader (Glass overlay)
+=================================*/
+
+.premium-loader-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+
+  /* Match the app glass language (like drawer/cart) */
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+
+  backdrop-filter: blur(22px) saturate(1.4);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4);
+
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.65);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  /* smoother perceived transition */
+  animation: loaderOverlayIn 180ms ease-out both;
+}
+
+@keyframes loaderOverlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.loader-circle {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+
+  border: 6px solid rgba(255, 255, 255, 0.10);
+  border-top: 6px solid rgba(255, 255, 255, 0.95);
+
+  animation: spin 0.9s linear infinite;
+
+  /* subtle premium glow, consistent with accent */
+  box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ===============================
+   Elegant Enter Transition
+=================================*/
+.elegant-enter {
+  animation: elegantEnter 320ms ease-out both;
+}
+
+@keyframes elegantEnter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+/* ===============================
+   Global Route/Page Loading Overlay (Liquid Glass)
+   Toggle:
+     document.documentElement.dataset.routeLoading = "1";
+     delete document.documentElement.dataset.routeLoading;
+
+     document.documentElement.dataset.pageLoading = "1";
+     delete document.documentElement.dataset.pageLoading;
+=================================*/
+
+html[data-route-loading="1"] body::before,
+html[data-page-loading="1"] body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+
+  background: rgba(0, 0, 0, 0.32);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  backdrop-filter: blur(22px) saturate(1.4);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4);
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.60);
+
+  animation: loaderOverlayIn 160ms ease-out both;
+}
+
+html[data-route-loading="1"] body::after,
+html[data-page-loading="1"] body::after {
+  content: "";
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  margin: auto;
+  z-index: 9999;
+
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+
+  border: 6px solid rgba(255, 255, 255, 0.10);
+  border-top: 6px solid rgba(255, 255, 255, 0.95);
+
+  animation: spin 0.9s linear infinite;
+
+  box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+/* Prevent scroll / interactions while loading */
+html[data-route-loading="1"],
+html[data-page-loading="1"] {
+  overflow: hidden;
+}
+
+html[data-route-loading="1"] body,
+html[data-page-loading="1"] body {
+  pointer-events: none;
 }
