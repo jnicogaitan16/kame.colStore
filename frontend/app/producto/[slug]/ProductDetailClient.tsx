@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { useState, useMemo } from "react";
@@ -7,6 +8,7 @@ import { getPrimaryImageUrl, normalizeMediaUrl } from "@/lib/api";
 import { useCartStore } from "@/store/cart";
 import { ProductGallery } from "@/components/product/ProductGallery";
 import { Button } from "@/components/ui/Button";
+import ShareButton from "@/components/ui/ShareButton";
 import SizeGuideDrawer from "@/components/product/SizeGuideDrawer";
 
 import type { ProductDetail, ProductVariant } from "@/types/catalog";
@@ -103,6 +105,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
   const [detailsExpanded, setDetailsExpanded] = useState(false);
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
 
+
   const resolveSizeGuideKey = (slug?: string) => {
     if (!slug) return null;
 
@@ -120,12 +123,9 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
       type="button"
       onClick={() => setSizeGuideOpen(true)}
       aria-label="Abrir guía de medidas"
-      className="inline-flex items-center gap-1 text-xs font-medium text-sky-300/90 underline underline-offset-4 decoration-white/15 hover:text-sky-200 hover:decoration-white/30"
+      className="pdp-guide-link-inline"
     >
-      <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-white/15 bg-white/5 text-[10px] leading-none text-neutral-200/90">
-        ?
-      </span>
-      <span className="tracking-normal">Guía de medidas</span>
+      Guía de medidas
     </button>
   ) : null;
 
@@ -401,57 +401,64 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
   const uiSoldOut = (product.sold_out === true) || selectedOutOfStock;
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 md:py-10">
-      <nav className="mb-4 text-sm text-neutral-400">
-        <Link href="/" className="hover:text-white/90">
-          Inicio
-        </Link>
-        <span className="mx-2">/</span>
-        <Link
-          href={`/categoria/${product.category.slug}`}
-          className="hover:text-white/90"
-        >
-          {product.category.name}
-        </Link>
-        <span className="mx-2">/</span>
-        <span className="text-neutral-100">{product.name}</span>
-      </nav>
+    <section className="mx-auto max-w-6xl pt-0 pb-6 md:pb-10">
 
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-10">
         <div>
-          {Array.isArray(galleryImages) && galleryImages.length > 0 ? (
-            <ProductGallery
-              images={galleryImages}
-              productName={product.name}
-              soldOut={uiSoldOut}
-            />
-          ) : img ? (
-            <div className="aspect-square w-full overflow-hidden rounded-2xl border border-white/10 bg-black/20">
-              <img
-                src={img}
-                alt={product?.name || "Producto"}
-                className="h-full w-full object-cover"
-                loading="eager"
-              />
+          <div className="pdp-hero">
+            <div className="pdp-hero-bleed">
+              {Array.isArray(galleryImages) && galleryImages.length > 0 ? (
+                <ProductGallery
+                  images={galleryImages}
+                  productName={product.name}
+                  soldOut={uiSoldOut}
+                  variant="pdp"
+                />
+              ) : img ? (
+                <div className="aspect-square w-full bg-black/20">
+                  <img
+                    src={img}
+                    alt={product?.name || "Producto"}
+                    className="h-full w-full object-cover"
+                    loading="eager"
+                  />
+                </div>
+              ) : (
+                <div className="aspect-square w-full bg-black/20">
+                  <div className="flex h-full w-full items-center justify-center text-neutral-600">
+                    {/* placeholder */}
+                    Sin imagen
+                  </div>
+                </div>
+              )}
             </div>
-          ) : (
-            <div className="aspect-square w-full overflow-hidden rounded-2xl border border-white/10 bg-black/20">
-              <div className="flex h-full w-full items-center justify-center text-neutral-600">
-                {/* placeholder */}
-                Sin imagen
-              </div>
-            </div>
-          )}
+
+
+
+            <div className="pdp-hero-fade" />
+          </div>
         </div>
 
-        <div>
+        <div className="px-4 pt-4 md:px-6">
           {/* Header (arriba del fold) */}
-          <h1 className="text-2xl font-semibold tracking-tight text-neutral-100 md:text-3xl">
-            {product.name}
-          </h1>
-          <p className="mt-2 text-2xl font-semibold text-cyan-400">
-            ${parseFloat(product.price).toLocaleString("es-CO")}
-          </p>
+          <div className="relative flex items-start gap-3">
+            <div className="pr-12">
+              <h1 className="text-2xl font-semibold tracking-tight text-neutral-100 md:text-3xl">
+                {product.name}
+              </h1>
+              <p className="mt-1 text-2xl font-semibold text-cyan-400">
+                ${parseFloat(product.price).toLocaleString("es-CO")}
+              </p>
+            </div>
+
+            <div className="absolute right-0 top-0">
+              <ShareButton
+                title={`${product.name} | Kame.col`}
+                url={typeof window !== "undefined" ? window.location.href : ""}
+                ariaLabel="Compartir producto"
+              />
+            </div>
+          </div>
 
           {/* Selectores */}
           <div className="mt-6 space-y-4">
@@ -460,54 +467,97 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
                 {sizeGuideTrigger}
               </div>
             )}
-            {/* Variantes: valor (talla) */}
-            {requiresValue && valueOptions.length > 0 && variantSchema !== "no_variant" && product.category.slug !== "cuadros" && (
-              <div>
-                <div className="flex items-center gap-2">
-                  <label className="block text-sm font-medium text-neutral-200">Talla</label>
-                  {sizeGuideTrigger}
+            {( (requiresValue && valueOptions.length > 0 && variantSchema !== "no_variant" && product.category.slug !== "cuadros") ||
+                (requiresColor && colorOptions.length > 0)
+              ) ? (
+              <div className="pdp-controls-grid">
+                {/* Color (izquierda) */}
+                <div>
+                  {requiresColor && colorOptions.length > 0 ? (
+                    <>
+                      <div className="pdp-section-title md:justify-end">Color</div>
+                      <div className="pdp-variant-section">
+                        <div className="pdp-color-grid">
+                          {colorOptions.map((color) => {
+                            const available = colorDisponible(color);
+                            const selected = selectedColor === color;
+                            const disabled = !available;
+
+                            return (
+                              <button
+                                key={color}
+                                type="button"
+                                className={
+                                  "pdp-color-chip " +
+                                  (selected ? "pdp-color-chip--selected " : "") +
+                                  (disabled ? "pdp-color-chip--disabled " : "")
+                                }
+                                disabled={disabled}
+                                onClick={() => setSelectedColor(color)}
+                                aria-pressed={selected}
+                                title={available ? color : `${color} (no disponible)`}
+                              >
+                                {color}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    // Keep grid alignment even when color isn't applicable
+                    <div />
+                  )}
                 </div>
 
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {valueOptions.map((val) => (
-                    <button
-                      key={val}
-                      type="button"
-                      onClick={() => setSelectedValue(val)}
-                      className={optionClass(selectedValue === val, tallaDisponible(val))}
-                    >
-                      {val}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+                {/* Talla (derecha) */}
+                <div>
+                  {requiresValue && valueOptions.length > 0 && variantSchema !== "no_variant" && product.category.slug !== "cuadros" ? (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <div className="pdp-section-title">Talla</div>
+                        {sizeGuideTrigger ? sizeGuideTrigger : null}
+                      </div>
 
-            {/* Variantes: color */}
-            {requiresColor && colorOptions.length > 0 && (
-              <div>
-                <label className="block text-sm font-medium text-neutral-200">Color</label>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {colorOptions.map((color) => (
-                    <button
-                      key={color}
-                      type="button"
-                      onClick={() => setSelectedColor(color)}
-                      className={optionClass(selectedColor === color, colorDisponible(color)) + " " + optionMuted}
-                    >
-                      <span className="inline-flex items-center">
-                        <span>{color}</span>
-                      </span>
-                    </button>
-                  ))}
+                      <div className="pdp-variant-section">
+                        <div className="pdp-size-grid">
+                          {valueOptions.map((val) => {
+                            const available = tallaDisponible(val);
+                            const selected = selectedValue === val;
+                            const disabled = !available;
+                            return (
+                              <button
+                                key={val}
+                                type="button"
+                                className={
+                                  "pdp-size-item " +
+                                  (selected ? "pdp-size-item--selected " : "") +
+                                  (disabled ? "pdp-size-item--disabled " : "")
+                                }
+                                disabled={disabled}
+                                onClick={() => setSelectedValue(val)}
+                                aria-pressed={selected}
+                                title={available ? val : `${val} (no disponible)`}
+                              >
+                                {val}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    // Keep grid alignment even when talla isn't applicable
+                    <div />
+                  )}
                 </div>
               </div>
-            )}
+            ) : null}
           </div>
 
           {/* Stock + CTA */}
           <div className="mt-6">
-            <div className="mb-4 flex flex-wrap items-center gap-2 text-sm text-neutral-400">
+            <div className="mb-3 flex flex-wrap items-center gap-2 text-sm text-neutral-500">
               {isInvalidCombo ? (
                 <span className="text-neutral-400">
                   Esta combinación no está disponible. Prueba otra talla o color.
@@ -566,6 +616,6 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
           guideKey={sizeGuideKey}
         />
       )}
-    </div>
+    </section>
   );
 }

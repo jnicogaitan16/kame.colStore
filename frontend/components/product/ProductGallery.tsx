@@ -14,10 +14,11 @@ import ImageViewerModal from "@/components/product/ImageViewerModal";
 interface ProductGalleryProps {
   images: ProductImageType[];
   productName: string;
-  soldOut: boolean;
+  soldOut?: boolean;
+  variant?: "default" | "pdp";
 }
 
-export function ProductGallery({ images, productName, soldOut = false }: ProductGalleryProps) {
+export function ProductGallery({ images, productName, soldOut = false, variant = "default" }: ProductGalleryProps) {
   const slides = useMemo(() => {
     if (!images?.length) return [];
 
@@ -46,9 +47,19 @@ export function ProductGallery({ images, productName, soldOut = false }: Product
 
   const closeLightbox = useCallback(() => setLightboxOpen(false), []);
 
+  const isPdp = variant === "pdp";
+
+  const wrapperClass = isPdp
+    ? "relative aspect-square w-full overflow-hidden rounded-none border-0 bg-transparent shadow-none"
+    : "relative aspect-square w-full overflow-hidden rounded-2xl bg-neutral-950/40 border border-white/10";
+
+  const emptyClass = isPdp
+    ? "aspect-square w-full overflow-hidden rounded-none bg-transparent border-0 shadow-none"
+    : "aspect-square w-full overflow-hidden rounded-2xl bg-neutral-950/40 border border-white/10";
+
   if (slides.length === 0) {
     return (
-      <div className="aspect-square w-full overflow-hidden rounded-2xl bg-neutral-950/40 border border-white/10">
+      <div className={emptyClass}>
         <div className="flex h-full items-center justify-center text-slate-400">
           <svg className="h-24 w-24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14" />
@@ -59,7 +70,7 @@ export function ProductGallery({ images, productName, soldOut = false }: Product
   }
 
   return (
-    <div className="relative aspect-square w-full overflow-hidden rounded-2xl bg-neutral-950/40 border border-white/10">
+    <div className={wrapperClass}>
       <SoldOutBadge show={soldOut === true} variant="detail" />
 
       <Swiper
