@@ -702,3 +702,278 @@ html[data-route-loading="1"] body,
 html[data-page-loading="1"] body {
   pointer-events: none;
 }
+
+/* ===============================
+   PDP premium layout helpers
+=================================*/
+
+.pdp-bleed {
+  width: 100%;
+  border-radius: 1.25rem; /* 2xl */
+  overflow: hidden;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.pdp-bleed--full {
+  border-radius: 0; /* full-bleed in mobile */
+  border-left: 0;
+  border-right: 0;
+}
+
+.pdp-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 2.25rem; /* 36px */
+  padding: 0 0.85rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.85);
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: background 160ms ease, border-color 160ms ease, transform 120ms ease;
+}
+
+.pdp-chip:hover {
+  background: rgba(255,255,255,0.07);
+}
+
+.pdp-chip[aria-pressed="true"],
+.pdp-chip--active {
+  border-color: color-mix(in srgb, var(--accent) 55%, rgba(255,255,255,0.10));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.pdp-chip:active {
+  transform: scale(0.98);
+}
+
+.pdp-section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: rgba(255,255,255,0.88);
+}
+
+.pdp-help-link {
+  font-size: 0.8rem;
+  color: color-mix(in srgb, var(--accent) 70%, rgba(255,255,255,0.65));
+  font-weight: 600;
+}
+
+.pdp-controls-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.9rem 1rem;
+}
+
+/* ===============================
+   PDP Minimal Hero (no frames)
+=================================*/
+
+.pdp-hero {
+  position: relative;
+  width: 100%;
+}
+
+/* full-bleed image: no border, no frame */
+.pdp-hero-bleed {
+  width: 100%;
+  overflow: hidden;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Breadcrumb overlay */
+.pdp-breadcrumb-overlay {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  top: calc(12px + env(safe-area-inset-top));
+  z-index: 50;
+  pointer-events: auto;
+
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.78);
+
+  /* subtle glass for readability */
+  padding: 8px 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.30);
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Optional: fade edge at bottom of hero to separate content */
+.pdp-hero-fade {
+  pointer-events: none;
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 110px;
+  background: linear-gradient(
+    to bottom,
+    rgba(0,0,0,0) 0%,
+    rgba(0,0,0,0.25) 35%,
+    rgba(0,0,0,0.55) 100%
+  );
+  z-index: 2;
+}
+
+/* ===============================
+   PDP Variant Premium System
+=================================*/
+
+/* Section spacing */
+.pdp-variant-section {
+  margin-top: 1.25rem;
+}
+
+/* Section title */
+.pdp-variant-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: rgba(255,255,255,0.85);
+  margin-bottom: 0.6rem;
+}
+
+/* SIZE GRID */
+.pdp-size-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.pdp-size-item {
+  height: 42px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.03);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: rgba(255,255,255,0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 160ms ease;
+}
+
+.pdp-size-item:hover {
+  border-color: rgba(255,255,255,0.25);
+}
+
+.pdp-size-item--selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(0,255,255,0.15);
+}
+
+.pdp-size-item--disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* COLOR GRID (same visual system as SIZE) */
+.pdp-color-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.pdp-color-chip {
+  height: 42px;                 /* igual que talla */
+  border-radius: 12px;          /* igual que talla */
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.03);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: rgba(255,255,255,0.85);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  transition: all 160ms ease;
+}
+
+.pdp-color-chip:hover {
+  border-color: rgba(255,255,255,0.25);
+}
+
+.pdp-color-chip--selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(0,255,255,0.15);
+}
+
+.pdp-color-chip--disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* Guide link (pill, no underline) */
+.pdp-guide-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+
+  font-size: 0.78rem;
+  font-weight: 600;
+
+  color: rgba(125, 211, 252, 0.95);     /* sky-ish */
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.10);
+  padding: 6px 10px;
+  border-radius: 999px;
+
+  text-decoration: none;               /* ✅ sin línea */
+  transition: all 160ms ease;
+}
+
+.pdp-guide-link:hover {
+  border-color: rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.06);
+  color: rgba(186, 230, 253, 1);
+}
+
+.pdp-guide-link .pdp-guide-icon {
+  display: inline-flex;
+  height: 18px;
+  width: 18px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.05);
+  font-size: 11px;
+  color: rgba(255,255,255,0.85);
+}
+
+/* Size guide as a clean inline action (no pill/border/background) */
+.pdp-guide-link-inline {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: rgba(125, 211, 252, 0.95);
+  background: transparent;
+  border: 0;
+  padding: 0;
+  text-decoration: none;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 160ms ease;
+}
+
+.pdp-guide-link-inline:hover {
+  color: rgba(186, 230, 253, 1);
+}
