@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 export interface ShareButtonProps {
   title: string;
@@ -19,6 +19,63 @@ export default function ShareButton({
 }: ShareButtonProps) {
   const [copied, setCopied] = useState(false);
 
+  /**
+   * Construye una URL "canónica" para compartir:
+   * - Si viene absoluta (http/https), se usa tal cual.
+   * - Si viene relativa (/producto/slug), se monta sobre NEXT_PUBLIC_SITE_URL.
+   * - Si no hay `url`, se intenta usar window.location.href.
+   *
+   * Esto ayuda a que WhatsApp / iMessage pidan los metadatos OG correctos
+   * desde el dominio público (kamecol.com) en lugar de localhost.
+   */
+  const shareUrl = useMemo(() => {
+    const raw = (url || "").trim();
+    const envBase =
+      (typeof process !== "undefined" &&
+        process.env &&
+        process.env.NEXT_PUBLIC_SITE_URL) ||
+      "";
+
+    const pickBase = () => {
+      if (envBase) return envBase;
+      if (typeof window !== "undefined") return window.location.origin;
+      return "";
+    };
+
+    // 1) Si es absoluta, respetarla (pero forzar https para algunos clientes).
+    if (raw.startsWith("http://") || raw.startsWith("https://")) {
+      if (raw.startsWith("http://")) {
+        return "https://" + raw.slice("http://".length);
+      }
+      return raw;
+    }
+
+    // 2) Si es relativa, montarla sobre el dominio público.
+    const base = pickBase();
+    if (raw) {
+      try {
+        const abs = new URL(raw, base).toString();
+        if (abs.startsWith("http://")) {
+          return "https://" + abs.slice("http://".length);
+        }
+        return abs;
+      } catch {
+        // ignore, caer al fallback
+      }
+    }
+
+    // 3) Fallback: usar la URL actual del navegador.
+    if (typeof window !== "undefined") {
+      const current = window.location.href;
+      if (current.startsWith("http://")) {
+        return "https://" + current.slice("http://".length);
+      }
+      return current;
+    }
+
+    return "";
+  }, [url]);
+
   useEffect(() => {
     if (!copied) return;
     const t = window.setTimeout(() => setCopied(false), 1800);
@@ -27,25 +84,27 @@ export default function ShareButton({
 
   const handleShare = async () => {
     try {
-      const safeUrl = (url || "").trim() || (typeof window !== "undefined" ? window.location.href : "");
-
-      // 1) Native share sheet (mobile)
+      // 1) Hoja de compartir nativa (mobile)
+      // Para que el comportamiento sea lo más parecido posible al share nativo de iOS,
+      // solo pasamos la URL, sin `title` ni `text`. Así Mensajes trata el contenido
+      // como "solo link" y genera la tarjeta OG igual que cuando compartes desde Safari.
       if (typeof navigator !== "undefined" && (navigator as any).share) {
-        await (navigator as any).share({ title, url: safeUrl });
+        await (navigator as any).share({
+          url: shareUrl,
+        });
         return;
       }
 
-      // 2) Clipboard fallback (desktop)
+      // 2) Fallback: copiar al portapapeles (desktop)
       if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(safeUrl);
+        await navigator.clipboard.writeText(shareUrl);
         setCopied(true);
         return;
       }
 
-      // 3) Last resort
-      window.prompt("Copia este enlace:", safeUrl);
+      // 3) Último recurso: prompt
+      window.prompt("Copia este enlace:", shareUrl);
     } catch {
-      // Do not break UI
       try {
         window.alert("No se pudo compartir en este dispositivo.");
       } catch {
