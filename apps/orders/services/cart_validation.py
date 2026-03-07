@@ -168,7 +168,11 @@ def validate_cart_stock(items: List[dict], *, strict_stock: bool | None = None, 
     # Cache pool maps by category to avoid N queries
     pool_maps_by_category: Dict[int, Dict[Tuple[str, str], int]] = {}
 
-    # Pool-first aggregation: group requested qty per pool key (category_id, value, color)
+    # Pool-first aggregation: group requested qty per canonical pool key (category_id, value, color).
+    # This supports all current schemas:
+    # - size_color => (value, color)
+    # - jean_size / shoe_size => (value, "")
+    # - no_variant => ("", "")
     grouped_qty_by_key: DefaultDict[Tuple[int, str, str], int] = defaultdict(int)
     variant_key_by_id: Dict[int, Tuple[int, str, str]] = {}
 
@@ -178,16 +182,16 @@ def validate_cart_stock(items: List[dict], *, strict_stock: bool | None = None, 
         grouped_qty_by_key[key] += int(requested)
         variant_key_by_id[variant_id] = key
 
-    # Compute availability per pool key once (with strict pool resolution: any failure => 0)
+    # Compute availability per pool key once.
+    # Important: not every valid schema requires both value and color.
+    # Examples:
+    # - no_variant => ("", "")
+    # - jean_size / shoe_size => (value, "")
+    # - size_color => (value, color)
+    # Therefore we must never force availability=0 just because value or color is blank.
     key_available: Dict[Tuple[int, str, str], int] = {}
     for (category_id, value, color), _requested_total in grouped_qty_by_key.items():
-        # Contract: if pool cannot be resolved/mapped, availability must be treated as 0.
         if category_id <= 0:
-            key_available[(category_id, value, color)] = 0
-            continue
-
-        # If we cannot compute a meaningful (value,color), treat as unmappable => 0
-        if not value or not color:
             key_available[(category_id, value, color)] = 0
             continue
 

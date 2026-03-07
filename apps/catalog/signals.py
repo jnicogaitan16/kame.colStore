@@ -1,5 +1,3 @@
-
-
 """Catalog signals.
 
 Genera cachefiles de ImageKit al guardar imágenes desde admin (o cualquier save)
@@ -22,8 +20,9 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 from imagekit.cachefiles import ImageCacheFile
+from apps.catalog.services.variant_sync import sync_variants_for_pool
 
-from .models import ProductImage
+from .models import InventoryPool, ProductImage
 
 logger = logging.getLogger(__name__)
 
@@ -86,3 +85,17 @@ try:
 except Exception:
     # If there's no variant image model, do nothing.
     pass
+
+
+# -----------------------------------------------------------------------------
+# InventoryPool -> sync ProductVariant
+# -----------------------------------------------------------------------------
+
+@receiver(post_save, sender=InventoryPool)
+def inventorypool_post_save_sync_variants(sender, instance: InventoryPool, **kwargs) -> None:
+    """Synchronize ProductVariant rows after saving an InventoryPool."""
+
+    def _run():
+        sync_variants_for_pool(instance.id)
+
+    transaction.on_commit(_run)
