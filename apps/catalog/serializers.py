@@ -187,7 +187,7 @@ class CategorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Category
-        fields = ["id", "name", "slug", "sort_order", "is_active", "department"]
+        fields = ["id", "name", "slug", "sort_order", "is_active", "variant_schema", "department"]
 
 
 # Lightweight serializer for menu categories (no nested department)
@@ -304,7 +304,8 @@ class ProductVariantSerializer(serializers.ModelSerializer):
     image_url = serializers.SerializerMethodField()
     image_thumb_url = serializers.SerializerMethodField()
 
-    # Fuente de verdad: InventoryPool
+    # Fuente de verdad: InventoryPool.
+    # Se mantiene variant.stock = get_variant_available_stock(...)
     stock = serializers.SerializerMethodField()
 
     class Meta:
@@ -431,8 +432,19 @@ class ProductListSerializer(serializers.ModelSerializer):
         return bool(sold_out)
 
 
-# ---------------------------------------------------------------------------
+ # ---------------------------------------------------------------------------
 # Product detail (producto + variantes + imágenes)
+#
+# Contrato PDP:
+# - variants[] expone las variantes activas materializadas desde ProductVariant
+# - variant.stock sigue saliendo de InventoryPool vía get_variant_available_stock
+# - stock_total y sold_out se calculan desde InventoryPool
+#
+# Resultado esperado por schema:
+# - SIZE_COLOR -> variantes tipo ("L", "Negro"), ("L", "Blanco"), ("M", "Negro")
+# - JEAN_SIZE -> variantes tipo ("30", ""), ("32", ""), ("34", "")
+# - SHOE_SIZE -> variantes tipo ("36", "") ... ("42", "")
+# - NO_VARIANT -> una sola variante técnica ("", "")
 # ---------------------------------------------------------------------------
 
 class ProductDetailSerializer(serializers.ModelSerializer):
@@ -459,7 +471,9 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         ]
 
     def get_variants(self, obj):
-        # No exponer variantes inactivas/eliminadas en la API
+        # No exponer variantes inactivas/eliminadas en la API.
+        # La PDP recibe variants[] exactamente como estén materializadas
+        # en ProductVariant según el schema de la categoría.
         qs = obj.variants.filter(is_active=True).order_by("value", "color", "id")
         pool_map = get_pool_map(obj.category_id)
         ctx = dict(self.context)
@@ -473,6 +487,8 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         except Exception:
             pass
 
+        # stock_total / sold_out siguen saliendo de InventoryPool,
+        # independiente del schema de variantes expuesto en PDP.
         stock_total, sold_out, _pool_map = _effective_inventory_from_pool(obj.category_id, variants)
         cache = getattr(self, "_product_inventory_cache", None)
         if cache is None:

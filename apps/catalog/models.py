@@ -10,7 +10,7 @@ from django.utils.text import slugify
 from imagekit.models import ImageSpecField
 from imagekit.processors import ResizeToFit
 
-from .variant_rules import get_variant_rule
+from .variant_rules import get_variant_rule, normalize_variant_value, normalize_variant_color
 
 
 
@@ -65,10 +65,10 @@ class Category(models.Model):
     """
 
     class VariantSchema(models.TextChoices):
-        SIZE_COLOR = "size_color", "Talla + Color"          # camisetas/hoodies
-        JEAN_SIZE = "jean_size", "Talla Jean"              # 28/30/32...
-        NO_VARIANT = "no_variant", "Sin variantes"          # accesorios simples
-        DIMENSION = "dimension", "Medida/Dimensión"         # cuadros u otros
+        SIZE_COLOR = "size_color", "Talla + Color"
+        JEAN_SIZE = "jean_size", "Talla Jean"
+        SHOE_SIZE = "shoe_size", "Talla Zapatilla"
+        NO_VARIANT = "no_variant", "Sin variantes"
 
     name = models.CharField(max_length=120)
     slug = models.SlugField(max_length=140)
@@ -267,9 +267,11 @@ class InventoryPool(models.Model):
                 "category": "InventoryPool debe apuntar a una categoría final (leaf)."
             })
 
-        # Normalización simple
-        self.value = (self.value or "").strip().upper()
-        self.color = (self.color or "").strip()
+        # Última capa de seguridad:
+        # aunque el admin use dropdowns, aquí seguimos normalizando para cubrir
+        # bulk load, scripts, shell, APIs y futuros cambios.
+        self.value = normalize_variant_value(self.value) or ""
+        self.color = normalize_variant_color(self.color) or ""
 
     def __str__(self) -> str:
         parts = [self.category.name]
@@ -497,53 +499,46 @@ class ProductVariant(models.Model):
 
         schema = self._schema()
 
-        raw_value = (self.value or "").strip()
-        raw_color = (self.color or "").strip()
+        normalized_value = normalize_variant_value(self.value) or ""
+        normalized_color = normalize_variant_color(self.color) or ""
 
         if schema == Category.VariantSchema.NO_VARIANT:
-            # Accesorios simples: no se exige nada.
             self.value = ""
             self.color = ""
             return
 
-        # Para el resto, value suele ser requerido.
-        if not raw_value:
-            raise ValidationError({"value": "Selecciona un valor de variante (talla/número/medida)."})
-
-        # Normalización
-        self.value = raw_value.upper()
+        if not normalized_value:
+            raise ValidationError({"value": "Selecciona un valor de variante (talla/número)."})
 
         if schema == Category.VariantSchema.SIZE_COLOR:
-            # Camisetas/Hoodies: talla + color obligatorio
-            if not raw_color:
+            if not normalized_color:
                 raise ValidationError({"color": "Selecciona un color."})
-            self.color = raw_color
+            self.value = normalized_value
+            self.color = normalized_color
 
-            # Validación opcional usando reglas existentes por slug (si aplica)
-            # Si tu variant_rules aún mapea camisetas/hoodies, se mantiene.
             try:
                 slug = (getattr(self.product.category, "slug", "") or "").strip().lower()
-                if slug in {"camisetas", "hoodies"}:
-                    rule = get_variant_rule(slug)
-                    allowed_sizes = rule.get("allowed_values")
-                    if allowed_sizes and self.value not in allowed_sizes:
-                        raise ValidationError({"value": f"Talla inválida. Usa: {', '.join(allowed_sizes)}."})
-                    allowed_colors = rule.get("allowed_colors")
-                    if allowed_colors and self.color not in allowed_colors:
-                        raise ValidationError({"color": f"Color inválido. Usa: {', '.join(allowed_colors)}."})
+                rule = get_variant_rule(slug)
+                allowed_sizes = rule.get("allowed_values")
+                if allowed_sizes and self.value not in allowed_sizes:
+                    raise ValidationError({"value": f"Valor inválido. Usa: {', '.join(allowed_sizes)}."})
+                allowed_colors = rule.get("allowed_colors")
+                if allowed_colors and self.color not in allowed_colors:
+                    raise ValidationError({"color": f"Color inválido. Usa: {', '.join(allowed_colors)}."})
             except Exception:
-                # No bloquear si no existe regla para esa categoría.
                 pass
 
         elif schema == Category.VariantSchema.JEAN_SIZE:
-            # Jean: talla requerida, color opcional
-            self.color = raw_color
-
-        elif schema == Category.VariantSchema.DIMENSION:
-            # Cuadros u otros: value requerido, color normalmente vacío
+            self.value = normalized_value
             self.color = ""
 
-        # Prevent duplicates (same product + value + color)
+        elif schema == Category.VariantSchema.SHOE_SIZE:
+            self.value = normalized_value
+            self.color = ""
+
+        else:
+            raise ValidationError({"product": "Esquema de variante no soportado para este producto."})
+
         if self.product_id:
             exists = (
                 type(self).objects

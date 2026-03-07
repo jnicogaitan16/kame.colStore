@@ -1,0 +1,40 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">{% translate 'Home' %}</a>
+  &rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+  &rsaquo; <a href="{% url 'admin:catalog_inventorypool_changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
+  &rsaquo; Carga masiva
+</div>
+{% endblock %}
+
+{% block content %}
+<h1>{{ title }}</h1>
+
+<form method="post" id="bulk-stock-form">
+  {% csrf_token %}
+  {% if form.non_field_errors %}
+  <ul class="errorlist">{{ form.non_field_errors }}</ul>
+  {% endif %}
+  <fieldset class="module aligned">
+    {% for field in form %}
+    <div class="form-row">
+      <div>
+        {{ field.errors }}
+        {{ field.label_tag }}
+        {{ field }}
+        {% if field.help_text %}<p class="help">{{ field.help_text }}</p>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </fieldset>
+  <div class="submit-row">
+    <input type="submit" value="Procesar carga masiva" class="default">
+    <a href="{% url 'admin:catalog_inventorypool_changelist' %}" class="button cancel-link">Cancelar</a>
+  </div>
+</form>
+{% endblock %}

@@ -1,0 +1,10 @@
+{% extends "admin/change_list.html" %}
+{% load i18n admin_urls %}
+
+{% block content %}
+<div style="margin-bottom: 1rem;">
+  <a href="{% url 'admin:catalog_inventorypool_bulk_add' %}" class="addlink">Carga masiva de stock</a>
+  <span style="color: #666; margin-left: 0.5rem;">— Varias líneas (talla, color, cantidad) por categoría.</span>
+</div>
+{{ block.super }}
+{% endblock %}

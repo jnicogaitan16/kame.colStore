@@ -1,7 +1,8 @@
 from django.contrib import admin, messages
 from django import forms
+from django.db.models import Count
 from django.http import JsonResponse
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import path
 
 from .models import (
@@ -17,6 +18,8 @@ from .models import (
 )
 
 from .variant_rules import get_variant_rule
+from .forms import InventoryPoolAdminForm, InventoryPoolBulkLoadForm
+from apps.catalog.services.variant_sync import sync_variants_for_pool
 
 
 def _model_has_field(model, field_name: str) -> bool:
@@ -95,11 +98,57 @@ class CategoryAdmin(admin.ModelAdmin):
 
 
 # ======================
+# InventoryPool — Carga masiva de stock
+# ======================
+# Formato: una línea por (talla, color, cantidad). Separador: coma o espacios.
+# Ejemplo:
+#   L, Blanco, 10
+#   S, Negro, 10
+#   M, Rojo, 5
+
+
+
+
+
+def _process_bulk_stock(category_id, lines, add_to_existing):
+    """Crea o actualiza filas de InventoryPool. Retorna (created_count, updated_count, errors)."""
+    created = 0
+    updated = 0
+    errors = []
+    for value, color, qty in lines:
+        value = (value or "").strip().upper()
+        color = (color or "").strip()
+        try:
+            pool, was_created = InventoryPool.objects.get_or_create(
+                category_id=category_id,
+                value=value,
+                color=color,
+                defaults={"quantity": qty, "is_active": True},
+            )
+            if was_created:
+                created += 1
+            else:
+                if add_to_existing:
+                    pool.quantity = (pool.quantity or 0) + qty
+                else:
+                    pool.quantity = qty
+                pool.is_active = True
+                pool.save(update_fields=["quantity", "updated_at"])
+                updated += 1
+        except Exception as e:
+            errors.append(f"{value}/{color}: {e}")
+    return created, updated, errors
+
+
+
+
+# ======================
 # InventoryPool (Fuente de verdad)
 # ======================
 
 @admin.register(InventoryPool)
 class InventoryPoolAdmin(admin.ModelAdmin):
+    form = InventoryPoolAdminForm
     list_display = ("category", "value", "color", "quantity", "is_active", "updated_at")
     list_filter = ("category__department", "category", "color", "is_active")
     search_fields = ("value", "color", "category__name")
@@ -108,6 +157,126 @@ class InventoryPoolAdmin(admin.ModelAdmin):
 
     # El stock solo se edita acá.
     fields = ("category", "value", "color", "quantity", "is_active")
+
+    change_list_template = "admin/catalog/inventorypool/change_list.html"
+
+    actions = ["sync_variants_action"]
+
+    @admin.action(description="Sincronizar variantes")
+    def sync_variants_action(self, request, queryset):
+        """Sincroniza ProductVariant a partir de los pools seleccionados."""
+        total = 0
+        for pool in queryset:
+            try:
+                sync_variants_for_pool(pool.id)
+                total += 1
+            except Exception as e:
+                messages.error(request, f"Pool {pool.id}: {e}")
+        if total:
+            messages.success(request, f"Sincronización ejecutada para {total} pool(s).")
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom = [
+            path(
+                "bulk-add/",
+                self.admin_site.admin_view(self.bulk_stock_view),
+                name="catalog_inventorypool_bulk_add",
+            ),
+            path(
+                "category-rule/",
+                self.admin_site.admin_view(self.category_rule_view),
+                name="catalog_inventorypool_category_rule",
+            ),
+        ]
+        return custom + urls
+
+    def category_rule_view(self, request):
+        category_id = request.GET.get("category_id")
+
+        if not category_id:
+            rule = get_variant_rule(None)
+            return JsonResponse(
+                {
+                    "category_slug": "",
+                    "label": rule.get("label", "Value"),
+                    "use_select": bool(rule.get("use_select")),
+                    "allowed_values": rule.get("allowed_values"),
+                    "allowed_colors": rule.get("allowed_colors"),
+                    "normalize_upper": bool(rule.get("normalize_upper", True)),
+                    "variant_schema": "",
+                }
+            )
+
+        category = get_object_or_404(Category, pk=category_id)
+        category_slug = category.slug if category else ""
+        rule = get_variant_rule(category_slug)
+
+        return JsonResponse(
+            {
+                "category_slug": (category_slug or "").strip().lower(),
+                "label": rule.get("label", "Value"),
+                "use_select": bool(rule.get("use_select")),
+                "allowed_values": rule.get("allowed_values"),
+                "allowed_colors": rule.get("allowed_colors"),
+                "normalize_upper": bool(rule.get("normalize_upper", True)),
+                "variant_schema": getattr(category, "variant_schema", "") or "",
+            }
+        )
+
+    def bulk_stock_view(self, request):
+        """Vista de carga masiva: varias líneas (talla, color, cantidad) para una categoría."""
+        if request.method == "POST":
+            form = InventoryPoolBulkLoadForm(request.POST)
+            if form.is_valid():
+                category = form.cleaned_data["category"]
+                add_to_existing = form.cleaned_data.get("add_to_existing", False)
+                lines = form.parsed_lines
+
+                created, updated, errs = _process_bulk_stock(
+                    category.id,
+                    [(r["value"], r["color"], r["quantity"]) for r in lines],
+                    add_to_existing,
+                )
+
+                if errs:
+                    for e in errs[:10]:
+                        messages.error(request, e)
+                    if len(errs) > 10:
+                        messages.error(request, f"... y {len(errs) - 10} errores más.")
+
+                if created or updated:
+                    messages.success(
+                        request,
+                        f"Carga masiva: {created} creados, {updated} actualizados.",
+                    )
+
+                return redirect("admin:catalog_inventorypool_changelist")
+            else:
+                # Mostrar errores detallados para que el usuario corrija el textarea rápido.
+                for field_name, field_errors in form.errors.items():
+                    if field_name == "__all__":
+                        for err in field_errors:
+                            messages.error(request, str(err))
+                    else:
+                        label = form.fields.get(field_name).label if field_name in form.fields else field_name
+                        for err in field_errors:
+                            messages.error(request, f"{label}: {err}")
+        else:
+            form = InventoryPoolBulkLoadForm()
+        context = {
+            **self.admin_site.each_context(request),
+            "form": form,
+            "title": "Carga masiva de stock (Inventory pool)",
+            "opts": InventoryPool._meta,
+        }
+        return render(request, "admin/catalog/inventorypool/bulk_stock.html", context)
+
+    class Media:
+        js = (
+            "admin/catalog/productvariant_dynamic_value.js",
+            "admin/catalog/inventorypool_dynamic_value.js",
+        )
 
 # ======================
 # Home content (Banner / Story / Promos)
@@ -410,6 +579,47 @@ class ProductAdmin(admin.ModelAdmin):
     list_filter = ("is_active", "category")
     prepopulated_fields = {"slug": ("name",)}
     inlines = [ProductVariantInline]
+    actions = ["generate_variants_from_pool_action"]
+
+    @admin.action(description="Generar variantes desde pool")
+    def generate_variants_from_pool_action(self, request, queryset):
+        """Crea ProductVariant por cada (value, color) existente en InventoryPool para la categoría del producto."""
+        created_total = 0
+        skipped_no_category = 0
+        for product in queryset.select_related("category"):
+            if not product.category_id:
+                skipped_no_category += 1
+                continue
+            if product.category.children.exists():
+                messages.warning(
+                    request,
+                    f"Producto «{product.name}»: la categoría no es leaf; no se generan variantes.",
+                )
+                continue
+            pool_rows = (
+                InventoryPool.objects.filter(category_id=product.category_id, is_active=True)
+                .values_list("value", "color", flat=False)
+                .distinct()
+            )
+            created = 0
+            for value, color in pool_rows:
+                value = (value or "").strip().upper()
+                color = (color or "").strip()
+                _, was_created = ProductVariant.objects.get_or_create(
+                    product_id=product.id,
+                    value=value,
+                    color=color,
+                    defaults={"is_active": True, "stock": 0},
+                )
+                if was_created:
+                    created += 1
+            created_total += created
+            if created:
+                messages.success(request, f"«{product.name}»: {created} variante(s) creada(s).")
+        if skipped_no_category:
+            messages.warning(request, f"{skipped_no_category} producto(s) sin categoría omitidos.")
+        if created_total:
+            messages.success(request, f"Total: {created_total} variante(s) generada(s) desde el pool.")
 
     def get_inline_instances(self, request, obj=None):
         """En "Add product" no se muestran variantes; en "Edit product" sí, con dropdowns.
@@ -449,7 +659,7 @@ class ProductAdmin(admin.ModelAdmin):
 class ProductVariantAdmin(admin.ModelAdmin):
     form = ProductVariantAdminForm
     autocomplete_fields = ("product",)
-    list_display = ("product", "value", "color", "stock", "is_active")
+    list_display = ("product_category_label", "value", "color", "stock", "is_active")
     list_select_related = ("product", "product__category")
     list_filter = ("product__category__department", "product__category", "is_active")
     search_fields = ("product__name", "value", "color")
@@ -457,6 +667,11 @@ class ProductVariantAdmin(admin.ModelAdmin):
     readonly_fields = ("stock",)
     # Explicit fields to ensure `color` renders in the standalone add/edit form.
     fields = ("product", "value", "color", "stock", "is_active")
+
+    @admin.display(description="PRODUCT", ordering="product__category__name")
+    def product_category_label(self, obj):
+        category = getattr(getattr(obj, "product", None), "category", None)
+        return str(category) if category else "-"
     inlines = [ProductImageInline]
 
     def _is_orders_variant_selector(self, request) -> bool:
@@ -523,6 +738,7 @@ class ProductVariantAdmin(admin.ModelAdmin):
                     "allowed_values": rule.get("allowed_values"),
                     "allowed_colors": rule.get("allowed_colors"),
                     "normalize_upper": bool(rule.get("normalize_upper", True)),
+                    "variant_schema": "",
                 }
             )
 
@@ -538,6 +754,7 @@ class ProductVariantAdmin(admin.ModelAdmin):
                 "allowed_values": rule.get("allowed_values"),
                 "allowed_colors": rule.get("allowed_colors"),
                 "normalize_upper": bool(rule.get("normalize_upper", True)),
+                "variant_schema": getattr(product.category, "variant_schema", "") or "",
             }
         )
 

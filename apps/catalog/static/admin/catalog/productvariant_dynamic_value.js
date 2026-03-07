@@ -3,8 +3,9 @@
 
   const EMPTY_OPTION_TEXT = "---------";
 
-  const DEFAULT_CAMISETA_VALUES = null; // o ["S","M","L","XL","2XL"] como fallback mínimo
-  const DEFAULT_APPAREL_COLORS = null; // o ["Blanco","Negro",...] como fallback mínimo
+  function isEmptyOptionText(value) {
+    return normalizeChoice(value) === normalizeChoice(EMPTY_OPTION_TEXT);
+  }
 
   function normalizeSlug(v) {
     return String(v || "").trim().toLowerCase();
@@ -33,8 +34,66 @@
     return String(v || "").trim();
   }
 
-  function setValueLabel(text) {
-    const label = document.querySelector('label[for="id_value"]');
+  function normalizeChoice(v) {
+    return String(v || "").trim().toLowerCase();
+  }
+
+  function readCurrentFieldValue(el) {
+    if (!el) return "";
+
+    if (typeof el.value === "string" && el.value.trim() && !isEmptyOptionText(el.value)) {
+      return el.value;
+    }
+
+    const selectedOption =
+      el.tagName === "SELECT" ? el.options[el.selectedIndex] || null : null;
+
+    if (selectedOption) {
+      if (
+        typeof selectedOption.value === "string" &&
+        selectedOption.value.trim() &&
+        !isEmptyOptionText(selectedOption.value)
+      ) {
+        return selectedOption.value;
+      }
+      if (
+        typeof selectedOption.text === "string" &&
+        selectedOption.text.trim() &&
+        !isEmptyOptionText(selectedOption.text)
+      ) {
+        return selectedOption.text;
+      }
+    }
+
+    const attrValue = el.getAttribute("value");
+    if (typeof attrValue === "string" && attrValue.trim() && !isEmptyOptionText(attrValue)) {
+      return attrValue;
+    }
+
+    return "";
+  }
+
+  function applySelectValue(selectEl, persistedValue) {
+    if (!selectEl || !persistedValue) return;
+
+    const normalizedPersisted = normalizeChoice(persistedValue);
+    const options = Array.from(selectEl.options || []);
+    const exactMatch = options.find((option) => option.value === persistedValue);
+    const normalizedValueMatch = options.find(
+      (option) => normalizeChoice(option.value) === normalizedPersisted
+    );
+    const normalizedTextMatch = options.find(
+      (option) => normalizeChoice(option.text) === normalizedPersisted
+    );
+    const match = exactMatch || normalizedValueMatch || normalizedTextMatch;
+
+    if (match) {
+      selectEl.value = match.value;
+    }
+  }
+
+  function setFieldLabel(fieldId, text) {
+    const label = document.querySelector('label[for="' + fieldId + '"]');
     if (label) label.textContent = text + ":";
   }
 
@@ -90,6 +149,9 @@
 
     return select;
   }
+  function buildValueSelect(values, currentValue, className) {
+    return buildSelect(className, currentValue, values);
+  }
 
   function buildInput(className, currentValue) {
     const input = document.createElement("input");
@@ -101,49 +163,61 @@
     return input;
   }
 
-  function setValueAsSelect(rule) {
-    const current = $("id_value");
+  function setValueAsSelect(rule, valueFieldId, persistedValueOverride) {
+    const fieldId = valueFieldId || "id_value";
+    const fieldName = fieldId.replace(/^id_/, "");
+    const current = $(fieldId);
     if (!current) return;
 
+    const persistedValue = persistedValueOverride || readCurrentFieldValue(current);
+
     if (current.tagName && current.tagName.toLowerCase() === "select") {
-      // Ensure options are in sync even if we're already a select
-      const next = buildSelect(current.className, current.value, rule.allowed_values);
+      const next = buildSelect(current.className, persistedValue, rule.allowed_values);
+      next.id = fieldId;
+      next.name = fieldName;
       current.parentNode.replaceChild(next, current);
+      applySelectValue(next, persistedValue);
       lastMode = "select";
-      setValueLabel(rule.label || "Value");
+      setFieldLabel(fieldId, rule.label || "Value");
       return;
     }
 
-    const select = buildSelect(current.className, current.value, rule.allowed_values);
+    const select = buildSelect(current.className, persistedValue, rule.allowed_values);
+    select.id = fieldId;
+    select.name = fieldName;
     current.parentNode.replaceChild(select, current);
+    applySelectValue(select, persistedValue);
 
     lastMode = "select";
-    setValueLabel(rule.label || "Value");
+    setFieldLabel(fieldId, rule.label || "Value");
   }
 
-  function setValueAsInput() {
-    const current = $("id_value");
+  function setValueAsInput(valueFieldId, labelText) {
+    const fieldId = valueFieldId || "id_value";
+    const fieldName = fieldId.replace(/^id_/, "");
+    const current = $(fieldId);
     if (!current) return;
 
     if (current.tagName && current.tagName.toLowerCase() === "input") {
       lastMode = "input";
-      setValueLabel("Value");
+      setFieldLabel(fieldId, labelText || "Value");
       return;
     }
 
     const input = buildInput(current.className, current.value);
+    input.id = fieldId;
+    input.name = fieldName;
     current.parentNode.replaceChild(input, current);
 
     lastMode = "input";
-    setValueLabel("Value");
+    setFieldLabel(fieldId, labelText || "Value");
   }
 
   function setColorLabel(text) {
-    const label = document.querySelector('label[for="id_color"]');
-    if (label) label.textContent = text + ":";
+    setFieldLabel("id_color", text || "Color");
   }
 
-  function buildColorSelect(className, currentValue, allowedColors) {
+  function _buildColorSelect(className, currentValue, allowedColors) {
     const select = document.createElement("select");
     select.id = "id_color";
     select.name = "color";
@@ -167,34 +241,49 @@
 
     return select;
   }
+  function buildColorSelect(colors, currentValue, className) {
+    return _buildColorSelect(className, currentValue, colors);
+  }
 
-  function setColorAsSelect(rule) {
-    const current = $("id_color");
+  function setColorAsSelect(rule, colorFieldId, persistedColorOverride) {
+    const fieldId = colorFieldId || "id_color";
+    const fieldName = fieldId.replace(/^id_/, "");
+    const current = $(fieldId);
     if (!current) return;
 
     setRowVisible(current, true);
     setFieldEnabled(current, true);
 
+    const persistedColor = persistedColorOverride || readCurrentFieldValue(current);
+
     if (current.tagName && current.tagName.toLowerCase() === "select") {
-      const next = buildColorSelect(current.className, current.value, rule.allowed_colors);
+      const next = _buildColorSelect(current.className, persistedColor, rule.allowed_colors);
+      next.id = fieldId;
+      next.name = fieldName;
       current.parentNode.replaceChild(next, current);
-      setColorLabel(rule.label || "Color");
+      applySelectValue(next, persistedColor);
+      setFieldLabel(fieldId, rule.label || "Color");
       return;
     }
 
-    const select = buildColorSelect(current.className, current.value, rule.allowed_colors);
+    const select = _buildColorSelect(current.className, persistedColor, rule.allowed_colors);
+    select.id = fieldId;
+    select.name = fieldName;
     current.parentNode.replaceChild(select, current);
-    setColorLabel(rule.label || "Color");
+    applySelectValue(select, persistedColor);
+    setFieldLabel(fieldId, rule.label || "Color");
   }
 
-  function hideColorFieldAndClear() {
-    const current = $("id_color");
+  function hideColorFieldAndClear(colorFieldId, clearValue) {
+    const fieldId = colorFieldId || "id_color";
+    const current = $(fieldId);
     if (!current) return;
-    // Prevent submitting obsolete color values
-    current.value = "";
+    if (clearValue !== false) {
+      current.value = "";
+    }
     setFieldEnabled(current, false);
     setRowVisible(current, false);
-    setColorLabel("Color");
+    setFieldLabel(fieldId, "Color");
   }
 
   function getAdminBasePath() {
@@ -228,6 +317,12 @@
 
     return await res.json();
   }
+  async function getCategoryFromProduct(productSelect) {
+    if (!productSelect) return null;
+    const productId = productSelect.value || "";
+    if (!productId) return null;
+    return fetchVariantRule(productId);
+  }
 
   async function refreshValueWidget() {
     const productEl = $("id_product");
@@ -240,9 +335,9 @@
 
     // No product field => safest fallback is input + allow save
     if (!productEl) {
-      if (lastMode !== "input") setValueAsInput();
+      if (lastMode !== "input") setValueAsInput("id_value", "Value");
       setSaveButtonsEnabled(true);
-      hideColorFieldAndClear();
+      hideColorFieldAndClear("id_color");
       lastProductId = null;
       return;
     }
@@ -251,9 +346,9 @@
 
     // No product selected => input + allow save
     if (!productId) {
-      if (lastMode !== "input") setValueAsInput();
+      if (lastMode !== "input") setValueAsInput("id_value", "Value");
       setSaveButtonsEnabled(true);
-      hideColorFieldAndClear();
+      hideColorFieldAndClear("id_color");
       lastProductId = null;
       return;
     }
@@ -263,67 +358,119 @@
     lastProductId = productId;
 
     try {
-      const rule = await fetchVariantRule(productId);
+      const rule = await getCategoryFromProduct(productEl);
 
-      // Backwards/forwards compatible parsing (snake_case / camelCase / minimal payload)
       const allowedValues =
         rule.allowed_values ??
         rule.allowedValues ??
         rule.allowed ??
         rule.values ??
-        null;
+        [];
 
       const allowedColors =
         rule.allowed_colors ??
         rule.allowedColors ??
         rule.colors ??
-        null;
+        [];
 
-      const categorySlug = normalizeSlug(
-        rule.category_slug ?? rule.categorySlug ?? rule.category ?? rule.slug ?? ""
+      const schema = String(
+        rule.variant_schema ?? rule.variantSchema ?? ""
+      ).trim().toLowerCase();
+
+      const shouldUseValueSelect = Boolean(
+        (rule.use_select ?? rule.useSelect) && Array.isArray(allowedValues) && allowedValues.length
       );
 
-      const isApparel = categorySlug === "camisetas" || categorySlug === "hoodies";
+      if (schema === "no_variant") {
+        setValueAsInput("id_value", rule.label || "Value");
+        const valueEl = $("id_value");
+        if (valueEl) {
+          valueEl.value = "";
+          valueEl.setAttribute("value", "");
+          setFieldEnabled(valueEl, false);
+          setRowVisible(valueEl, false);
+        }
+        hideColorFieldAndClear("id_color");
+        const colorEl = $("id_color");
+        if (colorEl) {
+          colorEl.value = "";
+          colorEl.setAttribute("value", "");
+        }
+        setSaveButtonsEnabled(true);
+        return;
+      }
 
-      const shouldUseSelect = Boolean(rule.use_select ?? rule.useSelect) || isApparel;
-
-      if (shouldUseSelect) {
-        setValueAsSelect({
-          label: rule.label || (isApparel ? "Talla" : "Value"),
-          allowed_values:
-            Array.isArray(allowedValues) && allowedValues.length
-              ? allowedValues
-              : isApparel
-                ? DEFAULT_CAMISETA_VALUES
-                : [],
-        });
+      if (shouldUseValueSelect) {
+        setValueAsSelect(
+          {
+            label: rule.label || "Value",
+            allowed_values: allowedValues,
+          },
+          "id_value"
+        );
       } else {
-        setValueAsInput();
+        setValueAsInput("id_value", rule.label || "Value");
       }
       setSaveButtonsEnabled(true);
 
-      // Color: only for apparel categories (camisetas/hoodies)
-      if (isApparel) {
-        const colorsArr =
-          Array.isArray(allowedColors) && allowedColors.length
-            ? allowedColors
-            : DEFAULT_APPAREL_COLORS || [];
+      const valueEl = $("id_value");
+      if (valueEl) {
+        setFieldEnabled(valueEl, true);
+        setRowVisible(valueEl, true);
+      }
 
-        setColorAsSelect({
-          label: "Color",
-          allowed_colors: colorsArr,
-        });
+      if (schema === "size_color") {
+        const colorsArr = Array.isArray(allowedColors) ? allowedColors : [];
+        if (colorsArr.length) {
+          setColorAsSelect(
+            {
+              label: "Color",
+              allowed_colors: colorsArr,
+            },
+            "id_color"
+          );
+        } else {
+          const colorEl = $("id_color");
+          if (colorEl) {
+            setRowVisible(colorEl, true);
+            setFieldEnabled(colorEl, true);
+            setFieldLabel("id_color", "Color");
+          }
+        }
+      } else if (schema === "jean_size" || schema === "shoe_size") {
+        hideColorFieldAndClear("id_color");
+        const colorEl = $("id_color");
+        if (colorEl) {
+          colorEl.value = "";
+          colorEl.setAttribute("value", "");
+        }
       } else {
-        hideColorFieldAndClear();
+        hideColorFieldAndClear("id_color");
       }
     } catch (e) {
       console.warn("[ProductVariantAdmin] Falling back to neutral widgets", e);
       // Conservative fallback: allow viewing/editing and allow save
-      setValueAsInput();
-      hideColorFieldAndClear();
+      setValueAsInput("id_value", "Value");
+      hideColorFieldAndClear("id_color");
       setSaveButtonsEnabled(true);
     }
   }
+
+  window.KameAdminDynamicFields = Object.assign({}, window.KameAdminDynamicFields, {
+    normalizeValue,
+    setSaveButtonsEnabled,
+    getFormRowForField,
+    setRowVisible,
+    setFieldEnabled,
+    buildValueSelect,
+    buildColorSelect,
+    getCategoryFromProduct,
+    setFieldLabel,
+    setValueAsSelect,
+    setValueAsInput,
+    setColorAsSelect,
+    hideColorFieldAndClear,
+  });
 
   ready(function () {
     const productEl = $("id_product");

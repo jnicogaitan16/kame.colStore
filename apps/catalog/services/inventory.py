@@ -14,6 +14,12 @@ Contrato (obligatorio):
 3) get_variant_available_stock(variant) -> int
 4) assert_stock_available(variant, qty) -> None
 5) decrement_pool_stock(variant, qty) -> None (transaction + select_for_update)
+
+Keys soportadas por schema (sin cambiar la estructura del pool):
+- size_color -> ("L", "Negro")
+- jean_size -> ("32", "")
+- shoe_size -> ("40", "")
+- no_variant -> ("", "")
 """
 
 from __future__ import annotations
@@ -84,7 +90,14 @@ def _variant_category_id(variant: Any) -> Optional[int]:
 
 
 def _variant_key(variant: Any) -> Tuple[str, str]:
-    """Key (value,color) normalizada para usar en el pool."""
+    """Key (value,color) normalizada para usar en el pool.
+
+    La estructura del pool NO cambia:
+    - size_color -> (value, color)
+    - jean_size -> (value, "")
+    - shoe_size -> (value, "")
+    - no_variant -> ("", "")
+    """ 
     value = _norm_value(getattr(variant, "value", ""))
     color = _norm_color(getattr(variant, "color", ""))
     return value, color
@@ -105,6 +118,13 @@ def get_available_stock(
     """Returns available stock for a (category_id, value, color) combination.
 
     This is the low-level (pool) stock source of truth.
+
+    La estructura de resolución sigue siendo siempre (value, color),
+    pero el contenido depende del schema de la categoría:
+    - size_color -> ("L", "Negro")
+    - jean_size -> ("32", "")
+    - shoe_size -> ("40", "")
+    - no_variant -> ("", "")
 
     Contract:
     - Uses the same normalization rules as InventoryPool/ProductVariant clean()
@@ -160,7 +180,7 @@ def consume_stock(category_id: int, value: Any, color: Any, qty: int) -> None:
         except InventoryPool.DoesNotExist:
             raise OutOfStockError(
                 code="OUT_OF_STOCK",
-                message="No existe pool para esta combinación (value/color).",
+                message="No existe pool para esta combinación técnica (value/color).",
             )
 
         if int(pool_row.quantity or 0) < qty_int:
@@ -175,6 +195,14 @@ def consume_stock(category_id: int, value: Any, color: Any, qty: int) -> None:
 
 def get_pool_map(category_id: int) -> Dict[Tuple[str, str], int]:
     """Returns a dict mapping (value,color) -> quantity for a category.
+
+    La clave sigue siendo siempre `(value, color)` para todos los schemas.
+
+    Ejemplos:
+    - size_color -> ("L", "Negro")
+    - jean_size -> ("32", "")
+    - shoe_size -> ("40", "")
+    - no_variant -> ("", "")
 
     Contract:
     - 1 query
@@ -198,7 +226,9 @@ def get_pool_map(category_id: int) -> Dict[Tuple[str, str], int]:
 def get_variant_available_stock(variant: Any, *, pool_map: Optional[Dict[Tuple[str, str], int]] = None) -> int:
     """Stock disponible para una variante, derivado del InventoryPool.
 
-    Contract: usa pool_map
+    Contract: usa pool_map.
+    La resolución sigue usando `(value, color)` aunque algunas categorías
+    usen `color=""` o incluso `value=""` y `color=""`.
     """
     category_id = _variant_category_id(variant)
     if not category_id:
