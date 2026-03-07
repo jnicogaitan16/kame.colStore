@@ -52,6 +52,40 @@ function colorDotClass(color: string): string {
   return "bg-white/30 border border-white/20";
 }
 
+const APPAREL_ORDER = ["S", "M", "L", "XL", "2XL"];
+const SHOE_ORDER = ["36", "37", "38", "39", "40", "41", "42"];
+
+function sortVariantValuesForSchema(
+  values: string[],
+  variantSchema: string,
+  categorySlug?: string | null
+): string[] {
+  const cleaned = Array.from(
+    new Set(values.map((v) => String(v || "").trim()).filter(Boolean))
+  );
+
+  let canonical: string[] = [];
+
+  if (variantSchema === "size_color") {
+    canonical = APPAREL_ORDER;
+  } else if (variantSchema === "shoe_size") {
+    canonical = SHOE_ORDER;
+  } else if (variantSchema === "jean_size") {
+    return cleaned.sort((a, b) => Number(a) - Number(b));
+  } else {
+    return cleaned.sort();
+  }
+
+  const orderMap = new Map(canonical.map((v, i) => [v, i]));
+  const known = cleaned.filter((v) => orderMap.has(v));
+  const unknown = cleaned.filter((v) => !orderMap.has(v));
+
+  known.sort((a, b) => orderMap.get(a)! - orderMap.get(b)!);
+  unknown.sort();
+
+  return [...known, ...unknown];
+}
+
 export function ProductDetailClient({ product }: ProductDetailClientProps) {
   const addItem = useCartStore((s) => s.addItem);
   const openCart = useCartStore((s) => s.openCart);
@@ -76,12 +110,16 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
   const hasColor = requiresColor && variants.some((v) => v.color);
 
   const valueOptions = useMemo(() => {
-    const set = new Set<string>();
-    variants.forEach((v) => {
-      if (v.value) set.add(v.value);
-    });
-    return Array.from(set);
-  }, [variants]);
+    const rawValues = variants
+      .map((v) => v.value)
+      .filter((v): v is string => Boolean(v && String(v).trim()));
+
+    return sortVariantValuesForSchema(
+      rawValues,
+      variantSchema,
+      product.category?.slug
+    );
+  }, [variants, variantSchema, product.category?.slug]);
 
   const colorOptions = useMemo(() => {
     const set = new Set<string>();
@@ -145,8 +183,45 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
     </button>
   ) : null;
 
+  const findExactSizeColorVariant = (value: string, color: string) => {
+    const normalizedValue = (value || "").trim();
+    const normalizedColor = (color || "").trim();
+    if (!normalizedValue || !normalizedColor) return null;
+
+    return (
+      variants.find(
+        (v) =>
+          (v.value || "").trim() === normalizedValue &&
+          (v.color || "").trim() === normalizedColor
+      ) ?? null
+    );
+  };
+
+  const sizeExistsForSelectedColor = (value: string, color: string) => {
+    return !!findExactSizeColorVariant(value, color);
+  };
+
+  const sizeInSelectedColorHasStock = (value: string, color: string) => {
+    const match = findExactSizeColorVariant(value, color);
+    return !!match && (match.stock ?? 0) > 0;
+  };
+
+  const colorExistsForSelectedValue = (color: string, value: string) => {
+    return !!findExactSizeColorVariant(value, color);
+  };
+
+  const colorForSelectedValueHasStock = (color: string, value: string) => {
+    const match = findExactSizeColorVariant(value, color);
+    return !!match && (match.stock ?? 0) > 0;
+  };
+
   const tallaDisponible = (val: string) => {
     if (!requiresValue) return (product.stock_total ?? 0) > 0;
+
+    if (variantSchema === "size_color") {
+      if (!selectedColor) return false;
+      return sizeInSelectedColorHasStock(val, selectedColor);
+    }
 
     if (variantSchema === "jean_size") {
       return variants.some((v: any) => v.value === val && (v.stock ?? 0) > 0);
@@ -158,13 +233,23 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
   const colorDisponible = (color: string) => {
     if (!requiresColor) return true;
 
-    return variants.some(
-      (v: any) => v.color === color && (v.stock ?? 0) > 0
-    );
+    if (!selectedValue) {
+      return variants.some(
+        (v: any) => v.color === color && (v.stock ?? 0) > 0
+      );
+    }
+
+    return colorForSelectedValueHasStock(color, selectedValue);
   };
 
   const tallaAgotada = (val: string) => {
     if (!requiresValue) return (product.stock_total ?? 0) <= 0;
+
+    if (variantSchema === "size_color") {
+      if (!selectedColor) return true;
+      if (!sizeExistsForSelectedColor(val, selectedColor)) return true;
+      return !sizeInSelectedColorHasStock(val, selectedColor);
+    }
 
     if (variantSchema === "jean_size") {
       return !variants.some((v: any) => v.value === val && (v.stock ?? 0) > 0);
@@ -176,15 +261,39 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
   const colorAgotado = (color: string) => {
     if (!requiresColor) return false;
 
-    return !variants.some(
-      (v: any) => v.color === color && (v.stock ?? 0) > 0
-    );
+    if (!selectedValue) {
+      return !variants.some(
+        (v: any) => v.color === color && (v.stock ?? 0) > 0
+      );
+    }
+
+    if (!colorExistsForSelectedValue(color, selectedValue)) return true;
+    return !colorForSelectedValueHasStock(color, selectedValue);
   };
 
   const pickNextValueForColor = (color: string) => {
     const normalizedColor = (color || "").trim();
     if (!normalizedColor) return "";
 
+    // 1) Intentar mantener la talla actual si la combinación exacta existe
+    if (selectedValue) {
+      const exactMatch = variants.find(
+        (v: any) =>
+          v.color === normalizedColor &&
+          v.value === selectedValue &&
+          (v.stock ?? 0) > 0
+      ) ?? null;
+
+      if (exactMatch?.value) return exactMatch.value;
+
+      const exactAnyStock = variants.find(
+        (v) => v.color === normalizedColor && v.value === selectedValue
+      ) ?? null;
+
+      if (exactAnyStock?.value) return exactAnyStock.value;
+    }
+
+    // 2) Fallback: primera variante disponible de ese color
     const availableMatch =
       variants.find(
         (v: any) => v.color === normalizedColor && (v.stock ?? 0) > 0
@@ -192,6 +301,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
 
     if (availableMatch?.value) return availableMatch.value;
 
+    // 3) Último fallback: cualquier variante de ese color
     const anyMatch = variants.find((v) => v.color === normalizedColor) ?? null;
     return anyMatch?.value ?? "";
   };
@@ -200,6 +310,25 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
     const normalizedValue = (val || "").trim();
     if (!normalizedValue) return "";
 
+    // 1) Intentar mantener el color actual si la combinación exacta existe
+    if (selectedColor) {
+      const exactMatch = variants.find(
+        (v: any) =>
+          v.value === normalizedValue &&
+          v.color === selectedColor &&
+          (v.stock ?? 0) > 0
+      ) ?? null;
+
+      if (exactMatch?.color) return exactMatch.color;
+
+      const exactAnyStock = variants.find(
+        (v) => v.value === normalizedValue && v.color === selectedColor
+      ) ?? null;
+
+      if (exactAnyStock?.color) return exactAnyStock.color;
+    }
+
+    // 2) Fallback: primera variante disponible de esa talla
     const availableMatch =
       variants.find(
         (v: any) => v.value === normalizedValue && (v.stock ?? 0) > 0
@@ -207,6 +336,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
 
     if (availableMatch?.color) return availableMatch.color;
 
+    // 3) Último fallback: cualquier variante de esa talla
     const anyMatch = variants.find((v) => v.value === normalizedValue) ?? null;
     return anyMatch?.color ?? "";
   };
@@ -262,12 +392,25 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
   const displayVariant = useMemo(() => {
     if (!variants.length) return null;
 
-    // UI-only fallback order (do NOT affect cart):
-    // 1) exact selectedVariant (even if stock is 0)
-    // 2) same color (prefer a variant of that color that has images)
-    // 3) same value/size (prefer a variant of that value that has images)
-    // 4) first available by stock
-    // 5) first variant
+    // Visual-only fallback order (do NOT affect cart):
+    // - SIZE_COLOR: the gallery must respond to color, not size.
+    //   1) exact selectedVariant
+    //   2) any variant of the selected color (prefer one with images)
+    //   3) first available by stock
+    //   4) first variant
+    // - Other schemas can keep the broader fallback behavior.
+    if (variantSchema === "size_color") {
+      const byColor = selectedColor ? findByColorPreferImages(selectedColor) : null;
+
+      return (
+        selectedVariant ??
+        byColor ??
+        firstAvailableVariant ??
+        variants[0] ??
+        null
+      );
+    }
+
     const byColor = selectedColor ? findByColorPreferImages(selectedColor) : null;
     const byValue = selectedValue ? findByValuePreferImages(selectedValue) : null;
 
@@ -279,7 +422,14 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
       variants[0] ??
       null
     );
-  }, [variants, selectedVariant, selectedColor, selectedValue, firstAvailableVariant]);
+  }, [
+    variants,
+    selectedVariant,
+    selectedColor,
+    selectedValue,
+    firstAvailableVariant,
+    variantSchema,
+  ]);
 
   const img = useMemo(() => getPrimaryImageUrl(product as any), [product]);
 
@@ -510,15 +660,10 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
                                   (selected ? "pdp-color-chip--selected " : "") +
                                   (soldOut ? "pdp-color-chip--disabled " : "")
                                 }
+                                disabled={soldOut}
                                 onClick={() => {
+                                  if (soldOut) return;
                                   setSelectedColor(color);
-
-                                  if (variantSchema === "size_color") {
-                                    const nextValue = pickNextValueForColor(color);
-                                    if (nextValue) {
-                                      setSelectedValue(nextValue);
-                                    }
-                                  }
                                 }}
                                 aria-pressed={selected}
                                 aria-disabled={soldOut}
@@ -561,15 +706,10 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
                                   (selected ? "pdp-size-item--selected " : "") +
                                   (soldOut ? "pdp-size-item--disabled " : "")
                                 }
+                                disabled={soldOut}
                                 onClick={() => {
+                                  if (soldOut) return;
                                   setSelectedValue(val);
-
-                                  if (variantSchema === "size_color") {
-                                    const nextColor = pickNextColorForValue(val);
-                                    if (nextColor) {
-                                      setSelectedColor(nextColor);
-                                    }
-                                  }
                                 }}
                                 aria-pressed={selected}
                                 aria-disabled={soldOut}

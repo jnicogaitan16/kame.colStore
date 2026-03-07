@@ -106,6 +106,42 @@ def get_allowed_colors_for_category(category_slug: Optional[str]) -> Optional[Li
     return list(colors)
 
 
+# Helper to sort variant values canonically
+def sort_variant_values(values: List[str], category_slug: Optional[str]) -> List[str]:
+    """
+    Sort variant values using the canonical order defined for a category.
+
+    Rules:
+    - If the category has canonical `allowed_values`, known values must follow
+      that exact order.
+    - Unknown values go to the end, sorted alphabetically.
+    - Empty values are ignored.
+    - Duplicate values are removed while preserving first appearance.
+    """
+
+    rule = get_variant_rule(category_slug)
+    allowed = rule.get("allowed_values") or []
+
+    if not values:
+        return []
+
+    normalized = [str(v).strip() for v in values if str(v).strip()]
+    unique_values = list(dict.fromkeys(normalized))
+
+    if not allowed:
+        return sorted(unique_values)
+
+    order_map = {value: index for index, value in enumerate(allowed)}
+
+    known = [v for v in unique_values if v in order_map]
+    unknown = [v for v in unique_values if v not in order_map]
+
+    known.sort(key=lambda v: order_map[v])
+    unknown.sort()
+
+    return known + unknown
+
+
 def normalize_variant_value(value: Optional[str]) -> Optional[str]:
     """Normalize a variant value (trim + uppercase) keeping None as None."""
 

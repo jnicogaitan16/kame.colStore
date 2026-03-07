@@ -6,6 +6,7 @@ from apps.catalog.models import (
     Product,
     ProductVariant,
     InventoryPool,
+    ProductColorImage,
 )
 from apps.catalog.variant_rules import normalize_variant_color, normalize_variant_value
 
@@ -26,6 +27,18 @@ def normalize_value(value: Optional[str]) -> str:
 def normalize_color(color: Optional[str]) -> str:
     """Normaliza color (color) a formato canónico: 'beige' -> 'Beige'."""
     return normalize_variant_color(color) or ""
+
+
+def _product_has_visual_color_enabled(product: Product, color: str) -> bool:
+    """Retorna True si el producto tiene al menos una imagen visual para ese color."""
+    normalized_color = normalize_color(color)
+    if not normalized_color:
+        return False
+
+    return ProductColorImage.objects.filter(
+        product=product,
+        color__iexact=normalized_color,
+    ).exists()
 
 
 def sync_variants_for_pool(pool_id: int) -> SyncStats:
@@ -64,6 +77,11 @@ def sync_variants_for_pool(pool_id: int) -> SyncStats:
 
         for product in products:
 
+            if schema == Category.VariantSchema.SIZE_COLOR:
+                desired_is_active = pool.is_active and _product_has_visual_color_enabled(product, color)
+            else:
+                desired_is_active = pool.is_active
+
             # 1) Buscar variante existente de forma case-insensitive para evitar duplicados
             existing_qs = (
                 ProductVariant.objects
@@ -89,8 +107,8 @@ def sync_variants_for_pool(pool_id: int) -> SyncStats:
                     variant.stock = pool.quantity
                     update_fields.append("stock")
 
-                if variant.is_active != pool.is_active:
-                    variant.is_active = pool.is_active
+                if variant.is_active != desired_is_active:
+                    variant.is_active = desired_is_active
                     update_fields.append("is_active")
 
                 if update_fields:
@@ -111,7 +129,7 @@ def sync_variants_for_pool(pool_id: int) -> SyncStats:
                 value=value,
                 color=color,
                 stock=pool.quantity,
-                is_active=pool.is_active,
+                is_active=desired_is_active,
             )
             stats.created += 1
 

@@ -12,6 +12,7 @@ from .models import (
     Product,
     ProductVariant,
     ProductImage,
+    ProductColorImage,
     HomepageBanner,
     HomepageSection,
     HomepagePromo,
@@ -546,12 +547,26 @@ class ProductVariantInline(admin.TabularInline):
 # ======================
 # ProductImage Inline
 # ======================
+
 class ProductImageInline(admin.TabularInline):
     model = ProductImage
     extra = 1
     fields = ("image", "alt_text", "is_primary", "sort_order")
     readonly_fields = ("created_at",)
     
+    def get_fields(self, request, obj=None):
+        fields = list(super().get_fields(request, obj))
+        if obj:  # Solo mostrar created_at al editar
+            fields.append("created_at")
+        return fields
+
+
+class ProductColorImageInline(admin.TabularInline):
+    model = ProductColorImage
+    extra = 1
+    fields = ("color", "image", "alt_text", "is_primary", "sort_order")
+    readonly_fields = ("created_at",)
+
     def get_fields(self, request, obj=None):
         fields = list(super().get_fields(request, obj))
         if obj:  # Solo mostrar created_at al editar
@@ -578,7 +593,7 @@ class ProductAdmin(admin.ModelAdmin):
     search_fields = ("name", "slug")
     list_filter = ("is_active", "category")
     prepopulated_fields = {"slug": ("name",)}
-    inlines = [ProductVariantInline]
+    inlines = [ProductVariantInline, ProductColorImageInline]
     actions = ["generate_variants_from_pool_action"]
 
     @admin.action(description="Generar variantes desde pool")
@@ -672,6 +687,8 @@ class ProductVariantAdmin(admin.ModelAdmin):
     def product_category_label(self, obj):
         category = getattr(getattr(obj, "product", None), "category", None)
         return str(category) if category else "-"
+    # Legacy fallback por variante: mantener por compatibilidad mientras
+    # la PDP migra completamente a ProductColorImage para categorías SIZE_COLOR.
     inlines = [ProductImageInline]
 
     def _is_orders_variant_selector(self, request) -> bool:
