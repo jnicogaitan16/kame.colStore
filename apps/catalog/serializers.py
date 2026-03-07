@@ -68,26 +68,26 @@ def _absolute_uri(request, url):
 
 
 def _spec_url(obj, spec_attr: str):
-    """Retorna URL del spec asegurando que el cachefile exista.
+    """Retorna URL del spec solo si el cachefile ya existe.
 
-    - Fuerza `generate()` si está disponible.
-    - Solo devuelve la URL si el archivo existe en el storage.
-    - Si algo falla, retorna None para que el caller haga fallback al original.
+    Política de lectura optimizada:
+    - NO forzar `generate()` en serialización.
+    - Intentar usar la URL del spec/cachefile si ya existe.
+    - Verificar existencia en storage cuando sea posible.
+    - Si el derivado no existe o algo falla, retornar None para fallback al original.
     """
     try:
         spec = getattr(obj, spec_attr, None)
         if not spec:
             return None
 
-        # Preferimos cachefile explícito para evitar intermitencias (contract)
+        # Intentar resolver el cachefile sin generarlo
         try:
             cachefile = ImageCacheFile(spec)
-            cachefile.generate()
             url = getattr(cachefile, "url", None)
             if not url:
                 return None
 
-            # Verificación extra: confirmar que el archivo existe en el storage
             storage = getattr(cachefile, "storage", None)
             name = getattr(cachefile, "name", None)
             exists = getattr(storage, "exists", None) if storage else None
@@ -96,7 +96,7 @@ def _spec_url(obj, spec_attr: str):
 
             return url
         except Exception:
-            # Fallback: si spec ya es cachefile y tiene url, úsala
+            # Fallback: si spec ya expone url, úsala solo si el archivo existe
             url = getattr(spec, "url", None)
             if not url:
                 return None
@@ -344,22 +344,16 @@ class ProductVariantSerializer(serializers.ModelSerializer):
 
     def get_image_thumb_url(self, obj):
         img = obj.images.order_by("-is_primary", "sort_order", "created_at").first()
-        if not img:
-            return None
-
-        # Si no existe spec/thumb en el modelo, retornar None
-        if not hasattr(img, "image_thumb") or not img.image_thumb:
+        if not img or not img.image:
             return None
 
         request = self.context.get("request")
+        cache_url = _spec_url(img, "image_thumb")
+        if cache_url:
+            return public_media_url(cache_url, request=request)
 
-        try:
-            cachefile = ImageCacheFile(img.image_thumb)
-            cachefile.generate()  # Generación explícita
-            return public_media_url(cachefile.url, request=request)
-        except Exception:
-            # Fallback a original
-            return self.get_image_url(obj)
+        # Fallback limpio al original sin forzar generación
+        return self.get_image_url(obj)
 
 
 # ---------------------------------------------------------------------------

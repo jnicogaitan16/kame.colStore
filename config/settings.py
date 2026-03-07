@@ -293,6 +293,12 @@ DEFAULT_FILE_STORAGE = "storages.backends.s3.S3Storage"
 # Optimistic strategy generates on-demand and reuses if present.
 IMAGEKIT_DEFAULT_CACHEFILE_STRATEGY = "imagekit.cachefiles.strategies.Optimistic"
 
+# Feature flag: control eager cache for ProductImage via environment variable
+ENABLE_PRODUCTIMAGE_EAGER_CACHE = os.getenv(
+    "ENABLE_PRODUCTIMAGE_EAGER_CACHE",
+    "False"
+).lower() in ("1", "true", "yes", "on")
+
 # MEDIA_URL debe apuntar a la URL pública del bucket
 if R2_PUBLIC_BASE_URL:
     MEDIA_URL = f"{R2_PUBLIC_BASE_URL}/"
