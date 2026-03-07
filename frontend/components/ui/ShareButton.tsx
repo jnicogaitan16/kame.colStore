@@ -88,8 +88,8 @@ export default function ShareButton({
       // Para que el comportamiento sea lo más parecido posible al share nativo de iOS,
       // solo pasamos la URL, sin `title` ni `text`. Así Mensajes trata el contenido
       // como "solo link" y genera la tarjeta OG igual que cuando compartes desde Safari.
-      if (typeof navigator !== "undefined" && (navigator as any).share) {
-        await (navigator as any).share({
+      if (typeof navigator !== "undefined" && navigator.share) {
+        await navigator.share({
           url: shareUrl,
         });
         return;
@@ -104,7 +104,14 @@ export default function ShareButton({
 
       // 3) Último recurso: prompt
       window.prompt("Copia este enlace:", shareUrl);
-    } catch {
+    } catch (error) {
+      const err = error as { name?: string } | null;
+
+      // Cerrar o cancelar la hoja nativa de compartir NO debe mostrarse como error.
+      if (err?.name === "AbortError" || err?.name === "NotAllowedError") {
+        return;
+      }
+
       try {
         window.alert("No se pudo compartir en este dispositivo.");
       } catch {

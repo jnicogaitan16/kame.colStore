@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import logging
 
+from django.conf import settings
 from django.db import transaction
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -52,7 +53,9 @@ def _generate_product_image_cachefiles(instance: ProductImage) -> None:
 
 @receiver(post_save, sender=ProductImage)
 def productimage_post_save_generate_cache(sender, instance: ProductImage, **kwargs) -> None:
-    """Eagerly generate cachefiles after saving a ProductImage."""
+    """Eagerly generate cachefiles after saving a ProductImage when enabled."""
+    if not getattr(settings, "ENABLE_PRODUCTIMAGE_EAGER_CACHE", False):
+        return
 
     def _run():
         _generate_product_image_cachefiles(instance)
