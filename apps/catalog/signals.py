@@ -23,7 +23,7 @@ from django.dispatch import receiver
 from imagekit.cachefiles import ImageCacheFile
 from apps.catalog.services.variant_sync import sync_variants_for_pool
 
-from .models import InventoryPool, ProductImage
+from .models import InventoryPool, ProductImage, ProductColorImage
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +51,16 @@ def _generate_product_image_cachefiles(instance: ProductImage) -> None:
         _safe_generate(spec)
 
 
+def _generate_product_color_image_cachefiles(instance: ProductColorImage) -> None:
+    """Generate cachefiles for ProductColorImage specs (thumb/detail/large)."""
+    if not getattr(instance, "image", None):
+        return
+
+    for attr in ("image_thumb", "image_medium", "image_large"):
+        spec = getattr(instance, attr, None)
+        _safe_generate(spec)
+
+
 @receiver(post_save, sender=ProductImage)
 def productimage_post_save_generate_cache(sender, instance: ProductImage, **kwargs) -> None:
     """Eagerly generate cachefiles after saving a ProductImage when enabled."""
@@ -59,6 +69,18 @@ def productimage_post_save_generate_cache(sender, instance: ProductImage, **kwar
 
     def _run():
         _generate_product_image_cachefiles(instance)
+
+    transaction.on_commit(_run)
+
+
+@receiver(post_save, sender=ProductColorImage)
+def productcolorimage_post_save_generate_cache(sender, instance: ProductColorImage, **kwargs) -> None:
+    """Eagerly generate cachefiles after saving a ProductColorImage when enabled."""
+    if not getattr(settings, "ENABLE_PRODUCTIMAGE_EAGER_CACHE", False):
+        return
+
+    def _run():
+        _generate_product_color_image_cachefiles(instance)
 
     transaction.on_commit(_run)
 

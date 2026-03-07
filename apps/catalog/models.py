@@ -282,12 +282,21 @@ class InventoryPool(models.Model):
         return " / ".join(parts) + f" = {self.quantity}"
 
 
+
 def product_image_upload_path(instance, filename):
     """Generate upload path for product variant images with unique filenames."""
     ext = os.path.splitext(filename)[1].lower()
     variant_id = instance.variant.id if instance.variant_id else "unknown"
     product_id = instance.variant.product.id if instance.variant_id else "unknown"
     return f"products/{product_id}/variants/{variant_id}/{uuid.uuid4().hex}{ext}"
+
+
+def product_color_image_upload_path(instance, filename):
+    """Generate upload path for product color images with unique filenames."""
+    ext = os.path.splitext(filename)[1].lower()
+    product_id = instance.product.id if instance.product_id else "unknown"
+    color_normalized = normalize_variant_color(instance.color) or "no-color"
+    return f"products/{product_id}/colors/{color_normalized}/{uuid.uuid4().hex}{ext}"
 
 
 def homepage_banner_upload_path(instance, filename):
@@ -452,11 +461,141 @@ class ProductImage(models.Model):
         """Acceso directo al producto desde la imagen (conveniencia)."""
         return self.variant.product if self.variant_id else None
     
+
     def __str__(self) -> str:
         if self.variant_id:
             variant_str = str(self.variant)
             return f"{variant_str} - Imagen {self.id}"
         return f"Imagen {self.id}"
+
+
+
+class ProductColorImage(models.Model):
+    """Imagen reutilizable por color para un producto.
+
+    Fuente principal para categorías apparel SIZE_COLOR, donde la galería
+    depende de producto + color y no de producto + talla + color.
+    ProductImage se mantiene como fallback legacy por variante.
+    """
+
+    MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
+    ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp'}
+
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        related_name="color_images",
+        help_text="Producto al que pertenece esta imagen por color",
+    )
+    color = models.CharField(max_length=32, blank=False, default="")
+    image = models.ImageField(upload_to=product_color_image_upload_path)
+
+    image_thumb = ImageSpecField(
+        source="image",
+        processors=[ResizeToFit(420, 420)],
+        format="WEBP",
+        options={"quality": 75},
+    )
+    image_medium = ImageSpecField(
+        source="image",
+        processors=[ResizeToFit(1200, 1200)],
+        format="WEBP",
+        options={"quality": 78},
+    )
+    image_large = ImageSpecField(
+        source="image",
+        processors=[ResizeToFit(1600, 1600)],
+        format="WEBP",
+        options={"quality": 78},
+    )
+
+    alt_text = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Texto alternativo para accesibilidad y SEO (ej: 'Camiseta negra')",
+    )
+    is_primary = models.BooleanField(
+        default=False,
+        help_text="Marcar como imagen principal/portada para este producto y color",
+    )
+    sort_order = models.PositiveIntegerField(
+        default=0,
+        help_text="Orden de visualización (menor = primero)",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["sort_order", "is_primary", "created_at"]
+        verbose_name = "Imagen por color"
+        verbose_name_plural = "Imágenes por color"
+
+    @property
+    def image_thumb_url(self) -> str:
+        return getattr(self.image_thumb, "url", "") if self.image else ""
+
+    @property
+    def image_medium_url(self) -> str:
+        return getattr(self.image_medium, "url", "") if self.image else ""
+
+    @property
+    def image_large_url(self) -> str:
+        return getattr(self.image_large, "url", "") if self.image else ""
+
+    def clean(self):
+        super().clean()
+
+        self.color = normalize_variant_color(self.color) or ""
+
+        if not self.color:
+            raise ValidationError({"color": "Selecciona un color válido."})
+
+        if self.product_id and self.product.category.variant_schema != Category.VariantSchema.SIZE_COLOR:
+            raise ValidationError({
+                "product": "ProductColorImage solo aplica a productos con esquema SIZE_COLOR."
+            })
+
+        if self.image:
+            if hasattr(self.image, "size") and self.image.size:
+                if self.image.size > self.MAX_FILE_SIZE:
+                    raise ValidationError({
+                        "image": f"El archivo es demasiado grande. Tamaño máximo: {self.MAX_FILE_SIZE / (1024 * 1024):.1f}MB"
+                    })
+
+            ext = os.path.splitext(self.image.name)[1].lower()
+            if ext not in self.ALLOWED_EXTENSIONS:
+                raise ValidationError({
+                    "image": f"Formato no permitido. Formatos permitidos: {', '.join(self.ALLOWED_EXTENSIONS)}"
+                })
+
+        if self.is_primary and self.product_id and self.color:
+            existing_primary = ProductColorImage.objects.filter(
+                product_id=self.product_id,
+                color=self.color,
+                is_primary=True,
+            ).exclude(pk=self.pk)
+            if existing_primary.exists():
+                raise ValidationError({
+                    "is_primary": "Ya existe una imagen principal para este producto y color."
+                })
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+
+        if not self.pk and self.product_id and self.color:
+            has_primary = ProductColorImage.objects.filter(
+                product_id=self.product_id,
+                color=normalize_variant_color(self.color) or "",
+                is_primary=True,
+            ).exists()
+            if not has_primary:
+                self.is_primary = True
+
+        return super().save(*args, **kwargs)
+
+    def __str__(self) -> str:
+        product_name = self.product.name if self.product_id else "Producto"
+        color = self.color or "Sin color"
+        return f"{product_name} / {color} - Imagen {self.id}"
 
 
 

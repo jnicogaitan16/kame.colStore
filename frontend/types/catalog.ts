@@ -76,13 +76,17 @@ export type ProductImage = {
   alt_text?: string | null;
 };
 
+export interface ProductColorImage extends ProductImage {
+  color?: string | null;
+}
+
 // =============================
 // Variante (Detail)
 // =============================
 
 export interface ProductVariant {
   id: number;
-  value: string | null;   // talla / número / dimensión
+  value: string | null;   // talla / número / medida (el frontend puede ordenar visualmente según variant_schema)
   color: string | null;
   stock: number;          // stock real desde InventoryPool
   is_active: boolean;

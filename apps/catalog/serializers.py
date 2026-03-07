@@ -16,10 +16,12 @@ from .models import (
     HomepagePromo,
     Product,
     ProductImage,
+    ProductColorImage,
     ProductVariant,
 )
 
 from .services.inventory import get_pool_map, get_variant_available_stock
+from .variant_rules import sort_variant_values
 
 
 def public_media_url(value, request=None):
@@ -237,6 +239,7 @@ class NavDepartmentSerializer(serializers.ModelSerializer):
 # ---------------------------------------------------------------------------
 # Product image (URL absoluta, orden: is_primary primero, luego sort_order)
 # ---------------------------------------------------------------------------
+
 class ProductImageSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
     image_thumb_url = serializers.SerializerMethodField()
@@ -296,6 +299,85 @@ class ProductImageSerializer(serializers.ModelSerializer):
 
 
 
+class ProductColorImageSerializer(serializers.ModelSerializer):
+    color = serializers.CharField(read_only=True)
+    image = serializers.SerializerMethodField()
+    image_thumb_url = serializers.SerializerMethodField()
+    image_medium_url = serializers.SerializerMethodField()
+    image_large_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ProductColorImage
+        fields = [
+            "id",
+            "color",
+            "image",
+            "image_thumb_url",
+            "image_medium_url",
+            "image_large_url",
+            "alt_text",
+            "is_primary",
+            "sort_order",
+        ]
+
+    def get_image(self, obj):
+        if not obj.image:
+            return None
+
+        request = self.context.get("request")
+        cache_url = (
+            _spec_url(obj, "image_large")
+            or _spec_url(obj, "image_medium")
+            or _spec_url(obj, "image_thumb")
+        )
+        return public_media_url(cache_url or obj.image.url, request=request)
+
+    def get_image_thumb_url(self, obj):
+        if not obj.image:
+            return None
+        request = self.context.get("request")
+        return public_media_url(_spec_url(obj, "image_thumb"), request=request)
+
+    def get_image_medium_url(self, obj):
+        if not obj.image:
+            return None
+        request = self.context.get("request")
+        return public_media_url(_spec_url(obj, "image_medium"), request=request)
+
+    def get_image_large_url(self, obj):
+        if not obj.image:
+            return None
+        request = self.context.get("request")
+        return public_media_url(_spec_url(obj, "image_large"), request=request)
+
+
+
+def _resolve_variant_gallery_images(variant):
+    """Resuelve la galería efectiva de una variante sin cambiar el contrato API.
+
+    Reglas:
+    - SIZE_COLOR: usar ProductColorImage por product + color.
+    - Fallback: ProductImage legacy por variante si no hay imágenes por color.
+    - Otros schemas: mantener ProductImage legacy por variante.
+    """
+    product = getattr(variant, "product", None)
+    category = getattr(product, "category", None) if product else None
+    schema = getattr(category, "variant_schema", "") if category else ""
+
+    if schema == Category.VariantSchema.SIZE_COLOR:
+        color = getattr(variant, "color", "") or ""
+        color_images = ProductColorImage.objects.filter(
+            product=product,
+            color=color,
+        ).order_by("-is_primary", "sort_order", "created_at")
+        if color_images.exists():
+            return color_images, "color"
+
+    legacy_images = variant.images.all().order_by("-is_primary", "sort_order", "created_at")
+    return legacy_images, "legacy"
+
+
+
 # ---------------------------------------------------------------------------
 # Variant (con imágenes ordenadas: primary + gallery)
 # ---------------------------------------------------------------------------
@@ -329,13 +411,13 @@ class ProductVariantSerializer(serializers.ModelSerializer):
             return 0
 
     def get_images(self, obj):
-        # Orden: primary primero, luego por sort_order (galería)
-        qs = obj.images.all().order_by("-is_primary", "sort_order", "created_at")
-        return ProductImageSerializer(qs, many=True, context=self.context).data
+        qs, source = _resolve_variant_gallery_images(obj)
+        serializer_class = ProductColorImageSerializer if source == "color" else ProductImageSerializer
+        return serializer_class(qs, many=True, context=self.context).data
 
     def get_image_url(self, obj):
-        # Usa la primera imagen asociada a la variante
-        img = obj.images.order_by("-is_primary", "sort_order", "created_at").first()
+        qs, _source = _resolve_variant_gallery_images(obj)
+        img = qs.first()
         if not img or not img.image:
             return None
         request = self.context.get("request")
@@ -343,7 +425,8 @@ class ProductVariantSerializer(serializers.ModelSerializer):
         return public_media_url(cache_url or img.image.url, request=request)
 
     def get_image_thumb_url(self, obj):
-        img = obj.images.order_by("-is_primary", "sort_order", "created_at").first()
+        qs, _source = _resolve_variant_gallery_images(obj)
+        img = qs.first()
         if not img or not img.image:
             return None
 
@@ -381,7 +464,25 @@ class ProductListSerializer(serializers.ModelSerializer):
         ]
 
     def get_primary_image(self, obj):
-        """Primera imagen disponible: primary de la primera variante con imágenes, o primera imagen."""
+        """Imagen principal para cards/listados.
+
+        Prioridad:
+        1) SIZE_COLOR -> ProductColorImage del producto
+        2) fallback legacy -> ProductImage por variante
+        """
+        request = self.context.get("request")
+        schema = getattr(getattr(obj, "category", None), "variant_schema", "")
+
+        if schema == Category.VariantSchema.SIZE_COLOR:
+            color_img = (
+                ProductColorImage.objects.filter(product=obj)
+                .order_by("-is_primary", "sort_order", "created_at")
+                .first()
+            )
+            if color_img and color_img.image:
+                cache_url = _spec_url(color_img, "image_medium") or _spec_url(color_img, "image_thumb")
+                return public_media_url(cache_url or color_img.image.url, request=request)
+
         img = (
             ProductImage.objects.filter(variant__product=obj)
             .order_by("-is_primary", "sort_order", "created_at")
@@ -389,7 +490,7 @@ class ProductListSerializer(serializers.ModelSerializer):
         )
         if not img or not img.image:
             return None
-        request = self.context.get("request")
+
         cache_url = _spec_url(img, "image_medium") or _spec_url(img, "image_thumb")
         return public_media_url(cache_url or img.image.url, request=request)
 
@@ -468,11 +569,27 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         # No exponer variantes inactivas/eliminadas en la API.
         # La PDP recibe variants[] exactamente como estén materializadas
         # en ProductVariant según el schema de la categoría.
-        qs = obj.variants.filter(is_active=True).order_by("value", "color", "id")
+        variants = list(obj.variants.filter(is_active=True))
+        category_slug = getattr(obj.category, "slug", None)
+
+        ordered_values = sort_variant_values(
+            [getattr(v, "value", "") for v in variants],
+            category_slug,
+        )
+        value_order_map = {value: index for index, value in enumerate(ordered_values)}
+
+        variants.sort(
+            key=lambda v: (
+                value_order_map.get(getattr(v, "value", ""), 9999),
+                getattr(v, "color", "") or "",
+                getattr(v, "id", 0),
+            )
+        )
+
         pool_map = get_pool_map(obj.category_id)
         ctx = dict(self.context)
         ctx["pool_map"] = pool_map
-        return ProductVariantSerializer(qs, many=True, context=ctx).data
+        return ProductVariantSerializer(variants, many=True, context=ctx).data
 
     def get_stock_total(self, obj):
         variants = obj.variants.filter(is_active=True)
