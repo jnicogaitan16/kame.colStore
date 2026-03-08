@@ -285,7 +285,7 @@ class InventoryPoolBulkLoadForm(forms.Form):
                 )
             return
 
-        if schema == Category.VariantSchema.DIMENSION:
+        if schema == Category.VariantSchema.SHOE_SIZE:
             if not value:
                 raise ValidationError(f"Línea {line_number}: el valor es obligatorio.")
             if allowed_values and value not in allowed_values:
