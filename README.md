@@ -1,13 +1,14 @@
 # Kame.colStore
 
-Sistema de gestión de tienda en línea desarrollado con Django para la venta de productos personalizados (camisetas, hoodies, mugs, cuadros, etc.).
+Sistema de gestión de tienda virtual desarrollado con Django y Next.js para la venta de prendas streetwear y productos personalizados (camisetas, hoodies, mugs, cuadros, etc.). El proyecto separa backend (Django) y storefront público (Next.js).
 
 ## 🚀 Características
 
 - **Gestión de Catálogo**: Productos con variantes (tallas, colores, tipos)
 - **Sistema de Pedidos**: Checkout completo con validación de stock
+- **Pagos por Transferencia**: Confirmación manual de pagos mientras se integra una pasarela de pago
 - **Gestión de Clientes**: Registro y seguimiento de clientes
-- **Cálculo de Envío**: Sistema de envío con envío gratis a partir de cierto monto
+- **Envíos Nacionales**: Integración operativa con Servientrega
 - **Admin Django**: Interfaz administrativa completa y personalizada
 - **Validación de Stock**: Control de inventario por variante de producto
 
@@ -175,13 +176,15 @@ kame.colStore/
     - `GET /api/orders/shipping-quote/?city_code=...&subtotal=...`
     - `POST /api/orders/checkout/`
   - El backend recalcula subtotal, envío y total, valida stock y crea la orden.
+- **Pagos**:
+  - `confirm_order_payment()`: Confirmación manual de pago (transferencia) y descuento de stock
 
 ### Servicios Principales
 
 - `validate_cart()`: Valida carrito y calcula subtotal
 - `get_or_create_customer_from_form_data()`: Gestión de clientes
 - `create_order_from_cart()`: Creación de órdenes
-- `confirm_order_payment()`: Confirmación de pago y descuento de stock
+- `confirm_order_payment()`: Confirmación manual de pago (transferencia) y descuento de stock
 - `validate_and_prepare_order_item()`: Validación de items de orden
 
 ## 🔐 Seguridad
@@ -205,7 +208,7 @@ kame.colStore/
 - Stock individual por variante
 
 ### Order
-- Estado: PENDING_PAYMENT, CREATED, PAID, CANCELLED, REFUNDED
+- Estado: PENDING_PAYMENT, CREATED, PAID, CANCELLED
 - Información de cliente y envío (snapshot)
 - Totales calculados automáticamente
 
@@ -253,17 +256,31 @@ El sistema soporta diferentes tipos de variantes según la categoría:
 - **Mugs**: Requieren tipo (ej: "MAGICO")
 - **Otros**: Texto libre
 
-### Cálculo de Envío
+### Envíos
 
-- Envío gratis a partir de $150,000 COP
+Los envíos se realizan a nivel nacional principalmente mediante **Servientrega**.
+
+Reglas actuales del sistema:
+
+- Envío gratis a partir de $170,000 COP
 - Bogotá D.C.: $10,000 COP
 - Nacional: $20,000 COP
 
-### Validación de Stock
+Los valores pueden ajustarse desde la lógica de servicios en `apps/orders/services/shipping.py`.
 
-- Se valida stock antes de crear la orden
-- Se usa `select_for_update()` para evitar condiciones de carrera
-- El stock se descuenta solo cuando se confirma el pago
+### Flujo de pago actual
+
+Actualmente el sistema trabaja con **pagos por transferencia bancaria**.
+
+Flujo general:
+
+1. El cliente crea la orden desde el checkout.
+2. La orden queda en estado `PENDING_PAYMENT`.
+3. El cliente realiza una transferencia.
+4. El administrador confirma el pago desde el panel administrativo.
+5. Al confirmarse el pago se descuenta el stock y la orden pasa a `PAID`.
+
+Este flujo se diseñó para permitir una transición futura hacia pasarelas de pago (Stripe, Wompi, MercadoPago, etc.).
 
 ## 🐛 Troubleshooting
 
@@ -292,4 +309,4 @@ python manage.py migrate
 
 ## 📞 Soporte
 
-[Agregar información de contacto/soporte]
+La tienda Kame.col opera como una **tienda virtual**. La atención se realiza únicamente por canales digitales. Para soporte técnico del proyecto o dudas sobre el sistema, contactar al equipo de desarrollo.

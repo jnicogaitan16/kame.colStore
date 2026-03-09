@@ -197,7 +197,7 @@ export default function ImageViewerModal({
                 onClick={() => swiperRef.current?.slideTo(idx)}
                 className={
                   isActive
-                    ? "h-2 w-2 rounded-full bg-cyan-400"
+                    ? "h-2 w-2 rounded-full bg-white/85"
                     : "h-2 w-2 rounded-full bg-white/20"
                 }
                 aria-label={`Ir a imagen ${idx + 1}`}

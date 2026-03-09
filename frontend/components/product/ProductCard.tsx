@@ -27,15 +27,15 @@ export function ProductCard({ product }: ProductCardProps) {
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-white/20">
-            <span className="text-xs tracking-[0.2em] uppercase">Kame.col</span>
+            <span className="type-brand text-white/30">Kame.col</span>
           </div>
         )}
       </div>
 
       {/* Meta */}
       <div className="card-premium-meta">
-        <div className="card-premium-name">{name}</div>
-        <div className="card-premium-price">
+        <div className="card-premium-name type-card-title">{name}</div>
+        <div className="type-body mt-1 text-white/72">
           ${Number(price).toLocaleString("es-CO")}
         </div>
       </div>

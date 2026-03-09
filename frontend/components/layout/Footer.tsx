@@ -36,15 +36,15 @@ export default function Footer() {
         <div className="grid gap-10 md:grid-cols-4 items-start">
           {/* Brand */}
           <div className="md:col-span-2 text-center md:text-left">
-            <h3 className="mb-3 text-xl font-semibold text-white">Kame.col</h3>
-            <p className="mx-auto max-w-md text-sm leading-relaxed text-neutral-400 md:mx-0">
+            <h3 className="type-brand mb-3 text-white">Kame.col</h3>
+            <p className="type-body mx-auto max-w-md md:mx-0">
               Arte urbano y diseño con identidad. Camisetas, hoodies y piezas personalizadas hechas con calidad, detalle y actitud.
             </p>
           </div>
 
           {/* Social */}
           <div>
-            <h4 className="mb-4 text-sm font-semibold uppercase tracking-wide text-white text-center md:text-left">
+            <h4 className="type-section-title mb-4 text-white text-center md:text-left">
               Síguenos
             </h4>
             <ul className="grid grid-cols-3 gap-3 text-sm md:block md:space-y-3">
@@ -89,10 +89,10 @@ export default function Footer() {
 
           {/* Contact */}
           <div className="text-center md:text-left">
-            <h4 className="mb-4 text-sm font-semibold uppercase tracking-wide text-white">
+            <h4 className="type-section-title mb-4 text-white">
               Contacto
             </h4>
-            <ul className="space-y-2 text-sm text-neutral-400">
+            <ul className="space-y-2 type-body">
               <li>Bogotá, Colombia</li>
               {contactEmail ? (
                 <li>
@@ -107,24 +107,24 @@ export default function Footer() {
 
         {/* Legal */}
         <div className="mt-12 border-t border-neutral-800 pt-6">
-          <div className="flex flex-col items-center justify-between gap-4 text-sm text-neutral-500 md:flex-row">
+          <div className="flex flex-col items-center justify-between gap-4 type-body md:flex-row">
             <div className="flex flex-col items-center gap-1 md:items-start">
               <span>
                 © {new Date().getFullYear()} Kame.col. Todos los derechos reservados.
               </span>
-              <span className="text-xs text-neutral-500">
+              <span className="type-body">
                 Desarrollado por{" "}
                 <a
                   href={process.env.NEXT_PUBLIC_LINKEDIN_URL}
                   target="_blank"
                   rel="noreferrer"
-                  className="font-medium text-neutral-300 hover:text-white transition-colors"
+                  className="type-action text-neutral-300 hover:text-white transition-colors"
                 >
                   Nicolás Gaitán
                 </a>
               </span>
             </div>
-            <div className="flex gap-4">
+            <div className="flex gap-4 type-ui-label">
               <Link href="/legal/politica-de-privacidad#terminos" className="hover:text-neutral-300">Términos</Link>
               <Link href="/legal/politica-de-privacidad#privacidad" className="hover:text-neutral-300">Privacidad</Link>
               <Link href="/legal/politica-de-privacidad#cookies" className="hover:text-neutral-300">Cookies</Link>

@@ -181,14 +181,19 @@ function MiniCart({ open, onClose }: MiniCartProps) {
 
                         return (
                           <div className="mt-2">
-                            <Notice variant="warning" tone="soft" compact title="Stock insuficiente">
+                            <Notice
+                              variant="warning"
+                              tone="soft"
+                              compact
+                              title={typeof w?.message === "string" && w.message.trim() ? w.message : "Drop casi agotado"}
+                            >
                               {hasAvailable ? (
-                                <p className="text-xs leading-snug text-amber-100/90">
-                                  Pediste {requested}, pero solo quedan {available} en stock.
+                                <p className="text-xs leading-snug text-white/72">
+                                  Pediste {requested}. Solo quedan {available} en este drop.
                                 </p>
                               ) : (
-                                <p className="text-xs leading-snug text-amber-100/90">
-                                  La cantidad que pediste supera el stock disponible.
+                                <p className="text-xs leading-snug text-white/72">
+                                  La cantidad que pediste supera las unidades disponibles.
                                 </p>
                               )}
                             </Notice>

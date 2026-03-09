@@ -140,7 +140,7 @@ function DesktopDeptTabs({
       }}
     >
       {/* Tabs */}
-      <div className="flex items-center gap-6">
+      <div className="flex items-center gap-6 font-ui">
         {orderedDepts.map((d) => {
           const isActive = d.slug === activeDeptSlug;
           return (
@@ -163,7 +163,7 @@ function DesktopDeptTabs({
                 setActiveDeptSlug(d.slug);
                 setOpen(true);
               }}
-              className={isActive ? "text-white" : "text-white/70 hover:text-white/90 transition"}
+              className={`type-nav transition ${isActive ? "text-white" : "text-white/70 hover:text-white/90"}`}
               aria-pressed={isActive}
             >
               {d.name}
@@ -184,7 +184,7 @@ function DesktopDeptTabs({
             scheduleClose();
           }}
         >
-          <div className="px-3 pb-2 pt-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/60">
+          <div className="type-nav px-3 pb-2 pt-2 text-white/60">
             {activeDept?.name}
           </div>
           <ul className="max-h-[65vh] overflow-auto py-1">
@@ -193,14 +193,14 @@ function DesktopDeptTabs({
                 <li key={String(c.id ?? c.slug)}>
                   <Link
                     href={categoryHref(c.slug, activeDeptSlug)}
-                    className="block rounded-xl px-3 py-2 text-[13px] font-semibold text-white/85 hover:bg-white/5"
+                    className="type-nav block rounded-xl px-3 py-2 text-white/85 hover:bg-white/5"
                   >
                     {c.name}
                   </Link>
                 </li>
               ))
             ) : (
-              <li className="px-3 py-3 text-[13px] font-medium text-white/70">Menú no disponible.</li>
+              <li className="type-secondary px-3 py-3 text-white/70">Menú no disponible.</li>
             )}
           </ul>
         </div>
@@ -228,13 +228,12 @@ export default function Navbar({
     "md:hidden relative z-50 pointer-events-auto inline-flex h-9 w-9 items-center justify-center text-white/80 transition hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30 leading-none";
 
   const desktopNavClass = isOverlay
-    ? "hidden md:flex items-center gap-6 pr-4 text-xs font-semibold uppercase tracking-[0.18em] text-white/85"
-    : "hidden md:flex items-center gap-6 pr-4 text-xs font-semibold uppercase tracking-[0.18em] text-white/80";
+    ? "hidden md:flex items-center gap-6 pr-4 text-white/85"
+    : "hidden md:flex items-center gap-6 pr-4 text-white/80";
 
   const linkClass = isOverlay ? "hover:text-white/90" : "hover:text-zinc-200";
 
-  const brandClass =
-    "justify-self-center text-base font-extrabold uppercase tracking-[0.22em] text-white md:text-lg";
+  const brandClass = "type-brand justify-self-center text-white";
 
   const cartBtnClass = isOverlay
     ? "relative rounded-lg p-1.5 text-white/90 transition hover:bg-white/10 hover:text-white leading-none"
@@ -308,7 +307,7 @@ export default function Navbar({
           <BagIcon className="h-6 w-6" />
           {cartCount > 0 && (
             <span
-              className="absolute right-1 top-1 z-10 select-none text-[12px] font-extrabold tracking-tight text-white drop-shadow-[0_6px_14px_rgba(0,0,0,0.85)]"
+              className="type-ui-label absolute right-1 top-1 z-10 select-none text-white drop-shadow-[0_6px_14px_rgba(0,0,0,0.85)]"
               style={{ textShadow: "0 2px 10px rgba(0,0,0,0.75), 0 0 2px rgba(0,0,0,0.9)" }}
               aria-label={`Productos en el carrito: ${cartCount > 99 ? "99+" : cartCount}`}
             >

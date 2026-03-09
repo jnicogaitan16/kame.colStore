@@ -39,6 +39,20 @@ export function Notice({
   const tokens = NOTICE_STYLES[variant][tone];
   const listMode = hasUl(children);
 
+  const neutralWarningTokens =
+    variant === "warning"
+      ? {
+          container:
+            "border-white/10 bg-white/[0.035] shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] backdrop-blur-sm",
+          title: "text-white/88",
+          text: "text-white/72",
+        }
+      : null;
+
+  const effectiveContainer = neutralWarningTokens?.container ?? tokens.container;
+  const effectiveTitle = neutralWarningTokens?.title ?? tokens.title;
+  const effectiveText = neutralWarningTokens?.text ?? tokens.text;
+
   // Base keeps things premium + stable in tight layouts like MiniCart.
   // Note: no `w-full` so consumers can opt into chip mode with className.
   const containerBase =
@@ -69,7 +83,7 @@ export function Notice({
         radius,
         padding,
         "border",
-        tokens.container,
+        effectiveContainer,
         listStyles,
         className
       )}
@@ -83,7 +97,7 @@ export function Notice({
 
         <div className="min-w-0 flex-1">
           {title ? (
-            <div className={cx("font-semibold tracking-tight", tokens.title, titleText)}>
+            <div className={cx("font-semibold tracking-tight", effectiveTitle, titleText)}>
               {title}
             </div>
           ) : null}
@@ -93,7 +107,7 @@ export function Notice({
               className={cx(
                 title ? "mt-0.5" : "",
                 "min-w-0 whitespace-normal break-words",
-                tokens.text,
+                effectiveText,
                 bodyText
               )}
             >

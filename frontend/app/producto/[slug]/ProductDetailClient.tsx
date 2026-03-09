@@ -177,7 +177,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
       type="button"
       onClick={() => setSizeGuideOpen(true)}
       aria-label="Abrir guía de medidas"
-      className="pdp-guide-link-inline"
+      className="pdp-guide-link-inline type-section-title"
     >
       Guía de medidas
     </button>
@@ -612,10 +612,10 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
           {/* Header (arriba del fold) */}
           <div className="relative flex items-start gap-3">
             <div className="pr-12">
-              <h1 className="text-2xl font-semibold tracking-tight text-neutral-100 md:text-3xl">
+              <h1 className="type-page-title max-w-[12ch] text-neutral-100 md:max-w-[14ch]">
                 {product.name}
               </h1>
-              <p className="mt-1 text-2xl font-semibold text-cyan-400">
+              <p className="type-body mt-2 text-white/72">
                 ${parseFloat(product.price).toLocaleString("es-CO")}
               </p>
             </div>
@@ -643,7 +643,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
                 <div>
                   {requiresColor && colorOptions.length > 0 ? (
                     <>
-                      <div className="pdp-section-title md:justify-end">Color</div>
+                      <div className="type-section-title md:justify-end">Color</div>
                       <div className="pdp-variant-section">
                         <div className="pdp-color-grid">
                           {colorOptions.map((color) => {
@@ -686,8 +686,8 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
                 <div>
                   {requiresValue && valueOptions.length > 0 ? (
                     <>
-                      <div className="flex items-center justify-between">
-                        <div className="pdp-section-title">Talla</div>
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="type-section-title">Talla</div>
                         {sizeGuideTrigger ? sizeGuideTrigger : null}
                       </div>
 
@@ -733,21 +733,21 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
 
           {/* Stock + CTA */}
           <div className="mt-6">
-            <div className="mb-3 flex flex-wrap items-center gap-2 text-sm text-neutral-500">
+            <div className="type-body mb-3 flex flex-wrap items-center gap-2 text-white/65">
               {isInvalidCombo ? (
-                <span className="text-neutral-400">
+                <span className="type-body text-white/60">
                   Esta combinación no está disponible. Prueba otra talla o color.
                 </span>
               ) : availableStock > 0 ? (
-                <span>
-                  Stock: {availableStock} disponible{availableStock !== 1 ? "s" : ""}
+                <span className="type-body text-white/72">
+                  {availableStock} unidad{availableStock !== 1 ? "es" : ""} disponible{availableStock !== 1 ? "s" : ""}
                 </span>
               ) : selectedVariant ? (
-                <span className="text-neutral-400">
+                <span className="type-body text-white/60">
                   Sold out
                 </span>
               ) : (
-                <span className="text-neutral-400">
+                <span className="type-body text-white/60">
                   {requiresColor ? "Selecciona una talla y color." : "Selecciona una talla."}
                 </span>
               )}
@@ -759,7 +759,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
               disabled={!canAdd}
               variant="primary"
               fullWidth
-              className="rounded-xl disabled:bg-white/10 disabled:text-white/70 disabled:shadow-none"
+              className="type-action rounded-xl disabled:bg-white/10 disabled:text-white/70 disabled:shadow-none"
             >
               {canAdd ? "Agregar al carrito" : "Sin stock"}
             </Button>
@@ -768,9 +768,9 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
           {/* Contenido inferior: Descripción */}
           {product.description ? (
             <section className="mt-8 border-t border-white/10 pt-6">
-              <h2 className="text-sm font-semibold tracking-wide text-neutral-100">Descripción</h2>
+              <h2 className="type-section-title text-neutral-100">Descripción</h2>
 
-              <div className={detailsExpanded ? "mt-3 whitespace-pre-wrap text-neutral-300" : "mt-3 whitespace-pre-wrap text-neutral-300 line-clamp-4"}>
+              <div className={detailsExpanded ? "type-body mt-3 whitespace-pre-wrap text-white/84" : "type-body mt-3 whitespace-pre-wrap text-white/84 line-clamp-4"}>
                 {product.description}
               </div>
 
@@ -778,7 +778,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
                 <button
                   type="button"
                   onClick={() => setDetailsExpanded((v) => !v)}
-                  className="text-sm font-semibold text-cyan-400 hover:text-cyan-300"
+                  className="type-action text-white/85 hover:text-white"
                 >
                   {detailsExpanded ? "Ver menos" : "Ver más"}
                 </button>
