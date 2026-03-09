@@ -561,60 +561,8 @@ class ProductImageInline(admin.TabularInline):
         return fields
 
 
-# ProductColorImageAdminForm for ProductColorImageInline
-class ProductColorImageAdminForm(forms.ModelForm):
-    class Meta:
-        model = ProductColorImage
-        fields = "__all__"
-
-    def __init__(self, *args, **kwargs):
-        self._parent_product = kwargs.pop("parent_product", None)
-        super().__init__(*args, **kwargs)
-
-        category_slug = None
-
-        # 0) Inline en "Change product": producto padre ya existe y tiene category_id
-        if self._parent_product is not None and getattr(self._parent_product, "category_id", None):
-            category = getattr(self._parent_product, "category", None)
-            if category is not None:
-                category_slug = getattr(category, "slug", None)
-
-        # 1) Edit/change del inline cuando la instancia ya está ligada a un producto
-        if category_slug is None and self.instance and getattr(self.instance, "pk", None):
-            product = getattr(self.instance, "product", None)
-            if product is not None and getattr(product, "category_id", None):
-                category = getattr(product, "category", None)
-                if category is not None:
-                    category_slug = getattr(category, "slug", None)
-
-        # 2) Add product view: leer la categoría elegida en el formulario padre
-        if category_slug is None:
-            parent_category_id = (
-                self.data.get("category")
-                or self.initial.get("category")
-            )
-            if parent_category_id:
-                try:
-                    category = Category.objects.get(pk=parent_category_id)
-                    category_slug = getattr(category, "slug", None)
-                except (Category.DoesNotExist, TypeError, ValueError):
-                    pass
-
-        if "color" in self.fields:
-            rule = get_variant_rule(category_slug)
-            allowed_colors = rule.get("allowed_colors") or []
-
-            if allowed_colors:
-                self.fields["color"].widget = forms.Select(
-                    choices=[("", "---------")] + [(c, c) for c in allowed_colors]
-                )
-            else:
-                self.fields["color"].widget = forms.TextInput()
-
-
 class ProductColorImageInline(admin.TabularInline):
     model = ProductColorImage
-    form = ProductColorImageAdminForm
     extra = 1
     fields = ("color", "image", "alt_text", "is_primary", "sort_order")
     readonly_fields = ("created_at",)
@@ -624,18 +572,6 @@ class ProductColorImageInline(admin.TabularInline):
         if obj:  # Solo mostrar created_at al editar
             fields.append("created_at")
         return fields
-
-    def get_formset(self, request, obj=None, **kwargs):
-        formset = super().get_formset(request, obj, **kwargs)
-
-        class FormSetWithParent(formset):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, **kwargs)
-                if self.instance is not None and getattr(self.instance, "pk", None):
-                    self.form_kwargs = getattr(self, "form_kwargs", {}) or {}
-                    self.form_kwargs["parent_product"] = self.instance
-
-        return FormSetWithParent
 
 
 # ======================
@@ -701,18 +637,14 @@ class ProductAdmin(admin.ModelAdmin):
             messages.success(request, f"Total: {created_total} variante(s) generada(s) desde el pool.")
 
     def get_inline_instances(self, request, obj=None):
-        """
-        Permite cargar imágenes por color desde la creación del producto,
-        pero mantiene las variantes ocultas hasta que el producto exista.
-        """
-        inline_instances = []
+        """En "Add product" no se muestran variantes; en "Edit product" sí, con dropdowns.
 
-        for inline_class in self.inlines:
-            if obj is None and inline_class is ProductVariantInline:
-                continue  # variantes solo después de guardar producto
-            inline_instances.append(inline_class(self.model, self.admin_site))
-
-        return inline_instances
+        Flujo: primero guardar producto (categoría, nombre, precio), luego en edición
+        agregar variantes con listas desplegables (talla/color) según la categoría.
+        """
+        if obj is None:
+            return []
+        return super().get_inline_instances(request, obj)
 
     def add_view(self, request, form_url="", extra_context=None):
         """Informar al usuario que las variantes se agregan después de guardar."""
