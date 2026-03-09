@@ -1137,3 +1137,32 @@ html[data-page-loading="1"] body {
 .pdp-guide-link-inline:hover {
   color: var(--accent-strong);
 }
+
+.legal-richtext h3 {
+  margin-top: 2.5rem;
+  font: var(--type-section-title);
+  color: rgba(255, 255, 255, 0.95);
+  letter-spacing: -0.02em;
+}
+
+.legal-richtext p,
+.legal-richtext ul,
+.legal-richtext ol,
+.legal-richtext li {
+  font: var(--type-body);
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.legal-richtext ul,
+.legal-richtext ol {
+  margin: 1rem 0 0;
+  padding-left: 1.25rem;
+}
+
+.legal-richtext li + li {
+  margin-top: 0.75rem;
+}
+
+.legal-richtext strong {
+  color: rgba(255, 255, 255, 0.96);
+}
