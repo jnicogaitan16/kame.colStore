@@ -91,7 +91,7 @@ function MobileMenuContent({
     <div className="px-4 pb-6">
       {/* Tabs: Mujer / Hombre / ... */}
       {showDeptNav ? (
-        <div className="flex items-center gap-6 border-b border-white/10 pb-3 pt-2">
+        <div className="flex items-center gap-6 border-b border-white/10 pb-3 pt-2 font-ui">
           {orderedDepts.map((d) => {
             const isActive = d.slug === activeDeptSlug;
             return (
@@ -101,8 +101,8 @@ function MobileMenuContent({
                 onClick={() => setActiveDeptSlug(d.slug)}
                 className={
                   isActive
-                    ? "text-[14px] font-semibold text-white"
-                    : "text-[14px] font-semibold text-white/60 hover:text-white/90"
+                    ? "type-action text-white"
+                    : "type-action text-white/60 hover:text-white/90"
                 }
                 aria-pressed={isActive}
               >
@@ -121,7 +121,7 @@ function MobileMenuContent({
               <Link
                 href={categoryHref((c as any).slug)}
                 onClick={onNavigate}
-                className="flex items-center justify-between py-3 text-[15px] font-medium text-white/90"
+                className="type-secondary flex items-center justify-between py-3 text-white/90"
               >
                 <span>{(c as any).name}</span>
                 <ChevronRight className="h-5 w-5 text-white/40" />
@@ -130,7 +130,7 @@ function MobileMenuContent({
             </li>
           ))
         ) : (
-          <li className="py-3 text-[14px] font-medium text-white/70">
+          <li className="type-secondary py-3 text-white/70">
             {showDeptNav ? "Selecciona una sección para ver categorías." : "Menú no disponible."}
           </li>
         )}
@@ -302,7 +302,7 @@ export default function Header({
           <div className="absolute left-0 top-0 h-full w-[86%] max-w-[360px] drawer-glass border-r border-white/10">
             {/* Header */}
             <div className="flex items-center justify-between px-4 pb-3 pt-4">
-              <div className="text-sm font-extrabold uppercase tracking-[0.22em] text-white">Kame.col</div>
+              <div className="type-brand text-white">Kame.col</div>
               <button
                 type="button"
                 onClick={handleCloseMobileMenu}

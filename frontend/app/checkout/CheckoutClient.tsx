@@ -133,10 +133,10 @@ const checkoutSchema = z.object({
         return;
       }
 
-      if (val.length < 4) {
+      if (val.length < 6 || val.length > 10) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: "Documento inválido",
+          message: "El documento debe tener entre 6 y 10 dígitos",
         });
       }
     }),
@@ -171,6 +171,7 @@ const FIELD_LABELS: Record<keyof CheckoutFormValues, string> = {
 
 const FIELD_ALIASES: Record<string, keyof CheckoutFormValues> = {
   "customer.cedula": "cedula",
+  "customer.document_number": "cedula",
   document_number: "cedula",
   "customer.phone": "phone",
   "customer.full_name": "full_name",
@@ -263,7 +264,7 @@ function CopyButton({
       className={
         (asField
           ? "w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/90 hover:bg-white/10"
-          : "inline-flex items-center justify-center rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white/85 hover:bg-white/10") +
+          : "type-action inline-flex items-center justify-center rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white/85 hover:bg-white/10") +
         " " +
         className
       }
@@ -272,11 +273,11 @@ function CopyButton({
         <span className="flex w-full items-center justify-between gap-3">
           <span className="flex min-w-0 items-center gap-3">
             {leading ? <span className="shrink-0">{leading}</span> : null}
-            <span className="truncate font-mono tracking-wide text-white">
+            <span className="truncate font-mono text-white tracking-[var(--tracking-action)]">
               {displayValue ?? valueToCopy}
             </span>
           </span>
-          <span className="shrink-0 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white/85">
+          <span className="type-action shrink-0 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white/85">
             {copied ? copiedLabel : label}
           </span>
         </span>
@@ -721,9 +722,9 @@ export default function CheckoutClient() {
       if (e.kind === "validation" && hasItemsValidation) {
         setSubmitNotice({
           variant: "warning",
-          title: "Stock insuficiente",
+          title: "Drop casi agotado",
           message:
-            "La cantidad solicitada supera el stock disponible para uno o más productos. Ajusta las cantidades según la disponibilidad mostrada y vuelve a intentar.",
+            "La cantidad que pediste supera las unidades disponibles para uno o más productos. Ajusta tu pedido y vuelve a intentar.",
         });
         setExceedsByVariantId({});
         return;
@@ -772,9 +773,9 @@ export default function CheckoutClient() {
 
         setSubmitNotice({
           variant: "warning",
-          title: "Stock insuficiente",
+          title: "Drop casi agotado",
           message:
-            "La cantidad solicitada supera el stock disponible para uno o más productos. Ajusta las cantidades según la disponibilidad mostrada y vuelve a intentar.",
+            "La cantidad que pediste supera las unidades disponibles para uno o más productos. Ajusta tu pedido y vuelve a intentar.",
         });
         return;
       }
@@ -892,13 +893,13 @@ export default function CheckoutClient() {
 
     return (
       <div className="mx-auto max-w-2xl px-4 py-10 text-zinc-100">
-        <h1 className="mb-6 text-center text-2xl font-bold tracking-tight text-zinc-100">
+        <h1 className="type-page-title mb-6 text-center text-zinc-100">
           Pedido creado
         </h1>
 
         <div className="card-surface mb-6 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-zinc-100">
           <div className="mb-5 flex flex-col items-center justify-center gap-3 text-center">
-            <h2 className="text-lg font-semibold text-white">
+            <h2 className="type-section-title text-white">
               Paga por transferencia
             </h2>
 
@@ -941,28 +942,28 @@ export default function CheckoutClient() {
               )}
             </div>
             {!brebKey ? (
-              <p className="mt-2 text-xs text-amber-200/80">
+              <p className="type-ui-label mt-2 text-amber-200/80">
                 Configura{" "}
-                <span className="font-mono">NEXT_PUBLIC_BREB_KEY</span> para
+                <span className="font-mono tracking-[var(--tracking-action)]">NEXT_PUBLIC_BREB_KEY</span> para
                 mostrar tu llave.
               </p>
             ) : null}
           </div>
 
           <div className="mb-4 rounded-xl border border-white/10 bg-black/20 px-3 py-3 text-center">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/60">
+            <p className="type-ui-label text-white/60">
               Total a transferir
             </p>
-            <p className="mt-1 text-2xl font-bold tracking-tight text-white">
+            <p className="type-page-title mt-1 text-white md:text-[2.5rem]">
               ${totalText}
             </p>
           </div>
 
           <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-3 text-sm text-white/80">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-white/60">
+            <p className="type-ui-label mb-2 text-white/60">
               Pasos
             </p>
-            <ol className="list-decimal space-y-1 pl-4 text-sm text-white/80">
+            <ol className="type-legal-body list-decimal space-y-1 pl-4 text-white/80">
               <li>Abre tu app bancaria y elige transferir por Bre-B.</li>
               <li>Pega la llave Bre-B (cópiala con el botón).</li>
               <li>Transfiere el total exacto mostrado arriba.</li>
@@ -974,13 +975,13 @@ export default function CheckoutClient() {
             typeof orderSummary.total === "number") && (
             <div className="mt-4 space-y-2">
               {typeof orderSummary.subtotal === "number" && (
-                <div className="flex justify-between">
+                <div className="type-body flex justify-between">
                   <span>Subtotal</span>
                   <span>${orderSummary.subtotal.toLocaleString("es-CO")}</span>
                 </div>
               )}
               {typeof orderSummary.shipping_cost === "number" && (
-                <div className="flex justify-between">
+                <div className="type-body flex justify-between">
                   <span>Envío</span>
                   <span>
                     ${orderSummary.shipping_cost.toLocaleString("es-CO")}
@@ -988,7 +989,7 @@ export default function CheckoutClient() {
                 </div>
               )}
               {typeof orderSummary.total === "number" && (
-                <div className="flex justify-between border-t border-white/10 pt-2 font-semibold">
+                <div className="type-price flex justify-between border-t border-white/10 pt-2 text-white">
                   <span>Total</span>
                   <span>${orderSummary.total.toLocaleString("es-CO")}</span>
                 </div>
@@ -1014,7 +1015,7 @@ export default function CheckoutClient() {
           <Link href="/" className="inline-flex w-full">
             <button
               type="button"
-              className="inline-flex w-full items-center justify-center rounded-xl border border-white/10 bg-transparent px-4 py-3 text-sm font-semibold text-white/85 transition hover:bg-white/5"
+              className="type-action inline-flex w-full items-center justify-center rounded-xl border border-white/10 bg-transparent px-4 py-3 text-white/85 transition hover:bg-white/5"
             >
               Volver al inicio
             </button>
@@ -1031,16 +1032,16 @@ export default function CheckoutClient() {
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-8 px-4 py-8 text-zinc-100 md:flex-row md:py-12">
       <section className="w-full md:w-2/3">
-        <h1 className="mb-6 text-center text-2xl font-bold tracking-tight text-zinc-100">
+        <h1 className="type-page-title mb-6 text-center text-zinc-100">
           Checkout
         </h1>
 
         {!items.length && (
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/70">
+          <div className="type-body rounded-2xl border border-white/10 bg-white/5 p-4 text-white/70">
             Tu carrito está vacío.{" "}
             <Link
               href="/"
-              className="font-medium text-white/85 hover:text-white hover:underline"
+              className="type-action text-white/85 hover:text-white hover:underline"
             >
               Volver a la tienda
             </Link>
@@ -1050,13 +1051,13 @@ export default function CheckoutClient() {
         {items.length > 0 && (
           <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-6">
             <div>
-              <h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-white/60">
+              <h2 className="type-section-title mb-3 text-white/60">
                 Datos de contacto
               </h2>
 
               <div className="space-y-4">
                 <div data-field-wrapper="full_name">
-                  <label className="mb-1 block text-sm font-medium text-white/80">
+                  <label className="type-ui-label mb-1 block text-white/80">
                     Nombre completo
                   </label>
                   <input
@@ -1078,7 +1079,7 @@ export default function CheckoutClient() {
 
                 <div className="grid gap-4 md:grid-cols-2">
                   <div data-field-wrapper="email">
-                    <label className="mb-1 block text-sm font-medium text-white/80">
+                    <label className="type-ui-label mb-1 block text-white/80">
                       Email
                     </label>
                     <input
@@ -1100,7 +1101,7 @@ export default function CheckoutClient() {
                   </div>
 
                   <div data-field-wrapper="phone">
-                    <label className="mb-1 block text-sm font-medium text-white/80">
+                    <label className="type-ui-label mb-1 block text-white/80">
                       Teléfono
                     </label>
 
@@ -1114,7 +1115,7 @@ export default function CheckoutClient() {
                     >
                       <div className="flex items-center gap-1 border-r border-white/10 bg-white/5 px-3 text-white/80">
                         <span aria-hidden>🇨🇴</span>
-                        <span className="text-xs font-semibold text-white/80">
+                        <span className="type-ui-label text-white/80">
                           +57
                         </span>
                       </div>
@@ -1150,7 +1151,7 @@ export default function CheckoutClient() {
 
                 <div className="grid gap-4 md:grid-cols-3">
                   <div data-field-wrapper="document_type">
-                    <label className="mb-1 block text-sm font-medium text-white/80">
+                    <label className="type-ui-label mb-1 block text-white/80">
                       Tipo de documento
                     </label>
                     <select
@@ -1175,7 +1176,7 @@ export default function CheckoutClient() {
                   </div>
 
                   <div className="md:col-span-2" data-field-wrapper="cedula">
-                    <label className="mb-1 block text-sm font-medium text-white/80">
+                    <label className="type-ui-label mb-1 block text-white/80">
                       Número de documento
                     </label>
                     <input
@@ -1192,7 +1193,7 @@ export default function CheckoutClient() {
                           });
                         },
                       })}
-                      placeholder="1234567890"
+                      placeholder="12345678"
                       inputMode="numeric"
                       pattern="[0-9]*"
                       autoComplete="off"
@@ -1212,14 +1213,14 @@ export default function CheckoutClient() {
             </div>
 
             <div>
-              <h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-white/60">
+              <h2 className="type-section-title mb-3 text-white/60">
                 Envío
               </h2>
 
               <div className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-2">
                   <div data-field-wrapper="city_code">
-                    <label className="mb-1 block text-sm font-medium text-white/80">
+                    <label className="type-ui-label mb-1 block text-white/80">
                       Ciudad
                     </label>
                     <select
@@ -1246,7 +1247,7 @@ export default function CheckoutClient() {
                   </div>
 
                   <div data-field-wrapper="address">
-                    <label className="mb-1 block text-sm font-medium text-white/80">
+                    <label className="type-ui-label mb-1 block text-white/80">
                       Dirección
                     </label>
                     <input
@@ -1269,7 +1270,7 @@ export default function CheckoutClient() {
                 </div>
 
                 <div data-field-wrapper="notes">
-                  <label className="mb-1 block text-sm font-medium text-white/80">
+                  <label className="type-ui-label mb-1 block text-white/80">
                     Indicaciones para el envío (opcional)
                   </label>
                   <textarea
@@ -1308,6 +1309,7 @@ export default function CheckoutClient() {
               type="submit"
               variant="primary"
               fullWidth
+              className="type-action"
               disabled={
                 isSubmitting ||
                 stockValidateStatus === "loading" ||
@@ -1322,16 +1324,16 @@ export default function CheckoutClient() {
 
       <aside className="w-full md:w-1/3">
         <div className="card-surface rounded-2xl border border-white/10 bg-white/5 p-4">
-          <h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-white/60">
+          <h2 className="type-section-title mb-3 text-white/60">
             Resumen del pedido
           </h2>
 
           {items.length === 0 ? (
-            <p className="text-sm text-white/70">
+            <p className="type-body text-white/70">
               No hay productos en tu carrito.{" "}
               <Link
                 href="/"
-                className="font-medium text-white/85 hover:text-white hover:underline"
+                className="type-action text-white/85 hover:text-white hover:underline"
               >
                 Ver productos
               </Link>
@@ -1390,10 +1392,10 @@ export default function CheckoutClient() {
                       </div>
 
                       <div className="min-w-0">
-                        <p className="truncate font-medium text-zinc-100">
+                        <p className="type-card-title truncate text-zinc-100">
                           {item.productName}
                         </p>
-                        <p className="truncate text-xs text-white/60">
+                        <p className="type-ui-label truncate text-white/60">
                           {item.variantLabel} × {item.quantity}
                         </p>
 
@@ -1401,7 +1403,7 @@ export default function CheckoutClient() {
                           const hint: any = stockHintsByVariantId[String(item.variantId)];
                           if (!hint || hint.kind !== "last_unit" || !hint.message) return null;
                           return (
-                            <p className="mt-1 whitespace-normal break-words text-xs leading-snug text-white/70">
+                            <p className="type-body mt-1 whitespace-normal break-words text-white/70">
                               ⚡ {hint.message}
                             </p>
                           );
@@ -1435,15 +1437,15 @@ export default function CheckoutClient() {
                                 variant="warning"
                                 tone="soft"
                                 compact
-                                title="Stock insuficiente"
+                                title={typeof w?.message === "string" && w.message.trim() ? w.message : "Drop casi agotado"}
                               >
                                 {available !== null && Number.isFinite(available) ? (
-                                  <p className="text-xs leading-snug text-amber-100/90">
-                                    Pediste {item.quantity}, pero solo quedan {available} en stock.
+                                  <p className="text-xs leading-snug text-white/72">
+                                    Pediste {item.quantity}. Solo quedan {available} en este drop.
                                   </p>
                                 ) : (
-                                  <p className="text-xs leading-snug text-amber-100/90">
-                                    La cantidad que pediste supera el stock disponible.
+                                  <p className="text-xs leading-snug text-white/72">
+                                    La cantidad que pediste supera las unidades disponibles.
                                   </p>
                                 )}
                               </Notice>
@@ -1452,7 +1454,7 @@ export default function CheckoutClient() {
                                 <button
                                   type="button"
                                   onClick={(e) => handleAdjustToAvailable(e, item.variantId)}
-                                  className="mt-2 inline-flex items-center justify-center border border-amber-400/25 bg-amber-400/10 hover:bg-amber-400/15 text-amber-100 rounded-lg px-3 py-2 text-xs font-semibold"
+                                  className="type-action mt-2 inline-flex items-center justify-center rounded-lg border border-white/12 bg-white/5 px-3 py-2 text-white/82 transition hover:border-white/18 hover:bg-white/8"
                                 >
                                   Ajustar a disponible
                                 </button>
@@ -1463,7 +1465,7 @@ export default function CheckoutClient() {
                       </div>
                     </div>
 
-                    <span className="shrink-0 text-sm font-medium text-white">
+                    <span className="type-price shrink-0 text-white">
                       $
                       {(parseFloat(item.price) * item.quantity).toLocaleString("es-CO")}
                     </span>
@@ -1471,20 +1473,20 @@ export default function CheckoutClient() {
                 ))}
               </ul>
 
-              <div className="space-y-1 text-sm">
-                <div className="flex justify-between">
+              <div className="space-y-1">
+                <div className="type-body flex justify-between">
                   <span>Subtotal</span>
                   <span>${subtotal.toLocaleString("es-CO")}</span>
                 </div>
 
                 {shipping && (
-                  <div className="flex justify-between">
+                  <div className="type-body flex justify-between">
                     <span>{shipping.label}</span>
                     <span>${shipping.amount.toLocaleString("es-CO")}</span>
                   </div>
                 )}
 
-                <div className="mt-2 flex justify-between border-t border-white/10 pt-2 text-base font-semibold">
+                <div className="type-price mt-2 flex justify-between border-t border-white/10 pt-2 text-white">
                   <span>Total estimado</span>
                   <span>
                     $
@@ -1492,7 +1494,7 @@ export default function CheckoutClient() {
                   </span>
                 </div>
 
-                <p className="mt-2 text-xs text-white/50">
+                <p className="type-body mt-2 text-white/50">
                   El pedido se crea al confirmar y luego podrás realizar el pago
                   por transferencia. Actualmente es el único medio de pago
                   disponible.

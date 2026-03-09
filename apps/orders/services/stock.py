@@ -260,7 +260,7 @@ def validate_items_stock(items: Iterable[Any]) -> List[StockCheckResult]:
                     requested=requested_total,
                     available=available,
                     is_active=is_active,
-                    reason="Stock insuficiente.",
+                    reason="Disponibilidad insuficiente.",
                 )
             )
             continue

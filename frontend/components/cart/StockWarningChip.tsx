@@ -19,11 +19,11 @@ function cx(...parts: Array<string | undefined | null | false>): string {
 function labelFor(status: StockWarningStatus): string {
   switch (status) {
     case "unknown":
-      return "Stock sin validar";
+      return "Disponibilidad sin validar";
     case "low":
-      return "Stock limitado";
+      return "Unidades limitadas";
     case "over":
-      return "Supera stock";
+      return "No hay suficientes unidades";
   }
 }
 
@@ -39,11 +39,11 @@ function detailFor(
 
   if (typeof a === "number" && typeof r === "number") {
     if (status === "over") return `${r} / ${a}`;
-    if (status === "low") return `Disp: ${a}`;
+    if (status === "low") return `${a} unidades disponibles`;
   }
 
-  if (typeof a === "number") return `Disp: ${a}`;
-  if (typeof r === "number") return `Req: ${r}`;
+  if (typeof a === "number") return `${a} unidades disponibles`;
+  if (typeof r === "number") return `${r} unidades solicitadas`;
   return null;
 }
 
@@ -55,26 +55,32 @@ export default function StockWarningChip({
   className,
 }: StockWarningChipProps) {
   const base =
-    "inline-flex max-w-full items-center gap-1.5 rounded-full border " +
-    "border-amber-500/15 bg-neutral-950/30 px-2 py-1 " +
-    "text-[12px] leading-[14px] text-amber-100/80";
+    "inline-flex max-w-full items-center gap-1.5 rounded-xl border px-3 py-2 " +
+    "text-sm leading-none text-white/75 backdrop-blur";
 
-  const icon = "h-3.5 w-3.5 shrink-0 opacity-90";
+  const tone =
+    status === "over"
+      ? "border-white/20 bg-white/[0.06] text-white/85"
+      : status === "low"
+        ? "border-white/20 bg-white/[0.06] text-white/80"
+        : "border-white/10 bg-white/5 text-white/70";
+
+  const icon = "h-3.5 w-3.5 shrink-0 opacity-80";
   const text = "min-w-0 truncate";
-  const meta = "shrink-0 text-amber-100/60";
+  const meta = "shrink-0 text-white/55";
 
   const adjustBtn =
     "ml-1 inline-flex shrink-0 items-center rounded-full px-2 py-0.5 " +
-    "text-[12px] font-medium text-amber-200/90 " +
-    "hover:bg-amber-500/10 active:bg-amber-500/15 " +
-    "focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/30";
+    "text-[12px] font-medium text-white/80 transition-colors " +
+    "hover:bg-white/10 hover:text-white active:bg-white/15 " +
+    "focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20";
 
   const label = labelFor(status);
   const detail = detailFor(status, available, requested);
 
   return (
     <span
-      className={cx(base, className)}
+      className={cx(base, tone, className)}
       title={detail ? `${label} (${detail})` : label}
     >
       <svg

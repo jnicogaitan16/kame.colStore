@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { ProductCard } from "@/components/product/ProductCard";
 
 // Local fallback type to avoid path/alias issues; keep it minimal for UI rendering.
@@ -91,13 +90,13 @@ export default function CatalogoClient() {
   return (
     <main className={`mx-auto max-w-6xl px-4 py-12 md:px-6 md:py-20 ${loading ? "" : "elegant-enter"}`}>
       <header className="mb-10 md:mb-12">
-        <p className="text-xs font-semibold uppercase tracking-widest text-white/50">
+        <p className="type-section-title text-white/50">
           Catálogo
         </p>
-        <h1 className="mt-3 text-4xl font-semibold tracking-tight text-white md:text-5xl">
+        <h1 className="type-page-title mt-3 text-white">
           Todos los productos
         </h1>
-        <p className="mt-4 max-w-2xl text-sm text-neutral-400 md:text-base">
+        <p className="type-body mt-4 max-w-2xl">
           Productos sin filtros.
         </p>
       </header>
@@ -119,12 +118,6 @@ export default function CatalogoClient() {
           ))}
         </div>
       )}
-
-      <div className="mt-10 flex justify-center">
-        <Link href="/" className="text-sm text-white/60 hover:text-white/90">
-          Volver al inicio
-        </Link>
-      </div>
     </main>
   );
 }
