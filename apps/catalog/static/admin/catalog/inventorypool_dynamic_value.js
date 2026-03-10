@@ -201,15 +201,29 @@
         ? rule.allowed_values
         : Array.isArray(rule.allowedValues)
           ? rule.allowedValues
-          : [],
+          : Array.isArray(rule.allowed)
+            ? rule.allowed
+            : Array.isArray(rule.values)
+              ? rule.values
+              : [],
       allowed_colors: Array.isArray(rule.allowed_colors)
         ? rule.allowed_colors
         : Array.isArray(rule.allowedColors)
           ? rule.allowedColors
-          : [],
+          : Array.isArray(rule.colors)
+            ? rule.colors
+            : [],
       variant_schema: String(rule.variant_schema || rule.variantSchema || "").trim().toUpperCase(),
-      category_slug: String(rule.category_slug || rule.categorySlug || "").trim().toLowerCase(),
     };
+  }
+
+  function hasUsableRulePayload(rule) {
+    if (!rule || typeof rule !== "object") return false;
+    if (String(rule.variant_schema || "").trim()) return true;
+    if (Array.isArray(rule.allowed_values) && rule.allowed_values.length > 0) return true;
+    if (Array.isArray(rule.allowed_colors) && rule.allowed_colors.length > 0) return true;
+    if (Boolean(rule.use_select)) return true;
+    return false;
   }
 
   async function refreshInventoryPoolFields() {
@@ -249,6 +263,11 @@
     try {
       const rawRule = await fetchCategoryRule(categoryId);
       const rule = normalizeRule(rawRule);
+
+      if (!hasUsableRulePayload(rule)) {
+        throw new Error("Valid category rule payload was not returned");
+      }
+
       const schema = rule.variant_schema || "";
 
       if (schema === "NO_VARIANT") {
@@ -279,7 +298,7 @@
         shared.setRowVisible(valueEl, true);
       }
 
-      const shouldUseValueSelect = Boolean(rule.use_select && rule.allowed_values.length);
+      const shouldUseValueSelect = Boolean(rule.use_select && rule.allowed_values.length > 0);
 
       if (shouldUseValueSelect) {
         shared.setValueAsSelect(
@@ -297,9 +316,10 @@
       }
 
       const colorEl = $("id_color");
+      const shouldShowColorField = schema === "SIZE_COLOR" || rule.allowed_colors.length > 0;
 
-      if (schema === "SIZE_COLOR") {
-        const shouldUseColorSelect = Boolean(rule.allowed_colors.length);
+      if (shouldShowColorField) {
+        const shouldUseColorSelect = Boolean(rule.allowed_colors.length > 0);
 
         if (shouldUseColorSelect) {
           shared.setColorAsSelect(
@@ -327,7 +347,7 @@
         shared.hideColorFieldAndClear("id_color");
       }
     } catch (error) {
-      console.warn("[InventoryPoolAdmin] Falling back to neutral widgets", error);
+      console.warn("[InventoryPoolAdmin] Falling back only because the endpoint failed or returned no usable rule payload", error);
       const sharedFallback = window.KameAdminDynamicFields;
       if (!sharedFallback) return;
       sharedFallback.setValueAsInput("id_value", "Value");

@@ -10,7 +10,12 @@ from django.utils.text import slugify
 from imagekit.models import ImageSpecField
 from imagekit.processors import ResizeToFit
 
-from .variant_rules import get_variant_rule, normalize_variant_value, normalize_variant_color
+from .variant_rules import (
+    get_variant_rule,
+    normalize_variant_value,
+    normalize_variant_color,
+    resolve_variant_rule,
+)
 
 
 
@@ -556,7 +561,11 @@ class ProductColorImage(models.Model):
 
         if self.product_id and getattr(self.product, "category", None):
             category_slug = (getattr(self.product.category, "slug", "") or "").strip().lower()
-            rule = get_variant_rule(category_slug)
+            category_schema = getattr(self.product.category, "variant_schema", "") or ""
+            rule = resolve_variant_rule(
+                category_slug=category_slug,
+                variant_schema=category_schema,
+            )
             allowed_colors = rule.get("allowed_colors") or []
             if allowed_colors and self.color not in allowed_colors:
                 raise ValidationError({
@@ -664,8 +673,12 @@ class ProductVariant(models.Model):
             self.value = normalized_value
             self.color = normalized_color
 
-            slug = (getattr(self.product.category, "slug", "") or "").strip().lower()
-            rule = get_variant_rule(slug)
+            category_slug = (getattr(self.product.category, "slug", "") or "").strip().lower()
+            category_schema = getattr(self.product.category, "variant_schema", "") or ""
+            rule = resolve_variant_rule(
+                category_slug=category_slug,
+                variant_schema=category_schema,
+            )
             allowed_sizes = rule.get("allowed_values") or []
             if allowed_sizes and self.value not in allowed_sizes:
                 raise ValidationError({"value": f"Valor inválido. Usa: {', '.join(allowed_sizes)}."})

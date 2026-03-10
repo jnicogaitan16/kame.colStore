@@ -2,7 +2,12 @@ from django import forms
 from django.core.exceptions import ValidationError
 
 from apps.catalog.models import Category, InventoryPool, Product, ProductVariant, ProductColorImage
-from apps.catalog.variant_rules import get_variant_rule, normalize_variant_color, normalize_variant_value
+from apps.catalog.variant_rules import (
+    get_variant_rule,
+    normalize_variant_color,
+    normalize_variant_value,
+    resolve_variant_rule,
+)
 
 
 class CatalogAdminRuleAwareForm(forms.ModelForm):
@@ -13,35 +18,51 @@ class CatalogAdminRuleAwareForm(forms.ModelForm):
         self._parent_product = kwargs.pop("parent_product", None)
         super().__init__(*args, **kwargs)
         self._category_obj = self._resolve_category()
-        self._rule = get_variant_rule(getattr(self._category_obj, "slug", None))
         self._schema = (getattr(self._category_obj, "variant_schema", "") or "").strip()
+        self._rule = resolve_variant_rule(
+            category_slug=getattr(self._category_obj, "slug", None),
+            variant_schema=self._schema,
+        )
 
     def _resolve_category(self):
-        if self._parent_product is not None and getattr(self._parent_product, "category", None):
-            return self._parent_product.category
+        # 1) Inline edit of an already saved Product must always prioritize the parent object.
+        if self._parent_product is not None:
+            parent_category = getattr(self._parent_product, "category", None)
+            if parent_category:
+                return parent_category
 
-        if self.instance and getattr(self.instance, "pk", None):
+        # 2) Existing instance linked through `product`.
+        if self.instance is not None:
             product = getattr(self.instance, self.product_field_name, None)
             if product and getattr(product, "category", None):
                 return product.category
 
+            # 3) Existing instance linked directly through `category`.
             category = getattr(self.instance, self.category_field_name, None)
             if category:
                 return category
 
+        # 4) Posted/initial product value.
         lookup_value = self.data.get(self.product_field_name) or self.initial.get(self.product_field_name)
         if lookup_value:
-            try:
-                product = Product.objects.select_related("category").get(pk=lookup_value)
-                if product.category:
-                    return product.category
-            except (Product.DoesNotExist, TypeError, ValueError):
-                pass
+            if isinstance(lookup_value, Product):
+                if getattr(lookup_value, "category", None):
+                    return lookup_value.category
+            else:
+                try:
+                    product = Product.objects.select_related("category").get(pk=lookup_value)
+                    if product.category:
+                        return product.category
+                except (Product.DoesNotExist, TypeError, ValueError):
+                    pass
 
-        category_id = self.data.get(self.category_field_name) or self.initial.get(self.category_field_name)
-        if category_id:
+        # 5) Posted/initial category value.
+        category_value = self.data.get(self.category_field_name) or self.initial.get(self.category_field_name)
+        if category_value:
+            if isinstance(category_value, Category):
+                return category_value
             try:
-                return Category.objects.get(pk=category_id)
+                return Category.objects.get(pk=category_value)
             except (Category.DoesNotExist, TypeError, ValueError):
                 return None
 
@@ -345,8 +366,11 @@ class InventoryPoolBulkLoadForm(forms.Form):
         if not category:
             return cleaned_data
 
-        self._rule = get_variant_rule(getattr(category, "slug", None))
         self._schema = (getattr(category, "variant_schema", "") or "").strip()
+        self._rule = resolve_variant_rule(
+            category_slug=getattr(category, "slug", None),
+            variant_schema=self._schema,
+        )
 
         parsed_rows = []
         duplicates = {}

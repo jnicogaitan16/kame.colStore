@@ -222,6 +222,36 @@
     return schema === "size_color" || colorsArr.length > 0;
   }
 
+  function hasUsableRulePayload(rule) {
+    if (!rule || typeof rule !== "object") return false;
+
+    const schema = String(
+      rule.variant_schema ?? rule.variantSchema ?? ""
+    ).trim().toLowerCase();
+
+    const allowedValues =
+      rule.allowed_values ??
+      rule.allowedValues ??
+      rule.allowed ??
+      rule.values ??
+      [];
+
+    const allowedColors =
+      rule.allowed_colors ??
+      rule.allowedColors ??
+      rule.colors ??
+      [];
+
+    const useSelect = Boolean(rule.use_select ?? rule.useSelect);
+
+    if (schema) return true;
+    if (Array.isArray(allowedValues) && allowedValues.length > 0) return true;
+    if (Array.isArray(allowedColors) && allowedColors.length > 0) return true;
+    if (useSelect) return true;
+
+    return false;
+  }
+
   function _buildColorSelect(className, currentValue, allowedColors) {
     const select = document.createElement("select");
     select.id = "id_color";
@@ -365,25 +395,28 @@
     try {
       const rule = await getCategoryFromProduct(productEl);
 
-      const allowedValues =
-        rule.allowed_values ??
-        rule.allowedValues ??
-        rule.allowed ??
-        rule.values ??
-        [];
+      if (!hasUsableRulePayload(rule)) {
+        throw new Error("Valid category rule payload was not returned");
+      }
 
-      const allowedColors =
-        rule.allowed_colors ??
-        rule.allowedColors ??
-        rule.colors ??
-        [];
+      const allowedValues = Array.isArray(
+        rule.allowed_values ?? rule.allowedValues ?? rule.allowed ?? rule.values
+      )
+        ? (rule.allowed_values ?? rule.allowedValues ?? rule.allowed ?? rule.values)
+        : [];
+
+      const allowedColors = Array.isArray(
+        rule.allowed_colors ?? rule.allowedColors ?? rule.colors
+      )
+        ? (rule.allowed_colors ?? rule.allowedColors ?? rule.colors)
+        : [];
 
       const schema = String(
         rule.variant_schema ?? rule.variantSchema ?? ""
       ).trim().toLowerCase();
 
       const shouldUseValueSelect = Boolean(
-        (rule.use_select ?? rule.useSelect) && Array.isArray(allowedValues) && allowedValues.length
+        (rule.use_select ?? rule.useSelect) && allowedValues.length > 0
       );
 
       if (schema === "no_variant") {
@@ -424,15 +457,14 @@
         setRowVisible(valueEl, true);
       }
 
-      const colorsArr = Array.isArray(allowedColors) ? allowedColors : [];
-      const showColorField = shouldShowColorField(schema, colorsArr);
+      const showColorField = shouldShowColorField(schema, allowedColors);
 
       if (showColorField) {
-        if (colorsArr.length) {
+        if (allowedColors.length) {
           setColorAsSelect(
             {
               label: "Color",
-              allowed_colors: colorsArr,
+              allowed_colors: allowedColors,
             },
             "id_color"
           );
@@ -453,7 +485,7 @@
         }
       }
     } catch (e) {
-      console.warn("[ProductVariantAdmin] Falling back to neutral widgets", e);
+      console.warn("[ProductVariantAdmin] Falling back only because the endpoint failed or returned no usable rule payload", e);
       // Conservative fallback: allow viewing/editing and allow save
       setValueAsInput("id_value", "Value");
       hideColorFieldAndClear("id_color");
@@ -476,6 +508,7 @@
     setColorAsSelect,
     hideColorFieldAndClear,
     shouldShowColorField,
+    hasUsableRulePayload,
   });
 
   ready(function () {
