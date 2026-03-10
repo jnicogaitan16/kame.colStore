@@ -22,33 +22,33 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://kamecol.com";
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "Kame.col Store",
-    template: "%s | Kame.col",
+    default: "Kame.Col",
+    template: "%s | Kame.Col",
   },
   description:
-    "Kame.col Store — prendas y accesorios personalizados con diseño premium.",
+    "Kame.Col — prendas y accesorios con diseño premium.",
   openGraph: {
     type: "website",
     locale: "es_CO",
     url: siteUrl,
-    siteName: "Kame.col Store",
-    title: "Kame.col Store",
+    siteName: "Kame.Col",
+    title: "Kame.Col",
     description:
-      "Descubre hoodies, camisetas y accesorios personalizados con diseño premium.",
+      "Descubre hoodies, camisetas y accesorios  con diseño premium.",
     images: [
       {
         url: "/og/default.jpg",
         width: 1200,
         height: 630,
-        alt: "Kame.col Store",
+        alt: "Kame.Col",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Kame.col Store",
+    title: "Kame.Col",
     description:
-      "Prendas y accesorios personalizados con identidad premium.",
+      "Prendas y accesorios con identidad premium.",
     images: ["/og/default.jpg"],
   },
   icons: {
