@@ -622,7 +622,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
 
             <div className="absolute right-0 top-0">
               <ShareButton
-                title={`${product.name} | Kame.col`}
+                title={`${product.name} | Kame.Col`}
                 url={`/producto/${encodeURIComponent(product.slug)}`}
                 ariaLabel="Compartir producto"
               />

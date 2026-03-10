@@ -37,7 +37,7 @@ export const metadata: Metadata = {
       "Descubre hoodies, camisetas y accesorios  con diseño premium.",
     images: [
       {
-        url: "/og/default.jpg",
+        url: `${siteUrl}/og/default.jpg`,
         width: 1200,
         height: 630,
         alt: "Kame.Col",
@@ -49,7 +49,7 @@ export const metadata: Metadata = {
     title: "Kame.Col",
     description:
       "Prendas y accesorios con identidad premium.",
-    images: ["/og/default.jpg"],
+    images: [`${siteUrl}/og/default.jpg`],
   },
   icons: {
     // Declare ONLY files that truly exist in frontend/public/
