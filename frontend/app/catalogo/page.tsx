@@ -5,27 +5,27 @@ export const dynamic = "force-dynamic";
 
 export async function generateMetadata(): Promise<Metadata> {
   return {
-    title: "Catálogo | Kame.col",
-    description: "Todos los productos disponibles en Kame.col.",
+    title: "Catálogo | Kame.Col",
+    description: "Todos los productos disponibles en Kame.Col.",
     openGraph: {
-      title: "Catálogo | Kame.col",
-      description: "Todos los productos disponibles en Kame.col.",
+      title: "Catálogo | Kame.Col",
+      description: "Todos los productos disponibles en Kame.Col.",
       url: "/catalogo",
       type: "website",
       images: [
         {
-          url: "/og/catalogo.jpg",
+          url: "https://kamecol.com/og/default.jpg",
           width: 1200,
           height: 630,
-          alt: "Catálogo Kame.col",
+          alt: "Catálogo Kame.Col",
         },
       ],
     },
     twitter: {
       card: "summary_large_image",
-      title: "Catálogo | Kame.col",
-      description: "Todos los productos disponibles en Kame.col.",
-      images: ["/og/catalogo.jpg"],
+      title: "Catálogo | Kame.Col",
+      description: "Todos los productos disponibles en Kame.Col.",
+      images: ["https://kamecol.com/og/default.jpg"],
     },
   };
 }

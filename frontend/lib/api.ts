@@ -125,6 +125,37 @@ const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "/api").replace(/\/$/, "");
 const DJANGO_BASE = (process.env.DJANGO_API_BASE || "").replace(/\/$/, "");
 const SERVER_API_BASE = DJANGO_BASE ? `${DJANGO_BASE}/api` : "";
 
+const PUBLIC_SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://kamecol.com").replace(/\/$/, "");
+const PUBLIC_BACKEND_URL =
+  (process.env.NEXT_PUBLIC_BACKEND_URL || "").replace(/\/$/, "") ||
+  DJANGO_BASE ||
+  "";
+
+const INVALID_MEDIA_HOST_PATTERNS = [
+  "localhost",
+  "127.0.0.1",
+  "0.0.0.0",
+  ".local",
+  "192.168.",
+  "10.",
+  "172.16.",
+  "172.17.",
+  "172.18.",
+  "172.19.",
+  "172.20.",
+  "172.21.",
+  "172.22.",
+  "172.23.",
+  "172.24.",
+  "172.25.",
+  "172.26.",
+  "172.27.",
+  "172.28.",
+  "172.29.",
+  "172.30.",
+  "172.31.",
+];
+
 // =============================
 // Media URL helpers (absolute URLs everywhere)
 // =============================
@@ -132,90 +163,143 @@ export function normalizeMediaUrl(src?: string | null) {
   const s = String(src || "").trim();
   if (!s) return "";
 
-  // already absolute
-  if (s.startsWith("http://") || s.startsWith("https://")) return s;
+  const sanitizeAbsoluteUrl = (value: string): string => {
+    try {
+      const url = new URL(value);
+      const hostname = url.hostname.toLowerCase();
 
-  // protocol-relative
-  if (s.startsWith("//")) return `https:${s}`;
+      if (INVALID_MEDIA_HOST_PATTERNS.some((pattern) => hostname.includes(pattern))) {
+        return "";
+      }
 
-  // Normalize to a leading-slash relative path
-  const rel = s.startsWith("/") ? s : `/${s}`;
+      if (url.protocol === "http:") {
+        url.protocol = "https:";
+      }
 
-  // If backend sends /media/... paths, route through Next proxy (/api) so it works on localhost:3000
-  // and in environments where the browser must stay same-origin.
-  if (rel.startsWith("/media/")) {
-    // API_BASE is usually "/api" in the browser. If it's an absolute URL, it still works (https://.../api + /media/...).
-    const base = (API_BASE || "/api").replace(/\/$/, "");
-    return `${base}${rel}`;
+      return url.toString();
+    } catch {
+      return "";
+    }
+  };
+
+  if (s.startsWith("data:") || s.startsWith("blob:")) return "";
+
+  if (s.startsWith("http://") || s.startsWith("https://")) {
+    return sanitizeAbsoluteUrl(s);
   }
 
-  // Other relative paths: try to make absolute using known envs (if present)
-  const base =
-    (process.env.NEXT_PUBLIC_BACKEND_URL || "").replace(/\/$/, "") ||
-    (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "") ||
-    "";
+  if (s.startsWith("//")) {
+    return sanitizeAbsoluteUrl(`https:${s}`);
+  }
 
-  // if no base, keep it relative (dev proxy / same-origin)
-  if (!base) return rel;
+  const rel = s.startsWith("/") ? s : `/${s}`;
 
-  return `${base}${rel}`;
+  if (rel.startsWith("/media/") || rel.startsWith("/api/media/")) {
+    if (PUBLIC_BACKEND_URL) {
+      return sanitizeAbsoluteUrl(`${PUBLIC_BACKEND_URL}${rel}`);
+    }
+    return sanitizeAbsoluteUrl(`${PUBLIC_SITE_URL}${rel}`);
+  }
+
+  if (rel.startsWith("/_next/") || rel.startsWith("/api/") || rel.startsWith("/admin/")) {
+    return "";
+  }
+
+  return sanitizeAbsoluteUrl(`${PUBLIC_SITE_URL}${rel}`);
+}
+
+function collectImageCandidates(input: any, bucket: Array<string | null | undefined>) {
+  if (!input) return;
+
+  if (typeof input === "string") {
+    bucket.push(input);
+    return;
+  }
+
+  if (Array.isArray(input)) {
+    for (const item of input) {
+      collectImageCandidates(item, bucket);
+    }
+    return;
+  }
+
+  if (typeof input === "object") {
+    bucket.push(
+      input.url,
+      input.src,
+      input.image,
+      input.image_url,
+      input.imageUrl,
+      input.secure_url,
+      input.public_url,
+      input.publicUrl,
+      input.main_image,
+      input.primary_image,
+      input.primaryImage,
+      input.thumbnail,
+      input.thumbnail_url,
+      input.thumbnailUrl,
+      input.thumb,
+      input.thumb_url,
+      input.file,
+      input.path,
+      input.original,
+      input.large,
+      input.medium,
+      input.small,
+      input.cover,
+      input.cover_image,
+      input.coverImage
+    );
+  }
+}
+
+function firstValidNormalizedImage(candidates: Array<string | null | undefined>): string | null {
+  for (const candidate of candidates) {
+    if (typeof candidate !== "string") continue;
+    const normalized = normalizeMediaUrl(candidate);
+    if (normalized) return normalized;
+  }
+  return null;
 }
 
 export function getPrimaryImageUrl(product: any) {
-  // Support multiple shapes:
-  // - images: string[]
-  // - images: [{url}] or [{image}] or [{src}] or [{image_url}] or thumbs
-  // - legacy fields: image_url | main_image | image | thumbnail | primary_image | thumb_url
-  const images = (product as any)?.images;
+  const explicitCandidates: Array<string | null | undefined> = [];
+  const productCandidates: Array<string | null | undefined> = [];
+  const galleryCandidates: Array<string | null | undefined> = [];
+  const variantCandidates: Array<string | null | undefined> = [];
 
-  const fromImages = (() => {
-    if (!images) return "";
+  collectImageCandidates(product?.primary_image, explicitCandidates);
+  collectImageCandidates(product?.primaryImage, explicitCandidates);
+  collectImageCandidates(product?.main_image, explicitCandidates);
+  collectImageCandidates(product?.image, explicitCandidates);
+  collectImageCandidates(product?.image_url, explicitCandidates);
+  collectImageCandidates(product?.imageUrl, explicitCandidates);
 
-    // images: string[]
-    if (Array.isArray(images)) {
-      if (!images.length) return "";
-      const first = images[0];
+  collectImageCandidates(product?.images, productCandidates);
+  collectImageCandidates(product?.product_images, productCandidates);
+  collectImageCandidates(product?.productImages, productCandidates);
 
-      if (typeof first === "string") return first;
+  collectImageCandidates(product?.gallery, galleryCandidates);
+  collectImageCandidates(product?.gallery_images, galleryCandidates);
+  collectImageCandidates(product?.galleryImages, galleryCandidates);
+  collectImageCandidates(product?.media, galleryCandidates);
 
-      // images: [{...}]
-      if (first && typeof first === "object") {
-        const o: any = first;
-        return (
-          o.url ||
-          o.image ||
-          o.src ||
-          o.image_url ||
-          o.thumb_url ||
-          o.thumbnail ||
-          o.thumb ||
-          ""
-        );
-      }
+  collectImageCandidates(product?.color_images, variantCandidates);
+  collectImageCandidates(product?.colorImages, variantCandidates);
+  collectImageCandidates(product?.variant_images, variantCandidates);
+  collectImageCandidates(product?.variantImages, variantCandidates);
+  collectImageCandidates(product?.variant_image, variantCandidates);
+  collectImageCandidates(product?.variantImage, variantCandidates);
+  collectImageCandidates(product?.variants, variantCandidates);
 
-      return "";
-    }
-
-    // images: {url: ...} (rare but safe)
-    if (images && typeof images === "object") {
-      const o: any = images;
-      return o.url || o.image || o.src || o.image_url || o.thumb_url || o.thumbnail || o.thumb || "";
-    }
-
-    return "";
-  })();
-
-  const legacy =
-    (product as any)?.image_url ||
-    (product as any)?.main_image ||
-    (product as any)?.primary_image ||
-    (product as any)?.image ||
-    (product as any)?.thumbnail ||
-    (product as any)?.thumb_url ||
-    (product as any)?.thumb ||
-    "";
-
-  return normalizeMediaUrl(fromImages || legacy || "");
+  return (
+    firstValidNormalizedImage(explicitCandidates) ||
+    firstValidNormalizedImage(productCandidates) ||
+    firstValidNormalizedImage(galleryCandidates) ||
+    firstValidNormalizedImage(variantCandidates) ||
+    null
+  );
 }
 
 const getCookie = (name: string): string | null => {
