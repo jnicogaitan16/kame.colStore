@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { getPrimaryImageUrl, normalizeMediaUrl } from "@/lib/api";
 
@@ -197,30 +197,99 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
     );
   };
 
+  const variantMatrix = useMemo(() => {
+    const byColor = new Map<string, ProductVariant[]>();
+    const byValue = new Map<string, ProductVariant[]>();
+    const byColorValue = new Map<string, ProductVariant>();
+
+    variants.forEach((variant) => {
+      const color = String(variant.color || "").trim();
+      const value = String(variant.value || "").trim();
+
+      if (color) {
+        const colorList = byColor.get(color) ?? [];
+        colorList.push(variant);
+        byColor.set(color, colorList);
+      }
+
+      if (value) {
+        const valueList = byValue.get(value) ?? [];
+        valueList.push(variant);
+        byValue.set(value, valueList);
+      }
+
+      if (color && value) {
+        byColorValue.set(`${color}__${value}`, variant);
+      }
+    });
+
+    return { byColor, byValue, byColorValue };
+  }, [variants]);
+
+  const getVariantsForColor = (color: string) => {
+    const normalizedColor = String(color || "").trim();
+    if (!normalizedColor) return [] as ProductVariant[];
+    return variantMatrix.byColor.get(normalizedColor) ?? [];
+  };
+
+  const getVariantsForValue = (value: string) => {
+    const normalizedValue = String(value || "").trim();
+    if (!normalizedValue) return [] as ProductVariant[];
+    return variantMatrix.byValue.get(normalizedValue) ?? [];
+  };
+
+  const getVariantForColorValue = (color: string, value: string) => {
+    const normalizedColor = String(color || "").trim();
+    const normalizedValue = String(value || "").trim();
+    if (!normalizedColor || !normalizedValue) return null;
+    return variantMatrix.byColorValue.get(`${normalizedColor}__${normalizedValue}`) ?? null;
+  };
+
+  const colorHasAnyUsableVariant = (color: string) => {
+    if (!requiresColor) return true;
+    return getVariantsForColor(color).some((variant) => (variant.stock ?? 0) > 0);
+  };
+
+  const getAvailableSizesForColor = (color: string) => {
+    const normalizedColor = String(color || "").trim();
+    if (!normalizedColor) return [] as string[];
+
+    return valueOptions.filter((value) =>
+      getVariantsForColor(normalizedColor).some(
+        (variant) =>
+          String(variant.value || "").trim() === value &&
+          (variant.stock ?? 0) > 0
+      )
+    );
+  };
+
+  const getExistingSizesForColor = (color: string) => {
+    const normalizedColor = String(color || "").trim();
+    if (!normalizedColor) return [] as string[];
+
+    return valueOptions.filter((value) =>
+      getVariantsForColor(normalizedColor).some(
+        (variant) => String(variant.value || "").trim() === value
+      )
+    );
+  };
+
   const sizeExistsForSelectedColor = (value: string, color: string) => {
-    return !!findExactSizeColorVariant(value, color);
+    return !!getVariantForColorValue(color, value);
   };
 
   const sizeInSelectedColorHasStock = (value: string, color: string) => {
-    const match = findExactSizeColorVariant(value, color);
+    const match = getVariantForColorValue(color, value);
     return !!match && (match.stock ?? 0) > 0;
   };
 
-  const colorExistsForSelectedValue = (color: string, value: string) => {
-    return !!findExactSizeColorVariant(value, color);
-  };
-
-  const colorForSelectedValueHasStock = (color: string, value: string) => {
-    const match = findExactSizeColorVariant(value, color);
-    return !!match && (match.stock ?? 0) > 0;
-  };
 
   const tallaDisponible = (val: string) => {
     if (!requiresValue) return (product.stock_total ?? 0) > 0;
 
     if (variantSchema === "size_color") {
       if (!selectedColor) return false;
-      return sizeInSelectedColorHasStock(val, selectedColor);
+      return getAvailableSizesForColor(selectedColor).includes((val || "").trim());
     }
 
     if (variantSchema === "jean_size") {
@@ -232,14 +301,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
 
   const colorDisponible = (color: string) => {
     if (!requiresColor) return true;
-
-    if (!selectedValue) {
-      return variants.some(
-        (v: any) => v.color === color && (v.stock ?? 0) > 0
-      );
-    }
-
-    return colorForSelectedValueHasStock(color, selectedValue);
+    return colorHasAnyUsableVariant(color);
   };
 
   const tallaAgotada = (val: string) => {
@@ -260,86 +322,116 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
 
   const colorAgotado = (color: string) => {
     if (!requiresColor) return false;
-
-    if (!selectedValue) {
-      return !variants.some(
-        (v: any) => v.color === color && (v.stock ?? 0) > 0
-      );
-    }
-
-    if (!colorExistsForSelectedValue(color, selectedValue)) return true;
-    return !colorForSelectedValueHasStock(color, selectedValue);
+    return !colorDisponible(color);
   };
 
   const pickNextValueForColor = (color: string) => {
     const normalizedColor = (color || "").trim();
     if (!normalizedColor) return "";
 
-    // 1) Intentar mantener la talla actual si la combinación exacta existe
-    if (selectedValue) {
-      const exactMatch = variants.find(
-        (v: any) =>
-          v.color === normalizedColor &&
-          v.value === selectedValue &&
-          (v.stock ?? 0) > 0
-      ) ?? null;
-
-      if (exactMatch?.value) return exactMatch.value;
-
-      const exactAnyStock = variants.find(
-        (v) => v.color === normalizedColor && v.value === selectedValue
-      ) ?? null;
-
-      if (exactAnyStock?.value) return exactAnyStock.value;
+    const availableSizes = getAvailableSizesForColor(normalizedColor);
+    if (selectedValue && availableSizes.includes((selectedValue || "").trim())) {
+      return selectedValue;
     }
 
-    // 2) Fallback: primera variante disponible de ese color
-    const availableMatch =
-      variants.find(
-        (v: any) => v.color === normalizedColor && (v.stock ?? 0) > 0
-      ) ?? null;
+    if (availableSizes.length > 0) {
+      return availableSizes[0];
+    }
 
-    if (availableMatch?.value) return availableMatch.value;
+    const existingSizes = getExistingSizesForColor(normalizedColor);
+    if (selectedValue && existingSizes.includes((selectedValue || "").trim())) {
+      return selectedValue;
+    }
 
-    // 3) Último fallback: cualquier variante de ese color
-    const anyMatch = variants.find((v) => v.color === normalizedColor) ?? null;
-    return anyMatch?.value ?? "";
+    return existingSizes[0] ?? "";
   };
 
   const pickNextColorForValue = (val: string) => {
     const normalizedValue = (val || "").trim();
     if (!normalizedValue) return "";
 
-    // 1) Intentar mantener el color actual si la combinación exacta existe
     if (selectedColor) {
-      const exactMatch = variants.find(
-        (v: any) =>
-          v.value === normalizedValue &&
-          v.color === selectedColor &&
-          (v.stock ?? 0) > 0
-      ) ?? null;
+      const exactMatch = getVariantForColorValue(selectedColor, normalizedValue);
+      if (exactMatch && (exactMatch.stock ?? 0) > 0) {
+        return selectedColor;
+      }
 
-      if (exactMatch?.color) return exactMatch.color;
-
-      const exactAnyStock = variants.find(
-        (v) => v.value === normalizedValue && v.color === selectedColor
-      ) ?? null;
-
-      if (exactAnyStock?.color) return exactAnyStock.color;
+      if (exactMatch) {
+        return selectedColor;
+      }
     }
 
-    // 2) Fallback: primera variante disponible de esa talla
-    const availableMatch =
-      variants.find(
-        (v: any) => v.value === normalizedValue && (v.stock ?? 0) > 0
-      ) ?? null;
+    const colorsByDisplayOrder = colorOptions.filter((color) => {
+      const variant = getVariantForColorValue(color, normalizedValue);
+      return !!variant && (variant.stock ?? 0) > 0;
+    });
 
-    if (availableMatch?.color) return availableMatch.color;
+    if (colorsByDisplayOrder.length > 0) {
+      return colorsByDisplayOrder[0];
+    }
 
-    // 3) Último fallback: cualquier variante de esa talla
-    const anyMatch = variants.find((v) => v.value === normalizedValue) ?? null;
-    return anyMatch?.color ?? "";
+    const existingColorsByDisplayOrder = colorOptions.filter((color) => {
+      return !!getVariantForColorValue(color, normalizedValue);
+    });
+
+    return existingColorsByDisplayOrder[0] ?? "";
   };
+  const firstAvailableColor = useMemo(() => {
+    if (!requiresColor) return "";
+    return colorOptions.find((color) => colorHasAnyUsableVariant(color)) ?? firstWithColor;
+  }, [requiresColor, colorOptions, firstWithColor, variantMatrix]);
+  const helperSelectionText = useMemo(() => {
+    if (variantSchema !== "size_color") {
+      return requiresColor ? "Selecciona una talla y color." : "Selecciona una talla.";
+    }
+
+    if (!selectedColor) {
+      return "Selecciona un color.";
+    }
+
+    if (!selectedValue) {
+      return "Selecciona una talla.";
+    }
+
+    return "Selecciona otra talla o color.";
+  }, [variantSchema, requiresColor, selectedColor, selectedValue]);
+  useEffect(() => {
+    if (variantSchema !== "size_color") return;
+    if (!requiresColor) return;
+    if (!colorOptions.length) return;
+
+    const currentColorHasStock =
+      !!selectedColor && colorHasAnyUsableVariant(selectedColor);
+
+    if (!currentColorHasStock) {
+      const fallbackColor = firstAvailableColor || firstWithColor;
+      if (fallbackColor && fallbackColor !== selectedColor) {
+        setSelectedColor(fallbackColor);
+      }
+      return;
+    }
+
+    const currentSizeStillValid =
+      !!selectedValue &&
+      !!getVariantForColorValue(selectedColor, selectedValue) &&
+      sizeInSelectedColorHasStock(selectedValue, selectedColor);
+
+    if (!currentSizeStillValid) {
+      const fallbackValue = pickNextValueForColor(selectedColor);
+      if (fallbackValue !== selectedValue) {
+        setSelectedValue(fallbackValue);
+      }
+    }
+  }, [
+    variantSchema,
+    requiresColor,
+    colorOptions,
+    selectedColor,
+    selectedValue,
+    firstAvailableColor,
+    firstWithColor,
+    variantMatrix,
+  ]);
 
   const selectedVariant = useMemo(() => {
     if (!variants.length) return null;
@@ -350,10 +442,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
 
     if (variantSchema === "size_color") {
       if (!selectedValue || !selectedColor) return null;
-      return (
-        variants.find((v) => v.value === selectedValue && v.color === selectedColor) ??
-        null
-      );
+      return getVariantForColorValue(selectedColor, selectedValue);
     }
 
     if (variantSchema === "jean_size" || variantSchema === "shoe_size") {
@@ -402,7 +491,13 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
     if (variantSchema === "size_color") {
       const byColor = selectedColor ? findByColorPreferImages(selectedColor) : null;
 
+      const exactByColorValue =
+        selectedColor && selectedValue
+          ? getVariantForColorValue(selectedColor, selectedValue)
+          : null;
+
       return (
+        exactByColorValue ??
         selectedVariant ??
         byColor ??
         firstAvailableVariant ??
@@ -662,7 +757,6 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
                       <div className="pdp-variant-section">
                         <div className="pdp-color-grid">
                           {colorOptions.map((color) => {
-                            const available = colorDisponible(color);
                             const soldOut = colorAgotado(color);
                             const selected = selectedColor === color;
 
@@ -678,7 +772,16 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
                                 disabled={soldOut}
                                 onClick={() => {
                                   if (soldOut) return;
+                                  if (selectedColor === color) return;
+
                                   setSelectedColor(color);
+
+                                  if (variantSchema === "size_color") {
+                                    const nextValue = pickNextValueForColor(color);
+                                    if (nextValue !== selectedValue) {
+                                      setSelectedValue(nextValue);
+                                    }
+                                  }
                                 }}
                                 aria-pressed={selected}
                                 aria-disabled={soldOut}
@@ -724,7 +827,16 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
                                 disabled={soldOut}
                                 onClick={() => {
                                   if (soldOut) return;
+                                  if (selectedValue === val) return;
+
                                   setSelectedValue(val);
+
+                                  if (variantSchema === "size_color") {
+                                    const nextColor = pickNextColorForValue(val);
+                                    if (nextColor && nextColor !== selectedColor) {
+                                      setSelectedColor(nextColor);
+                                    }
+                                  }
                                 }}
                                 aria-pressed={selected}
                                 aria-disabled={soldOut}
@@ -759,11 +871,11 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
                 </span>
               ) : selectedVariant ? (
                 <span className="type-body text-white/60">
-                  Sold out
+                  Agotado
                 </span>
               ) : (
                 <span className="type-body text-white/60">
-                  {requiresColor ? "Selecciona una talla y color." : "Selecciona una talla."}
+                  {helperSelectionText}
                 </span>
               )}
             </div>

@@ -18,7 +18,7 @@ from .models import (
     HomepagePromo,
 )
 
-from .variant_rules import get_variant_rule
+from .variant_rules import get_variant_rule, normalize_variant_color
 from .forms import InventoryPoolAdminForm, InventoryPoolBulkLoadForm
 from apps.catalog.services.variant_sync import sync_variants_for_pool
 
@@ -31,11 +31,41 @@ def _model_has_field(model, field_name: str) -> bool:
         return False
 
 
+
 def _first_existing_field(model, candidates: tuple[str, ...]):
     for name in candidates:
         if _model_has_field(model, name):
             return name
     return None
+
+
+def _resolve_category_slug_for_form(instance, parent_product=None, data=None, initial=None, product_field_name="product"):
+    category_slug = None
+
+    if parent_product is not None and getattr(parent_product, "category", None):
+        category_slug = parent_product.category.slug
+
+    if category_slug is None and instance and getattr(instance, "pk", None):
+        product = getattr(instance, product_field_name, None)
+        if product and getattr(product, "category", None):
+            category_slug = product.category.slug
+
+    if category_slug is None:
+        product_id = None
+        if data is not None:
+            product_id = data.get(product_field_name)
+        if not product_id and initial is not None:
+            product_id = initial.get(product_field_name)
+
+        if product_id:
+            try:
+                product = Product.objects.select_related("category").get(pk=product_id)
+                if product.category:
+                    category_slug = product.category.slug
+            except (Product.DoesNotExist, TypeError, ValueError):
+                pass
+
+    return category_slug
 
 
 # ======================
@@ -450,28 +480,13 @@ class ProductVariantAdminForm(forms.ModelForm):
         if "color" in self.fields:
             self.fields["color"].help_text = ""
 
-        category_slug = None
-
-        # 0) Inline en "Change product": producto padre pasado explícitamente por el formset
-        if self._parent_product is not None and getattr(self._parent_product, "category", None):
-            category_slug = self._parent_product.category.slug
-
-        # 1) Edit form (instance exists, vista standalone o inline)
-        if category_slug is None and self.instance and getattr(self.instance, "pk", None):
-            product = getattr(self.instance, "product", None)
-            if product and getattr(product, "category", None):
-                category_slug = product.category.slug
-
-        # 2) Add form en vista standalone (product selected via POST/initial)
-        if category_slug is None:
-            product_id = self.data.get("product") or self.initial.get("product")
-            if product_id:
-                try:
-                    product = Product.objects.select_related("category").get(pk=product_id)
-                    if product.category:
-                        category_slug = product.category.slug
-                except (Product.DoesNotExist, TypeError, ValueError):
-                    pass
+        category_slug = _resolve_category_slug_for_form(
+            instance=self.instance,
+            parent_product=self._parent_product,
+            data=self.data,
+            initial=self.initial,
+            product_field_name="product",
+        )
 
         rule = get_variant_rule(category_slug)
 
@@ -486,18 +501,20 @@ class ProductVariantAdminForm(forms.ModelForm):
 
         # Color field: only configure if the model currently has `color`
         allowed_colors = rule.get("allowed_colors")
-        slug_norm = (category_slug or "").strip().lower()
 
         if "color" in self.fields:
-            # Apparel categories: require color + show dropdown when allowed colors exist
-            if slug_norm in {"camisetas", "hoodies"}:
+            current_color = self.initial.get("color")
+            if current_color in (None, "") and self.instance is not None:
+                current_color = getattr(self.instance, "color", None)
+
+            if allowed_colors:
+                normalized_current_color = normalize_variant_color(current_color)
+                select_choices = [("", "---------")] + [(c, c) for c in allowed_colors]
+                if normalized_current_color and normalized_current_color not in allowed_colors:
+                    select_choices.append((normalized_current_color, normalized_current_color))
                 self.fields["color"].required = True
-                if allowed_colors:
-                    self.fields["color"].widget = forms.Select(
-                        choices=[("", "---------")] + [(c, c) for c in allowed_colors]
-                    )
+                self.fields["color"].widget = forms.Select(choices=select_choices)
             else:
-                # Non-apparel: keep optional and use text input
                 self.fields["color"].required = False
                 self.fields["color"].widget = forms.TextInput()
 
@@ -514,7 +531,7 @@ class ProductVariantAdminForm(forms.ModelForm):
         color = self.cleaned_data.get("color")
         if color is None:
             return color
-        return str(color).strip()
+        return normalize_variant_color(color)
 
 
 # ======================
@@ -561,8 +578,51 @@ class ProductImageInline(admin.TabularInline):
         return fields
 
 
+
+class ProductColorImageAdminForm(forms.ModelForm):
+    class Meta:
+        model = ProductColorImage
+        fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        self._parent_product = kwargs.pop("parent_product", None)
+        super().__init__(*args, **kwargs)
+
+        category_slug = _resolve_category_slug_for_form(
+            instance=self.instance,
+            parent_product=self._parent_product,
+            data=self.data,
+            initial=self.initial,
+            product_field_name="product",
+        )
+        rule = get_variant_rule(category_slug)
+        allowed_colors = rule.get("allowed_colors") or []
+
+        if "color" in self.fields:
+            current_color = self.initial.get("color")
+            if current_color in (None, "") and self.instance is not None:
+                current_color = getattr(self.instance, "color", None)
+
+            normalized_current_color = normalize_variant_color(current_color)
+
+            if allowed_colors:
+                select_choices = [("", "---------")] + [(c, c) for c in allowed_colors]
+                if normalized_current_color and normalized_current_color not in allowed_colors:
+                    select_choices.append((normalized_current_color, normalized_current_color))
+                self.fields["color"].widget = forms.Select(choices=select_choices)
+            else:
+                self.fields["color"].widget = forms.TextInput()
+
+    def clean_color(self):
+        color = self.cleaned_data.get("color")
+        if color is None:
+            return color
+        return normalize_variant_color(color)
+
+
 class ProductColorImageInline(admin.TabularInline):
     model = ProductColorImage
+    form = ProductColorImageAdminForm
     extra = 1
     fields = ("color", "image", "alt_text", "is_primary", "sort_order")
     readonly_fields = ("created_at",)
@@ -572,6 +632,19 @@ class ProductColorImageInline(admin.TabularInline):
         if obj:  # Solo mostrar created_at al editar
             fields.append("created_at")
         return fields
+
+    def get_formset(self, request, obj=None, **kwargs):
+        """Pasa el producto padre al formulario para resolver el dropdown de color."""
+        formset_class = super().get_formset(request, obj=obj, **kwargs)
+
+        class ProductColorImageFormSetWithParent(formset_class):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                if self.instance is not None:
+                    self.form_kwargs = getattr(self, "form_kwargs", {}) or {}
+                    self.form_kwargs["parent_product"] = self.instance
+
+        return ProductColorImageFormSetWithParent
 
 
 # ======================
@@ -651,7 +724,8 @@ class ProductAdmin(admin.ModelAdmin):
         messages.info(
             request,
             "Guarde el producto primero (categoría, nombre, precio). "
-            "Luego, en la pantalla de edición, podrá agregar variantes con listas desplegables de talla y color.",
+            "Luego, en la pantalla de edición, podrá agregar variantes y configurar imágenes por color "
+            "usando listas desplegables según la categoría.",
         )
         return super().add_view(request, form_url=form_url, extra_context=extra_context)
 
