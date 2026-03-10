@@ -11,7 +11,7 @@ interface PageProps {
 }
 
 const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL || "https://kame-colstore-frontend.onrender.com";
+  process.env.NEXT_PUBLIC_SITE_URL || "https://kamecol.com";
 
 function toAbsoluteHttpsUrl(inputUrl: string): string {
   const raw = String(inputUrl || "").trim();
@@ -84,8 +84,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   if (!slug) {
     return {
-      title: "Producto | Kame.col",
-      description: "Producto en Kame.col.",
+      title: "Producto | Kame.Col",
+      description: "Producto en Kame.Col.",
       robots: { index: false, follow: false },
     };
   }
@@ -95,7 +95,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
     if (!product || product?.detail === "Not found" || product?.detail === "Not found.") {
       return {
-        title: "Producto no encontrado | Kame.col",
+        title: "Producto no encontrado | Kame.Col",
         description: "El producto no existe o no está disponible.",
         robots: { index: false, follow: false },
       };
@@ -104,19 +104,19 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     const name = String(product?.name || product?.title || "Producto").trim();
     const descSource =
       product?.short_description || product?.shortDescription || product?.description || "";
-    const description = truncate(descSource, 180) || "Producto en Kame.col.";
+    const description = truncate(descSource, 180) || "Producto en Kame.Col.";
 
     const primaryImage = pickPrimaryImageUrl(product) || "/og/default.jpg";
     const ogImage = toAbsoluteHttpsUrl(primaryImage);
 
     return {
-      title: `${name} | Kame.col`,
+      title: `${name} | Kame.Col`,
       description,
       openGraph: {
         // Next.js Metadata typing does not include "product" as a valid OG type.
         // We keep a valid type here and override og:type via `other` below.
         type: "website",
-        title: `${name} | Kame.col`,
+        title: `${name} | Kame.Col`,
         description,
         url: `/producto/${encodeURIComponent(slug)}`,
         images: [
@@ -133,7 +133,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       },
       twitter: {
         card: "summary_large_image",
-        title: `${name} | Kame.col`,
+        title: `${name} | Kame.Col`,
         description,
         images: [ogImage],
       },
@@ -141,27 +141,27 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   } catch {
     // Temporary API failure: avoid indexing and show a safe preview.
     return {
-      title: "Producto | Kame.col",
-      description: "Producto en Kame.col.",
+      title: "Producto | Kame.Col",
+      description: "Producto en Kame.Col.",
       robots: { index: false, follow: false },
       openGraph: {
         type: "website",
-        title: "Producto | Kame.col",
-        description: "Producto en Kame.col.",
+        title: "Producto | Kame.Col",
+        description: "Producto en Kame.Col.",
         url: `/producto/${encodeURIComponent(slug)}`,
         images: [
           {
             url: toAbsoluteHttpsUrl("/og/default.jpg"),
             width: 1200,
             height: 630,
-            alt: "Kame.col",
+            alt: "Kame.Col",
           },
         ],
       },
       twitter: {
         card: "summary_large_image",
-        title: "Producto | Kame.col",
-        description: "Producto en Kame.col.",
+        title: "Producto | Kame.Col",
+        description: "Producto en Kame.Col.",
         images: [toAbsoluteHttpsUrl("/og/default.jpg")],
       },
     };
