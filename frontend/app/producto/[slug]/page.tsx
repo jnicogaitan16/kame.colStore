@@ -10,25 +10,30 @@ interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
-const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL || "https://kamecol.com";
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://kamecol.com";
+const OG_DEFAULT_PATH = "/og/default.jpg";
+
+const INVALID_IMAGE_PATTERNS = [
+  "/media/cache/",
+  "/_next/",
+  "blob:",
+  "data:",
+  "localhost",
+  "127.0.0.1",
+];
 
 function toAbsoluteHttpsUrl(inputUrl: string): string {
   const raw = String(inputUrl || "").trim();
-  if (!raw) return new URL("/og/default.jpg", siteUrl).toString();
+  if (!raw) return new URL(OG_DEFAULT_PATH, siteUrl).toString();
 
   try {
-    // Make absolute against the public site URL (works for relative paths).
     const abs = new URL(raw, siteUrl).toString();
-
-    // Enforce https for OG crawlers (iMessage/WhatsApp are picky).
     if (abs.startsWith("http://")) {
       return "https://" + abs.slice("http://".length);
     }
-
     return abs;
   } catch {
-    return new URL("/og/default.jpg", siteUrl).toString();
+    return new URL(OG_DEFAULT_PATH, siteUrl).toString();
   }
 }
 
@@ -39,43 +44,118 @@ function truncate(text: string, max = 180): string {
   return t.slice(0, max - 1).trimEnd() + "…";
 }
 
+function isLikelyPublicImageUrl(value: unknown): value is string {
+  const raw = String(value || "").trim();
+  if (!raw) return false;
+
+  const normalized = raw.toLowerCase();
+  if (!/(^https?:\/\/|^\/|^[a-z0-9].*\/(.+)\.(jpg|jpeg|png|webp|avif|gif)(\?.*)?$)/i.test(raw) &&
+      !/\.(jpg|jpeg|png|webp|avif|gif)(\?.*)?$/i.test(raw)) {
+    return false;
+  }
+
+  return !INVALID_IMAGE_PATTERNS.some((pattern) => normalized.includes(pattern));
+}
+
+function collectImageCandidates(input: any, bucket: Array<string | null | undefined>) {
+  if (!input) return;
+
+  if (typeof input === "string") {
+    bucket.push(input);
+    return;
+  }
+
+  if (Array.isArray(input)) {
+    for (const item of input) {
+      collectImageCandidates(item, bucket);
+    }
+    return;
+  }
+
+  if (typeof input === "object") {
+    bucket.push(
+      input.url,
+      input.src,
+      input.image,
+      input.image_url,
+      input.imageUrl,
+      input.secure_url,
+      input.public_url,
+      input.publicUrl,
+      input.file,
+      input.path,
+      input.original,
+      input.large,
+      input.medium,
+      input.small,
+      input.thumbnail,
+      input.thumbnail_url,
+      input.thumbnailUrl,
+      input.cover,
+      input.cover_image,
+      input.coverImage,
+      input.primary,
+      input.primary_image,
+      input.primaryImage
+    );
+  }
+}
+
+function normalizeImageCandidate(rawValue: string): string | null {
+  const raw = String(rawValue || "").trim();
+  if (!isLikelyPublicImageUrl(raw)) return null;
+
+  if (raw.startsWith("http://") || raw.startsWith("https://")) {
+    return raw;
+  }
+
+  if (raw.startsWith("/")) {
+    return raw;
+  }
+
+  if (/^[a-z0-9].*\.(jpg|jpeg|png|webp|avif|gif)(\?.*)?$/i.test(raw)) {
+    return `/${raw}`;
+  }
+
+  return null;
+}
+
 function pickPrimaryImageUrl(product: any): string | null {
-  // Try common shapes: images[]; primary_image; image; thumbnail; media
-  const candidates: Array<string | undefined | null> = [];
+  const candidates: Array<string | null | undefined> = [];
 
-  const images = product?.images;
-  if (Array.isArray(images) && images.length > 0) {
-    const first = images[0];
-    candidates.push(first?.url, first?.src, first?.image, first?.secure_url);
-  }
+  collectImageCandidates(product?.primary_image, candidates);
+  collectImageCandidates(product?.primaryImage, candidates);
+  collectImageCandidates(product?.image, candidates);
+  collectImageCandidates(product?.image_url, candidates);
+  collectImageCandidates(product?.imageUrl, candidates);
+  collectImageCandidates(product?.cover, candidates);
+  collectImageCandidates(product?.cover_image, candidates);
+  collectImageCandidates(product?.coverImage, candidates);
+  collectImageCandidates(product?.thumbnail, candidates);
+  collectImageCandidates(product?.thumbnail_url, candidates);
+  collectImageCandidates(product?.thumbnailUrl, candidates);
 
-  candidates.push(
-    product?.primary_image,
-    product?.primaryImage,
-    product?.image,
-    product?.image_url,
-    product?.imageUrl,
-    product?.thumbnail,
-    product?.thumbnail_url,
-    product?.cover,
-    product?.cover_image
-  );
+  collectImageCandidates(product?.images, candidates);
+  collectImageCandidates(product?.gallery, candidates);
+  collectImageCandidates(product?.gallery_images, candidates);
+  collectImageCandidates(product?.galleryImages, candidates);
+  collectImageCandidates(product?.media, candidates);
+  collectImageCandidates(product?.product_images, candidates);
+  collectImageCandidates(product?.productImages, candidates);
+  collectImageCandidates(product?.color_images, candidates);
+  collectImageCandidates(product?.colorImages, candidates);
+  collectImageCandidates(product?.variant_images, candidates);
+  collectImageCandidates(product?.variantImages, candidates);
+  collectImageCandidates(product?.variant_image, candidates);
+  collectImageCandidates(product?.variantImage, candidates);
+  collectImageCandidates(product?.default_image, candidates);
+  collectImageCandidates(product?.defaultImage, candidates);
 
-  const media = product?.media;
-  if (Array.isArray(media) && media.length > 0) {
-    const first = media[0];
-    candidates.push(first?.url, first?.src, first?.image, first?.secure_url);
-  }
+  const firstValid = candidates
+    .map((candidate) => (typeof candidate === "string" ? normalizeImageCandidate(candidate) : null))
+    .find((candidate) => Boolean(candidate));
 
-  const url = candidates.find((u) => typeof u === "string" && u.trim().length > 0);
-  if (!url) return null;
-
-  // Normalize relative urls so Next can resolve them against metadataBase.
-  // If your backend already returns https absolute urls, we keep them.
-  const u = url.trim();
-  if (u.startsWith("http://") || u.startsWith("https://")) return u;
-  if (u.startsWith("/")) return u;
-  return `/${u}`;
+  return firstValid || null;
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -96,7 +176,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     if (!product || product?.detail === "Not found" || product?.detail === "Not found.") {
       return {
         title: "Producto no encontrado | Kame.Col",
-        description: "El producto no existe o no está disponible.",
+        description: "El producto no existe o no está disponible en Kame.Col.",
         robots: { index: false, follow: false },
       };
     }
@@ -106,7 +186,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       product?.short_description || product?.shortDescription || product?.description || "";
     const description = truncate(descSource, 180) || "Producto en Kame.Col.";
 
-    const primaryImage = pickPrimaryImageUrl(product) || "/og/default.jpg";
+    const primaryImage = pickPrimaryImageUrl(product) || OG_DEFAULT_PATH;
     const ogImage = toAbsoluteHttpsUrl(primaryImage);
 
     return {
@@ -124,7 +204,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
             url: ogImage,
             width: 1200,
             height: 630,
-            alt: name,
+            alt: `${name} | Kame.Col`,
           },
         ],
       },
@@ -151,7 +231,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
         url: `/producto/${encodeURIComponent(slug)}`,
         images: [
           {
-            url: toAbsoluteHttpsUrl("/og/default.jpg"),
+            url: toAbsoluteHttpsUrl(OG_DEFAULT_PATH),
             width: 1200,
             height: 630,
             alt: "Kame.Col",
@@ -162,7 +242,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
         card: "summary_large_image",
         title: "Producto | Kame.Col",
         description: "Producto en Kame.Col.",
-        images: [toAbsoluteHttpsUrl("/og/default.jpg")],
+        images: [toAbsoluteHttpsUrl(OG_DEFAULT_PATH)],
       },
     };
   }

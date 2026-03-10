@@ -431,10 +431,20 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
     variantSchema,
   ]);
 
+  // Canonical product image before any client interaction.
+  // This is the product-level default visual reference and should conceptually
+  // match the server-side metadata image selection whenever possible.
   const img = useMemo(() => getPrimaryImageUrl(product as any), [product]);
 
-  // Primary image for cart/UI: prefer selected/display variant, then fallback to product canonical image
-  const primaryImage = getPrimaryImageUrl((displayVariant as any) || (product as any)) || img || null;
+  // PDP visual priority:
+  // 1) displayVariant image (color-aware visual currently shown to the user)
+  // 2) canonical product image (default product visual before interaction)
+  // This must remain a UI reference only and must not make server metadata depend
+  // on client-side selected state.
+  const primaryImage =
+    getPrimaryImageUrl(displayVariant as any) ||
+    img ||
+    null;
 
   const normalizeImages = (input: any): Array<{ url: string; thumb_url?: string | null; alt_text?: string | null }> => {
     const arr: any[] = Array.isArray(input) ? input : input ? [input] : [];
@@ -489,6 +499,11 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
       .filter(Boolean) as Array<{ url: string; thumb_url?: string | null; alt_text?: string | null }>;
   };
 
+  // Gallery source of truth for the PDP visual:
+  // - If the current displayVariant exposes images, use those first.
+  // - Otherwise fall back to product-level images.
+  // This is the best functional reference for what the shopper perceives as the
+  // product's default visual on first load.
   const galleryImages =
     displayVariant && (displayVariant as any).images
       ? normalizeImages((displayVariant as any).images)
