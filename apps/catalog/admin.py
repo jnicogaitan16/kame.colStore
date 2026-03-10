@@ -18,8 +18,13 @@ from .models import (
     HomepagePromo,
 )
 
-from .variant_rules import get_variant_rule, normalize_variant_color
-from .forms import InventoryPoolAdminForm, InventoryPoolBulkLoadForm
+from .variant_rules import get_variant_rule, resolve_variant_rule
+from .forms import (
+    InventoryPoolAdminForm,
+    InventoryPoolBulkLoadForm,
+    ProductVariantAdminForm,
+    ProductColorImageAdminForm,
+)
 from apps.catalog.services.variant_sync import sync_variants_for_pool
 
 
@@ -39,33 +44,6 @@ def _first_existing_field(model, candidates: tuple[str, ...]):
     return None
 
 
-def _resolve_category_slug_for_form(instance, parent_product=None, data=None, initial=None, product_field_name="product"):
-    category_slug = None
-
-    if parent_product is not None and getattr(parent_product, "category", None):
-        category_slug = parent_product.category.slug
-
-    if category_slug is None and instance and getattr(instance, "pk", None):
-        product = getattr(instance, product_field_name, None)
-        if product and getattr(product, "category", None):
-            category_slug = product.category.slug
-
-    if category_slug is None:
-        product_id = None
-        if data is not None:
-            product_id = data.get(product_field_name)
-        if not product_id and initial is not None:
-            product_id = initial.get(product_field_name)
-
-        if product_id:
-            try:
-                product = Product.objects.select_related("category").get(pk=product_id)
-                if product.category:
-                    category_slug = product.category.slug
-            except (Product.DoesNotExist, TypeError, ValueError):
-                pass
-
-    return category_slug
 
 
 # ======================
@@ -226,7 +204,7 @@ class InventoryPoolAdmin(admin.ModelAdmin):
         category_id = request.GET.get("category_id")
 
         if not category_id:
-            rule = get_variant_rule(None)
+            rule = resolve_variant_rule(category_slug=None, variant_schema=None)
             return JsonResponse(
                 {
                     "category_slug": "",
@@ -241,7 +219,11 @@ class InventoryPoolAdmin(admin.ModelAdmin):
 
         category = get_object_or_404(Category, pk=category_id)
         category_slug = category.slug if category else ""
-        rule = get_variant_rule(category_slug)
+        category_schema = getattr(category, "variant_schema", "") or ""
+        rule = resolve_variant_rule(
+            category_slug=category_slug,
+            variant_schema=category_schema,
+        )
 
         return JsonResponse(
             {
@@ -251,7 +233,7 @@ class InventoryPoolAdmin(admin.ModelAdmin):
                 "allowed_values": rule.get("allowed_values"),
                 "allowed_colors": rule.get("allowed_colors"),
                 "normalize_upper": bool(rule.get("normalize_upper", True)),
-                "variant_schema": getattr(category, "variant_schema", "") or "",
+                "variant_schema": category_schema,
             }
         )
 
@@ -461,77 +443,6 @@ class HomepagePromoAdmin(admin.ModelAdmin):
     )
 
 
-# ======================
-# ProductVariant Form
-# ======================
-class ProductVariantAdminForm(forms.ModelForm):
-    class Meta:
-        model = ProductVariant
-        fields = "__all__"
-
-    def __init__(self, *args, **kwargs):
-        # Cuando el form se usa en el inline de Product, el formset puede pasar el producto padre
-        self._parent_product = kwargs.pop("parent_product", None)
-        super().__init__(*args, **kwargs)
-
-        # Reset help text (guard: field may not exist depending on current model)
-        if "value" in self.fields:
-            self.fields["value"].help_text = ""
-        if "color" in self.fields:
-            self.fields["color"].help_text = ""
-
-        category_slug = _resolve_category_slug_for_form(
-            instance=self.instance,
-            parent_product=self._parent_product,
-            data=self.data,
-            initial=self.initial,
-            product_field_name="product",
-        )
-
-        rule = get_variant_rule(category_slug)
-
-        # Label from rule
-        self.fields["value"].label = rule.get("label", "Value")
-
-        # Use select widget if rule says so
-        if rule.get("use_select") and rule.get("allowed_values"):
-            self.fields["value"].widget = forms.Select(
-                choices=[(v, v) for v in rule["allowed_values"]]
-            )
-
-        # Color field: only configure if the model currently has `color`
-        allowed_colors = rule.get("allowed_colors")
-
-        if "color" in self.fields:
-            current_color = self.initial.get("color")
-            if current_color in (None, "") and self.instance is not None:
-                current_color = getattr(self.instance, "color", None)
-
-            if allowed_colors:
-                normalized_current_color = normalize_variant_color(current_color)
-                select_choices = [("", "---------")] + [(c, c) for c in allowed_colors]
-                if normalized_current_color and normalized_current_color not in allowed_colors:
-                    select_choices.append((normalized_current_color, normalized_current_color))
-                self.fields["color"].required = True
-                self.fields["color"].widget = forms.Select(choices=select_choices)
-            else:
-                self.fields["color"].required = False
-                self.fields["color"].widget = forms.TextInput()
-
-    def clean_value(self):
-        value = self.cleaned_data.get("value")
-        if value is None:
-            return value
-        return str(value).strip().upper()
-
-    def clean_color(self):
-        # Guard: the model may not have `color`
-        if "color" not in self.fields:
-            return None
-        color = self.cleaned_data.get("color")
-        if color is None:
-            return color
-        return normalize_variant_color(color)
 
 
 # ======================
@@ -548,15 +459,17 @@ class ProductVariantInline(admin.TabularInline):
     ordering = ("value", "color", "id")
 
     def get_formset(self, request, obj=None, **kwargs):
-        """Pasa el producto padre al formulario para que Talla y Color sean listas desplegables."""
+        """Pasa explícitamente el producto padre al formset para blindar el edit view."""
         formset_class = super().get_formset(request, obj=obj, **kwargs)
+        parent_product = obj
 
         class ProductVariantFormSetWithParent(formset_class):
             def __init__(self, *args, **kwargs):
                 super().__init__(*args, **kwargs)
-                if self.instance is not None:
+                effective_parent = parent_product or getattr(self, "instance", None)
+                if effective_parent is not None:
                     self.form_kwargs = getattr(self, "form_kwargs", {}) or {}
-                    self.form_kwargs["parent_product"] = self.instance
+                    self.form_kwargs["parent_product"] = effective_parent
 
         return ProductVariantFormSetWithParent
 
@@ -579,45 +492,6 @@ class ProductImageInline(admin.TabularInline):
 
 
 
-class ProductColorImageAdminForm(forms.ModelForm):
-    class Meta:
-        model = ProductColorImage
-        fields = "__all__"
-
-    def __init__(self, *args, **kwargs):
-        self._parent_product = kwargs.pop("parent_product", None)
-        super().__init__(*args, **kwargs)
-
-        category_slug = _resolve_category_slug_for_form(
-            instance=self.instance,
-            parent_product=self._parent_product,
-            data=self.data,
-            initial=self.initial,
-            product_field_name="product",
-        )
-        rule = get_variant_rule(category_slug)
-        allowed_colors = rule.get("allowed_colors") or []
-
-        if "color" in self.fields:
-            current_color = self.initial.get("color")
-            if current_color in (None, "") and self.instance is not None:
-                current_color = getattr(self.instance, "color", None)
-
-            normalized_current_color = normalize_variant_color(current_color)
-
-            if allowed_colors:
-                select_choices = [("", "---------")] + [(c, c) for c in allowed_colors]
-                if normalized_current_color and normalized_current_color not in allowed_colors:
-                    select_choices.append((normalized_current_color, normalized_current_color))
-                self.fields["color"].widget = forms.Select(choices=select_choices)
-            else:
-                self.fields["color"].widget = forms.TextInput()
-
-    def clean_color(self):
-        color = self.cleaned_data.get("color")
-        if color is None:
-            return color
-        return normalize_variant_color(color)
 
 
 class ProductColorImageInline(admin.TabularInline):
@@ -634,15 +508,17 @@ class ProductColorImageInline(admin.TabularInline):
         return fields
 
     def get_formset(self, request, obj=None, **kwargs):
-        """Pasa el producto padre al formulario para resolver el dropdown de color."""
+        """Pasa explícitamente el producto padre al formset para blindar el edit view."""
         formset_class = super().get_formset(request, obj=obj, **kwargs)
+        parent_product = obj
 
         class ProductColorImageFormSetWithParent(formset_class):
             def __init__(self, *args, **kwargs):
                 super().__init__(*args, **kwargs)
-                if self.instance is not None:
+                effective_parent = parent_product or getattr(self, "instance", None)
+                if effective_parent is not None:
                     self.form_kwargs = getattr(self, "form_kwargs", {}) or {}
-                    self.form_kwargs["parent_product"] = self.instance
+                    self.form_kwargs["parent_product"] = effective_parent
 
         return ProductColorImageFormSetWithParent
 
@@ -820,7 +696,7 @@ class ProductVariantAdmin(admin.ModelAdmin):
         product_id = request.GET.get("product_id")
 
         if not product_id:
-            rule = get_variant_rule(None)
+            rule = resolve_variant_rule(category_slug=None, variant_schema=None)
             return JsonResponse(
                 {
                     "category_slug": "",
@@ -835,7 +711,11 @@ class ProductVariantAdmin(admin.ModelAdmin):
 
         product = get_object_or_404(Product.objects.select_related("category"), pk=product_id)
         category_slug = product.category.slug if product.category else ""
-        rule = get_variant_rule(category_slug)
+        category_schema = getattr(product.category, "variant_schema", "") or ""
+        rule = resolve_variant_rule(
+            category_slug=category_slug,
+            variant_schema=category_schema,
+        )
 
         return JsonResponse(
             {
@@ -845,7 +725,7 @@ class ProductVariantAdmin(admin.ModelAdmin):
                 "allowed_values": rule.get("allowed_values"),
                 "allowed_colors": rule.get("allowed_colors"),
                 "normalize_upper": bool(rule.get("normalize_upper", True)),
-                "variant_schema": getattr(product.category, "variant_schema", "") or "",
+                "variant_schema": category_schema,
             }
         )
 

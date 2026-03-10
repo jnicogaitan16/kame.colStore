@@ -15,7 +15,25 @@ APPAREL_COLORS: List[str] = ["Blanco", "Negro", "Beige", "Verde", "Rojo", "Café
 # Shared sizes for shoe categories
 SHOE_SIZES: List[str] = ["36", "37", "38", "39", "40", "41", "42"]
 
-# Canonical rules by category slug (single source of truth)
+# Base canonical rules by variant schema
+SCHEMA_VARIANT_RULES: Dict[str, Dict[str, Any]] = {
+    "size_color": {
+        "label": "Talla",
+        "allowed_values": APPAREL_SIZES,
+        "allowed_colors": APPAREL_COLORS,
+        "use_select": True,
+        "normalize_upper": True,
+    },
+    "shoe_size": {
+        "label": "Talla",
+        "allowed_values": SHOE_SIZES,
+        "allowed_colors": None,
+        "use_select": True,
+        "normalize_upper": True,
+    },
+}
+
+# Canonical rules by category slug (override layer)
 VARIANT_RULES: Dict[str, Dict[str, Any]] = {
     "camisetas": {
         "label": "Talla",
@@ -57,12 +75,36 @@ DEFAULT_VARIANT_RULE: Dict[str, Any] = {
 }
 
 
-def get_variant_rule(category_slug: Optional[str]) -> Dict[str, Any]:
-    """Return the canonical variant rule for the given category slug."""
+def resolve_variant_rule(
+    category_slug: Optional[str] = None,
+    variant_schema: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Resolve the canonical variant rule using:
+    1) explicit category slug override
+    2) base rule by variant schema
+    3) default free-text rule
+    """
 
     slug = (category_slug or "").strip().lower()
-    rule = VARIANT_RULES.get(slug, DEFAULT_VARIANT_RULE)
-    return dict(rule)
+    schema = (variant_schema or "").strip().lower()
+
+    if slug and slug in VARIANT_RULES:
+        return dict(VARIANT_RULES[slug])
+
+    if schema and schema in SCHEMA_VARIANT_RULES:
+        return dict(SCHEMA_VARIANT_RULES[schema])
+
+    return dict(DEFAULT_VARIANT_RULE)
+
+
+def get_variant_rule(
+    category_slug: Optional[str],
+    variant_schema: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Backwards-compatible wrapper around the canonical rule resolver."""
+
+    return resolve_variant_rule(category_slug=category_slug, variant_schema=variant_schema)
 
 
 # Backwards-compatible alias for older imports/usages.
@@ -70,7 +112,11 @@ CATEGORY_VARIANT_RULES = VARIANT_RULES
 
 
 # Helper functions for canonical allowed values and colors
-def get_allowed_values_for_category(category_slug: Optional[str]) -> Optional[List[str]]:
+
+def get_allowed_values_for_category(
+    category_slug: Optional[str],
+    variant_schema: Optional[str] = None,
+) -> Optional[List[str]]:
     """
     Return the canonical allowed values (e.g. sizes) for a category.
 
@@ -78,7 +124,7 @@ def get_allowed_values_for_category(category_slug: Optional[str]) -> Optional[Li
     services, etc.) reads the same source of truth.
     """
 
-    rule = get_variant_rule(category_slug)
+    rule = resolve_variant_rule(category_slug=category_slug, variant_schema=variant_schema)
     values = rule.get("allowed_values")
 
     if not values:
@@ -88,7 +134,11 @@ def get_allowed_values_for_category(category_slug: Optional[str]) -> Optional[Li
     return list(values)
 
 
-def get_allowed_colors_for_category(category_slug: Optional[str]) -> Optional[List[str]]:
+
+def get_allowed_colors_for_category(
+    category_slug: Optional[str],
+    variant_schema: Optional[str] = None,
+) -> Optional[List[str]]:
     """
     Return the canonical allowed colors for a category.
 
@@ -96,7 +146,7 @@ def get_allowed_colors_for_category(category_slug: Optional[str]) -> Optional[Li
     (e.g. 'Negro', 'Blanco', 'Beige').
     """
 
-    rule = get_variant_rule(category_slug)
+    rule = resolve_variant_rule(category_slug=category_slug, variant_schema=variant_schema)
     colors = rule.get("allowed_colors")
 
     if not colors:
@@ -107,7 +157,11 @@ def get_allowed_colors_for_category(category_slug: Optional[str]) -> Optional[Li
 
 
 # Helper to sort variant values canonically
-def sort_variant_values(values: List[str], category_slug: Optional[str]) -> List[str]:
+def sort_variant_values(
+    values: List[str],
+    category_slug: Optional[str],
+    variant_schema: Optional[str] = None,
+) -> List[str]:
     """
     Sort variant values using the canonical order defined for a category.
 
@@ -119,7 +173,7 @@ def sort_variant_values(values: List[str], category_slug: Optional[str]) -> List
     - Duplicate values are removed while preserving first appearance.
     """
 
-    rule = get_variant_rule(category_slug)
+    rule = resolve_variant_rule(category_slug=category_slug, variant_schema=variant_schema)
     allowed = rule.get("allowed_values") or []
 
     if not values:
@@ -142,12 +196,14 @@ def sort_variant_values(values: List[str], category_slug: Optional[str]) -> List
     return known + unknown
 
 
+
 def normalize_variant_value(value: Optional[str]) -> Optional[str]:
     """Normalize a variant value (trim + uppercase) keeping None as None."""
 
     if value is None:
         return None
     return str(value).strip().upper()
+
 
 
 def normalize_variant_color(color: Optional[str]) -> Optional[str]:
