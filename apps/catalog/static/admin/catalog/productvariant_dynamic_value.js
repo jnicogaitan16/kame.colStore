@@ -217,6 +217,11 @@
     setFieldLabel("id_color", text || "Color");
   }
 
+  function shouldShowColorField(schema, allowedColors) {
+    const colorsArr = Array.isArray(allowedColors) ? allowedColors : [];
+    return schema === "size_color" || colorsArr.length > 0;
+  }
+
   function _buildColorSelect(className, currentValue, allowedColors) {
     const select = document.createElement("select");
     select.id = "id_color";
@@ -419,8 +424,10 @@
         setRowVisible(valueEl, true);
       }
 
-      if (schema === "size_color") {
-        const colorsArr = Array.isArray(allowedColors) ? allowedColors : [];
+      const colorsArr = Array.isArray(allowedColors) ? allowedColors : [];
+      const showColorField = shouldShowColorField(schema, colorsArr);
+
+      if (showColorField) {
         if (colorsArr.length) {
           setColorAsSelect(
             {
@@ -437,15 +444,13 @@
             setFieldLabel("id_color", "Color");
           }
         }
-      } else if (schema === "jean_size" || schema === "shoe_size") {
+      } else {
         hideColorFieldAndClear("id_color");
         const colorEl = $("id_color");
         if (colorEl) {
           colorEl.value = "";
           colorEl.setAttribute("value", "");
         }
-      } else {
-        hideColorFieldAndClear("id_color");
       }
     } catch (e) {
       console.warn("[ProductVariantAdmin] Falling back to neutral widgets", e);
@@ -470,6 +475,7 @@
     setValueAsInput,
     setColorAsSelect,
     hideColorFieldAndClear,
+    shouldShowColorField,
   });
 
   ready(function () {

@@ -1,11 +1,60 @@
 from django import forms
 from django.core.exceptions import ValidationError
 
-from apps.catalog.models import Category, InventoryPool
+from apps.catalog.models import Category, InventoryPool, Product, ProductVariant, ProductColorImage
 from apps.catalog.variant_rules import get_variant_rule, normalize_variant_color, normalize_variant_value
 
 
-class InventoryPoolAdminForm(forms.ModelForm):
+class CatalogAdminRuleAwareForm(forms.ModelForm):
+    product_field_name = "product"
+    category_field_name = "category"
+
+    def __init__(self, *args, **kwargs):
+        self._parent_product = kwargs.pop("parent_product", None)
+        super().__init__(*args, **kwargs)
+        self._category_obj = self._resolve_category()
+        self._rule = get_variant_rule(getattr(self._category_obj, "slug", None))
+        self._schema = (getattr(self._category_obj, "variant_schema", "") or "").strip()
+
+    def _resolve_category(self):
+        if self._parent_product is not None and getattr(self._parent_product, "category", None):
+            return self._parent_product.category
+
+        if self.instance and getattr(self.instance, "pk", None):
+            product = getattr(self.instance, self.product_field_name, None)
+            if product and getattr(product, "category", None):
+                return product.category
+
+            category = getattr(self.instance, self.category_field_name, None)
+            if category:
+                return category
+
+        lookup_value = self.data.get(self.product_field_name) or self.initial.get(self.product_field_name)
+        if lookup_value:
+            try:
+                product = Product.objects.select_related("category").get(pk=lookup_value)
+                if product.category:
+                    return product.category
+            except (Product.DoesNotExist, TypeError, ValueError):
+                pass
+
+        category_id = self.data.get(self.category_field_name) or self.initial.get(self.category_field_name)
+        if category_id:
+            try:
+                return Category.objects.get(pk=category_id)
+            except (Category.DoesNotExist, TypeError, ValueError):
+                return None
+
+        return None
+
+    def _get_allowed_values(self):
+        return self._rule.get("allowed_values") or []
+
+    def _get_allowed_colors(self):
+        return self._rule.get("allowed_colors") or []
+
+
+class InventoryPoolAdminForm(CatalogAdminRuleAwareForm):
     class Meta:
         model = InventoryPool
         fields = "__all__"
@@ -18,34 +67,9 @@ class InventoryPoolAdminForm(forms.ModelForm):
         if "color" in self.fields:
             self.fields["color"].help_text = ""
 
-        self._category_obj = self._resolve_category()
-        self._rule = get_variant_rule(getattr(self._category_obj, "slug", None))
-        self._schema = (getattr(self._category_obj, "variant_schema", "") or "").strip()
-
         self._configure_value_field()
         self._configure_color_field()
         self._configure_schema_visibility()
-
-    def _resolve_category(self):
-        if self.instance and getattr(self.instance, "pk", None):
-            category = getattr(self.instance, "category", None)
-            if category:
-                return category
-
-        category_id = self.data.get("category") or self.initial.get("category")
-        if not category_id:
-            return None
-
-        try:
-            return Category.objects.get(pk=category_id)
-        except (Category.DoesNotExist, TypeError, ValueError):
-            return None
-
-    def _get_allowed_values(self):
-        return self._rule.get("allowed_values") or []
-
-    def _get_allowed_colors(self):
-        return self._rule.get("allowed_colors") or []
 
     def _configure_value_field(self):
         if "value" not in self.fields:
@@ -120,6 +144,153 @@ class InventoryPoolAdminForm(forms.ModelForm):
             raise ValidationError("Selecciona un valor válido para la categoría elegida.")
 
         return value
+
+    def clean_color(self):
+        color = self.cleaned_data.get("color")
+        if color is None:
+            return color
+
+        color = normalize_variant_color(color)
+        allowed_colors = self._get_allowed_colors()
+
+        if allowed_colors and color and color not in allowed_colors:
+            raise ValidationError("Selecciona un color válido para la categoría elegida.")
+
+        return color
+
+
+class ProductVariantAdminForm(CatalogAdminRuleAwareForm):
+    class Meta:
+        model = ProductVariant
+        fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        if "value" in self.fields:
+            self.fields["value"].help_text = ""
+        if "color" in self.fields:
+            self.fields["color"].help_text = ""
+
+        self._configure_value_field()
+        self._configure_color_field()
+
+    def _configure_value_field(self):
+        if "value" not in self.fields:
+            return
+
+        self.fields["value"].label = self._rule.get("label", "Value")
+        allowed_values = self._get_allowed_values()
+        current_value = normalize_variant_value(getattr(self.instance, "value", None))
+
+        if self._rule.get("use_select") and allowed_values:
+            choices = [(v, v) for v in allowed_values]
+            choice_values = [c[0] for c in choices]
+            if current_value and current_value not in choice_values:
+                choices = [(current_value, current_value)] + choices
+
+            self.fields["value"].widget = forms.Select(
+                choices=[("", "---------")] + choices
+            )
+
+            if current_value:
+                self.initial["value"] = current_value
+                self.fields["value"].initial = current_value
+
+    def _configure_color_field(self):
+        if "color" not in self.fields:
+            return
+
+        allowed_colors = self._get_allowed_colors()
+        current_color = normalize_variant_color(getattr(self.instance, "color", None))
+
+        if allowed_colors:
+            choices = [(c, c) for c in allowed_colors]
+            choice_values = [c[0] for c in choices]
+            if current_color and current_color not in choice_values:
+                choices = [(current_color, current_color)] + choices
+
+            self.fields["color"].widget = forms.Select(
+                choices=[("", "---------")] + choices
+            )
+
+            if current_color:
+                self.initial["color"] = current_color
+                self.fields["color"].initial = current_color
+        else:
+            self.fields["color"].widget = forms.TextInput()
+            if current_color:
+                self.initial["color"] = current_color
+                self.fields["color"].initial = current_color
+
+        self.fields["color"].required = self._schema == Category.VariantSchema.SIZE_COLOR
+
+    def clean_value(self):
+        value = self.cleaned_data.get("value")
+        if value is None:
+            return value
+
+        value = normalize_variant_value(value) or ""
+        allowed_values = self._get_allowed_values()
+
+        if self._rule.get("use_select") and allowed_values and value and value not in allowed_values:
+            raise ValidationError("Selecciona un valor válido para la categoría elegida.")
+
+        return value
+
+    def clean_color(self):
+        if "color" not in self.fields:
+            return None
+
+        color = self.cleaned_data.get("color")
+        if color is None:
+            return color
+
+        color = normalize_variant_color(color)
+        allowed_colors = self._get_allowed_colors()
+
+        if allowed_colors and color and color not in allowed_colors:
+            raise ValidationError("Selecciona un color válido para la categoría elegida.")
+
+        return color
+
+
+class ProductColorImageAdminForm(CatalogAdminRuleAwareForm):
+    class Meta:
+        model = ProductColorImage
+        fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._configure_color_field()
+
+    def _configure_color_field(self):
+        if "color" not in self.fields:
+            return
+
+        allowed_colors = self._get_allowed_colors()
+        current_color = normalize_variant_color(getattr(self.instance, "color", None))
+
+        if allowed_colors:
+            choices = [(c, c) for c in allowed_colors]
+            choice_values = [c[0] for c in choices]
+            if current_color and current_color not in choice_values:
+                choices = [(current_color, current_color)] + choices
+
+            self.fields["color"].widget = forms.Select(
+                choices=[("", "---------")] + choices
+            )
+
+            if current_color:
+                self.initial["color"] = current_color
+                self.fields["color"].initial = current_color
+        else:
+            self.fields["color"].widget = forms.TextInput()
+            if current_color:
+                self.initial["color"] = current_color
+                self.fields["color"].initial = current_color
+
+        self.fields["color"].required = self._schema == Category.VariantSchema.SIZE_COLOR
 
     def clean_color(self):
         color = self.cleaned_data.get("color")
