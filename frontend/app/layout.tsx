@@ -3,6 +3,7 @@ import { Inter_Tight } from "next/font/google";
 import "./globals.css";
 
 import HeaderServer from "@/components/header/HeaderServer";
+import { MiniCart } from "@/components/cart/MiniCart";
 import { CartHydration } from "@/components/cart/CartHydration";
 import Footer from "@/components/layout/Footer";
 import WhatsAppButton from "@/components/layout/WhatsAppButton";
@@ -68,6 +69,7 @@ export default function RootLayout({
           <CartHydration />
           <HeaderServer />
           <main className="pt-16 pb-20 md:pt-18 md:pb-8">{children}</main>
+          <MiniCart />
 
           <Footer />
 
