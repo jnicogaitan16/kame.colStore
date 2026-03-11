@@ -1,3 +1,4 @@
+import { cache } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getProductBySlug } from "@/lib/api";
@@ -9,6 +10,10 @@ export const revalidate = 0;
 interface PageProps {
   params: Promise<{ slug: string }>;
 }
+
+const getCachedProductBySlug = cache(async (slug: string) => {
+  return getProductBySlug(slug);
+});
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://kamecol.com";
 const OG_DEFAULT_PATH = "/og/default.jpg";
@@ -171,7 +176,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 
   try {
-    const product: any = await getProductBySlug(slug);
+    const product: any = await getCachedProductBySlug(slug);
 
     if (!product || product?.detail === "Not found" || product?.detail === "Not found.") {
       return {
@@ -254,7 +259,7 @@ export default async function ProductPage({ params }: PageProps) {
   if (!slug) notFound();
 
   try {
-    const product: any = await getProductBySlug(slug);
+    const product: any = await getCachedProductBySlug(slug);
 
     // Defensive: some backends return a payload like { detail: "Not found" }
     if (!product || product?.detail === "Not found" || product?.detail === "Not found.") {

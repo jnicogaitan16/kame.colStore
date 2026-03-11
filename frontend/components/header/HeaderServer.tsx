@@ -1,4 +1,4 @@
-import { getCategories } from "@/lib/api";
+import { getCategories, getNavigation } from "@/lib/api";
 
 import Header from "./Header";
 
@@ -8,18 +8,10 @@ export default async function HeaderServer() {
   let navDepartments: any[] = [];
 
   try {
-    const res = await fetch(
-      `${process.env.DJANGO_API_BASE}/api/navigation/`,
-      {
-        cache: "no-store",
-      }
-    );
-
-    if (res.ok) {
-      navDepartments = await res.json();
-    }
+    const navigation = await getNavigation();
+    navDepartments = navigation.departments;
   } catch (error) {
-    // Silent fallback to categories if navigation endpoint fails
+    // Optional fallback to categories if navigation endpoint fails
     navDepartments = [];
   }
 
