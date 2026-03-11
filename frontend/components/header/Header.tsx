@@ -371,7 +371,7 @@ function MobileMenuContent({
                 >
                   <ChevronLeft className="h-5 w-5" />
                 </button>
-                <div className="type-section-title text-white">
+                <div className="type-brand text-white/92">
                   {String(activeDept?.name || "").toUpperCase()}
                 </div>
               </div>
@@ -397,7 +397,7 @@ function MobileMenuContent({
                       <button
                         type="button"
                         onClick={() => setActiveDeptSlug(dept.slug)}
-                        className="type-secondary flex w-full items-center justify-between py-4 text-left text-white/92 transition hover:text-white"
+                        className="type-card-title flex w-full items-center justify-between py-4 text-left text-white/90 transition hover:text-white"
                       >
                         <span>{dept.name}</span>
                         <ChevronRight className="h-5 w-5 text-white/40" />
@@ -421,7 +421,7 @@ function MobileMenuContent({
                         <Link
                           href={categoryHref((c as any).slug)}
                           onClick={onNavigate}
-                          className="type-secondary flex items-center justify-between py-4 text-white/92 transition hover:text-white"
+                          className="type-card-title flex items-center justify-between py-4 text-white/90 transition hover:text-white"
                         >
                           <span>{(c as any).name}</span>
                           <ChevronRight className="h-5 w-5 text-white/40" />
@@ -430,7 +430,7 @@ function MobileMenuContent({
                       </li>
                     ))
                   ) : (
-                    <li className="type-secondary py-4 text-white/70">
+                    <li className="type-ui-label py-4 text-white/62">
                       No hay categorías disponibles en esta sección.
                     </li>
                   )}
@@ -448,7 +448,7 @@ function MobileMenuContent({
                   <Link
                     href={categoryHref((c as any).slug)}
                     onClick={onNavigate}
-                    className="type-secondary flex items-center justify-between py-4 text-white/92"
+                    className="type-card-title flex items-center justify-between py-4 text-white/90 transition hover:text-white"
                   >
                     <span>{(c as any).name}</span>
                     <ChevronRight className="h-5 w-5 text-white/40" />
@@ -457,7 +457,7 @@ function MobileMenuContent({
                 </li>
               ))
             ) : (
-              <li className="type-secondary py-4 text-white/70">Menú no disponible.</li>
+              <li className="type-ui-label py-4 text-white/62">Menú no disponible.</li>
             )}
           </ul>
         </div>
@@ -472,7 +472,7 @@ function MobileMenuContent({
               target="_blank"
               rel="noreferrer"
               aria-label={label}
-              className="inline-flex h-10 w-10 items-center justify-center text-white/58 transition duration-300 hover:scale-[1.06] hover:text-white"
+              className="inline-flex h-10 w-10 items-center justify-center text-white/52 transition duration-300 hover:scale-[1.06] hover:text-white"
             >
               <Icon className="h-[20px] w-[20px]" />
             </Link>
@@ -745,7 +745,7 @@ export default function Header({
             onTouchCancel={handleMobileMenuTouchCancel}
           >
             <div className="flex min-h-[68px] items-center justify-center px-4 py-4">
-              <div className="type-brand text-center text-white">Kame.col</div>
+              <div className="type-brand text-center text-white/92">Kame.col</div>
             </div>
 
             <div className="min-h-0 flex-1">

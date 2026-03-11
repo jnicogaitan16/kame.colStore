@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans } from "next/font/google";
+import { Inter_Tight } from "next/font/google";
 import "./globals.css";
 
 import HeaderServer from "@/components/header/HeaderServer";
@@ -8,10 +8,8 @@ import { CartHydration } from "@/components/cart/CartHydration";
 import Footer from "@/components/layout/Footer";
 import WhatsAppButton from "@/components/layout/WhatsAppButton";
 
-const jakarta = Plus_Jakarta_Sans({
+const interTight = Inter_Tight({
   subsets: ["latin"],
-  // Reduce global font payload: include only the weights actually used across the site.
-  // Add back weights if you truly need them.
   weight: ["400", "600", "700"],
   display: "swap",
   variable: "--font-body",
@@ -65,7 +63,7 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body
-        className={`${jakarta.variable} bg-zinc-950 text-zinc-100 antialiased font-sans`}
+        className={`${interTight.variable} bg-zinc-950 text-zinc-100 antialiased font-sans`}
       >
         <div className="min-h-screen bg-zinc-950 text-zinc-100">
           <CartHydration />

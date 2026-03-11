@@ -149,12 +149,12 @@
   --danger: #EF4444;  /* red-500 */
 
   /* Typography system */
-  --tracking-brand: 0.18em;
-  --tracking-nav: 0.14em;
-  --tracking-label: 0.12em;
-  --tracking-action: 0.08em;
-  --tracking-price: 0.02em;
-  --tracking-tight: 0.01em;
+  --tracking-brand: 0.12em;
+  --tracking-nav: 0.1em;
+  --tracking-label: 0.09em;
+  --tracking-action: 0.06em;
+  --tracking-price: 0.04em;
+  --tracking-tight: 0.02em;
 
   --text-xs: 0.75rem;
   --text-sm: 0.875rem;
@@ -259,11 +259,12 @@
 @layer components {
   .type-brand {
     font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
-    font-size: var(--text-sm);
+    font-size: 0.8125rem;
     font-weight: 500;
     line-height: 1;
     letter-spacing: var(--tracking-brand);
     text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.92);
   }
 
   .type-page-title {
@@ -276,57 +277,61 @@
 
   .type-section-title {
     font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
-    font-size: var(--text-xs);
-    font-weight: 700;
-    line-height: 1.2;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.15;
     letter-spacing: var(--tracking-label);
     text-transform: uppercase;
-    color: rgba(255, 255, 255, 0.88);
+    color: rgba(255, 255, 255, 0.74);
   }
 
   .type-card-title {
     font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
-    font-size: var(--text-sm);
-    font-weight: 600;
-    line-height: 1.35;
+    font-size: 0.95rem;
+    font-weight: 500;
+    line-height: 1.22;
     letter-spacing: var(--tracking-tight);
-    color: rgba(255, 255, 255, 0.92);
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.94);
   }
 
   .type-price {
     font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
-    font-size: var(--text-lg);
-    font-weight: 500;
-    line-height: 1.2;
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.1;
     letter-spacing: var(--tracking-price);
-    color: rgba(255, 255, 255, 0.72);
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.96);
   }
 
   .type-ui-label {
     font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
-    font-size: var(--text-xs);
-    font-weight: 600;
-    line-height: 1.2;
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1.15;
     letter-spacing: var(--tracking-label);
     text-transform: uppercase;
-    color: rgba(255, 255, 255, 0.78);
+    color: rgba(255, 255, 255, 0.68);
   }
 
   .type-body {
     font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
-    font-size: var(--text-base);
+    font-size: 0.98rem;
     font-weight: 400;
-    line-height: var(--leading-normal);
-    color: var(--muted);
+    line-height: 1.65;
+    letter-spacing: 0.01em;
+    color: rgba(255, 255, 255, 0.74);
   }
 
   .type-action {
     font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
-    font-size: var(--text-sm);
+    font-size: 0.8125rem;
     font-weight: 600;
-    line-height: 1.2;
+    line-height: 1.1;
     letter-spacing: var(--tracking-action);
     text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.92);
   }
 }
 
@@ -474,10 +479,29 @@ html {
   transform: translateY(0);
 }
 
+.card-reveal {
+  opacity: 0;
+  transform: translateY(18px) scale(0.985);
+  filter: blur(10px);
+  transition:
+    opacity 700ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 700ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    filter 700ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: opacity, transform, filter;
+}
+
+.card-reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  filter: blur(0);
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .brand-story-reveal {
+  .brand-story-reveal,
+  .card-reveal {
     opacity: 1;
     transform: none;
+    filter: none;
     transition: none !important;
   }
 }
@@ -683,17 +707,21 @@ html {
 
 /* Área texto minimal */
 .card-premium-meta {
-  padding: 0.9rem 0.95rem 1rem; /* más editorial */
+  padding: 1rem 1rem 1.1rem;
+  display: grid;
+  gap: 0.3rem;
+  align-content: start;
 }
 
 .card-premium-name {
   font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
-  font-size: 0.95rem; /* 15px */
-  font-weight: 600;
-  letter-spacing: var(--tracking-tight);
-  color: rgba(255, 255, 255, 0.92);
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.15;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.95);
 
-  /* clamp elegante como H&M */
   display: -webkit-box;
   -webkit-line-clamp: 2;
   line-clamp: 2;
@@ -702,13 +730,14 @@ html {
 }
 
 .card-premium-price {
-  margin-top: 0.35rem;
+  margin-top: 0.1rem;
   font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
-  font-size: 1.05rem; /* 16-17px */
-  font-weight: 700;
-  line-height: 1.2;
-  letter-spacing: var(--tracking-price);
-  color: var(--accent);
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.82);
 }
 
 /* Ratio tipo moda: 4:5 (H&M feel) */

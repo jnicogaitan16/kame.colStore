@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { productPath } from "@/lib/routes";
 import { getPrimaryImageUrl } from "@/lib/api";
@@ -13,8 +16,37 @@ export function ProductCard({ product }: ProductCardProps) {
   const price = (product as any)?.price ?? "0";
   const slug = (product as any)?.slug ?? "";
 
+  const cardRef = useRef<HTMLAnchorElement | null>(null);
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    const node = cardRef.current;
+    if (!node || isVisible) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (!entry?.isIntersecting) return;
+        setIsVisible(true);
+        observer.disconnect();
+      },
+      {
+        threshold: 0.12,
+        rootMargin: "0px 0px -8% 0px",
+      }
+    );
+
+    observer.observe(node);
+
+    return () => observer.disconnect();
+  }, [isVisible]);
+
   return (
-    <Link href={productPath(slug)} className="block card-premium">
+    <Link
+      ref={cardRef}
+      href={productPath(slug)}
+      className={`block card-premium card-reveal ${isVisible ? "is-visible" : ""}`}
+    >
       {/* Media FULL-BLEED */}
       <div className="relative card-premium-media card-premium-ratio">
         {img ? (
@@ -34,8 +66,8 @@ export function ProductCard({ product }: ProductCardProps) {
 
       {/* Meta */}
       <div className="card-premium-meta">
-        <div className="card-premium-name type-card-title">{name}</div>
-        <div className="type-body mt-1 text-white/72">
+        <div className="card-premium-name">{name}</div>
+        <div className="card-premium-price">
           ${Number(price).toLocaleString("es-CO")}
         </div>
       </div>

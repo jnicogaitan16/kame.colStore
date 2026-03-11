@@ -210,7 +210,7 @@ function MiniCart({ open, onClose }: MiniCartProps) {
         aria-label="Carrito"
       >
         <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between text-neutral-100">
-          <h2 className="text-lg font-semibold">Carrito ({totalItems()})</h2>
+          <h2 className="type-card-title text-white/96">Carrito ({totalItems()})</h2>
           <button
             type="button"
             onClick={close}
@@ -224,7 +224,7 @@ function MiniCart({ open, onClose }: MiniCartProps) {
         </div>
         <div className="flex-1 overflow-y-auto p-4">
           {items.length === 0 ? (
-            <p className="py-8 text-center text-white/60">Tu carrito está vacío</p>
+            <p className="type-ui-label py-8 text-center text-white/56">Tu carrito está vacío</p>
           ) : (
             <ul className="space-y-4">
               {items.map((item) => (
@@ -255,11 +255,11 @@ function MiniCart({ open, onClose }: MiniCartProps) {
                     <Link
                       href={productPath(item.productSlug)}
                       onClick={close}
-                      className="font-medium text-neutral-100 line-clamp-2 hover:text-white/90 hover:underline"
+                      className="card-premium-name block line-clamp-2 hover:text-white/90 hover:underline"
                     >
                       {item.productName}
                     </Link>
-                    <p className="text-sm text-white/60">{item.variantLabel}</p>
+                    <p className="type-ui-label mt-1 text-white/56">{item.variantLabel}</p>
 
                     {(() => {
                       // Store contract: getters normalize keys via String(variantId)
@@ -351,7 +351,7 @@ function MiniCart({ open, onClose }: MiniCartProps) {
                         >
                           −
                         </button>
-                        <span className="w-8 text-center text-sm text-white/80">{item.quantity}</span>
+                        <span className="type-ui-label w-8 text-center text-white/78">{item.quantity}</span>
                         <button
                           type="button"
                           onClick={() => {
@@ -363,7 +363,7 @@ function MiniCart({ open, onClose }: MiniCartProps) {
                           +
                         </button>
                       </div>
-                      <span className="font-medium text-white">
+                      <span className="type-price text-white/94">
                         ${(parseFloat(item.price) * item.quantity).toLocaleString("es-CO")}
                       </span>
                     </div>
@@ -385,9 +385,9 @@ function MiniCart({ open, onClose }: MiniCartProps) {
         </div>
         {items.length > 0 && (
           <div className="mt-auto px-5 py-5 border-t border-white/10 drawer-glass-footer text-neutral-100">
-            <div className="mb-4 flex items-baseline justify-between text-sm text-white/70">
-              <span>Total</span>
-              <span className="text-white font-semibold text-base">${totalAmount().toLocaleString("es-CO")}</span>
+            <div className="mb-4 flex items-baseline justify-between">
+              <span className="type-ui-label text-white/60">Total</span>
+              <span className="type-price text-white/96">${totalAmount().toLocaleString("es-CO")}</span>
             </div>
             <Link href="/checkout" onClick={close} className="block">
               <Button variant="primary" fullWidth>

@@ -104,21 +104,21 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
   return (
     <div className="mx-auto max-w-6xl bg-neutral-950 px-4 py-6 md:py-10">
       {departmentName ? (
-        <p className="mb-1 text-xs font-medium uppercase tracking-wider text-neutral-500">
+        <p className="type-ui-label mb-1 text-white/58">
           {departmentName}
         </p>
       ) : null}
 
-      <h1 className="mb-2 text-2xl font-bold text-neutral-100 md:text-3xl">
+      <h1 className="type-page-title mb-2 text-white/96">
         {categoryName}
       </h1>
 
-      <p className="mb-6 text-neutral-400">
+      <p className="type-body mb-6 text-white/68">
         {count} producto{count !== 1 ? "s" : ""}
       </p>
 
       {results.length === 0 ? (
-        <p className="py-12 text-center text-neutral-500">
+        <p className="type-ui-label py-12 text-center text-white/54">
           No hay productos en esta categoría.
         </p>
       ) : (
@@ -138,7 +138,7 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
                 href={`${categoryPath(slug, deptSlug)}${categoryPath(slug, deptSlug).includes("?") ? "&" : "?"}page=${pageNum + 1}${
                   search ? `&search=${encodeURIComponent(search)}` : ""
                 }`}
-                className="rounded-lg border border-white/10 bg-neutral-900 px-4 py-2 text-sm font-medium text-neutral-100 hover:bg-neutral-800"
+                className="btn-secondary min-h-0 rounded-lg px-4 py-2"
               >
                 Ver más
               </a>
