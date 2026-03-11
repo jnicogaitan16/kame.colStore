@@ -1,13 +1,18 @@
 /**
  * Tipos alineados con la API del catálogo (Django DRF).
- */
-/**
- * Tipos alineados con la API del catálogo (Django DRF).
+ *
  * Estructura estándar e-commerce:
  * - Department
  * - Category (tree via parent_id)
  * - Product (list/detail)
  * - ProductVariant (stock real desde InventoryPool)
+ *
+ * Importante de arquitectura:
+ * - `Category` representa taxonomía de catálogo.
+ * - `Category` no sustituye el contrato de navegación pública.
+ * - Para navegación pública del header/mobile menu debe priorizarse
+ *   la estructura `Department -> Category` proveniente de `/navigation/`.
+ * - Las listas planas de categorías deben considerarse legacy/fallback.
  */
 
 // =============================
@@ -26,12 +31,14 @@ export interface Category {
   name: string;
   slug: string;
 
-  // Backend source of truth (recommended): nested department
+  // Domain relationship: a category may belong to a department.
+  // For public navigation, prefer `/navigation/` over reconstructing menus from flat categories.
   department?: Pick<Department, "id" | "name" | "slug">;
-  // Convenience field (optional). Prefer using /navigation/ for menus.
+  // Convenience field (optional). Useful for compatibility, but not the preferred menu contract.
   department_slug?: string;
 
-  // Legacy/flat fields (avoid using for UI navigation; keep optional for backward compatibility)
+  // Legacy flat fields. Keep for backward compatibility only.
+  // They must not become the preferred source for grouped public navigation.
   department_id?: number;
   department_name?: string;
 

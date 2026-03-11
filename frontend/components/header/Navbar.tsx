@@ -8,6 +8,13 @@ export type NavbarCategory = {
   id: number | string;
   name: string;
   slug: string;
+  department_slug?: string | null;
+  department_name?: string | null;
+  department?: {
+    id?: number | string;
+    name?: string | null;
+    slug?: string | null;
+  } | null;
 };
 
 export type NavbarNavDepartment = {
@@ -28,6 +35,159 @@ export type NavbarProps = {
   cartCount: number;
   variant?: "overlay" | "nav";
 };
+
+function normalizeSlug(value: unknown): string {
+  return String(value || "").trim().toLowerCase();
+}
+
+function sanitizeNavDepartments(input: NavbarNavDepartment[] | undefined): NavbarNavDepartment[] {
+  if (!Array.isArray(input)) return [];
+
+  const deptSeen = new Set<string>();
+  const sanitized: NavbarNavDepartment[] = [];
+
+  for (const dept of input) {
+    const deptId = Number((dept as any)?.id) || 0;
+    const deptName = String((dept as any)?.name || "").trim();
+    const deptSlug = normalizeSlug((dept as any)?.slug);
+    const deptSortOrder = typeof (dept as any)?.sort_order === "number" ? (dept as any).sort_order : 0;
+
+    if (!deptId || !deptSlug || !deptName) continue;
+
+    const deptKey = `${deptId}__${deptSlug}`;
+    if (deptSeen.has(deptKey)) continue;
+    deptSeen.add(deptKey);
+
+    const categorySeen = new Set<string>();
+    const rawCategories = Array.isArray((dept as any)?.categories) ? (dept as any).categories : [];
+    const categories: NavbarNavDepartment["categories"] = [];
+
+    for (const category of rawCategories) {
+      const categoryId = String((category as any)?.id ?? "").trim();
+      const categoryName = String((category as any)?.name || "").trim();
+      const categorySlug = normalizeSlug((category as any)?.slug);
+      const categorySortOrder = typeof (category as any)?.sort_order === "number" ? (category as any).sort_order : 0;
+
+      if (!categorySlug || !categoryName) continue;
+
+      const categoryKey = `${categorySlug}`;
+      if (categorySeen.has(categoryKey)) continue;
+      categorySeen.add(categoryKey);
+
+      categories.push({
+        id: categoryId || categorySlug,
+        name: categoryName,
+        slug: categorySlug,
+        sort_order: categorySortOrder,
+      });
+    }
+
+    sanitized.push({
+      id: deptId,
+      name: deptName,
+      slug: deptSlug,
+      sort_order: deptSortOrder,
+      categories,
+    });
+  }
+
+  return sanitized;
+}
+
+function sanitizeLegacyCategories(input: NavbarCategory[] | undefined): NavbarCategory[] {
+  if (!Array.isArray(input)) return [];
+
+  const seen = new Set<string>();
+  const sanitized: NavbarCategory[] = [];
+
+  for (const category of input) {
+    const name = String((category as any)?.name || "").trim();
+    const slug = normalizeSlug((category as any)?.slug);
+    const id = String((category as any)?.id ?? "").trim() || slug;
+
+    if (!name || !slug) continue;
+
+    const key = `${slug}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    sanitized.push({
+      id,
+      name,
+      slug,
+      department_slug: category.department_slug,
+      department_name: category.department_name,
+      department: category.department,
+    });
+  }
+
+  return sanitized;
+}
+
+function deriveNavDepartmentsFromCategories(input: NavbarCategory[] | undefined): NavbarNavDepartment[] {
+  if (!Array.isArray(input)) return [];
+
+  const deptMap = new Map<string, NavbarNavDepartment>();
+
+  for (const rawCategory of input) {
+    const categoryName = String((rawCategory as any)?.name || "").trim();
+    const categorySlug = normalizeSlug((rawCategory as any)?.slug);
+    if (!categoryName || !categorySlug) continue;
+
+    const departmentObj = (rawCategory as any)?.department || null;
+    const deptSlug = normalizeSlug(
+      departmentObj?.slug ??
+      (rawCategory as any)?.department_slug ??
+      ""
+    );
+    const deptName = String(
+      departmentObj?.name ??
+      (rawCategory as any)?.department_name ??
+      ""
+    ).trim();
+    const deptIdRaw = departmentObj?.id ?? deptSlug;
+    const deptId = Number(deptIdRaw) || String(deptIdRaw || "").trim();
+
+    if (!deptSlug || !deptName || !deptId) continue;
+
+    if (!deptMap.has(deptSlug)) {
+      deptMap.set(deptSlug, {
+        id: deptId as any,
+        name: deptName,
+        slug: deptSlug,
+        sort_order: 0,
+        categories: [],
+      });
+    }
+
+    const dept = deptMap.get(deptSlug)!;
+    const alreadyExists = dept.categories.some((category) => normalizeSlug(category.slug) === categorySlug);
+    if (alreadyExists) continue;
+
+    dept.categories.push({
+      id: String((rawCategory as any)?.id ?? "").trim() || categorySlug,
+      name: categoryName,
+      slug: categorySlug,
+      sort_order: 0,
+    });
+  }
+
+  const preferredOrder = ["mujer", "hombre", "accesorios"];
+
+  return Array.from(deptMap.values())
+    .map((dept) => ({
+      ...dept,
+      categories: [...dept.categories].sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""))),
+    }))
+    .sort((a, b) => {
+      const ai = preferredOrder.indexOf(a.slug);
+      const bi = preferredOrder.indexOf(b.slug);
+      const av = ai === -1 ? 999 : ai;
+      const bv = bi === -1 ? 999 : bi;
+      if (av !== bv) return av - bv;
+      return String(a.name || "").localeCompare(String(b.name || ""));
+    });
+}
 
 function MenuIcon({ className = "" }: { className?: string }) {
   return (
@@ -95,8 +255,13 @@ function DesktopDeptTabs({
   };
 
   useEffect(() => {
-    if (!activeDeptSlug && initialSlug) setActiveDeptSlug(initialSlug);
-  }, [initialSlug, activeDeptSlug]);
+    if (!orderedDepts.length) return;
+
+    const hasActive = orderedDepts.some((dept) => dept.slug === activeDeptSlug);
+    if (!hasActive && initialSlug) {
+      setActiveDeptSlug(initialSlug);
+    }
+  }, [initialSlug, activeDeptSlug, orderedDepts]);
 
   useEffect(() => {
     return () => {
@@ -107,13 +272,24 @@ function DesktopDeptTabs({
   const activeDept = orderedDepts.find((d) => d.slug === activeDeptSlug) || orderedDepts[0];
 
   const cats = useMemo(() => {
-    const raw = Array.isArray(activeDept?.categories) ? activeDept!.categories : [];
-    return [...raw].sort((a, b) => {
-      const ao = typeof a.sort_order === "number" ? a.sort_order : 0;
-      const bo = typeof b.sort_order === "number" ? b.sort_order : 0;
-      if (ao !== bo) return ao - bo;
-      return String(a.name || "").localeCompare(String(b.name || ""));
-    });
+    const raw = Array.isArray(activeDept?.categories) ? activeDept.categories : [];
+    const seen = new Set<string>();
+
+    return [...raw]
+      .filter((category) => {
+        const slug = normalizeSlug(category?.slug);
+        const name = String(category?.name || "").trim();
+        if (!slug || !name) return false;
+        if (seen.has(slug)) return false;
+        seen.add(slug);
+        return true;
+      })
+      .sort((a, b) => {
+        const ao = typeof a.sort_order === "number" ? a.sort_order : 0;
+        const bo = typeof b.sort_order === "number" ? b.sort_order : 0;
+        if (ao !== bo) return ao - bo;
+        return String(a.name || "").localeCompare(String(b.name || ""));
+      });
   }, [activeDept]);
 
   return (
@@ -240,14 +416,25 @@ export default function Navbar({
     : "relative rounded-lg p-1.5 text-white/80 transition hover:bg-white/5 hover:text-white leading-none";
 
   const orderedDepts = useMemo(() => {
-    const depts: NavbarNavDepartment[] = Array.isArray(navDepartments) ? navDepartments : [];
-    return [...depts].sort((a, b) => {
+    const explicitDepartments = sanitizeNavDepartments(navDepartments)
+      .filter((dept) => dept.categories.length > 0);
+
+    const derivedDepartments = deriveNavDepartmentsFromCategories(categories)
+      .filter((dept) => dept.categories.length > 0);
+
+    const source = explicitDepartments.length > 0 ? explicitDepartments : derivedDepartments;
+
+    return [...source].sort((a, b) => {
       const ao = typeof a.sort_order === "number" ? a.sort_order : 0;
       const bo = typeof b.sort_order === "number" ? b.sort_order : 0;
       if (ao !== bo) return ao - bo;
       return a.name.localeCompare(b.name);
     });
-  }, [navDepartments]);
+  }, [navDepartments, categories]);
+
+  const orderedLegacyCategories = useMemo(() => {
+    return sanitizeLegacyCategories(categories).slice(0, 6);
+  }, [categories]);
 
   const initialSlug =
     orderedDepts.find((d) => d.slug === "mujer")?.slug ||
@@ -280,7 +467,7 @@ export default function Navbar({
           {orderedDepts.length > 0 ? (
             <DesktopDeptTabs orderedDepts={orderedDepts} initialSlug={initialSlug} categoryHref={categoryHref} />
           ) : (
-            categories.slice(0, 6).map((c) => (
+            orderedLegacyCategories.map((c) => (
               <Link key={String(c.id ?? c.slug)} href={categoryHref(c.slug)} className={linkClass}>
                 {c.name}
               </Link>

@@ -5,7 +5,9 @@ Incluyen imágenes con URL absoluta y orden primary + gallery.
 
 from rest_framework import serializers
 from imagekit.cachefiles import ImageCacheFile
+
 from django.conf import settings
+from django.db.models import Exists, OuterRef
 
 
 from .models import (
@@ -214,6 +216,33 @@ class DepartmentWithCategoriesSerializer(serializers.ModelSerializer):
 
 
 # ---------------------------------------------------------------------------
+# Navigation queryset helpers
+# ---------------------------------------------------------------------------
+def _navigation_categories_qs_for_department(department: Department):
+    """Categorías públicas de navegación para un department.
+
+    Contrato de navegación pública:
+    - Mantener separación estricta por department.
+    - Solo categorías activas.
+    - Orden consistente.
+    - Exponer categorías leaf/finales para UX pública.
+      (Ej: Camisetas, Hoodies, Cuadros, Regular fit)
+    - No aplanar departments.
+    - No mezclar categorías entre departments.
+    """
+    active_children = Category.objects.filter(
+        parent_id=OuterRef("pk"),
+        is_active=True,
+    )
+
+    return (
+        Category.objects.filter(department=department, is_active=True)
+        .annotate(has_active_children=Exists(active_children))
+        .filter(has_active_children=False)
+        .order_by("sort_order", "name", "id")
+    )
+
+# ---------------------------------------------------------------------------
 # Navigation serializers (departments + categories) for GET /api/navigation/
 # Lightweight: no products.
 # ---------------------------------------------------------------------------
@@ -231,8 +260,7 @@ class NavDepartmentSerializer(serializers.ModelSerializer):
         fields = ("id", "name", "slug", "sort_order", "categories")
 
     def get_categories(self, obj):
-        # Only active categories and consistently ordered for navigation
-        qs = obj.categories.filter(is_active=True).order_by("sort_order", "name")
+        qs = _navigation_categories_qs_for_department(obj)
         return NavCategorySerializer(qs, many=True, context=self.context).data
 
 

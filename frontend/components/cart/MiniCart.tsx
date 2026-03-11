@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useCartStore } from "@/store/cart";
 import { Button } from "@/components/ui/Button";
@@ -12,6 +12,11 @@ type MiniCartProps = {
   open?: boolean;
   onClose?: () => void;
 };
+
+const DRAG_THRESHOLD_PX = 12;
+const HORIZONTAL_DOMINANCE_RATIO = 1.2;
+const CLOSE_THRESHOLD_RATIO = 0.32;
+const FAST_SWIPE_VELOCITY = 0.55;
 
 function MiniCart({ open, onClose }: MiniCartProps) {
   const items = useCartStore((s) => s.items);
@@ -26,6 +31,15 @@ function MiniCart({ open, onClose }: MiniCartProps) {
   const stockHintsByVariantId = useCartStore((s) => s.stockHintsByVariantId);
   const [animateIn, setAnimateIn] = useState(false);
 
+  const asideRef = useRef<HTMLElement | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragX, setDragX] = useState(0);
+  const [startX, setStartX] = useState(0);
+  const [startY, setStartY] = useState(0);
+  const [dragLockedAxis, setDragLockedAxis] = useState<"x" | "y" | null>(null);
+  const [isGestureActive, setIsGestureActive] = useState(false);
+  const dragStartTimeRef = useRef(0);
+
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden";
@@ -39,6 +53,121 @@ function MiniCart({ open, onClose }: MiniCartProps) {
       document.body.style.overflow = "";
     };
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        close();
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [close, isOpen]);
+
+  const panelWidth = asideRef.current?.offsetWidth ?? 0;
+  const clampedDragX = Math.max(0, dragX);
+  const dragProgress = panelWidth > 0 ? Math.min(clampedDragX / panelWidth, 1) : 0;
+  const overlayOpacity = isOpen ? Math.max(0, 1 - dragProgress) : 0;
+  const asideTranslateX = isOpen
+    ? isDragging
+      ? clampedDragX
+      : animateIn
+        ? 0
+        : panelWidth || 0
+    : panelWidth || 0;
+
+  function resetDragState() {
+    setIsDragging(false);
+    setDragX(0);
+    setStartX(0);
+    setStartY(0);
+    setDragLockedAxis(null);
+    setIsGestureActive(false);
+    dragStartTimeRef.current = 0;
+  }
+
+  function handleTouchStart(event: React.TouchEvent<HTMLElement>) {
+    if (!isOpen) return;
+
+    const touch = event.touches[0];
+    setStartX(touch.clientX);
+    setStartY(touch.clientY);
+    setDragX(0);
+    setDragLockedAxis(null);
+    setIsGestureActive(false);
+    setIsDragging(false);
+    dragStartTimeRef.current = performance.now();
+  }
+
+  function handleTouchMove(event: React.TouchEvent<HTMLElement>) {
+    if (!isOpen) return;
+
+    const touch = event.touches[0];
+    const nextDeltaX = touch.clientX - startX;
+    const nextDeltaY = touch.clientY - startY;
+    const absDeltaX = Math.abs(nextDeltaX);
+    const absDeltaY = Math.abs(nextDeltaY);
+
+    if (!dragLockedAxis) {
+      if (absDeltaX < DRAG_THRESHOLD_PX && absDeltaY < DRAG_THRESHOLD_PX) {
+        return;
+      }
+
+      if (absDeltaX > absDeltaY * HORIZONTAL_DOMINANCE_RATIO && nextDeltaX > 0) {
+        setDragLockedAxis("x");
+        setIsGestureActive(true);
+        setIsDragging(true);
+      } else {
+        setDragLockedAxis("y");
+        setIsGestureActive(false);
+        setIsDragging(false);
+        return;
+      }
+    }
+
+    if (dragLockedAxis !== "x") {
+      return;
+    }
+
+    event.preventDefault();
+    setIsGestureActive(true);
+    setIsDragging(true);
+    setDragX(Math.max(0, nextDeltaX));
+  }
+
+  function handleTouchEnd() {
+    if (!isOpen) {
+      resetDragState();
+      return;
+    }
+
+    if (dragLockedAxis !== "x") {
+      resetDragState();
+      return;
+    }
+
+    const elapsedMs = Math.max(performance.now() - dragStartTimeRef.current, 1);
+    const velocity = clampedDragX / elapsedMs;
+    const shouldCloseByDistance = panelWidth > 0 && clampedDragX > panelWidth * CLOSE_THRESHOLD_RATIO;
+    const shouldCloseByVelocity = velocity > FAST_SWIPE_VELOCITY;
+
+    if (shouldCloseByDistance || shouldCloseByVelocity) {
+      resetDragState();
+      close();
+      return;
+    }
+
+    resetDragState();
+  }
+
+  function handleTouchCancel() {
+    resetDragState();
+  }
 
 
   function totalItems() {
@@ -58,18 +187,25 @@ function MiniCart({ open, onClose }: MiniCartProps) {
       <div
         className={[
           "fixed inset-0 z-[90] bg-black/40 backdrop-blur-sm supports-[backdrop-filter]:backdrop-blur-sm transition-opacity",
-          isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none",
+          isOpen ? "pointer-events-auto" : "pointer-events-none opacity-0",
         ].join(" ")}
+        style={isOpen ? { opacity: overlayOpacity } : undefined}
         onClick={close}
         aria-hidden={!isOpen}
       />
       <aside
+        ref={asideRef}
         className={[
           "fixed right-0 top-0 z-[100] h-full w-[90%] max-w-md",
           "bg-black/45 backdrop-blur-2xl border-l border-white/10 elevation-soft flex flex-col",
-          "transform transition-transform duration-300 ease-out will-change-transform",
-          isOpen && animateIn ? "translate-x-0" : "translate-x-full",
+          "transform will-change-transform",
+          isDragging ? "transition-none" : "transition-transform duration-300 ease-out",
         ].join(" ")}
+        style={{ transform: `translateX(${asideTranslateX}px)` }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchCancel}
         role="dialog"
         aria-label="Carrito"
       >

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { createPortal } from "react-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type Category = { id: number; name: string; slug: string; dept_slug?: string | null };
 
@@ -17,6 +17,19 @@ type Props = {
   // When provided, the menu requires selecting a department before listing categories.
   departments?: Department[];
 };
+
+function normalizeSlug(value: unknown): string {
+  return String(value || "").trim().toLowerCase();
+}
+
+function humanizeDepartmentName(slug: string): string {
+  const normalized = normalizeSlug(slug);
+  if (normalized === "hombre") return "Hombre";
+  if (normalized === "mujer") return "Mujer";
+  if (normalized === "accesorios") return "Accesorios";
+  if (!normalized) return "";
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+}
 
 export default function MobileMenu({ categories, departments }: Props) {
   const [open, setOpen] = useState(false);
@@ -42,11 +55,95 @@ export default function MobileMenu({ categories, departments }: Props) {
     setActiveDeptSlug(null);
   };
 
-  const hasDepartments = Array.isArray(departments) && departments.length > 0;
+  const derivedDepartments = useMemo<Department[]>(() => {
+    const explicit = Array.isArray(departments) ? departments : [];
+    const explicitSanitized = explicit
+      .map((dept) => ({
+        slug: normalizeSlug(dept?.slug),
+        name: String(dept?.name || "").trim(),
+      }))
+      .filter((dept) => dept.slug && dept.name);
 
-  const selectedCategories = hasDepartments
-    ? categories.filter((c) => (c.dept_slug ?? null) === activeDeptSlug)
-    : categories;
+    if (explicitSanitized.length > 0) {
+      return explicitSanitized;
+    }
+
+    const seen = new Set<string>();
+    const derived: Department[] = [];
+
+    for (const category of Array.isArray(categories) ? categories : []) {
+      const deptSlug = normalizeSlug(category?.dept_slug);
+      if (!deptSlug || seen.has(deptSlug)) continue;
+      seen.add(deptSlug);
+      derived.push({
+        slug: deptSlug,
+        name: humanizeDepartmentName(deptSlug),
+      });
+    }
+
+    const preferredOrder = ["mujer", "hombre", "accesorios"];
+    return derived.sort((a, b) => {
+      const ai = preferredOrder.indexOf(a.slug);
+      const bi = preferredOrder.indexOf(b.slug);
+      const av = ai === -1 ? 999 : ai;
+      const bv = bi === -1 ? 999 : bi;
+      if (av !== bv) return av - bv;
+      return a.name.localeCompare(b.name);
+    });
+  }, [departments, categories]);
+
+  const hasDepartments = derivedDepartments.length > 0;
+
+  const preferredInitialDeptSlug = useMemo<string | null>(() => {
+    return (
+      derivedDepartments.find((dept) => dept.slug === "mujer")?.slug ||
+      derivedDepartments.find((dept) => dept.slug === "hombre")?.slug ||
+      derivedDepartments[0]?.slug ||
+      null
+    );
+  }, [derivedDepartments]);
+
+  useEffect(() => {
+    if (!open) {
+      setActiveDeptSlug(preferredInitialDeptSlug);
+      return;
+    }
+
+    if (!hasDepartments) {
+      setActiveDeptSlug(null);
+      return;
+    }
+
+    const currentIsValid = activeDeptSlug
+      ? derivedDepartments.some((dept) => dept.slug === activeDeptSlug)
+      : false;
+
+    if (!currentIsValid) {
+      setActiveDeptSlug(preferredInitialDeptSlug);
+    }
+  }, [open, hasDepartments, derivedDepartments, activeDeptSlug, preferredInitialDeptSlug]);
+
+  const selectedCategories = useMemo(() => {
+    const raw = Array.isArray(categories) ? categories : [];
+    const normalized = raw.map((category) => ({
+      ...category,
+      slug: normalizeSlug(category?.slug),
+      name: String(category?.name || "").trim(),
+      dept_slug: normalizeSlug(category?.dept_slug),
+    }));
+
+    const filtered = hasDepartments
+      ? normalized.filter((category) => category.dept_slug === activeDeptSlug)
+      : normalized;
+
+    const seen = new Set<string>();
+    return filtered.filter((category) => {
+      if (!category.slug || !category.name) return false;
+      if (seen.has(category.slug)) return false;
+      seen.add(category.slug);
+      return true;
+    });
+  }, [categories, hasDepartments, activeDeptSlug]);
 
   return (
     <>
@@ -83,7 +180,7 @@ export default function MobileMenu({ categories, departments }: Props) {
                   {hasDepartments ? (
                     <div className="mb-8">
                       <div className="flex items-center justify-center gap-2">
-                        {departments!.map((d) => {
+                        {derivedDepartments.map((d) => {
                           const isActive = d.slug === activeDeptSlug;
                           return (
                             <button
