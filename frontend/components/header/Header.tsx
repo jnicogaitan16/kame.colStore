@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef, type TouchEvent } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -17,6 +17,11 @@ export type HeaderProps = {
   // Optional external control hooks (if parent wants to drive UI)
   onToggleCart?: () => void;
 };
+
+const MENU_DRAG_THRESHOLD_PX = 12;
+const MENU_HORIZONTAL_DOMINANCE_RATIO = 1.2;
+const MENU_CLOSE_THRESHOLD_RATIO = 0.32;
+const MENU_FAST_SWIPE_VELOCITY = 0.55;
 
 function normalizeSlug(value: unknown): string {
   return String(value || "").trim().toLowerCase();
@@ -487,11 +492,122 @@ export default function Header({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
 
+  const mobileMenuPanelRef = useRef<HTMLDivElement | null>(null);
+  const [isMenuDragging, setIsMenuDragging] = useState(false);
+  const [menuDragX, setMenuDragX] = useState(0);
+  const [menuStartX, setMenuStartX] = useState(0);
+  const [menuStartY, setMenuStartY] = useState(0);
+  const [menuLockedAxis, setMenuLockedAxis] = useState<"x" | "y" | null>(null);
+  const menuDragStartTimeRef = useRef(0);
+
   const pathname = usePathname();
 
   useEffect(() => {
     delete document.documentElement.dataset.routeLoading;
   }, [pathname]);
+
+  const mobileMenuPanelWidth = mobileMenuPanelRef.current?.offsetWidth ?? 0;
+  const clampedMenuDragX = Math.min(0, menuDragX);
+  const menuDragDistance = Math.abs(clampedMenuDragX);
+  const menuDragProgress = mobileMenuPanelWidth > 0 ? Math.min(menuDragDistance / mobileMenuPanelWidth, 1) : 0;
+  const mobileMenuBackdropOpacity = mobileMenuOpen ? Math.max(0, 1 - menuDragProgress) : 0;
+  const mobileMenuTranslateX = mobileMenuOpen
+    ? isMenuDragging
+      ? clampedMenuDragX
+      : 0
+    : -(mobileMenuPanelWidth || 0);
+
+  function resetMobileMenuDragState() {
+    setIsMenuDragging(false);
+    setMenuDragX(0);
+    setMenuStartX(0);
+    setMenuStartY(0);
+    setMenuLockedAxis(null);
+    menuDragStartTimeRef.current = 0;
+  }
+
+  function handleMobileMenuTouchStart(event: TouchEvent<HTMLDivElement>) {
+    if (!mobileMenuOpen) return;
+
+    const interactiveTarget = (event.target as HTMLElement | null)?.closest(
+      'a, button, input, select, textarea, [role="button"]'
+    );
+    if (interactiveTarget) {
+      resetMobileMenuDragState();
+      return;
+    }
+
+    const touch = event.touches[0];
+    setMenuStartX(touch.clientX);
+    setMenuStartY(touch.clientY);
+    setMenuDragX(0);
+    setMenuLockedAxis(null);
+    setIsMenuDragging(false);
+    menuDragStartTimeRef.current = performance.now();
+  }
+
+  function handleMobileMenuTouchMove(event: TouchEvent<HTMLDivElement>) {
+    if (!mobileMenuOpen) return;
+
+    const touch = event.touches[0];
+    const nextDeltaX = touch.clientX - menuStartX;
+    const nextDeltaY = touch.clientY - menuStartY;
+    const absDeltaX = Math.abs(nextDeltaX);
+    const absDeltaY = Math.abs(nextDeltaY);
+
+    if (!menuLockedAxis) {
+      if (absDeltaX < MENU_DRAG_THRESHOLD_PX && absDeltaY < MENU_DRAG_THRESHOLD_PX) {
+        return;
+      }
+
+      if (absDeltaX > absDeltaY * MENU_HORIZONTAL_DOMINANCE_RATIO && nextDeltaX < 0) {
+        setMenuLockedAxis("x");
+        setIsMenuDragging(true);
+      } else {
+        setMenuLockedAxis("y");
+        setIsMenuDragging(false);
+        return;
+      }
+    }
+
+    if (menuLockedAxis !== "x") {
+      return;
+    }
+
+    event.preventDefault();
+    setIsMenuDragging(true);
+    setMenuDragX(Math.min(0, nextDeltaX));
+  }
+
+  function handleMobileMenuTouchEnd() {
+    if (!mobileMenuOpen) {
+      resetMobileMenuDragState();
+      return;
+    }
+
+    if (menuLockedAxis !== "x") {
+      resetMobileMenuDragState();
+      return;
+    }
+
+    const elapsedMs = Math.max(performance.now() - menuDragStartTimeRef.current, 1);
+    const velocity = menuDragDistance / elapsedMs;
+    const shouldCloseByDistance =
+      mobileMenuPanelWidth > 0 && menuDragDistance > mobileMenuPanelWidth * MENU_CLOSE_THRESHOLD_RATIO;
+    const shouldCloseByVelocity = velocity > MENU_FAST_SWIPE_VELOCITY;
+
+    if (shouldCloseByDistance || shouldCloseByVelocity) {
+      resetMobileMenuDragState();
+      setMobileMenuOpen(false);
+      return;
+    }
+
+    resetMobileMenuDragState();
+  }
+
+  function handleMobileMenuTouchCancel() {
+    resetMobileMenuDragState();
+  }
 
   useEffect(() => {
     const onClickCapture = (e: MouseEvent) => {
@@ -560,7 +676,10 @@ export default function Header({
   }, []);
 
   const handleCloseMobileMenu = useMemo(() => {
-    return () => setMobileMenuOpen(false);
+    return () => {
+      resetMobileMenuDragState();
+      setMobileMenuOpen(false);
+    };
   }, []);
 
   const handleToggleCart = useCallback(() => {
@@ -607,12 +726,24 @@ export default function Header({
         <div id="mobile-menu" className="fixed inset-0 z-[60] md:hidden" role="dialog" aria-modal="true">
           <button
             type="button"
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
+            style={{ opacity: mobileMenuBackdropOpacity }}
             aria-label="Cerrar menú"
             onClick={handleCloseMobileMenu}
           />
 
-          <div className="absolute left-0 top-0 flex h-full w-[86%] max-w-[360px] flex-col drawer-glass border-r border-white/10">
+          <div
+            ref={mobileMenuPanelRef}
+            className={[
+              "absolute left-0 top-0 flex h-full w-[86%] max-w-[360px] flex-col drawer-glass border-r border-white/10",
+              isMenuDragging ? "transition-none" : "transition-transform duration-300 ease-out",
+            ].join(" ")}
+            style={{ transform: `translateX(${mobileMenuTranslateX}px)` }}
+            onTouchStart={handleMobileMenuTouchStart}
+            onTouchMove={handleMobileMenuTouchMove}
+            onTouchEnd={handleMobileMenuTouchEnd}
+            onTouchCancel={handleMobileMenuTouchCancel}
+          >
             <div className="flex min-h-[68px] items-center justify-center px-4 py-4">
               <div className="type-brand text-center text-white">Kame.col</div>
             </div>
