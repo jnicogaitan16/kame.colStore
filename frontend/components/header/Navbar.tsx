@@ -316,7 +316,7 @@ function DesktopDeptTabs({
       }}
     >
       {/* Tabs */}
-      <div className="flex items-center gap-6 font-ui">
+      <div className="flex items-center gap-7 font-ui xl:gap-8">
         {orderedDepts.map((d) => {
           const isActive = d.slug === activeDeptSlug;
           return (
@@ -339,7 +339,7 @@ function DesktopDeptTabs({
                 setActiveDeptSlug(d.slug);
                 setOpen(true);
               }}
-              className={`type-nav transition ${isActive ? "text-white" : "text-white/70 hover:text-white/90"}`}
+              className={`type-brand transition ${isActive ? "text-white/96" : "text-white/66 hover:text-white/90"}`}
               aria-pressed={isActive}
             >
               {d.name}
@@ -360,7 +360,7 @@ function DesktopDeptTabs({
             scheduleClose();
           }}
         >
-          <div className="type-nav px-3 pb-2 pt-2 text-white/60">
+          <div className="type-ui-label px-3 pb-2 pt-2 text-white/56">
             {activeDept?.name}
           </div>
           <ul className="max-h-[65vh] overflow-auto py-1">
@@ -369,14 +369,14 @@ function DesktopDeptTabs({
                 <li key={String(c.id ?? c.slug)}>
                   <Link
                     href={categoryHref(c.slug, activeDeptSlug)}
-                    className="type-nav block rounded-xl px-3 py-2 text-white/85 hover:bg-white/5"
+                    className="type-card-title block rounded-xl px-3 py-2 text-white/88 transition hover:bg-white/5 hover:text-white"
                   >
                     {c.name}
                   </Link>
                 </li>
               ))
             ) : (
-              <li className="type-secondary px-3 py-3 text-white/70">Menú no disponible.</li>
+              <li className="type-ui-label px-3 py-3 text-white/60">Menú no disponible.</li>
             )}
           </ul>
         </div>
@@ -409,7 +409,7 @@ export default function Navbar({
 
   const linkClass = isOverlay ? "hover:text-white/90" : "hover:text-zinc-200";
 
-  const brandClass = "type-brand justify-self-center text-white";
+  const brandClass = "type-brand justify-self-center text-white/94 tracking-[0.12em]";
 
   const cartBtnClass = isOverlay
     ? "relative rounded-lg p-1.5 text-white/90 transition hover:bg-white/10 hover:text-white leading-none"

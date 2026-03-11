@@ -26,7 +26,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     ref
   ) => {
     const baseClasses =
-      "font-ui inline-flex items-center justify-center text-sm font-semibold tracking-[var(--tracking-action)] uppercase transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20 disabled:opacity-50 disabled:cursor-not-allowed";
+      "type-action inline-flex items-center justify-center transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20 disabled:cursor-not-allowed disabled:opacity-50";
 
     const variants: Record<ButtonVariant, string> = {
       primary: "btn-primary",
