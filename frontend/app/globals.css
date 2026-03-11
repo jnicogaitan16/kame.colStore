@@ -599,6 +599,25 @@ html {
   will-change: backdrop-filter, transform;
 }
 
+.drawer-drag-shell {
+  position: relative;
+}
+
+.drawer-drag-panel {
+  will-change: transform;
+  touch-action: pan-y;
+  transition: transform 380ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.drawer-drag-active {
+  transition: none !important;
+}
+
+.drawer-drag-backdrop {
+  transition: opacity 380ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity;
+}
+
 /* Footer section inside drawers */
 
 .drawer-glass-footer {

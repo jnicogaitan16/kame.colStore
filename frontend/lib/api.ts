@@ -405,6 +405,13 @@ export async function apiFetch<T>(
   return res.json() as Promise<T>;
 }
 
+/**
+ * Legacy flat catalog categories.
+ *
+ * This endpoint remains available for catalog/fallback scenarios,
+ * but it must not be treated as the preferred public navigation source
+ * when `getNavigation()` returns valid departments.
+ */
 export async function getCategories(): Promise<Category[]> {
   const data = await apiFetch<any>("/categories/");
 
@@ -414,6 +421,14 @@ export async function getCategories(): Promise<Category[]> {
   return [];
 }
 
+/**
+ * Official public navigation contract.
+ *
+ * Returns a department-grouped structure and must not collapse navigation
+ * into a flat category list. Invalid categories may be discarded individually,
+ * but a valid department must be preserved even if some inner categories are removed.
+ * This function must not perform fallback to legacy flat categories.
+ */
 export async function getNavigation(): Promise<NavigationResponse> {
   const data = await apiFetch<any>("/navigation/");
 
@@ -426,16 +441,16 @@ export async function getNavigation(): Promise<NavigationResponse> {
             ? rawCategories
                 .map((c: any) => ({
                   id: Number(c?.id) || 0,
-                  name: String(c?.name || ""),
-                  slug: String(c?.slug || ""),
+                  name: String(c?.name || "").trim(),
+                  slug: String(c?.slug || "").trim(),
                 }))
                 .filter((c: CategoryNav) => Boolean(c.id) && Boolean(c.slug))
             : [];
 
           return {
             id: Number(d?.id) || 0,
-            name: String(d?.name || ""),
-            slug: String(d?.slug || ""),
+            name: String(d?.name || "").trim(),
+            slug: String(d?.slug || "").trim(),
             categories,
           } as DepartmentNav;
         })
