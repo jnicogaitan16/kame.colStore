@@ -480,6 +480,17 @@ export const useCartStore = create<CartState>()(
         get().clearStockValidation();
       },
     }),
-    { name: "kame-cart", skipHydration: true }
+    {
+      name: "kame-cart",
+      skipHydration: true,
+      partialize: (state) => ({
+        items: state.items,
+        stockWarningsByVariantId: state.stockWarningsByVariantId,
+        stockHintsByVariantId: state.stockHintsByVariantId,
+        lastStockValidateRequestId: state.lastStockValidateRequestId,
+        stockValidateStatus: state.stockValidateStatus,
+        lastStockValidateAt: state.lastStockValidateAt,
+      }),
+    }
   )
 );

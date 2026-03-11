@@ -27,12 +27,14 @@ export type CategoryNav = {
   id: number;
   name: string;
   slug: string;
+  sort_order?: number;
 };
 
 export type DepartmentNav = {
   id: number;
   name: string;
   slug: string;
+  sort_order?: number;
   categories: CategoryNav[];
 };
 
@@ -432,30 +434,52 @@ export async function getCategories(): Promise<Category[]> {
 export async function getNavigation(): Promise<NavigationResponse> {
   const data = await apiFetch<any>("/navigation/");
 
-  const rawDepartments = data?.departments;
-  const departments: DepartmentNav[] = Array.isArray(rawDepartments)
-    ? rawDepartments
-        .map((d: any) => {
-          const rawCategories = d?.categories;
-          const categories: CategoryNav[] = Array.isArray(rawCategories)
-            ? rawCategories
-                .map((c: any) => ({
-                  id: Number(c?.id) || 0,
-                  name: String(c?.name || "").trim(),
-                  slug: String(c?.slug || "").trim(),
-                }))
-                .filter((c: CategoryNav) => Boolean(c.id) && Boolean(c.slug))
-            : [];
+  const rawDepartments = Array.isArray(data?.departments)
+    ? data.departments
+    : Array.isArray(data)
+      ? data
+      : [];
 
-          return {
-            id: Number(d?.id) || 0,
-            name: String(d?.name || "").trim(),
-            slug: String(d?.slug || "").trim(),
-            categories,
-          } as DepartmentNav;
-        })
-        .filter((d: DepartmentNav) => Boolean(d.id) && Boolean(d.slug))
-    : [];
+  const departments: DepartmentNav[] = rawDepartments
+    .map((d: any) => {
+      const rawCategories = Array.isArray(d?.categories) ? d.categories : [];
+
+      const categories: CategoryNav[] = rawCategories
+        .map((c: any) => ({
+          id: Number(c?.id) || 0,
+          name: String(c?.name || "").trim(),
+          slug: String(c?.slug || "").trim(),
+          sort_order:
+            typeof c?.sort_order === "number"
+              ? c.sort_order
+              : Number(c?.sort_order) || 0,
+        }))
+        .filter((c: CategoryNav) => Boolean(c.name) && Boolean(c.slug))
+        .sort((a: CategoryNav, b: CategoryNav) => {
+          const ao = typeof a.sort_order === "number" ? a.sort_order : 0;
+          const bo = typeof b.sort_order === "number" ? b.sort_order : 0;
+          if (ao !== bo) return ao - bo;
+          return String(a.name || "").localeCompare(String(b.name || ""));
+        });
+
+      return {
+        id: Number(d?.id) || 0,
+        name: String(d?.name || "").trim(),
+        slug: String(d?.slug || "").trim(),
+        sort_order:
+          typeof d?.sort_order === "number"
+            ? d.sort_order
+            : Number(d?.sort_order) || 0,
+        categories,
+      } as DepartmentNav;
+    })
+    .filter((d: DepartmentNav) => Boolean(d.name) && Boolean(d.slug))
+    .sort((a: DepartmentNav, b: DepartmentNav) => {
+      const ao = typeof a.sort_order === "number" ? a.sort_order : 0;
+      const bo = typeof b.sort_order === "number" ? b.sort_order : 0;
+      if (ao !== bo) return ao - bo;
+      return String(a.name || "").localeCompare(String(b.name || ""));
+    });
 
   return { departments };
 }

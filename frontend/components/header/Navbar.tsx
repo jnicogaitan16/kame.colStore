@@ -416,21 +416,15 @@ export default function Navbar({
     : "relative rounded-lg p-1.5 text-white/80 transition hover:bg-white/5 hover:text-white leading-none";
 
   const orderedDepts = useMemo(() => {
-    const explicitDepartments = sanitizeNavDepartments(navDepartments)
-      .filter((dept) => dept.categories.length > 0);
-
-    const derivedDepartments = deriveNavDepartmentsFromCategories(categories)
-      .filter((dept) => dept.categories.length > 0);
-
-    const source = explicitDepartments.length > 0 ? explicitDepartments : derivedDepartments;
-
-    return [...source].sort((a, b) => {
-      const ao = typeof a.sort_order === "number" ? a.sort_order : 0;
-      const bo = typeof b.sort_order === "number" ? b.sort_order : 0;
-      if (ao !== bo) return ao - bo;
-      return a.name.localeCompare(b.name);
-    });
-  }, [navDepartments, categories]);
+    return sanitizeNavDepartments(navDepartments)
+      .filter((dept) => dept.categories.length > 0)
+      .sort((a, b) => {
+        const ao = typeof a.sort_order === "number" ? a.sort_order : 0;
+        const bo = typeof b.sort_order === "number" ? b.sort_order : 0;
+        if (ao !== bo) return ao - bo;
+        return a.name.localeCompare(b.name);
+      });
+  }, [navDepartments]);
 
   const orderedLegacyCategories = useMemo(() => {
     return sanitizeLegacyCategories(categories).slice(0, 6);
