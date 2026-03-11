@@ -107,7 +107,11 @@ function sanitizeLegacyCategories(input: NavbarCategory[] | undefined): NavbarCa
 
     if (!name || !slug) continue;
 
-    const key = `${slug}`;
+    const deptSlug =
+      normalizeSlug((category as any)?.department?.slug) ||
+      normalizeSlug((category as any)?.department_slug);
+
+    const key = `${deptSlug}__${slug}`;
     if (seen.has(key)) continue;
     seen.add(key);
 
@@ -264,21 +268,15 @@ function MobileMenuContent({
   isOpen: boolean;
 }) {
   const orderedDepts = useMemo(() => {
-    const explicitDepartments = sanitizeNavDepartments(navDepartments)
-      .filter((dept) => dept.categories.length > 0);
-
-    const derivedDepartments = deriveNavDepartmentsFromCategories(categories)
-      .filter((dept) => dept.categories.length > 0);
-
-    const source = explicitDepartments.length > 0 ? explicitDepartments : derivedDepartments;
-
-    return [...source].sort((a, b) => {
-      const ao = typeof a.sort_order === "number" ? a.sort_order : 0;
-      const bo = typeof b.sort_order === "number" ? b.sort_order : 0;
-      if (ao !== bo) return ao - bo;
-      return String(a.name || "").localeCompare(String(b.name || ""));
-    });
-  }, [navDepartments, categories]);
+    return sanitizeNavDepartments(navDepartments)
+      .filter((dept) => dept.categories.length > 0)
+      .sort((a, b) => {
+        const ao = typeof a.sort_order === "number" ? a.sort_order : 0;
+        const bo = typeof b.sort_order === "number" ? b.sort_order : 0;
+        if (ao !== bo) return ao - bo;
+        return String(a.name || "").localeCompare(String(b.name || ""));
+      });
+  }, [navDepartments]);
 
   const [activeDeptSlug, setActiveDeptSlug] = useState<string | null>(null);
 
@@ -744,8 +742,15 @@ export default function Header({
             onTouchEnd={handleMobileMenuTouchEnd}
             onTouchCancel={handleMobileMenuTouchCancel}
           >
-            <div className="flex min-h-[68px] items-center justify-center px-4 py-4">
-              <div className="type-brand text-center text-white/92">Kame.col</div>
+            <div className="relative flex min-h-[68px] items-center justify-center border-b border-white/10 px-4 py-4">
+              <Link
+                href="/"
+                onClick={handleCloseMobileMenu}
+                className="type-brand absolute left-1/2 -translate-x-1/2 text-center text-white/92 transition hover:text-white"
+                aria-label="Ir al inicio"
+              >
+                Kame.col
+              </Link>
             </div>
 
             <div className="min-h-0 flex-1">
