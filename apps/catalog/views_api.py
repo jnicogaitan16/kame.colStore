@@ -27,6 +27,7 @@ from .models import (
     HomepagePromo,
     InventoryPool,
     Product,
+    ProductColorImage,
     ProductVariant,
 )
 from .serializers import (
@@ -191,14 +192,28 @@ class ProductDetailAPIView(generics.RetrieveAPIView):
     lookup_field = "slug"
 
     def get_queryset(self):
-        active_variants = ProductVariant.objects.filter(is_active=True).prefetch_related(
-            "images"
+        active_variants = (
+            ProductVariant.objects.filter(is_active=True)
+            .select_related("product", "product__category")
+            .prefetch_related("images")
+            .order_by("value", "color", "id")
         )
+
+        color_images_queryset = ProductColorImage.objects.order_by("sort_order", "id")
+        if hasattr(ProductColorImage, "is_active"):
+            color_images_queryset = color_images_queryset.filter(is_active=True)
 
         return (
             Product.objects.filter(is_active=True)
-            .select_related("category")
-            .prefetch_related(Prefetch("variants", queryset=active_variants))
+            .select_related("category", "category__department")
+            .prefetch_related(
+                Prefetch("variants", queryset=active_variants),
+                Prefetch(
+                    "color_images",
+                    queryset=color_images_queryset,
+                    to_attr="prefetched_color_images",
+                ),
+            )
         )
 
     def retrieve(self, request, *args, **kwargs):

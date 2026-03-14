@@ -72,12 +72,12 @@ def _absolute_uri(request, url):
 
 
 def _spec_url(obj, spec_attr: str):
-    """Retorna URL del spec solo si el cachefile ya existe.
+    """Retorna URL del spec en modo lectura rápida, sin verificación remota.
 
     Política de lectura optimizada:
     - NO forzar `generate()` en serialización.
     - Intentar usar la URL del spec/cachefile si ya existe.
-    - Verificar existencia en storage cuando sea posible.
+    - NO llamar `storage.exists()` durante serialización.
     - Si el derivado no existe o algo falla, retornar None para fallback al original.
     """
     try:
@@ -89,31 +89,45 @@ def _spec_url(obj, spec_attr: str):
         try:
             cachefile = ImageCacheFile(spec)
             url = getattr(cachefile, "url", None)
-            if not url:
-                return None
-
-            storage = getattr(cachefile, "storage", None)
-            name = getattr(cachefile, "name", None)
-            exists = getattr(storage, "exists", None) if storage else None
-            if callable(exists) and name and not exists(name):
-                return None
-
-            return url
+            if url:
+                return url
         except Exception:
-            # Fallback: si spec ya expone url, úsala solo si el archivo existe
+            pass
+
+        # Fallback: si spec ya expone url, usarla sin verificación remota
+        try:
             url = getattr(spec, "url", None)
-            if not url:
-                return None
+            if url:
+                return url
+        except Exception:
+            pass
 
-            storage = getattr(spec, "storage", None)
-            name = getattr(spec, "name", None)
-            exists = getattr(storage, "exists", None) if storage else None
-            if callable(exists) and name and not exists(name):
-                return None
-
-            return url
+        return None
     except Exception:
         return None
+
+
+# New helper: _resolve_public_image_urls
+def _resolve_public_image_urls(obj, request=None):
+    """Resuelve una sola vez todas las URLs públicas relevantes de una imagen."""
+    if not getattr(obj, "image", None):
+        return {
+            "image": None,
+            "image_thumb_url": None,
+            "image_medium_url": None,
+            "image_large_url": None,
+        }
+
+    thumb = _spec_url(obj, "image_thumb")
+    medium = _spec_url(obj, "image_medium")
+    large = _spec_url(obj, "image_large")
+
+    return {
+        "image": public_media_url(large or medium or thumb or obj.image.url, request=request),
+        "image_thumb_url": public_media_url(thumb, request=request),
+        "image_medium_url": public_media_url(medium, request=request),
+        "image_large_url": public_media_url(large, request=request),
+    }
 
 
 
@@ -287,43 +301,27 @@ class ProductImageSerializer(serializers.ModelSerializer):
             "sort_order",
         ]
 
+    def _get_resolved_urls(self, obj):
+        cache = self.context.setdefault("_resolved_image_urls", {})
+        key = (self.__class__.__name__, getattr(obj, "id", None))
+        if key in cache:
+            return cache[key]
+
+        resolved = _resolve_public_image_urls(obj, request=self.context.get("request"))
+        cache[key] = resolved
+        return resolved
+
     def get_image(self, obj):
-        """Devuelve SIEMPRE la URL pública final (cachefile/webp) si es posible.
-
-        Orden:
-        1) cachefile (image_large -> image_medium -> image_thumb)
-        2) fallback: original URL pública (último recurso)
-        """
-        if not obj.image:
-            return None
-
-        request = self.context.get("request")
-
-        cache_url = (
-            _spec_url(obj, "image_large")
-            or _spec_url(obj, "image_medium")
-            or _spec_url(obj, "image_thumb")
-        )
-
-        return public_media_url(cache_url or obj.image.url, request=request)
+        return self._get_resolved_urls(obj)["image"]
 
     def get_image_thumb_url(self, obj):
-        if not obj.image:
-            return None
-        request = self.context.get("request")
-        return public_media_url(_spec_url(obj, "image_thumb"), request=request)
+        return self._get_resolved_urls(obj)["image_thumb_url"]
 
     def get_image_medium_url(self, obj):
-        if not obj.image:
-            return None
-        request = self.context.get("request")
-        return public_media_url(_spec_url(obj, "image_medium"), request=request)
+        return self._get_resolved_urls(obj)["image_medium_url"]
 
     def get_image_large_url(self, obj):
-        if not obj.image:
-            return None
-        request = self.context.get("request")
-        return public_media_url(_spec_url(obj, "image_large"), request=request)
+        return self._get_resolved_urls(obj)["image_large_url"]
 
 
 
@@ -348,35 +346,49 @@ class ProductColorImageSerializer(serializers.ModelSerializer):
             "sort_order",
         ]
 
-    def get_image(self, obj):
-        if not obj.image:
-            return None
+    def _get_resolved_urls(self, obj):
+        cache = self.context.setdefault("_resolved_image_urls", {})
+        key = (self.__class__.__name__, getattr(obj, "id", None))
+        if key in cache:
+            return cache[key]
 
-        request = self.context.get("request")
-        cache_url = (
-            _spec_url(obj, "image_large")
-            or _spec_url(obj, "image_medium")
-            or _spec_url(obj, "image_thumb")
-        )
-        return public_media_url(cache_url or obj.image.url, request=request)
+        resolved = _resolve_public_image_urls(obj, request=self.context.get("request"))
+        cache[key] = resolved
+        return resolved
+
+    def get_image(self, obj):
+        return self._get_resolved_urls(obj)["image"]
 
     def get_image_thumb_url(self, obj):
-        if not obj.image:
-            return None
-        request = self.context.get("request")
-        return public_media_url(_spec_url(obj, "image_thumb"), request=request)
+        return self._get_resolved_urls(obj)["image_thumb_url"]
 
     def get_image_medium_url(self, obj):
-        if not obj.image:
-            return None
-        request = self.context.get("request")
-        return public_media_url(_spec_url(obj, "image_medium"), request=request)
+        return self._get_resolved_urls(obj)["image_medium_url"]
 
     def get_image_large_url(self, obj):
-        if not obj.image:
-            return None
-        request = self.context.get("request")
-        return public_media_url(_spec_url(obj, "image_large"), request=request)
+        return self._get_resolved_urls(obj)["image_large_url"]
+
+
+# ---------------------------------------------------------------------------
+# Helper: Build prefetched color images index for a product
+# ---------------------------------------------------------------------------
+def _build_prefetched_color_images_index(product):
+    """Construye índice {color: [ProductColorImage, ...]} usando prefetch si existe."""
+    prefetched = getattr(product, "prefetched_color_images", None)
+    if prefetched is None:
+        return None
+
+    index = getattr(product, "_prefetched_color_images_index", None)
+    if index is not None:
+        return index
+
+    color_index = {}
+    for image in prefetched:
+        color = getattr(image, "color", "") or ""
+        color_index.setdefault(color, []).append(image)
+
+    product._prefetched_color_images_index = color_index
+    return color_index
 
 
 
@@ -385,6 +397,7 @@ def _resolve_variant_gallery_images(variant):
 
     Reglas:
     - SIZE_COLOR: usar ProductColorImage por product + color.
+    - Preferir imágenes prefetched en memoria para evitar N+1.
     - Fallback: ProductImage legacy por variante si no hay imágenes por color.
     - Otros schemas: mantener ProductImage legacy por variante.
     """
@@ -392,16 +405,26 @@ def _resolve_variant_gallery_images(variant):
     category = getattr(product, "category", None) if product else None
     schema = getattr(category, "variant_schema", "") if category else ""
 
-    if schema == Category.VariantSchema.SIZE_COLOR:
+    if schema == Category.VariantSchema.SIZE_COLOR and product is not None:
         color = getattr(variant, "color", "") or ""
-        color_images = ProductColorImage.objects.filter(
-            product=product,
-            color=color,
-        ).order_by("-is_primary", "sort_order", "created_at")
-        if color_images.exists():
+        color_index = _build_prefetched_color_images_index(product)
+        if color_index is not None:
+            color_images = color_index.get(color) or []
+            if color_images:
+                return color_images, "color"
+
+        color_images = list(
+            ProductColorImage.objects.filter(
+                product=product,
+                color=color,
+            ).order_by("-is_primary", "sort_order", "created_at")
+        )
+        if color_images:
             return color_images, "color"
 
-    legacy_images = variant.images.all().order_by("-is_primary", "sort_order", "created_at")
+    legacy_images = list(
+        variant.images.all().order_by("-is_primary", "sort_order", "created_at")
+    )
     return legacy_images, "legacy"
 
 
@@ -431,6 +454,16 @@ class ProductVariantSerializer(serializers.ModelSerializer):
             "images",
         ]
 
+    def _get_variant_gallery_cache(self, obj):
+        cache = self.context.setdefault("_variant_gallery_cache", {})
+        key = getattr(obj, "id", None)
+        if key in cache:
+            return cache[key]
+
+        resolved = _resolve_variant_gallery_images(obj)
+        cache[key] = resolved
+        return resolved
+
     def get_stock(self, obj):
         pool_map = self.context.get("pool_map")
         try:
@@ -439,13 +472,13 @@ class ProductVariantSerializer(serializers.ModelSerializer):
             return 0
 
     def get_images(self, obj):
-        qs, source = _resolve_variant_gallery_images(obj)
+        qs, source = self._get_variant_gallery_cache(obj)
         serializer_class = ProductColorImageSerializer if source == "color" else ProductImageSerializer
         return serializer_class(qs, many=True, context=self.context).data
 
     def get_image_url(self, obj):
-        qs, _source = _resolve_variant_gallery_images(obj)
-        img = qs.first()
+        images, _source = self._get_variant_gallery_cache(obj)
+        img = images[0] if images else None
         if not img or not img.image:
             return None
         request = self.context.get("request")
@@ -453,8 +486,8 @@ class ProductVariantSerializer(serializers.ModelSerializer):
         return public_media_url(cache_url or img.image.url, request=request)
 
     def get_image_thumb_url(self, obj):
-        qs, _source = _resolve_variant_gallery_images(obj)
-        img = qs.first()
+        images, _source = self._get_variant_gallery_cache(obj)
+        img = images[0] if images else None
         if not img or not img.image:
             return None
 
@@ -593,6 +626,34 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             "variants",
         ]
 
+    def _get_product_inventory_cache(self, obj):
+        cache = getattr(self, "_product_inventory_cache", None)
+        if cache is None:
+            cache = {}
+            setattr(self, "_product_inventory_cache", cache)
+
+        if obj.id in cache:
+            return cache[obj.id]
+
+        variants = obj.variants.filter(is_active=True)
+        try:
+            setattr(variants, "_serializer_ctx", self.context)
+        except Exception:
+            pass
+
+        stock_total, sold_out, pool_map = _effective_inventory_from_pool(obj.category_id, variants)
+        cache[obj.id] = (stock_total, sold_out, pool_map)
+        return cache[obj.id]
+
+    def _get_detail_pool_map(self, obj):
+        pool_map = self.context.get("pool_map")
+        if pool_map is not None:
+            return pool_map
+
+        _stock_total, _sold_out, pool_map = self._get_product_inventory_cache(obj)
+        self.context["pool_map"] = pool_map
+        return pool_map
+
     def get_variants(self, obj):
         # No exponer variantes inactivas/eliminadas en la API.
         # La PDP recibe variants[] exactamente como estén materializadas
@@ -614,41 +675,17 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             )
         )
 
-        pool_map = get_pool_map(obj.category_id)
+        pool_map = self._get_detail_pool_map(obj)
         ctx = dict(self.context)
         ctx["pool_map"] = pool_map
         return ProductVariantSerializer(variants, many=True, context=ctx).data
 
     def get_stock_total(self, obj):
-        variants = obj.variants.filter(is_active=True)
-        try:
-            setattr(variants, "_serializer_ctx", self.context)
-        except Exception:
-            pass
-
-        # stock_total / sold_out siguen saliendo de InventoryPool,
-        # independiente del schema de variantes expuesto en PDP.
-        stock_total, sold_out, _pool_map = _effective_inventory_from_pool(obj.category_id, variants)
-        cache = getattr(self, "_product_inventory_cache", None)
-        if cache is None:
-            cache = {}
-            setattr(self, "_product_inventory_cache", cache)
-        cache[obj.id] = (stock_total, sold_out)
+        stock_total, sold_out, _pool_map = self._get_product_inventory_cache(obj)
         return stock_total
 
     def get_sold_out(self, obj):
-        cache = getattr(self, "_product_inventory_cache", None) or {}
-        if obj.id in cache:
-            _stock_total, sold_out = cache[obj.id]
-            return bool(sold_out)
-
-        variants = obj.variants.filter(is_active=True)
-        try:
-            setattr(variants, "_serializer_ctx", self.context)
-        except Exception:
-            pass
-
-        _stock_total, sold_out, _pool_map = _effective_inventory_from_pool(obj.category_id, variants)
+        _stock_total, sold_out, _pool_map = self._get_product_inventory_cache(obj)
         return bool(sold_out)
 
 
