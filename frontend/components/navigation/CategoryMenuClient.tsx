@@ -1,11 +1,14 @@
-
-
 "use client";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { categoryPath } from "@/lib/routes";
 
-type Category = { id: number; name: string; slug: string };
+type Category = {
+  id: number;
+  name: string;
+  slug: string;
+};
 
 type Props = {
   onNavigate?: () => void;
@@ -16,30 +19,30 @@ export default function CategoryMenuClient({ onNavigate }: Props) {
 
   useEffect(() => {
     const apiBase = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/+$/, "");
+
     if (!apiBase) {
       setCategories([]);
       return;
     }
 
     fetch(`${apiBase}/categories/`, { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((response) =>
+        response.ok ? response.json() : Promise.reject(new Error(String(response.status)))
+      )
       .then((data) => setCategories(Array.isArray(data) ? data : []))
       .catch(() => setCategories([]));
   }, []);
 
   return (
-    <nav
-      className="flex flex-col gap-4 text-base font-medium"
-      aria-label="Categorías"
-    >
-      {categories.map((c) => (
+    <nav className="flex flex-col gap-4 text-base font-medium" aria-label="Categorías">
+      {categories.map((category) => (
         <Link
-          key={c.id}
-          href={`/categoria/${c.slug}`}
+          key={category.id}
+          href={categoryPath(category.slug)}
           onClick={onNavigate}
           className="hover:opacity-80"
         >
-          {c.name}
+          {category.name}
         </Link>
       ))}
     </nav>
