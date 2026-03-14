@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import DrawerShell from "@/components/drawer/DrawerShell";
 import { useCartStore } from "@/store/cart";
 import { Button } from "@/components/ui/Button";
 import Notice from "@/components/ui/Notice";
@@ -13,16 +14,19 @@ type MiniCartProps = {
   onClose?: () => void;
 };
 
+// Block B: lateral drag mechanics (future reusable drawer interaction layer)
 const DRAG_THRESHOLD_PX = 12;
 const HORIZONTAL_DOMINANCE_RATIO = 1.2;
 const CLOSE_THRESHOLD_RATIO = 0.32;
 const FAST_SWIPE_VELOCITY = 0.55;
 
 function MiniCart({ open, onClose }: MiniCartProps) {
+  // Block D: cart-specific content and store bindings
   const items = useCartStore((s) => s.items);
   const storeIsOpen = useCartStore((s) => s.isOpen);
   const closeCart = useCartStore((s) => s.closeCart);
 
+  // Block A: drawer control state
   const isOpen = typeof open === "boolean" ? open : storeIsOpen;
   const close = typeof onClose === "function" ? onClose : closeCart;
   const removeItem = useCartStore((s) => s.removeItem);
@@ -31,6 +35,7 @@ function MiniCart({ open, onClose }: MiniCartProps) {
   const stockHintsByVariantId = useCartStore((s) => s.stockHintsByVariantId);
   const [animateIn, setAnimateIn] = useState(false);
 
+  // Block B: lateral drag state
   const asideRef = useRef<HTMLElement | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragX, setDragX] = useState(0);
@@ -40,6 +45,7 @@ function MiniCart({ open, onClose }: MiniCartProps) {
   const [isGestureActive, setIsGestureActive] = useState(false);
   const dragStartTimeRef = useRef(0);
 
+  // Block A: drawer control effects
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden";
@@ -69,6 +75,7 @@ function MiniCart({ open, onClose }: MiniCartProps) {
     };
   }, [close, isOpen]);
 
+  // Block B: derived drag presentation state
   const panelWidth = asideRef.current?.offsetWidth ?? 0;
   const clampedDragX = Math.max(0, dragX);
   const dragProgress = panelWidth > 0 ? Math.min(clampedDragX / panelWidth, 1) : 0;
@@ -81,6 +88,7 @@ function MiniCart({ open, onClose }: MiniCartProps) {
         : panelWidth || 0
     : panelWidth || 0;
 
+  // Block B: drag handlers
   function resetDragState() {
     setIsDragging(false);
     setDragX(0);
@@ -170,6 +178,7 @@ function MiniCart({ open, onClose }: MiniCartProps) {
   }
 
 
+  // Block D: cart-specific derived values
   function totalItems() {
     return (items || []).reduce((acc, it) => acc + (it.quantity || 0), 0);
   }
@@ -182,34 +191,22 @@ function MiniCart({ open, onClose }: MiniCartProps) {
     }, 0);
   }
 
+  // Block C: reusable drawer shell + Block D: cart-specific content
   return (
-    <>
-      <div
-        className={[
-          "fixed inset-0 z-[90] bg-black/40 backdrop-blur-sm supports-[backdrop-filter]:backdrop-blur-sm transition-opacity",
-          isOpen ? "pointer-events-auto" : "pointer-events-none opacity-0",
-        ].join(" ")}
-        style={isOpen ? { opacity: overlayOpacity } : undefined}
-        onClick={close}
-        aria-hidden={!isOpen}
-      />
-      <aside
-        ref={asideRef}
-        className={[
-          "fixed right-0 top-0 z-[100] h-full w-[90%] max-w-md",
-          "bg-black/45 backdrop-blur-2xl border-l border-white/10 elevation-soft flex flex-col",
-          "transform will-change-transform",
-          isDragging ? "transition-none" : "transition-transform duration-300 ease-out",
-        ].join(" ")}
-        style={{ transform: `translateX(${asideTranslateX}px)` }}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        onTouchCancel={handleTouchCancel}
-        role="dialog"
-        aria-label="Carrito"
-      >
-        <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between text-neutral-100">
+    <DrawerShell
+      isOpen={isOpen}
+      side="right"
+      panelRef={asideRef}
+      isDragging={isDragging}
+      backdropOpacity={overlayOpacity}
+      translateX={asideTranslateX}
+      onClose={close}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchCancel}
+      headerContent={
+        <div className="drawer-header-row drawer-header-glass">
           <h2 className="type-card-title text-white/96">Carrito ({totalItems()})</h2>
           <button
             type="button"
@@ -222,168 +219,9 @@ function MiniCart({ open, onClose }: MiniCartProps) {
             </svg>
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto p-4">
-          {items.length === 0 ? (
-            <p className="type-ui-label py-8 text-center text-white/56">Tu carrito está vacío</p>
-          ) : (
-            <ul className="space-y-4">
-              {items.map((item) => (
-                <li key={item.variantId} className="px-5 py-4 flex gap-3 border-b border-white/5">
-                  <div className="relative w-16 h-16 shrink-0 overflow-hidden product-media-surface">
-                    {(() => {
-                      const p: any = (item as any)?.product || item;
-                      const thumb = getPrimaryImageUrl(p) || getPrimaryImageUrl((item as any)?.product) || (item as any)?.imageUrl || "";
-                      const alt = p?.name || (item as any)?.productName || "Producto";
-
-                      return thumb ? (
-                        <img
-                          src={thumb}
-                          alt={alt}
-                          loading="lazy"
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-full items-center justify-center text-white/40">
-                          <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14" />
-                          </svg>
-                        </div>
-                      );
-                    })()}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <Link
-                      href={productPath(item.productSlug)}
-                      onClick={close}
-                      className="card-premium-name block line-clamp-2 hover:text-white/90 hover:underline"
-                    >
-                      {item.productName}
-                    </Link>
-                    <p className="type-ui-label mt-1 text-white/56">{item.variantLabel}</p>
-
-                    {(() => {
-                      // Store contract: getters normalize keys via String(variantId)
-                      const key = String(item.variantId);
-                      const h: any = stockHintsByVariantId[key];
-                      const w: any = stockWarningsByVariantId[key];
-
-                      const hasWarningForItem = Boolean(w);
-
-                      // Hint only when there is NO warning object for this item.
-                      if (!hasWarningForItem && h?.kind === "last_unit" && h?.message) {
-                        return (
-                          <p className="mt-2 text-xs leading-snug text-white/70 whitespace-normal break-words">
-                            ⚡ {h.message}
-                          </p>
-                        );
-                      }
-
-                      // Warning: show whenever backend returns a warning object for this variant.
-                      // Pool-based validation may not include a `status`, so we treat presence of `w` as authoritative.
-                      if (hasWarningForItem) {
-                        const qty = Number(item.quantity || 0);
-
-                        const requestedRaw =
-                          w?.requested ??
-                          w?.qty ??
-                          w?.quantity ??
-                          w?.requested_total ??
-                          qty;
-
-                        const requested =
-                          typeof requestedRaw === "number"
-                            ? requestedRaw
-                            : requestedRaw != null
-                              ? parseFloat(String(requestedRaw))
-                              : qty;
-
-                        // Be defensive: backend keys may vary.
-                        const availableRaw =
-                          w?.available ??
-                          w?.available_stock ??
-                          w?.available_qty ??
-                          w?.stock_available ??
-                          w?.stock ??
-                          w?.remaining;
-
-                        const available =
-                          typeof availableRaw === "number"
-                            ? availableRaw
-                            : availableRaw != null
-                              ? parseFloat(String(availableRaw))
-                              : NaN;
-
-                        const hasAvailable = Number.isFinite(available);
-
-                        return (
-                          <div className="mt-2">
-                            <Notice
-                              variant="warning"
-                              tone="soft"
-                              compact
-                              title={typeof w?.message === "string" && w.message.trim() ? w.message : "Drop casi agotado"}
-                            >
-                              {hasAvailable ? (
-                                <p className="text-xs leading-snug text-white/72">
-                                  Pediste {requested}. Solo quedan {available} en este drop.
-                                </p>
-                              ) : (
-                                <p className="text-xs leading-snug text-white/72">
-                                  La cantidad que pediste supera las unidades disponibles.
-                                </p>
-                              )}
-                            </Notice>
-                          </div>
-                        );
-                      }
-
-                      return null;
-                    })()}
-                    <div className="mt-1 flex items-center justify-between">
-                      <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const nextQty = item.quantity - 1;
-                            updateQuantity(item.variantId, nextQty);
-                          }}
-                          className="pill w-8 h-8 p-0 bg-white/5 border border-white/10 hover:bg-white/10"
-                        >
-                          −
-                        </button>
-                        <span className="type-ui-label w-8 text-center text-white/78">{item.quantity}</span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const nextQty = item.quantity + 1;
-                            updateQuantity(item.variantId, nextQty);
-                          }}
-                          className="pill w-8 h-8 p-0 bg-white/5 border border-white/10 hover:bg-white/10"
-                        >
-                          +
-                        </button>
-                      </div>
-                      <span className="type-price text-white/94">
-                        ${(parseFloat(item.price) * item.quantity).toLocaleString("es-CO")}
-                      </span>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => removeItem(item.variantId)}
-                    className="shrink-0 text-white/45 hover:text-red-500"
-                    aria-label="Quitar del carrito"
-                  >
-                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-        {items.length > 0 && (
+      }
+      footerContent={
+        items.length > 0 ? (
           <div className="mt-auto px-5 py-5 border-t border-white/10 drawer-glass-footer text-neutral-100">
             <div className="mb-4 flex items-baseline justify-between">
               <span className="type-ui-label text-white/60">Total</span>
@@ -395,9 +233,166 @@ function MiniCart({ open, onClose }: MiniCartProps) {
               </Button>
             </Link>
           </div>
+        ) : null
+      }
+    >
+      <div className="p-4">
+        {items.length === 0 ? (
+          <p className="type-ui-label py-8 text-center text-white/56">Tu carrito está vacío</p>
+        ) : (
+          <ul className="space-y-4">
+            {items.map((item) => (
+              <li key={item.variantId} className="px-5 py-4 flex gap-3 border-b border-white/5">
+                <div className="relative w-16 h-16 shrink-0 overflow-hidden product-media-surface">
+                  {(() => {
+                    const p: any = (item as any)?.product || item;
+                    const thumb = getPrimaryImageUrl(p) || getPrimaryImageUrl((item as any)?.product) || (item as any)?.imageUrl || "";
+                    const alt = p?.name || (item as any)?.productName || "Producto";
+
+                    return thumb ? (
+                      <img
+                        src={thumb}
+                        alt={alt}
+                        loading="lazy"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-white/40">
+                        <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14" />
+                        </svg>
+                      </div>
+                    );
+                  })()}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <Link
+                    href={productPath(item.productSlug)}
+                    onClick={close}
+                    className="card-premium-name block line-clamp-2 hover:text-white/90 hover:underline"
+                  >
+                    {item.productName}
+                  </Link>
+                  <p className="type-ui-label mt-1 text-white/56">{item.variantLabel}</p>
+
+                  {(() => {
+                    const key = String(item.variantId);
+                    const h: any = stockHintsByVariantId[key];
+                    const w: any = stockWarningsByVariantId[key];
+
+                    const hasWarningForItem = Boolean(w);
+
+                    if (!hasWarningForItem && h?.kind === "last_unit" && h?.message) {
+                      return (
+                        <p className="mt-2 text-xs leading-snug text-white/70 whitespace-normal break-words">
+                          ⚡ {h.message}
+                        </p>
+                      );
+                    }
+
+                    if (hasWarningForItem) {
+                      const qty = Number(item.quantity || 0);
+
+                      const requestedRaw =
+                        w?.requested ??
+                        w?.qty ??
+                        w?.quantity ??
+                        w?.requested_total ??
+                        qty;
+
+                      const requested =
+                        typeof requestedRaw === "number"
+                          ? requestedRaw
+                          : requestedRaw != null
+                            ? parseFloat(String(requestedRaw))
+                            : qty;
+
+                      const availableRaw =
+                        w?.available ??
+                        w?.available_stock ??
+                        w?.available_qty ??
+                        w?.stock_available ??
+                        w?.stock ??
+                        w?.remaining;
+
+                      const available =
+                        typeof availableRaw === "number"
+                          ? availableRaw
+                          : availableRaw != null
+                            ? parseFloat(String(availableRaw))
+                            : NaN;
+
+                      const hasAvailable = Number.isFinite(available);
+
+                      return (
+                        <div className="mt-2">
+                          <Notice
+                            variant="warning"
+                            tone="soft"
+                            compact
+                            title={typeof w?.message === "string" && w.message.trim() ? w.message : "Drop casi agotado"}
+                          >
+                            {hasAvailable ? (
+                              <p className="text-xs leading-snug text-white/72">
+                                Pediste {requested}. Solo quedan {available} en este drop.
+                              </p>
+                            ) : (
+                              <p className="text-xs leading-snug text-white/72">
+                                La cantidad que pediste supera las unidades disponibles.
+                              </p>
+                            )}
+                          </Notice>
+                        </div>
+                      );
+                    }
+
+                    return null;
+                  })()}
+                  <div className="mt-1 flex items-center justify-between">
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const nextQty = item.quantity - 1;
+                          updateQuantity(item.variantId, nextQty);
+                        }}
+                        className="pill w-8 h-8 p-0 bg-white/5 border border-white/10 hover:bg-white/10"
+                      >
+                        −
+                      </button>
+                      <span className="type-ui-label w-8 text-center text-white/78">{item.quantity}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const nextQty = item.quantity + 1;
+                          updateQuantity(item.variantId, nextQty);
+                        }}
+                        className="pill w-8 h-8 p-0 bg-white/5 border border-white/10 hover:bg-white/10"
+                      >
+                        +
+                      </button>
+                    </div>
+                    <span className="type-price text-white/94">
+                      ${(parseFloat(item.price) * item.quantity).toLocaleString("es-CO")}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeItem(item.variantId)}
+                  className="shrink-0 text-white/45 hover:text-red-500"
+                  aria-label="Quitar del carrito"
+                >
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </li>
+            ))}
+          </ul>
         )}
-      </aside>
-    </>
+      </div>
+    </DrawerShell>
   );
 }
 

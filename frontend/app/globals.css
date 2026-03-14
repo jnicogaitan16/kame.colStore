@@ -605,9 +605,77 @@ html {
   border-radius: 1rem;
 }
 
+
 /* ============================= */
 /* DRAWER GLASS SYSTEM (Global) */
+/* Contract: shell + panel + active + backdrop for header/cart drawers */
+/* Shared shell contract:
+   - .drawer-shell: root fixed shell container
+   - .drawer-backdrop: overlay/backdrop layer
+   - .drawer-panel-left / .drawer-panel-right: side-specific panel base
+   - .drawer-header-row: shared top row for title / brand / actions
+   - .drawer-body-scroll: shared scrollable body region
+   - .drawer-footer-row: shared footer region
+*/
 /* ============================= */
+
+.drawer-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+}
+
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: rgba(0, 0, 0, 0.40);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.drawer-panel-left,
+.drawer-panel-right {
+  position: fixed;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  height: 100%;
+  width: 90%;
+  max-width: 28rem;
+  flex-direction: column;
+  transform: translateX(0);
+}
+
+.drawer-panel-left {
+  left: 0;
+  border-right: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+.drawer-panel-right {
+  right: 0;
+  border-left: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+.drawer-header-row {
+  display: flex;
+  min-height: 68px;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+  padding: 1rem 1.25rem;
+  color: rgba(245, 245, 245, 1);
+}
+
+.drawer-body-scroll {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.drawer-footer-row {
+  flex-shrink: 0;
+}
 
 .drawer-glass {
   background: rgba(0, 0, 0, 0.45);
@@ -623,8 +691,18 @@ html {
   will-change: backdrop-filter, transform;
 }
 
+.drawer-panel-surface {
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  backdrop-filter: blur(22px) saturate(1.4);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4);
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.65);
+  will-change: backdrop-filter, transform;
+}
+
 .drawer-drag-shell {
   position: relative;
+  overflow: hidden;
 }
 
 .drawer-drag-panel {
@@ -642,6 +720,14 @@ html {
   will-change: opacity;
 }
 
+.drawer-panel-transition {
+  transition: transform 380ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.drawer-panel-drag-active {
+  transition: none !important;
+}
+
 /* Footer section inside drawers */
 
 .drawer-glass-footer {
@@ -650,6 +736,21 @@ html {
   backdrop-filter: blur(22px) saturate(1.4);
   -webkit-backdrop-filter: blur(22px) saturate(1.4);
 
+  border-top: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+.drawer-header-glass,
+.drawer-footer-glass {
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(22px) saturate(1.4);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4);
+}
+
+.drawer-header-glass {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+.drawer-footer-glass {
   border-top: 1px solid rgba(255, 255, 255, 0.10);
 }
 
@@ -839,6 +940,7 @@ html {
 
 /* ===============================
    Global Route/Page Loading Overlay (Liquid Glass)
+   Contract: keep global overlay available for route/page transitions
    Toggle:
      document.documentElement.dataset.routeLoading = "1";
      delete document.documentElement.dataset.routeLoading;

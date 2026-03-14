@@ -16,6 +16,7 @@ export type NavbarProps = {
   onOpenMobileMenu?: () => void;
   onToggleCart?: () => void;
   cartCount: number;
+  isScrolled?: boolean;
   variant?: "overlay" | "nav";
 };
 
@@ -203,6 +204,7 @@ export default function Navbar({
   onOpenMobileMenu = () => {},
   onToggleCart = () => {},
   cartCount,
+  isScrolled = false,
 }: NavbarProps) {
   // Única fuente de verdad de rutas
   const categoryHref = (slug: string, dept?: string) => categoryPath(slug, dept);
@@ -241,6 +243,7 @@ export default function Navbar({
   return (
     <div
       className={`mx-auto grid h-12 max-w-6xl grid-cols-[1fr_auto_1fr] items-center px-4 md:h-14 ${rootText}`}
+      data-scrolled={isScrolled ? "true" : "false"}
     >
       {/* Left: hamburger + desktop categories */}
       <div className="flex items-center justify-self-start">
