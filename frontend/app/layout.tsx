@@ -70,11 +70,9 @@ export default function RootLayout({
           <HeaderServer />
           <main className="pt-16 pb-20 md:pt-18 md:pb-8">{children}</main>
           <MiniCart />
-
           <Footer />
-
           <WhatsAppButton
-            phone={process.env.NEXT_PUBLIC_WHATSAPP_PHONE || "573137008959"}
+            phone={process.env.NEXT_PUBLIC_WHATSAPP_PHONE as string}
           />
         </div>
       </body>
