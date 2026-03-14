@@ -1,13 +1,30 @@
 /** @type {import('next').NextConfig} */
+
+// Safe progressive migration path for Next image optimization.
+// Default stays conservative to avoid breaking media delivery across mixed origins.
+// When production URLs and normalizeMediaUrl() are fully validated, enable with:
+// NEXT_ENABLE_IMAGE_OPTIMIZATION=true
+const imageOptimizationEnabled =
+  process.env.NEXT_ENABLE_IMAGE_OPTIMIZATION === "true";
+
 const nextConfig = {
   // Avoid Next's automatic `/path/ -> /path` redirects.
   // This is especially important for proxied Django/DRF endpoints that conventionally end with `/`.
   skipTrailingSlashRedirect: true,
 
   images: {
-    unoptimized: true,
-    formats: ['image/avif', 'image/webp'],
+    // Keep current safe behavior by default.
+    // This allows a controlled rollout once all public image origins are verified.
+    unoptimized: !imageOptimizationEnabled,
+
+    // These settings become relevant once optimization is enabled.
+    formats: ["image/avif", "image/webp"],
     minimumCacheTTL: 86400,
+
+    // Prep work for future LCP / PDP image tuning.
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+
     remotePatterns: [
       // Local Django media (dev)
       {

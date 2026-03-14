@@ -1,176 +1,693 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
-import Link from "next/link";
-import { getPrimaryImageUrl, normalizeMediaUrl } from "@/lib/api";
+import { useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 
 import { useCartStore } from "@/store/cart";
 import { ProductGallery } from "@/components/product/ProductGallery";
 import { Button } from "@/components/ui/Button";
 import ShareButton from "@/components/ui/ShareButton";
-import SizeGuideDrawer from "@/components/product/SizeGuideDrawer";
 
-import type { ProductDetail, ProductVariant } from "@/types/catalog";
+import type { ProductVariant } from "@/types/catalog";
+
+const SizeGuideDrawer = dynamic(
+  () => import("@/components/product/SizeGuideDrawer"),
+  { ssr: false }
+);
+
+type VariantSchema =
+  | "size_color"
+  | "jean_size"
+  | "shoe_size"
+  | "no_variant"
+  | string;
+
+type GalleryImage = {
+  url: string;
+  thumb_url?: string | null;
+  alt_text?: string | null;
+};
+
+type PDPViewModel = {
+  id: number;
+  name: string;
+  slug: string;
+  price: string;
+  description?: string | null;
+  sold_out?: boolean;
+  stock_total?: number;
+  category?: {
+    slug?: string | null;
+    variant_schema?: string | null;
+  } | null;
+  variants?: ProductVariant[];
+  variantSchema?: VariantSchema;
+  requiresValue?: boolean;
+  requiresColor?: boolean;
+  valueOptions?: string[];
+  colorOptions?: string[];
+  primaryImage?: string | null;
+  canonicalProductImage?: string | null;
+  galleryImages?: GalleryImage[];
+  firstAvailableVariantId?: number | null;
+  variantsByColor?: Record<string, ProductVariant[]>;
+  variantsByValue?: Record<string, ProductVariant[]>;
+  variantByColorValue?: Record<string, ProductVariant>;
+  variantGalleryImagesById?: Record<string, GalleryImage[]>;
+  variantPrimaryImageById?: Record<string, string | null>;
+};
 
 interface ProductDetailClientProps {
-  product: ProductDetail;
+  product: PDPViewModel;
 }
 
-function buildVariantLabel(
-  v: ProductVariant,
-  variantSchema?: string
-): string {
-  const schema = String(variantSchema || "").trim().toLowerCase();
+type SelectionState = {
+  variantSchema: VariantSchema;
+  requiresValue: boolean;
+  requiresColor: boolean;
+  valueOptions: string[];
+  colorOptions: string[];
+  selectedValue: string;
+  selectedColor: string;
+  selectedVariant: ProductVariant | null;
+  displayVariant: ProductVariant | null;
+  availableStock: number;
+  canAdd: boolean;
+  uiSoldOut: boolean;
+  helperSelectionText: string;
+  isInvalidCombo: boolean;
+  isSizeSoldOut: (value: string) => boolean;
+  isColorSoldOut: (color: string) => boolean;
+  selectValue: (value: string) => void;
+  selectColor: (color: string) => void;
+};
+
+function normalizeOption(value: unknown): string {
+  return String(value || "").trim();
+}
+
+function hasStock(variant: ProductVariant | null | undefined): boolean {
+  return (variant?.stock ?? 0) > 0;
+}
+
+function buildVariantLabel(v: ProductVariant, variantSchema?: string): string {
+  const schema = normalizeOption(variantSchema).toLowerCase();
   const parts: string[] = [];
+
   if (v.value) parts.push(v.value);
   if (v.color) parts.push(v.color);
 
-  if (parts.length > 0) {
-    return parts.join(" / ");
-  }
-
-  if (schema === "no_variant") {
-    return "";
-  }
+  if (parts.length > 0) return parts.join(" / ");
+  if (schema === "no_variant") return "";
 
   return `Variante #${v.id}`;
 }
 
-function colorDotClass(color: string): string {
-  const c = (color || "").trim().toLowerCase();
-  // For dark UI: keep the pill dark, but the dot for "Blanco" must be visible.
-  // Use white fill + subtle dark border + tiny shadow so it doesn't disappear.
-  if (c === "blanco")
-    return "bg-white border border-black/30 shadow-[0_0_0_1px_rgba(0,0,0,0.35)]";
-  if (c === "negro") return "bg-black border border-white/20";
-  if (c === "beige") return "bg-[#d6c5a3] border border-white/20";
-  if (c === "verde") return "bg-emerald-500/80 border border-white/20";
-  if (c === "rojo") return "bg-red-500/80 border border-white/20";
-  if (c === "café" || c === "cafe") return "bg-amber-800/80 border border-white/20";
-  if (c === "azul") return "bg-sky-500/80 border border-white/20";
-  return "bg-white/30 border border-white/20";
+function resolveSizeGuideKey(slug?: string | null) {
+  if (!slug) return null;
+  if (slug === "camisetas") return "oversize" as const;
+  if (slug === "hoodies") return "hoodie" as const;
+  if (slug === "cuadros") return "frame_20x30" as const;
+  return null;
 }
 
-const APPAREL_ORDER = ["S", "M", "L", "XL", "2XL"];
-const SHOE_ORDER = ["36", "37", "38", "39", "40", "41", "42"];
+function getVariantForColorValue(
+  product: PDPViewModel,
+  color: string,
+  value: string
+): ProductVariant | null {
+  const normalizedColor = normalizeOption(color);
+  const normalizedValue = normalizeOption(value);
 
-function sortVariantValuesForSchema(
-  values: string[],
-  variantSchema: string,
-  categorySlug?: string | null
-): string[] {
-  const cleaned = Array.from(
-    new Set(values.map((v) => String(v || "").trim()).filter(Boolean))
-  );
+  if (!normalizedColor || !normalizedValue) return null;
+  return product.variantByColorValue?.[`${normalizedColor}__${normalizedValue}`] ?? null;
+}
 
-  let canonical: string[] = [];
+function getVariantsForColor(
+  product: PDPViewModel,
+  color: string
+): ProductVariant[] {
+  const normalizedColor = normalizeOption(color);
+  if (!normalizedColor) return [];
+  return product.variantsByColor?.[normalizedColor] ?? [];
+}
+
+function getVariantsForValue(
+  product: PDPViewModel,
+  value: string
+): ProductVariant[] {
+  const normalizedValue = normalizeOption(value);
+  if (!normalizedValue) return [];
+  return product.variantsByValue?.[normalizedValue] ?? [];
+}
+
+function pickFirstVariantWithImages(variants: ProductVariant[]): ProductVariant | null {
+  return variants.find((variant) => (variant.images?.length ?? 0) > 0) ?? variants[0] ?? null;
+}
+
+function resolveDisplayVariant(params: {
+  product: PDPViewModel;
+  selectedVariant: ProductVariant | null;
+  selectedColor: string;
+  selectedValue: string;
+  firstAvailableVariant: ProductVariant | null;
+}): ProductVariant | null {
+  const { product, selectedVariant, selectedColor, selectedValue, firstAvailableVariant } = params;
+  const variants = product.variants ?? [];
+  const variantSchema = (product.variantSchema ?? "size_color") as VariantSchema;
+
+  if (!variants.length) return null;
 
   if (variantSchema === "size_color") {
-    canonical = APPAREL_ORDER;
-  } else if (variantSchema === "shoe_size") {
-    canonical = SHOE_ORDER;
-  } else if (variantSchema === "jean_size") {
-    return cleaned.sort((a, b) => Number(a) - Number(b));
-  } else {
-    return cleaned.sort();
+    const exact =
+      selectedColor && selectedValue
+        ? getVariantForColorValue(product, selectedColor, selectedValue)
+        : null;
+
+    return (
+      exact ??
+      selectedVariant ??
+      (selectedColor ? pickFirstVariantWithImages(getVariantsForColor(product, selectedColor)) : null) ??
+      firstAvailableVariant ??
+      variants[0] ??
+      null
+    );
   }
 
-  const orderMap = new Map(canonical.map((v, i) => [v, i]));
-  const known = cleaned.filter((v) => orderMap.has(v));
-  const unknown = cleaned.filter((v) => !orderMap.has(v));
+  return (
+    selectedVariant ??
+    (selectedColor ? pickFirstVariantWithImages(getVariantsForColor(product, selectedColor)) : null) ??
+    (selectedValue ? pickFirstVariantWithImages(getVariantsForValue(product, selectedValue)) : null) ??
+    firstAvailableVariant ??
+    variants[0] ??
+    null
+  );
+}
 
-  known.sort((a, b) => orderMap.get(a)! - orderMap.get(b)!);
-  unknown.sort();
+function formatPriceCOP(price: string): string {
+  return `$${parseFloat(price).toLocaleString("es-CO")}`;
+}
 
-  return [...known, ...unknown];
+function useProductSelection(product: PDPViewModel): SelectionState {
+  const variants = product.variants ?? [];
+  const variantSchema =
+    (product.variantSchema ?? product.category?.variant_schema ?? "size_color") as VariantSchema;
+
+  const requiresValue =
+    product.requiresValue ??
+    (variantSchema === "size_color" ||
+      variantSchema === "jean_size" ||
+      variantSchema === "shoe_size");
+  const requiresColor = product.requiresColor ?? variantSchema === "size_color";
+
+  const valueOptions = product.valueOptions ?? [];
+  const colorOptions = product.colorOptions ?? [];
+
+  const firstAvailableVariant = useMemo(() => {
+    if (product.firstAvailableVariantId != null) {
+      return (
+        variants.find((variant) => variant.id === product.firstAvailableVariantId) ??
+        null
+      );
+    }
+
+    return variants.find(hasStock) ?? null;
+  }, [product.firstAvailableVariantId, variants]);
+
+  const defaultValue = normalizeOption(firstAvailableVariant?.value ?? valueOptions[0] ?? "");
+  const defaultColor = normalizeOption(firstAvailableVariant?.color ?? colorOptions[0] ?? "");
+
+  const [selectedValue, setSelectedValue] = useState(defaultValue);
+  const [selectedColor, setSelectedColor] = useState(defaultColor);
+
+  useEffect(() => {
+    setSelectedValue(defaultValue);
+  }, [defaultValue]);
+
+  useEffect(() => {
+    setSelectedColor(defaultColor);
+  }, [defaultColor]);
+
+  const selectedVariant = useMemo(() => {
+    if (!variants.length) return null;
+
+    if (variantSchema === "no_variant") {
+      return variants.length === 1
+        ? variants[0]
+        : firstAvailableVariant ?? variants[0] ?? null;
+    }
+
+    if (variantSchema === "size_color") {
+      if (!selectedValue || !selectedColor) return null;
+      return getVariantForColorValue(product, selectedColor, selectedValue);
+    }
+
+    if (variantSchema === "jean_size" || variantSchema === "shoe_size") {
+      if (!selectedValue) return null;
+
+      return (
+        getVariantsForValue(product, selectedValue).find(hasStock) ??
+        getVariantsForValue(product, selectedValue)[0] ??
+        null
+      );
+    }
+
+    return null;
+  }, [
+    variants,
+    variantSchema,
+    firstAvailableVariant,
+    product,
+    selectedColor,
+    selectedValue,
+  ]);
+
+  const hasValue = requiresValue && valueOptions.length > 0;
+  const hasColor = requiresColor && colorOptions.length > 0;
+
+  const isInvalidCombo = useMemo(() => {
+    if (!variants.length) return false;
+    if (variantSchema === "no_variant") return false;
+
+    if (variantSchema === "size_color") {
+      return hasValue && hasColor && !!selectedValue && !!selectedColor && !selectedVariant;
+    }
+
+    if (variantSchema === "jean_size" || variantSchema === "shoe_size") {
+      if (!selectedValue) return false;
+      return getVariantsForValue(product, selectedValue).length === 0;
+    }
+
+    return false;
+  }, [
+    variants,
+    variantSchema,
+    hasValue,
+    hasColor,
+    selectedValue,
+    selectedColor,
+    selectedVariant,
+    product,
+  ]);
+
+  const displayVariant = useMemo(
+    () =>
+      resolveDisplayVariant({
+        product,
+        selectedVariant,
+        selectedColor,
+        selectedValue,
+        firstAvailableVariant,
+      }),
+    [product, selectedVariant, selectedColor, selectedValue, firstAvailableVariant]
+  );
+
+  const helperSelectionText = useMemo(() => {
+    if (variantSchema !== "size_color") {
+      return requiresColor
+        ? "Selecciona una talla y color."
+        : "Selecciona una talla.";
+    }
+
+    if (!selectedColor) return "Selecciona un color.";
+    if (!selectedValue) return "Selecciona una talla.";
+
+    return "Selecciona otra talla o color.";
+  }, [variantSchema, requiresColor, selectedColor, selectedValue]);
+
+  const selectedOutOfStock = useMemo(() => {
+    if (isInvalidCombo) return true;
+
+    if (variantSchema === "no_variant") {
+      return (product.stock_total ?? 0) <= 0;
+    }
+
+    return !hasStock(selectedVariant);
+  }, [isInvalidCombo, variantSchema, product.stock_total, selectedVariant]);
+
+  const availableStock = useMemo(() => {
+    if (variantSchema === "no_variant") return product.stock_total ?? 0;
+    return selectedVariant?.stock ?? 0;
+  }, [variantSchema, product.stock_total, selectedVariant]);
+
+  const isSizeSoldOut = (value: string) => {
+    if (!requiresValue) return (product.stock_total ?? 0) <= 0;
+
+    const normalizedValue = normalizeOption(value);
+
+    if (variantSchema === "size_color") {
+      if (!selectedColor) return true;
+      const variant = getVariantForColorValue(product, selectedColor, normalizedValue);
+      if (!variant) return true;
+      return !hasStock(variant);
+    }
+
+    return !getVariantsForValue(product, normalizedValue).some(hasStock);
+  };
+
+  const isColorSoldOut = (color: string) => {
+    if (!requiresColor) return false;
+    return !getVariantsForColor(product, color).some(hasStock);
+  };
+
+  const selectColor = (color: string) => {
+    if (isColorSoldOut(color)) return;
+    if (selectedColor === color) return;
+    setSelectedColor(color);
+  };
+
+  const selectValue = (value: string) => {
+    if (isSizeSoldOut(value)) return;
+    if (selectedValue === value) return;
+    setSelectedValue(value);
+  };
+
+  return {
+    variantSchema,
+    requiresValue,
+    requiresColor,
+    valueOptions,
+    colorOptions,
+    selectedValue,
+    selectedColor,
+    selectedVariant,
+    displayVariant,
+    availableStock,
+    canAdd: !selectedOutOfStock,
+    uiSoldOut: product.sold_out === true || selectedOutOfStock,
+    helperSelectionText,
+    isInvalidCombo,
+    isSizeSoldOut,
+    isColorSoldOut,
+    selectValue,
+    selectColor,
+  };
+}
+
+function ProductMedia({
+  productName,
+  galleryImages,
+  fallbackImage,
+  soldOut,
+}: {
+  productName: string;
+  galleryImages: GalleryImage[];
+  fallbackImage: string | null;
+  soldOut: boolean;
+}) {
+  return (
+    <div>
+      <div className="pdp-hero">
+        <div className="pdp-hero-bleed">
+          {galleryImages.length > 0 ? (
+            <ProductGallery
+              images={galleryImages}
+              productName={productName}
+              soldOut={soldOut}
+              variant="pdp"
+            />
+          ) : fallbackImage ? (
+            <div className="aspect-square w-full bg-black/20">
+              <img
+                src={fallbackImage}
+                alt={productName || "Producto"}
+                className="h-full w-full object-cover"
+                loading="eager"
+              />
+            </div>
+          ) : (
+            <div className="aspect-square w-full bg-black/20">
+              <div className="flex h-full w-full items-center justify-center text-neutral-600">
+                Sin imagen
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="pdp-hero-fade" />
+      </div>
+    </div>
+  );
+}
+
+function ProductHeader({ name, price, slug }: { name: string; price: string; slug: string }) {
+  return (
+    <div className="relative flex items-start gap-3">
+      <div className="pr-12">
+        <h1 className="type-page-title max-w-[12ch] text-neutral-100 md:max-w-[14ch]">
+          {name}
+        </h1>
+        <p className="type-body mt-2 text-white/72">{formatPriceCOP(price)}</p>
+      </div>
+
+      <div className="absolute right-0 top-0">
+        <ShareButton
+          title={`${name} | Kame.Col`}
+          url={`/producto/${encodeURIComponent(slug)}`}
+          ariaLabel="Compartir producto"
+        />
+      </div>
+    </div>
+  );
+}
+
+function ProductSelectors({
+  selection,
+  sizeGuideTrigger,
+}: {
+  selection: SelectionState;
+  sizeGuideTrigger: React.ReactNode;
+}) {
+  const {
+    requiresValue,
+    requiresColor,
+    valueOptions,
+    colorOptions,
+    selectedValue,
+    selectedColor,
+    variantSchema,
+    selectValue,
+    selectColor,
+    isSizeSoldOut,
+    isColorSoldOut,
+  } = selection;
+
+  if (
+    !((requiresValue && valueOptions.length > 0) ||
+      (requiresColor && colorOptions.length > 0))
+  ) {
+    return !requiresValue && !requiresColor && sizeGuideTrigger ? (
+      <div className="flex items-center">{sizeGuideTrigger}</div>
+    ) : null;
+  }
+
+  return (
+    <div className="mt-6 space-y-4">
+      {!requiresValue && !requiresColor && sizeGuideTrigger && (
+        <div className="flex items-center">{sizeGuideTrigger}</div>
+      )}
+
+      <div className="pdp-controls-grid">
+        <div>
+          {requiresColor && colorOptions.length > 0 ? (
+            <>
+              <div className="type-section-title md:justify-end">Color</div>
+              <div className="pdp-variant-section">
+                <div className="pdp-color-grid">
+                  {colorOptions.map((color) => {
+                    const soldOut = isColorSoldOut(color);
+                    const selected = selectedColor === color;
+
+                    return (
+                      <button
+                        key={color}
+                        type="button"
+                        className={
+                          "pdp-color-chip " +
+                          (selected ? "pdp-color-chip--selected " : "") +
+                          (soldOut ? "pdp-color-chip--disabled " : "")
+                        }
+                        disabled={soldOut}
+                        onClick={() => selectColor(color)}
+                        aria-pressed={selected}
+                        aria-disabled={soldOut}
+                        title={soldOut ? `${color} (sold out)` : color}
+                      >
+                        {color}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          ) : (
+            <div />
+          )}
+        </div>
+
+        <div>
+          {requiresValue && valueOptions.length > 0 ? (
+            <>
+              <div className="flex items-center justify-between gap-3">
+                <div className="type-section-title">Talla</div>
+                {sizeGuideTrigger}
+              </div>
+
+              <div className="pdp-variant-section">
+                <div className="pdp-size-grid">
+                  {valueOptions.map((value) => {
+                    const soldOut = isSizeSoldOut(value);
+                    const selected = selectedValue === value;
+
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        className={
+                          "pdp-size-item " +
+                          (selected ? "pdp-size-item--selected " : "") +
+                          (soldOut ? "pdp-size-item--disabled " : "")
+                        }
+                        disabled={soldOut}
+                        onClick={() => selectValue(value)}
+                        aria-pressed={selected}
+                        aria-disabled={soldOut}
+                        title={soldOut ? `${value} (sold out)` : value}
+                      >
+                        {value}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          ) : (
+            <div />
+          )}
+        </div>
+      </div>
+
+      {variantSchema === "no_variant" ? null : null}
+    </div>
+  );
+}
+
+function ProductPurchaseBox({
+  availableStock,
+  canAdd,
+  helperSelectionText,
+  isInvalidCombo,
+  onAddToCart,
+  selectedVariant,
+}: {
+  availableStock: number;
+  canAdd: boolean;
+  helperSelectionText: string;
+  isInvalidCombo: boolean;
+  onAddToCart: () => void;
+  selectedVariant: ProductVariant | null;
+}) {
+  return (
+    <div className="mt-6">
+      <div className="type-body mb-3 flex flex-wrap items-center gap-2 text-white/65">
+        {isInvalidCombo ? (
+          <span className="type-body text-white/60">
+            Esta combinación no está disponible. Prueba otra talla o color.
+          </span>
+        ) : availableStock > 0 ? (
+          <span className="type-body text-white/72">
+            {availableStock} unidad{availableStock !== 1 ? "es" : ""} disponible
+            {availableStock !== 1 ? "s" : ""}
+          </span>
+        ) : selectedVariant ? (
+          <span className="type-body text-white/60">Agotado</span>
+        ) : (
+          <span className="type-body text-white/60">{helperSelectionText}</span>
+        )}
+      </div>
+
+      <Button
+        type="button"
+        onClick={onAddToCart}
+        disabled={!canAdd}
+        variant="primary"
+        fullWidth
+        className="type-action rounded-xl disabled:bg-white/10 disabled:text-white/70 disabled:shadow-none"
+      >
+        {canAdd ? "Agregar al carrito" : "Sin stock"}
+      </Button>
+    </div>
+  );
+}
+
+function ProductDescription({
+  description,
+  expanded,
+  onToggle,
+}: {
+  description?: string | null;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  if (!description) return null;
+
+  return (
+    <section className="mt-8 border-t border-white/10 pt-6">
+      <h2 className="type-section-title text-neutral-100">Descripción</h2>
+
+      <div
+        className={
+          expanded
+            ? "type-body mt-3 whitespace-pre-wrap text-white/84"
+            : "type-body mt-3 whitespace-pre-wrap text-white/84 line-clamp-4"
+        }
+      >
+        {description}
+      </div>
+
+      <div className="mt-3">
+        <button
+          type="button"
+          onClick={onToggle}
+          className="type-action text-white/85 hover:text-white"
+        >
+          {expanded ? "Ver menos" : "Ver más"}
+        </button>
+      </div>
+    </section>
+  );
 }
 
 export function ProductDetailClient({ product }: ProductDetailClientProps) {
-  const addItem = useCartStore((s) => s.addItem);
-  const openCart = useCartStore((s) => s.openCart);
+  const addItem = useCartStore((state) => state.addItem);
+  const openCart = useCartStore((state) => state.openCart);
 
-  const variants = useMemo(() => product.variants ?? [], [product.variants]);
-
-  const variantSchema = (product.category?.variant_schema || "size_color") as
-    | "size_color"
-    | "jean_size"
-    | "shoe_size"
-    | "no_variant"
-    | string;
-
-
-  const requiresValue =
-    variantSchema === "size_color" ||
-    variantSchema === "jean_size" ||
-    variantSchema === "shoe_size";
-  const requiresColor = variantSchema === "size_color";
-
-  const hasValue = requiresValue && variants.some((v) => v.value);
-  const hasColor = requiresColor && variants.some((v) => v.color);
-
-  const valueOptions = useMemo(() => {
-    const rawValues = variants
-      .map((v) => v.value)
-      .filter((v): v is string => Boolean(v && String(v).trim()));
-
-    return sortVariantValuesForSchema(
-      rawValues,
-      variantSchema,
-      product.category?.slug
-    );
-  }, [variants, variantSchema, product.category?.slug]);
-
-  const colorOptions = useMemo(() => {
-    const set = new Set<string>();
-    variants.forEach((v) => {
-      if (v.color) set.add(v.color);
-    });
-    return Array.from(set);
-  }, [variants]);
-
-  const firstWithValue = valueOptions[0] ?? "";
-  const firstWithColor = colorOptions[0] ?? "";
-
-  const firstAvailableVariant = useMemo(
-    () => variants.find((v: any) => (v.stock ?? 0) > 0) ?? null,
-    [variants]
-  );
-
-  const findByColorPreferImages = (color: string) => {
-    const c = (color || "").trim();
-    if (!c) return null;
-    const withImages = variants.find((v) => v.color === c && (v.images?.length ?? 0) > 0) ?? null;
-    return withImages ?? (variants.find((v) => v.color === c) ?? null);
-  };
-
-  const findByValuePreferImages = (val: string) => {
-    const v0 = (val || "").trim();
-    if (!v0) return null;
-    const withImages = variants.find((v) => v.value === v0 && (v.images?.length ?? 0) > 0) ?? null;
-    return withImages ?? (variants.find((v) => v.value === v0) ?? null);
-  };
-
-  const defaultValue = (firstAvailableVariant?.value ?? firstWithValue) as string;
-  const defaultColor = (firstAvailableVariant?.color ?? firstWithColor) as string;
-
-  const [selectedValue, setSelectedValue] = useState<string>(() => defaultValue);
-  const [selectedColor, setSelectedColor] = useState<string>(() => defaultColor);
   const [detailsExpanded, setDetailsExpanded] = useState(false);
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
 
-
-  const resolveSizeGuideKey = (slug?: string) => {
-    if (!slug) return null;
-
-    if (slug === "camisetas") return "oversize" as const;
-    if (slug === "hoodies") return "hoodie" as const;
-    if (slug === "cuadros") return "frame_20x30" as const;
-
-    return null;
-  };
-
+  const selection = useProductSelection(product);
   const sizeGuideKey = resolveSizeGuideKey(product.category?.slug);
+
+  const resolvedGalleryImages = useMemo(() => {
+    const variantId = selection.displayVariant?.id;
+    if (variantId == null) return product.galleryImages ?? [];
+    return product.variantGalleryImagesById?.[String(variantId)] ?? product.galleryImages ?? [];
+  }, [product, selection.displayVariant]);
+
+  const resolvedPrimaryImage = useMemo(() => {
+    const variantId = selection.displayVariant?.id;
+    if (variantId == null) {
+      return product.primaryImage ?? product.canonicalProductImage ?? null;
+    }
+
+    return (
+      product.variantPrimaryImageById?.[String(variantId)] ??
+      product.primaryImage ??
+      product.canonicalProductImage ??
+      null
+    );
+  }, [product, selection.displayVariant]);
 
   const sizeGuideTrigger = sizeGuideKey ? (
     <button
@@ -183,445 +700,25 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
     </button>
   ) : null;
 
-  const findExactSizeColorVariant = (value: string, color: string) => {
-    const normalizedValue = (value || "").trim();
-    const normalizedColor = (color || "").trim();
-    if (!normalizedValue || !normalizedColor) return null;
-
-    return (
-      variants.find(
-        (v) =>
-          (v.value || "").trim() === normalizedValue &&
-          (v.color || "").trim() === normalizedColor
-      ) ?? null
-    );
-  };
-
-  const variantMatrix = useMemo(() => {
-    const byColor = new Map<string, ProductVariant[]>();
-    const byValue = new Map<string, ProductVariant[]>();
-    const byColorValue = new Map<string, ProductVariant>();
-
-    variants.forEach((variant) => {
-      const color = String(variant.color || "").trim();
-      const value = String(variant.value || "").trim();
-
-      if (color) {
-        const colorList = byColor.get(color) ?? [];
-        colorList.push(variant);
-        byColor.set(color, colorList);
-      }
-
-      if (value) {
-        const valueList = byValue.get(value) ?? [];
-        valueList.push(variant);
-        byValue.set(value, valueList);
-      }
-
-      if (color && value) {
-        byColorValue.set(`${color}__${value}`, variant);
-      }
-    });
-
-    return { byColor, byValue, byColorValue };
-  }, [variants]);
-
-  const getVariantsForColor = (color: string) => {
-    const normalizedColor = String(color || "").trim();
-    if (!normalizedColor) return [] as ProductVariant[];
-    return variantMatrix.byColor.get(normalizedColor) ?? [];
-  };
-
-  const getVariantsForValue = (value: string) => {
-    const normalizedValue = String(value || "").trim();
-    if (!normalizedValue) return [] as ProductVariant[];
-    return variantMatrix.byValue.get(normalizedValue) ?? [];
-  };
-
-  const getVariantForColorValue = (color: string, value: string) => {
-    const normalizedColor = String(color || "").trim();
-    const normalizedValue = String(value || "").trim();
-    if (!normalizedColor || !normalizedValue) return null;
-    return variantMatrix.byColorValue.get(`${normalizedColor}__${normalizedValue}`) ?? null;
-  };
-
-  const colorHasAnyUsableVariant = (color: string) => {
-    if (!requiresColor) return true;
-    return getVariantsForColor(color).some((variant) => (variant.stock ?? 0) > 0);
-  };
-
-  const getAvailableSizesForColor = (color: string) => {
-    const normalizedColor = String(color || "").trim();
-    if (!normalizedColor) return [] as string[];
-
-    return valueOptions.filter((value) =>
-      getVariantsForColor(normalizedColor).some(
-        (variant) =>
-          String(variant.value || "").trim() === value &&
-          (variant.stock ?? 0) > 0
-      )
-    );
-  };
-
-  const getExistingSizesForColor = (color: string) => {
-    const normalizedColor = String(color || "").trim();
-    if (!normalizedColor) return [] as string[];
-
-    return valueOptions.filter((value) =>
-      getVariantsForColor(normalizedColor).some(
-        (variant) => String(variant.value || "").trim() === value
-      )
-    );
-  };
-
-  const sizeExistsForSelectedColor = (value: string, color: string) => {
-    return !!getVariantForColorValue(color, value);
-  };
-
-  const sizeInSelectedColorHasStock = (value: string, color: string) => {
-    const match = getVariantForColorValue(color, value);
-    return !!match && (match.stock ?? 0) > 0;
-  };
-
-
-  const tallaDisponible = (val: string) => {
-    if (!requiresValue) return (product.stock_total ?? 0) > 0;
-
-    if (variantSchema === "size_color") {
-      if (!selectedColor) return false;
-      return getAvailableSizesForColor(selectedColor).includes((val || "").trim());
-    }
-
-    if (variantSchema === "jean_size") {
-      return variants.some((v: any) => v.value === val && (v.stock ?? 0) > 0);
-    }
-
-    return variants.some((v: any) => v.value === val && (v.stock ?? 0) > 0);
-  };
-
-  const colorDisponible = (color: string) => {
-    if (!requiresColor) return true;
-    return colorHasAnyUsableVariant(color);
-  };
-
-  const tallaAgotada = (val: string) => {
-    if (!requiresValue) return (product.stock_total ?? 0) <= 0;
-
-    if (variantSchema === "size_color") {
-      if (!selectedColor) return true;
-      if (!sizeExistsForSelectedColor(val, selectedColor)) return true;
-      return !sizeInSelectedColorHasStock(val, selectedColor);
-    }
-
-    if (variantSchema === "jean_size") {
-      return !variants.some((v: any) => v.value === val && (v.stock ?? 0) > 0);
-    }
-
-    return !variants.some((v: any) => v.value === val && (v.stock ?? 0) > 0);
-  };
-
-  const colorAgotado = (color: string) => {
-    if (!requiresColor) return false;
-    return !colorDisponible(color);
-  };
-
-  const pickNextValueForColor = (color: string) => {
-    const normalizedColor = (color || "").trim();
-    if (!normalizedColor) return "";
-
-    const availableSizes = getAvailableSizesForColor(normalizedColor);
-    if (selectedValue && availableSizes.includes((selectedValue || "").trim())) {
-      return selectedValue;
-    }
-
-    if (availableSizes.length > 0) {
-      return availableSizes[0];
-    }
-
-    const existingSizes = getExistingSizesForColor(normalizedColor);
-    if (selectedValue && existingSizes.includes((selectedValue || "").trim())) {
-      return selectedValue;
-    }
-
-    return existingSizes[0] ?? "";
-  };
-
-  const pickNextColorForValue = (val: string) => {
-    const normalizedValue = (val || "").trim();
-    if (!normalizedValue) return "";
-
-    if (selectedColor) {
-      const exactMatch = getVariantForColorValue(selectedColor, normalizedValue);
-      if (exactMatch && (exactMatch.stock ?? 0) > 0) {
-        return selectedColor;
-      }
-
-      if (exactMatch) {
-        return selectedColor;
-      }
-    }
-
-    const colorsByDisplayOrder = colorOptions.filter((color) => {
-      const variant = getVariantForColorValue(color, normalizedValue);
-      return !!variant && (variant.stock ?? 0) > 0;
-    });
-
-    if (colorsByDisplayOrder.length > 0) {
-      return colorsByDisplayOrder[0];
-    }
-
-    const existingColorsByDisplayOrder = colorOptions.filter((color) => {
-      return !!getVariantForColorValue(color, normalizedValue);
-    });
-
-    return existingColorsByDisplayOrder[0] ?? "";
-  };
-  const firstAvailableColor = useMemo(() => {
-    if (!requiresColor) return "";
-    return colorOptions.find((color) => colorHasAnyUsableVariant(color)) ?? firstWithColor;
-  }, [requiresColor, colorOptions, firstWithColor, variantMatrix]);
-  const helperSelectionText = useMemo(() => {
-    if (variantSchema !== "size_color") {
-      return requiresColor ? "Selecciona una talla y color." : "Selecciona una talla.";
-    }
-
-    if (!selectedColor) {
-      return "Selecciona un color.";
-    }
-
-    if (!selectedValue) {
-      return "Selecciona una talla.";
-    }
-
-    return "Selecciona otra talla o color.";
-  }, [variantSchema, requiresColor, selectedColor, selectedValue]);
-  useEffect(() => {
-    if (variantSchema !== "size_color") return;
-    if (!requiresColor) return;
-    if (!colorOptions.length) return;
-
-    const currentColorHasStock =
-      !!selectedColor && colorHasAnyUsableVariant(selectedColor);
-
-    if (!currentColorHasStock) {
-      const fallbackColor = firstAvailableColor || firstWithColor;
-      if (fallbackColor && fallbackColor !== selectedColor) {
-        setSelectedColor(fallbackColor);
-      }
-      return;
-    }
-
-    const currentSizeStillValid =
-      !!selectedValue &&
-      !!getVariantForColorValue(selectedColor, selectedValue) &&
-      sizeInSelectedColorHasStock(selectedValue, selectedColor);
-
-    if (!currentSizeStillValid) {
-      const fallbackValue = pickNextValueForColor(selectedColor);
-      if (fallbackValue !== selectedValue) {
-        setSelectedValue(fallbackValue);
-      }
-    }
-  }, [
-    variantSchema,
-    requiresColor,
-    colorOptions,
-    selectedColor,
-    selectedValue,
-    firstAvailableColor,
-    firstWithColor,
-    variantMatrix,
-  ]);
-
-  const selectedVariant = useMemo(() => {
-    if (!variants.length) return null;
-
-    if (variantSchema === "no_variant") {
-      return variants.length === 1 ? variants[0] : firstAvailableVariant ?? variants[0] ?? null;
-    }
-
-    if (variantSchema === "size_color") {
-      if (!selectedValue || !selectedColor) return null;
-      return getVariantForColorValue(selectedColor, selectedValue);
-    }
-
-    if (variantSchema === "jean_size" || variantSchema === "shoe_size") {
-      if (!selectedValue) return null;
-      const available =
-        variants.find((v: any) => v.value === selectedValue && (v.stock ?? 0) > 0) ?? null;
-      return available ?? (variants.find((v) => v.value === selectedValue) ?? null);
-    }
-
-    return null;
-  }, [variants, selectedValue, selectedColor, variantSchema, firstAvailableVariant]);
-
-  const isInvalidCombo = useMemo(() => {
-    if (!variants.length) return false;
-
-    if (variantSchema === "no_variant") return false;
-
-    if (variantSchema === "size_color") {
-      return (
-        hasValue &&
-        hasColor &&
-        !!selectedValue &&
-        !!selectedColor &&
-        !selectedVariant
-      );
-    }
-
-    if (variantSchema === "jean_size" || variantSchema === "shoe_size") {
-      if (!selectedValue) return false;
-      return !variants.some((v) => v.value === selectedValue);
-    }
-
-    return false;
-  }, [variants, variantSchema, hasValue, hasColor, selectedValue, selectedColor, selectedVariant]);
-
-  const displayVariant = useMemo(() => {
-    if (!variants.length) return null;
-
-    // Visual-only fallback order (do NOT affect cart):
-    // - SIZE_COLOR: the gallery must respond to color, not size.
-    //   1) exact selectedVariant
-    //   2) any variant of the selected color (prefer one with images)
-    //   3) first available by stock
-    //   4) first variant
-    // - Other schemas can keep the broader fallback behavior.
-    if (variantSchema === "size_color") {
-      const byColor = selectedColor ? findByColorPreferImages(selectedColor) : null;
-
-      const exactByColorValue =
-        selectedColor && selectedValue
-          ? getVariantForColorValue(selectedColor, selectedValue)
-          : null;
-
-      return (
-        exactByColorValue ??
-        selectedVariant ??
-        byColor ??
-        firstAvailableVariant ??
-        variants[0] ??
-        null
-      );
-    }
-
-    const byColor = selectedColor ? findByColorPreferImages(selectedColor) : null;
-    const byValue = selectedValue ? findByValuePreferImages(selectedValue) : null;
-
-    return (
-      selectedVariant ??
-      byColor ??
-      byValue ??
-      firstAvailableVariant ??
-      variants[0] ??
-      null
-    );
-  }, [
-    variants,
-    selectedVariant,
-    selectedColor,
-    selectedValue,
-    firstAvailableVariant,
-    variantSchema,
-  ]);
-
-  // Canonical product image before any client interaction.
-  // This is the product-level default visual reference and should conceptually
-  // match the server-side metadata image selection whenever possible.
-  const img = useMemo(() => getPrimaryImageUrl(product as any), [product]);
-
-  // PDP visual priority:
-  // 1) displayVariant image (color-aware visual currently shown to the user)
-  // 2) canonical product image (default product visual before interaction)
-  // This must remain a UI reference only and must not make server metadata depend
-  // on client-side selected state.
-  const primaryImage =
-    getPrimaryImageUrl(displayVariant as any) ||
-    img ||
-    null;
-
-  const normalizeImages = (input: any): Array<{ url: string; thumb_url?: string | null; alt_text?: string | null }> => {
-    const arr: any[] = Array.isArray(input) ? input : input ? [input] : [];
-
-    return arr
-      .map((img: any) => {
-        // Case 1: already a URL string
-        if (typeof img === "string") {
-          const raw = img.trim();
-          if (!raw) return null;
-          const url = normalizeMediaUrl(raw);
-          if (!url) return null;
-          return { url, thumb_url: url };
-        }
-
-        // Case 2: object with different possible keys
-        if (img && typeof img === "object") {
-          const rawUrl = (img.url || img.image || img.src || img.image_url || "").toString().trim();
-
-          const rawThumb = (
-            img.thumb_url ||
-            img.image_thumb ||
-            img.thumbnail ||
-            img.thumb ||
-            img.thumbUrl ||
-            rawUrl
-          )
-            .toString()
-            .trim();
-
-          const altTextRaw = (img.alt_text || img.altText || img.alt || "").toString().trim();
-
-          if (!rawUrl) return null;
-
-          const url = normalizeMediaUrl(rawUrl);
-          if (!url) return null;
-
-          const thumbNorm = normalizeMediaUrl(rawThumb || rawUrl);
-          const thumb_url = thumbNorm || url;
-
-          // Ensure we always return the ProductImage-ish contract
-          return {
-            ...img,
-            url,
-            thumb_url,
-            alt_text: altTextRaw || null,
-          };
-        }
-
-        return null;
-      })
-      .filter(Boolean) as Array<{ url: string; thumb_url?: string | null; alt_text?: string | null }>;
-  };
-
-  // Gallery source of truth for the PDP visual:
-  // - If the current displayVariant exposes images, use those first.
-  // - Otherwise fall back to product-level images.
-  // This is the best functional reference for what the shopper perceives as the
-  // product's default visual on first load.
-  const galleryImages =
-    displayVariant && (displayVariant as any).images
-      ? normalizeImages((displayVariant as any).images)
-      : normalizeImages((product as any).images);
-
   const handleAddToCart = () => {
-    if (isInvalidCombo) return;
+    if (selection.isInvalidCombo) return;
 
-    // no_variant: no selector; if there is a single variant use it, otherwise allow product-level stock only.
-    if (variantSchema === "no_variant") {
-      const v0 = variants.length === 1 ? variants[0] : null;
-      if (!v0) return;
+    const variants = product.variants ?? [];
+
+    if (selection.variantSchema === "no_variant") {
+      const variant = variants.length === 1 ? variants[0] : null;
+      if (!variant) return;
       if ((product.stock_total ?? 0) <= 0) return;
 
       addItem(
         {
-          variantId: v0.id,
+          variantId: variant.id,
           productId: product.id,
           productName: product.name,
           productSlug: product.slug,
-          variantLabel: buildVariantLabel(v0, variantSchema),
+          variantLabel: buildVariantLabel(variant, selection.variantSchema),
           price: product.price,
-          imageUrl: primaryImage,
+          imageUrl: resolvedPrimaryImage,
         },
         1
       );
@@ -630,7 +727,8 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
       return;
     }
 
-    const variantToAdd = selectedVariant ?? (variants.length === 1 ? variants[0] : null);
+    const variantToAdd =
+      selection.selectedVariant ?? (variants.length === 1 ? variants[0] : null);
     if (!variantToAdd) return;
 
     addItem(
@@ -639,9 +737,9 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
         productId: product.id,
         productName: product.name,
         productSlug: product.slug,
-        variantLabel: buildVariantLabel(variantToAdd, variantSchema),
+        variantLabel: buildVariantLabel(variantToAdd, selection.variantSchema),
         price: product.price,
-        imageUrl: primaryImage,
+        imageUrl: resolvedPrimaryImage,
       },
       1
     );
@@ -649,270 +747,42 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
     openCart();
   };
 
-  const selectedOutOfStock = useMemo(() => {
-    if (isInvalidCombo) return true;
-
-    if (variantSchema === "no_variant") {
-      return (product.stock_total ?? 0) <= 0;
-    }
-
-    if (variantSchema === "size_color") {
-      if (!selectedVariant) return true;
-      return (selectedVariant.stock ?? 0) <= 0;
-    }
-
-    if (variantSchema === "jean_size" || variantSchema === "shoe_size") {
-      if (!selectedValue) return true;
-      if (!selectedVariant) return true;
-      return (selectedVariant.stock ?? 0) <= 0;
-    }
-
-    return true;
-  }, [isInvalidCombo, variantSchema, product.stock_total, selectedVariant, selectedValue]);
-
-  const canAdd = !selectedOutOfStock;
-
-  const availableStock = useMemo(() => {
-    if (variantSchema === "no_variant") return product.stock_total ?? 0;
-    return selectedVariant ? (selectedVariant.stock ?? 0) : 0;
-  }, [variantSchema, product.stock_total, selectedVariant]);
-
-  const uiSoldOut = (product.sold_out === true) || selectedOutOfStock;
-
   return (
     <section className="mx-auto max-w-6xl pt-0 pb-6 md:pb-10">
-
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-10">
-        <div>
-          <div className="pdp-hero">
-            <div className="pdp-hero-bleed">
-              {Array.isArray(galleryImages) && galleryImages.length > 0 ? (
-                <ProductGallery
-                  images={galleryImages}
-                  productName={product.name}
-                  soldOut={uiSoldOut}
-                  variant="pdp"
-                />
-              ) : img ? (
-                <div className="aspect-square w-full bg-black/20">
-                  <img
-                    src={img}
-                    alt={product?.name || "Producto"}
-                    className="h-full w-full object-cover"
-                    loading="eager"
-                  />
-                </div>
-              ) : (
-                <div className="aspect-square w-full bg-black/20">
-                  <div className="flex h-full w-full items-center justify-center text-neutral-600">
-                    {/* placeholder */}
-                    Sin imagen
-                  </div>
-                </div>
-              )}
-            </div>
-
-
-
-            <div className="pdp-hero-fade" />
-          </div>
-        </div>
+        <ProductMedia
+          productName={product.name}
+          galleryImages={resolvedGalleryImages}
+          fallbackImage={resolvedPrimaryImage}
+          soldOut={selection.uiSoldOut}
+        />
 
         <div className="px-4 pt-4 md:px-6">
-          {/* Header (arriba del fold) */}
-          <div className="relative flex items-start gap-3">
-            <div className="pr-12">
-              <h1 className="type-page-title max-w-[12ch] text-neutral-100 md:max-w-[14ch]">
-                {product.name}
-              </h1>
-              <p className="type-body mt-2 text-white/72">
-                ${parseFloat(product.price).toLocaleString("es-CO")}
-              </p>
-            </div>
+          <ProductHeader
+            name={product.name}
+            price={product.price}
+            slug={product.slug}
+          />
 
-            <div className="absolute right-0 top-0">
-              <ShareButton
-                title={`${product.name} | Kame.Col`}
-                url={`/producto/${encodeURIComponent(product.slug)}`}
-                ariaLabel="Compartir producto"
-              />
-            </div>
-          </div>
+          <ProductSelectors
+            selection={selection}
+            sizeGuideTrigger={sizeGuideTrigger}
+          />
 
-          {/* Selectores */}
-          <div className="mt-6 space-y-4">
-            {!requiresValue && !requiresColor && sizeGuideTrigger && (
-              <div className="flex items-center">
-                {sizeGuideTrigger}
-              </div>
-            )}
-            {((requiresValue && valueOptions.length > 0) ||
-              (requiresColor && colorOptions.length > 0)) ? (
-              <div className="pdp-controls-grid">
-                {/* Color (izquierda) */}
-                <div>
-                  {requiresColor && colorOptions.length > 0 ? (
-                    <>
-                      <div className="type-section-title md:justify-end">Color</div>
-                      <div className="pdp-variant-section">
-                        <div className="pdp-color-grid">
-                          {colorOptions.map((color) => {
-                            const soldOut = colorAgotado(color);
-                            const selected = selectedColor === color;
+          <ProductPurchaseBox
+            availableStock={selection.availableStock}
+            canAdd={selection.canAdd}
+            helperSelectionText={selection.helperSelectionText}
+            isInvalidCombo={selection.isInvalidCombo}
+            onAddToCart={handleAddToCart}
+            selectedVariant={selection.selectedVariant}
+          />
 
-                            return (
-                              <button
-                                key={color}
-                                type="button"
-                                className={
-                                  "pdp-color-chip " +
-                                  (selected ? "pdp-color-chip--selected " : "") +
-                                  (soldOut ? "pdp-color-chip--disabled " : "")
-                                }
-                                disabled={soldOut}
-                                onClick={() => {
-                                  if (soldOut) return;
-                                  if (selectedColor === color) return;
-
-                                  setSelectedColor(color);
-
-                                  if (variantSchema === "size_color") {
-                                    const nextValue = pickNextValueForColor(color);
-                                    if (nextValue !== selectedValue) {
-                                      setSelectedValue(nextValue);
-                                    }
-                                  }
-                                }}
-                                aria-pressed={selected}
-                                aria-disabled={soldOut}
-                                title={soldOut ? `${color} (sold out)` : color}
-                              >
-                                {color}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    // Keep grid alignment even when color isn't applicable
-                    <div />
-                  )}
-                </div>
-
-                {/* Talla (derecha) */}
-                <div>
-                  {requiresValue && valueOptions.length > 0 ? (
-                    <>
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="type-section-title">Talla</div>
-                        {sizeGuideTrigger ? sizeGuideTrigger : null}
-                      </div>
-
-                      <div className="pdp-variant-section">
-                        <div className="pdp-size-grid">
-                          {valueOptions.map((val) => {
-                            const available = tallaDisponible(val);
-                            const soldOut = tallaAgotada(val);
-                            const selected = selectedValue === val;
-                            return (
-                              <button
-                                key={val}
-                                type="button"
-                                className={
-                                  "pdp-size-item " +
-                                  (selected ? "pdp-size-item--selected " : "") +
-                                  (soldOut ? "pdp-size-item--disabled " : "")
-                                }
-                                disabled={soldOut}
-                                onClick={() => {
-                                  if (soldOut) return;
-                                  if (selectedValue === val) return;
-
-                                  setSelectedValue(val);
-
-                                  if (variantSchema === "size_color") {
-                                    const nextColor = pickNextColorForValue(val);
-                                    if (nextColor && nextColor !== selectedColor) {
-                                      setSelectedColor(nextColor);
-                                    }
-                                  }
-                                }}
-                                aria-pressed={selected}
-                                aria-disabled={soldOut}
-                                title={soldOut ? `${val} (sold out)` : val}
-                              >
-                                {val}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    // Keep grid alignment even when talla isn't applicable
-                    <div />
-                  )}
-                </div>
-              </div>
-            ) : null}
-          </div>
-
-          {/* Stock + CTA */}
-          <div className="mt-6">
-            <div className="type-body mb-3 flex flex-wrap items-center gap-2 text-white/65">
-              {isInvalidCombo ? (
-                <span className="type-body text-white/60">
-                  Esta combinación no está disponible. Prueba otra talla o color.
-                </span>
-              ) : availableStock > 0 ? (
-                <span className="type-body text-white/72">
-                  {availableStock} unidad{availableStock !== 1 ? "es" : ""} disponible{availableStock !== 1 ? "s" : ""}
-                </span>
-              ) : selectedVariant ? (
-                <span className="type-body text-white/60">
-                  Agotado
-                </span>
-              ) : (
-                <span className="type-body text-white/60">
-                  {helperSelectionText}
-                </span>
-              )}
-            </div>
-
-            <Button
-              type="button"
-              onClick={handleAddToCart}
-              disabled={!canAdd}
-              variant="primary"
-              fullWidth
-              className="type-action rounded-xl disabled:bg-white/10 disabled:text-white/70 disabled:shadow-none"
-            >
-              {canAdd ? "Agregar al carrito" : "Sin stock"}
-            </Button>
-          </div>
-
-          {/* Contenido inferior: Descripción */}
-          {product.description ? (
-            <section className="mt-8 border-t border-white/10 pt-6">
-              <h2 className="type-section-title text-neutral-100">Descripción</h2>
-
-              <div className={detailsExpanded ? "type-body mt-3 whitespace-pre-wrap text-white/84" : "type-body mt-3 whitespace-pre-wrap text-white/84 line-clamp-4"}>
-                {product.description}
-              </div>
-
-              <div className="mt-3">
-                <button
-                  type="button"
-                  onClick={() => setDetailsExpanded((v) => !v)}
-                  className="type-action text-white/85 hover:text-white"
-                >
-                  {detailsExpanded ? "Ver menos" : "Ver más"}
-                </button>
-              </div>
-
-            </section>
-          ) : null}
+          <ProductDescription
+            description={product.description}
+            expanded={detailsExpanded}
+            onToggle={() => setDetailsExpanded((value) => !value)}
+          />
         </div>
       </div>
 
