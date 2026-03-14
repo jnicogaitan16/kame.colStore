@@ -1,17 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback, useRef, type TouchEvent } from "react";
+import { useEffect, useState, useCallback, useRef, type TouchEvent } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import Navbar, { NavbarNavDepartment } from "./Navbar";
+import Navbar from "./Navbar";
+import type {
+  NormalizedNavCategory,
+  NormalizedNavDepartment,
+} from "../../lib/navigation-normalize";
 import MiniCart from "@/components/cart/MiniCart";
 import { categoryPath } from "@/lib/routes";
 import { useCartStore } from "@/store/cart";
 
 export type HeaderProps = {
-  navDepartments?: NavbarNavDepartment[];
-  categories?: NavbarCategory[];
+  navDepartments?: NormalizedNavDepartment[];
+  categories?: NormalizedNavCategory[];
   cartCount?: number;
 
   // Optional external control hooks (if parent wants to drive UI)
@@ -23,178 +27,24 @@ const MENU_HORIZONTAL_DOMINANCE_RATIO = 1.2;
 const MENU_CLOSE_THRESHOLD_RATIO = 0.32;
 const MENU_FAST_SWIPE_VELOCITY = 0.55;
 
-function normalizeSlug(value: unknown): string {
-  return String(value || "").trim().toLowerCase();
-}
 
-function sanitizeNavDepartments(input: NavbarNavDepartment[] | undefined): NavbarNavDepartment[] {
-  if (!Array.isArray(input)) return [];
-
-  const deptSeen = new Set<string>();
-  const sanitized: NavbarNavDepartment[] = [];
-
-  for (const dept of input) {
-    const deptId = Number((dept as any)?.id) || 0;
-    const deptName = String((dept as any)?.name || "").trim();
-    const deptSlug = normalizeSlug((dept as any)?.slug);
-    const deptSortOrder = typeof (dept as any)?.sort_order === "number" ? (dept as any).sort_order : 0;
-
-    if (!deptId || !deptSlug || !deptName) continue;
-
-    const deptKey = `${deptId}__${deptSlug}`;
-    if (deptSeen.has(deptKey)) continue;
-    deptSeen.add(deptKey);
-
-    const categorySeen = new Set<string>();
-    const rawCategories = Array.isArray((dept as any)?.categories) ? (dept as any).categories : [];
-    const categories: NavbarNavDepartment["categories"] = [];
-
-    for (const category of rawCategories) {
-      const categoryId = String((category as any)?.id ?? "").trim() || normalizeSlug((category as any)?.slug);
-      const categoryName = String((category as any)?.name || "").trim();
-      const categorySlug = normalizeSlug((category as any)?.slug);
-      const categorySortOrder = typeof (category as any)?.sort_order === "number" ? (category as any).sort_order : 0;
-
-      if (!categorySlug || !categoryName) continue;
-
-      const categoryKey = `${categorySlug}`;
-      if (categorySeen.has(categoryKey)) continue;
-      categorySeen.add(categoryKey);
-
-      categories.push({
-        id: categoryId,
-        name: categoryName,
-        slug: categorySlug,
-        sort_order: categorySortOrder,
-      });
-    }
-
-    sanitized.push({
-      id: deptId,
-      name: deptName,
-      slug: deptSlug,
-      sort_order: deptSortOrder,
-      categories,
-    });
-  }
-
-  return sanitized;
-}
-
-export type NavbarCategory = {
-  id: number | string;
-  name: string;
-  slug: string;
-  department_slug?: string | null;
-  department_name?: string | null;
-  department?: {
-    id?: number | string;
-    name?: string | null;
-    slug?: string | null;
-  } | null;
-};
-
-function sanitizeLegacyCategories(input: NavbarCategory[] | undefined): NavbarCategory[] {
-  if (!Array.isArray(input)) return [];
-
-  const seen = new Set<string>();
-  const sanitized: NavbarCategory[] = [];
-
-  for (const category of input) {
-    const name = String((category as any)?.name || "").trim();
-    const slug = normalizeSlug((category as any)?.slug);
-    const id = String((category as any)?.id ?? "").trim() || slug;
-
-    if (!name || !slug) continue;
-
-    const deptSlug =
-      normalizeSlug((category as any)?.department?.slug) ||
-      normalizeSlug((category as any)?.department_slug);
-
-    const key = `${deptSlug}__${slug}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-
-    sanitized.push({
-      id,
-      name,
-      slug,
-    });
-  }
-
-  return sanitized;
-}
-
-function deriveNavDepartmentsFromCategories(input: NavbarCategory[] | undefined): NavbarNavDepartment[] {
-  if (!Array.isArray(input)) return [];
-
-  const deptMap = new Map<string, NavbarNavDepartment>();
-
-  for (const rawCategory of input) {
-    const categoryName = String((rawCategory as any)?.name || "").trim();
-    const categorySlug = normalizeSlug((rawCategory as any)?.slug);
-    if (!categoryName || !categorySlug) continue;
-
-    const departmentObj = (rawCategory as any)?.department || null;
-    const deptSlug = normalizeSlug(
-      departmentObj?.slug ??
-      (rawCategory as any)?.department_slug ??
-      ""
-    );
-    const deptName = String(
-      departmentObj?.name ??
-      (rawCategory as any)?.department_name ??
-      ""
-    ).trim();
-    const deptIdRaw = departmentObj?.id ?? deptSlug;
-    const deptId = Number(deptIdRaw) || String(deptIdRaw || "").trim();
-
-    if (!deptSlug || !deptName || !deptId) continue;
-
-    const deptSortOrder =
-      typeof (departmentObj as any)?.sort_order === "number"
-        ? (departmentObj as any).sort_order
-        : 0;
-
-    if (!deptMap.has(deptSlug)) {
-      deptMap.set(deptSlug, {
-        id: deptId as any,
-        name: deptName,
-        slug: deptSlug,
-        sort_order: deptSortOrder,
-        categories: [],
-      });
-    }
-
-    const dept = deptMap.get(deptSlug)!;
-    const alreadyExists = dept.categories.some((category) => normalizeSlug(category.slug) === categorySlug);
-    if (alreadyExists) continue;
-
-    dept.categories.push({
-      id: String((rawCategory as any)?.id ?? "").trim() || categorySlug,
-      name: categoryName,
-      slug: categorySlug,
-      sort_order: 0,
-    });
-  }
-
-  return Array.from(deptMap.values())
-    .map((dept) => ({
-      ...dept,
-      categories: [...dept.categories].sort((a, b) => {
-        const ao = typeof a.sort_order === "number" ? a.sort_order : 0;
-        const bo = typeof b.sort_order === "number" ? b.sort_order : 0;
-        if (ao !== bo) return ao - bo;
-        return String(a.name || "").localeCompare(String(b.name || ""));
-      }),
-    }))
-    .sort((a, b) => {
-      const ao = typeof a.sort_order === "number" ? a.sort_order : 0;
-      const bo = typeof b.sort_order === "number" ? b.sort_order : 0;
-      if (ao !== bo) return ao - bo;
-      return String(a.name || "").localeCompare(String(b.name || ""));
-    });
-}
+const MOBILE_MENU_SOCIAL_LINKS = [
+  {
+    label: "Instagram",
+    href: process.env.NEXT_PUBLIC_INSTAGRAM_URL,
+    Icon: InstagramIcon,
+  },
+  {
+    label: "TikTok",
+    href: process.env.NEXT_PUBLIC_TIKTOK_URL,
+    Icon: TikTokIcon,
+  },
+  {
+    label: "Facebook",
+    href: process.env.NEXT_PUBLIC_FACEBOOK_URL,
+    Icon: FacebookIcon,
+  },
+].filter((item) => Boolean(item.href));
 
 function ChevronRight({ className = "" }: { className?: string }) {
   return (
@@ -262,21 +112,14 @@ function MobileMenuContent({
   onNavigate,
   isOpen,
 }: {
-  navDepartments?: NavbarNavDepartment[];
-  categories?: NavbarCategory[];
+  navDepartments?: NormalizedNavDepartment[];
+  categories?: NormalizedNavCategory[];
   onNavigate: () => void;
   isOpen: boolean;
 }) {
-  const orderedDepts = useMemo(() => {
-    return sanitizeNavDepartments(navDepartments)
-      .filter((dept) => dept.categories.length > 0)
-      .sort((a, b) => {
-        const ao = typeof a.sort_order === "number" ? a.sort_order : 0;
-        const bo = typeof b.sort_order === "number" ? b.sort_order : 0;
-        if (ao !== bo) return ao - bo;
-        return String(a.name || "").localeCompare(String(b.name || ""));
-      });
-  }, [navDepartments]);
+  const orderedDepts = Array.isArray(navDepartments)
+    ? navDepartments.filter((dept) => Array.isArray(dept.categories) && dept.categories.length > 0)
+    : [];
 
   const [activeDeptSlug, setActiveDeptSlug] = useState<string | null>(null);
 
@@ -296,63 +139,23 @@ function MobileMenuContent({
     }
   }, [isOpen, orderedDepts, activeDeptSlug]);
 
-  const activeDept = useMemo(() => {
-    if (!orderedDepts.length || !activeDeptSlug) return undefined;
-    return orderedDepts.find((d) => d.slug === activeDeptSlug);
-  }, [orderedDepts, activeDeptSlug]);
+  const activeDept =
+    orderedDepts.length > 0 && activeDeptSlug
+      ? orderedDepts.find((department) => department.slug === activeDeptSlug)
+      : undefined;
 
-  const deptCategories = useMemo(() => {
-    if (!activeDept) return [];
-    const raw = Array.isArray(activeDept.categories) ? activeDept.categories : [];
-    const seen = new Set<string>();
+  const deptCategories = activeDept?.categories ?? [];
 
-    return [...raw]
-      .filter((category) => {
-        const slug = normalizeSlug(category?.slug);
-        const name = String(category?.name || "").trim();
-        if (!slug || !name) return false;
-        if (seen.has(slug)) return false;
-        seen.add(slug);
-        return true;
-      })
-      .sort((a, b) => {
-        const ao = typeof a.sort_order === "number" ? a.sort_order : 0;
-        const bo = typeof b.sort_order === "number" ? b.sort_order : 0;
-        if (ao !== bo) return ao - bo;
-        return String(a.name || "").localeCompare(String(b.name || ""));
-      });
-  }, [activeDept]);
-
-  const flatCategories = useMemo(() => {
-    return sanitizeLegacyCategories(categories).sort((a, b) =>
-      String(a.name || "").localeCompare(String(b.name || ""))
-    );
-  }, [categories]);
+  const flatCategories = Array.isArray(categories) ? categories : [];
 
   const showDeptNav = orderedDepts.length > 0;
   const showDepartmentCategories = showDeptNav && !!activeDept;
 
-  const categoryHref = (slug: string) => categoryPath(slug, activeDept?.slug ?? undefined);
+  const categoryHref = (slug: string) => categoryPath(slug, activeDept?.slug);
 
   const showList = showDeptNav ? deptCategories : flatCategories;
 
-  const mobileMenuSocialLinks = [
-    {
-      label: "Instagram",
-      href: process.env.NEXT_PUBLIC_INSTAGRAM_URL,
-      Icon: InstagramIcon,
-    },
-    {
-      label: "TikTok",
-      href: process.env.NEXT_PUBLIC_TIKTOK_URL,
-      Icon: TikTokIcon,
-    },
-    {
-      label: "Facebook",
-      href: process.env.NEXT_PUBLIC_FACEBOOK_URL,
-      Icon: FacebookIcon,
-    },
-  ].filter((item) => Boolean(item.href));
+  const mobileMenuSocialLinks = MOBILE_MENU_SOCIAL_LINKS;
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -669,15 +472,13 @@ export default function Header({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isCartOpen]);
 
-  const handleOpenMobileMenu = useMemo(() => {
-    return () => setMobileMenuOpen(true);
+  const handleOpenMobileMenu = useCallback(() => {
+    setMobileMenuOpen(true);
   }, []);
 
-  const handleCloseMobileMenu = useMemo(() => {
-    return () => {
-      resetMobileMenuDragState();
-      setMobileMenuOpen(false);
-    };
+  const handleCloseMobileMenu = useCallback(() => {
+    resetMobileMenuDragState();
+    setMobileMenuOpen(false);
   }, []);
 
   const handleToggleCart = useCallback(() => {

@@ -410,9 +410,10 @@ export async function apiFetch<T>(
 /**
  * Legacy flat catalog categories.
  *
- * This endpoint remains available for catalog/fallback scenarios,
- * but it must not be treated as the preferred public navigation source
- * when `getNavigation()` returns valid departments.
+ * This endpoint remains available only as a legacy fallback source.
+ * It must not be treated as the preferred public navigation contract.
+ * Prefer `getNavigation()` for public navigation and only use this data
+ * when `/navigation/` is unavailable or invalid upstream.
  */
 export async function getCategories(): Promise<Category[]> {
   const data = await apiFetch<any>("/categories/");
@@ -426,10 +427,14 @@ export async function getCategories(): Promise<Category[]> {
 /**
  * Official public navigation contract.
  *
- * Returns a department-grouped structure and must not collapse navigation
- * into a flat category list. Invalid categories may be discarded individually,
- * but a valid department must be preserved even if some inner categories are removed.
- * This function must not perform fallback to legacy flat categories.
+ * Responsibilities in this API layer are intentionally limited to:
+ * - fetching `/navigation/`
+ * - performing minimal structural validation
+ * - returning reasonably safe raw data compatible with the backend contract
+ *
+ * Deep sanitization, deduplication, presentation ordering, and UI-specific
+ * derivations must live outside this file (for example in
+ * `frontend/lib/navigation-normalize.ts`).
  */
 export async function getNavigation(): Promise<NavigationResponse> {
   const data = await apiFetch<any>("/navigation/");
@@ -440,46 +445,30 @@ export async function getNavigation(): Promise<NavigationResponse> {
       ? data
       : [];
 
-  const departments: DepartmentNav[] = rawDepartments
-    .map((d: any) => {
-      const rawCategories = Array.isArray(d?.categories) ? d.categories : [];
+  const departments: DepartmentNav[] = rawDepartments.map((d: any) => {
+    const rawCategories = Array.isArray(d?.categories) ? d.categories : [];
 
-      const categories: CategoryNav[] = rawCategories
-        .map((c: any) => ({
-          id: Number(c?.id) || 0,
-          name: String(c?.name || "").trim(),
-          slug: String(c?.slug || "").trim(),
-          sort_order:
-            typeof c?.sort_order === "number"
-              ? c.sort_order
-              : Number(c?.sort_order) || 0,
-        }))
-        .filter((c: CategoryNav) => Boolean(c.name) && Boolean(c.slug))
-        .sort((a: CategoryNav, b: CategoryNav) => {
-          const ao = typeof a.sort_order === "number" ? a.sort_order : 0;
-          const bo = typeof b.sort_order === "number" ? b.sort_order : 0;
-          if (ao !== bo) return ao - bo;
-          return String(a.name || "").localeCompare(String(b.name || ""));
-        });
+    const categories: CategoryNav[] = rawCategories.map((c: any) => ({
+      id: Number(c?.id) || 0,
+      name: String(c?.name || "").trim(),
+      slug: String(c?.slug || "").trim(),
+      sort_order:
+        typeof c?.sort_order === "number"
+          ? c.sort_order
+          : Number(c?.sort_order) || 0,
+    }));
 
-      return {
-        id: Number(d?.id) || 0,
-        name: String(d?.name || "").trim(),
-        slug: String(d?.slug || "").trim(),
-        sort_order:
-          typeof d?.sort_order === "number"
-            ? d.sort_order
-            : Number(d?.sort_order) || 0,
-        categories,
-      } as DepartmentNav;
-    })
-    .filter((d: DepartmentNav) => Boolean(d.name) && Boolean(d.slug))
-    .sort((a: DepartmentNav, b: DepartmentNav) => {
-      const ao = typeof a.sort_order === "number" ? a.sort_order : 0;
-      const bo = typeof b.sort_order === "number" ? b.sort_order : 0;
-      if (ao !== bo) return ao - bo;
-      return String(a.name || "").localeCompare(String(b.name || ""));
-    });
+    return {
+      id: Number(d?.id) || 0,
+      name: String(d?.name || "").trim(),
+      slug: String(d?.slug || "").trim(),
+      sort_order:
+        typeof d?.sort_order === "number"
+          ? d.sort_order
+          : Number(d?.sort_order) || 0,
+      categories,
+    } as DepartmentNav;
+  });
 
   return { departments };
 }
