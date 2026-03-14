@@ -7,6 +7,7 @@ import Navbar from "./Navbar";
 import MobileMenuContent from "./MobileMenuContent";
 import MiniCart from "@/components/cart/MiniCart";
 import DrawerShell from "@/components/drawer/DrawerShell";
+import { useCartStore } from "@/store/cart";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import { useHorizontalDrawerDrag } from "@/hooks/useHorizontalDrawerDrag";
 import type {
@@ -60,9 +61,21 @@ export default function Header({
     };
   }, []);
 
+  const cartItems = useCartStore((s) => s.items);
+
+  const storeCartCount = useMemo(() => {
+    return cartItems.reduce((total, item) => {
+      const quantity = Number(item?.quantity ?? 0);
+      return total + (Number.isFinite(quantity) ? Math.max(0, quantity) : 0);
+    }, 0);
+  }, [cartItems]);
+
   const effectiveCartCount = useMemo(() => {
-    return Number.isFinite(cartCount) ? Math.max(0, cartCount) : 0;
-  }, [cartCount]);
+    const externalCount = Number.isFinite(cartCount) ? Math.max(0, cartCount) : 0;
+    const internalCount = Number.isFinite(storeCartCount) ? Math.max(0, storeCartCount) : 0;
+
+    return Math.max(externalCount, internalCount);
+  }, [cartCount, storeCartCount]);
 
   const handleCloseMobileMenu = useCallback(() => {
     resetDragState();
