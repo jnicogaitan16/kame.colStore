@@ -16,6 +16,7 @@ const interTight = Inter_Tight({
 });
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://kamecol.com";
+const whatsappPhone = process.env.NEXT_PUBLIC_WHATSAPP_PHONE?.trim();
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -71,9 +72,7 @@ export default function RootLayout({
           <main className="pt-16 pb-20 md:pt-18 md:pb-8">{children}</main>
           <MiniCart />
           <Footer />
-          <WhatsAppButton
-            phone={process.env.NEXT_PUBLIC_WHATSAPP_PHONE as string}
-          />
+          {whatsappPhone ? <WhatsAppButton phone={whatsappPhone} /> : null}
         </div>
       </body>
     </html>

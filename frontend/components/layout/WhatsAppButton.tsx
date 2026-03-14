@@ -1,6 +1,4 @@
-"use client";
 
-import Link from "next/link";
 
 
 type Props = {
@@ -38,8 +36,12 @@ function WhatsAppIcon({ className = "" }: { className?: string }) {
   );
 }
 
+function normalizePhone(phone: string) {
+  return String(phone || "").replace(/\D/g, "");
+}
+
 function buildWhatsAppUrl(phone: string, message: string) {
-  const normalizedPhone = String(phone || "").replace(/\D/g, "");
+  const normalizedPhone = normalizePhone(phone);
   const text = encodeURIComponent(message);
   // wa.me funciona bien en mobile/desktop y redirige a app/web
   return `https://wa.me/${normalizedPhone}?text=${text}`;
@@ -50,13 +52,14 @@ export default function WhatsAppButton({
   message = "Hola 👋 Me interesa un producto de Kame.col. ¿Me ayudas con información?",
   className = "",
 }: Props) {
-  const href = buildWhatsAppUrl(phone, message);
+  const normalizedPhone = normalizePhone(phone);
+  const href = buildWhatsAppUrl(normalizedPhone, message);
 
-  // Si no hay phone, no renderiza (evita links rotos)
-  if (!phone) return null;
+  // Si no hay phone válido, no renderiza (evita links rotos)
+  if (!normalizedPhone) return null;
 
   return (
-    <Link
+    <a
       href={href}
       target="_blank"
       rel="noreferrer"
@@ -77,6 +80,6 @@ export default function WhatsAppButton({
       >
         ¿Necesitas ayuda? Escríbenos
       </span>
-    </Link>
+    </a>
   );
 }
