@@ -21,31 +21,31 @@ const whatsappPhone = process.env.NEXT_PUBLIC_WHATSAPP_PHONE?.trim();
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "Kame.Col",
-    template: "%s | Kame.Col",
+    default: "Kame.col",
+    template: "%s | Kame.col",
   },
   description:
-    "Kame.Col — prendas y accesorios con diseño premium.",
+    "Kame.col — prendas y accesorios con diseño premium.",
   openGraph: {
     type: "website",
     locale: "es_CO",
     url: siteUrl,
-    siteName: "Kame.Col",
-    title: "Kame.Col",
+    siteName: "Kame.col",
+    title: "Kame.col",
     description:
-      "Descubre hoodies, camisetas y accesorios  con diseño premium.",
+      "Descubre hoodies, camisetas y accesorios con diseño premium.",
     images: [
       {
         url: `${siteUrl}/og/default.jpg`,
         width: 1200,
         height: 630,
-        alt: "Kame.Col",
+        alt: "Kame.col",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Kame.Col",
+    title: "Kame.col",
     description:
       "Prendas y accesorios con identidad premium.",
     images: [`${siteUrl}/og/default.jpg`],

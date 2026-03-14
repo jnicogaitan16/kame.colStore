@@ -120,7 +120,7 @@ export default function MobileMenu({
         <Link
           href={categoryPath(node.slug)}
           onClick={onClose}
-          className="block w-full rounded-2xl px-5 py-3 text-[15px] font-semibold tracking-wide text-white/90 transition hover:bg-white/5"
+          className="block w-full rounded-2xl px-5 py-3 text-[15px] font-semibold tracking-wide text-white/90 transition hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
         >
           {node.name}
         </Link>
@@ -174,7 +174,7 @@ export default function MobileMenu({
           <button
             type="button"
             onClick={onClose}
-            className="absolute right-3 top-3 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-white/5 text-white/80 hover:bg-white/10"
+            className="absolute right-3 top-3 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-white/5 text-white/80 transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
             aria-label="Cerrar menú"
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -200,7 +200,7 @@ export default function MobileMenu({
                       key={d.slug}
                       type="button"
                       onClick={() => setActiveDeptSlug(d.slug)}
-                      className={`rounded-full border px-4 py-2 text-[13px] font-semibold tracking-wide transition ${
+                      className={`rounded-full border px-4 py-2 text-[13px] font-semibold tracking-wide transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 ${
                         isActive
                           ? "border-white/20 bg-white/10 text-white"
                           : "border-white/10 bg-white/5 text-white/70 hover:bg-white/10"
