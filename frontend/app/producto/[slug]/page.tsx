@@ -2,22 +2,17 @@ import { cache } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getProductBySlug } from "@/lib/api";
+import { buildProductDetailPDPViewModel } from "@/lib/product-detail-normalize";
 import { ProductDetailClient } from "./ProductDetailClient";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+export const revalidate = 60;
 
 interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
-const getCachedProductBySlug = cache(async (slug: string) => {
-  return getProductBySlug(slug);
-});
-
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://kamecol.com";
 const OG_DEFAULT_PATH = "/og/default.jpg";
-
 const INVALID_IMAGE_PATTERNS = [
   "/media/cache/",
   "/_next/",
@@ -27,20 +22,11 @@ const INVALID_IMAGE_PATTERNS = [
   "127.0.0.1",
 ];
 
-function toAbsoluteHttpsUrl(inputUrl: string): string {
-  const raw = String(inputUrl || "").trim();
-  if (!raw) return new URL(OG_DEFAULT_PATH, siteUrl).toString();
-
-  try {
-    const abs = new URL(raw, siteUrl).toString();
-    if (abs.startsWith("http://")) {
-      return "https://" + abs.slice("http://".length);
-    }
-    return abs;
-  } catch {
-    return new URL(OG_DEFAULT_PATH, siteUrl).toString();
+const getCachedProductBySlug = cache(
+  async (slug: string, options?: { next?: { revalidate?: number } }) => {
+    return getProductBySlug(slug, options);
   }
-}
+);
 
 function truncate(text: string, max = 180): string {
   const t = String(text || "").replace(/\s+/g, " ").trim();
@@ -54,8 +40,10 @@ function isLikelyPublicImageUrl(value: unknown): value is string {
   if (!raw) return false;
 
   const normalized = raw.toLowerCase();
-  if (!/(^https?:\/\/|^\/|^[a-z0-9].*\/(.+)\.(jpg|jpeg|png|webp|avif|gif)(\?.*)?$)/i.test(raw) &&
-      !/\.(jpg|jpeg|png|webp|avif|gif)(\?.*)?$/i.test(raw)) {
+  if (
+    !/(^https?:\/\/|^\/|^[a-z0-9].*\/(.+)\.(jpg|jpeg|png|webp|avif|gif)(\?.*)?$)/i.test(raw) &&
+    !/\.(jpg|jpeg|png|webp|avif|gif)(\?.*)?$/i.test(raw)
+  ) {
     return false;
   }
 
@@ -163,123 +151,189 @@ function pickPrimaryImageUrl(product: any): string | null {
   return firstValid || null;
 }
 
+function toAbsoluteHttpsUrl(inputUrl: string): string {
+  const raw = String(inputUrl || "").trim();
+  if (!raw) return new URL(OG_DEFAULT_PATH, siteUrl).toString();
+
+  try {
+    const abs = new URL(raw, siteUrl).toString();
+    if (abs.startsWith("http://")) {
+      return "https://" + abs.slice("http://".length);
+    }
+    return abs;
+  } catch {
+    return new URL(OG_DEFAULT_PATH, siteUrl).toString();
+  }
+}
+
+function isNotFoundProduct(product: any): boolean {
+  return !product || product?.detail === "Not found" || product?.detail === "Not found.";
+}
+
+function normalizeProductForClient(product: any) {
+  const primaryImage = pickPrimaryImageUrl(product) || OG_DEFAULT_PATH;
+  const normalizedGallery = [
+    primaryImage,
+    ...(Array.isArray(product?.images) ? product.images : []),
+    ...(Array.isArray(product?.gallery) ? product.gallery : []),
+  ]
+    .flatMap((item) => {
+      if (typeof item === "string") return [normalizeImageCandidate(item)];
+      if (item && typeof item === "object") {
+        const candidates: Array<string | null | undefined> = [];
+        collectImageCandidates(item, candidates);
+        return candidates.map((candidate) =>
+          typeof candidate === "string" ? normalizeImageCandidate(candidate) : null
+        );
+      }
+      return [];
+    })
+    .filter((value, index, arr): value is string => Boolean(value) && arr.indexOf(value) === index);
+
+  return {
+    ...product,
+    primaryImage,
+    normalizedGallery,
+  };
+}
+
+function buildProductMetadata(product: any, slug: string): Metadata {
+  const name = String(product?.name || product?.title || "Producto").trim();
+  const descSource = product?.short_description || product?.shortDescription || product?.description || "";
+  const description = truncate(descSource, 180) || "Producto en Kame.Col.";
+  const primaryImage = pickPrimaryImageUrl(product) || OG_DEFAULT_PATH;
+  const ogImage = toAbsoluteHttpsUrl(primaryImage);
+
+  return {
+    title: `${name} | Kame.Col`,
+    description,
+    openGraph: {
+      type: "website",
+      title: `${name} | Kame.Col`,
+      description,
+      url: `/producto/${encodeURIComponent(slug)}`,
+      images: [
+        {
+          url: ogImage,
+          width: 1200,
+          height: 630,
+          alt: `${name} | Kame.Col`,
+        },
+      ],
+    },
+    other: {
+      "og:type": "product",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${name} | Kame.Col`,
+      description,
+      images: [ogImage],
+    },
+  };
+}
+
+function buildEmptyMetadata(): Metadata {
+  return {
+    title: "Producto | Kame.Col",
+    description: "Producto en Kame.Col.",
+    robots: { index: false, follow: false },
+  };
+}
+
+function buildNotFoundMetadata(): Metadata {
+  return {
+    title: "Producto no encontrado | Kame.Col",
+    description: "El producto no existe o no está disponible en Kame.Col.",
+    robots: { index: false, follow: false },
+  };
+}
+
+function buildFallbackMetadata(slug: string): Metadata {
+  return {
+    title: "Producto | Kame.Col",
+    description: "Producto en Kame.Col.",
+    robots: { index: false, follow: false },
+    openGraph: {
+      type: "website",
+      title: "Producto | Kame.Col",
+      description: "Producto en Kame.Col.",
+      url: `/producto/${encodeURIComponent(slug)}`,
+      images: [
+        {
+          url: toAbsoluteHttpsUrl(OG_DEFAULT_PATH),
+          width: 1200,
+          height: 630,
+          alt: "Kame.Col",
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: "Producto | Kame.Col",
+      description: "Producto en Kame.Col.",
+      images: [toAbsoluteHttpsUrl(OG_DEFAULT_PATH)],
+    },
+  };
+}
+
+function renderTemporaryApiFailure() {
+  return (
+    <main className="mx-auto max-w-4xl px-4 py-10">
+      <div className="rounded-2xl border border-white/10 bg-black/40 p-6 text-white/80">
+        No pudimos cargar este producto (API no respondió). Intenta de nuevo en unos segundos.
+      </div>
+    </main>
+  );
+}
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const raw = (await params)?.slug;
   const slug = decodeURIComponent(String(raw || "")).trim();
 
   if (!slug) {
-    return {
-      title: "Producto | Kame.Col",
-      description: "Producto en Kame.Col.",
-      robots: { index: false, follow: false },
-    };
+    return buildEmptyMetadata();
   }
 
   try {
-    const product: any = await getCachedProductBySlug(slug);
+    const product: any = await getCachedProductBySlug(slug, {
+      next: { revalidate: 60 },
+    });
 
-    if (!product || product?.detail === "Not found" || product?.detail === "Not found.") {
-      return {
-        title: "Producto no encontrado | Kame.Col",
-        description: "El producto no existe o no está disponible en Kame.Col.",
-        robots: { index: false, follow: false },
-      };
+    if (isNotFoundProduct(product)) {
+      return buildNotFoundMetadata();
     }
 
-    const name = String(product?.name || product?.title || "Producto").trim();
-    const descSource =
-      product?.short_description || product?.shortDescription || product?.description || "";
-    const description = truncate(descSource, 180) || "Producto en Kame.Col.";
-
-    const primaryImage = pickPrimaryImageUrl(product) || OG_DEFAULT_PATH;
-    const ogImage = toAbsoluteHttpsUrl(primaryImage);
-
-    return {
-      title: `${name} | Kame.Col`,
-      description,
-      openGraph: {
-        // Next.js Metadata typing does not include "product" as a valid OG type.
-        // We keep a valid type here and override og:type via `other` below.
-        type: "website",
-        title: `${name} | Kame.Col`,
-        description,
-        url: `/producto/${encodeURIComponent(slug)}`,
-        images: [
-          {
-            url: ogImage,
-            width: 1200,
-            height: 630,
-            alt: `${name} | Kame.Col`,
-          },
-        ],
-      },
-      other: {
-        "og:type": "product",
-      },
-      twitter: {
-        card: "summary_large_image",
-        title: `${name} | Kame.Col`,
-        description,
-        images: [ogImage],
-      },
-    };
+    return buildProductMetadata(product, slug);
   } catch {
-    // Temporary API failure: avoid indexing and show a safe preview.
-    return {
-      title: "Producto | Kame.Col",
-      description: "Producto en Kame.Col.",
-      robots: { index: false, follow: false },
-      openGraph: {
-        type: "website",
-        title: "Producto | Kame.Col",
-        description: "Producto en Kame.Col.",
-        url: `/producto/${encodeURIComponent(slug)}`,
-        images: [
-          {
-            url: toAbsoluteHttpsUrl(OG_DEFAULT_PATH),
-            width: 1200,
-            height: 630,
-            alt: "Kame.Col",
-          },
-        ],
-      },
-      twitter: {
-        card: "summary_large_image",
-        title: "Producto | Kame.Col",
-        description: "Producto en Kame.Col.",
-        images: [toAbsoluteHttpsUrl(OG_DEFAULT_PATH)],
-      },
-    };
+    return buildFallbackMetadata(slug);
   }
 }
 
 export default async function ProductPage({ params }: PageProps) {
   const raw = (await params)?.slug;
   const slug = decodeURIComponent(String(raw || "")).trim();
+
   if (!slug) notFound();
 
   try {
-    const product: any = await getCachedProductBySlug(slug);
+    const product: any = await getCachedProductBySlug(slug, {
+      next: { revalidate: 60 },
+    });
 
-    // Defensive: some backends return a payload like { detail: "Not found" }
-    if (!product || product?.detail === "Not found" || product?.detail === "Not found.") {
+    if (isNotFoundProduct(product)) {
       notFound();
     }
 
-    return <ProductDetailClient product={product} />;
+    const normalizedProduct = normalizeProductForClient(product);
+    const productViewModel = buildProductDetailPDPViewModel(normalizedProduct);
+
+    return <ProductDetailClient product={productViewModel as any} />;
   } catch (e: any) {
-    // If backend answered 404, this is a true not-found.
     if (typeof e?.status === "number" && e.status === 404) {
       notFound();
     }
 
-    // Otherwise, treat as temporary API failure.
-    return (
-      <main className="mx-auto max-w-4xl px-4 py-10">
-        <div className="rounded-2xl border border-white/10 bg-black/40 p-6 text-white/80">
-          No pudimos cargar este producto (API no respondió). Intenta de nuevo en unos segundos.
-        </div>
-      </main>
-    );
+    return renderTemporaryApiFailure();
   }
 }

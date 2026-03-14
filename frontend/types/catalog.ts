@@ -115,6 +115,60 @@ export interface ProductDetail extends Product {
 }
 
 // =============================
+// PDP View Model / Frontend derivados
+// =============================
+
+/**
+ * Imagen ya normalizada para render del PDP.
+ * Diferente del contrato API: aquí el frontend asume `url` usable
+ * y puede adjuntar metadata lista para galería / fallback visual.
+ */
+export interface NormalizedProductGalleryImage {
+  url: string;
+  thumb_url?: string | null;
+  alt_text?: string | null;
+}
+
+/**
+ * Estructuras derivadas para selección rápida de variantes en PDP.
+ * No representa payload backend; es una estructura de apoyo para UI.
+ */
+export interface ProductVariantMatrix {
+  byColor: Map<string, ProductVariant[]>;
+  byValue: Map<string, ProductVariant[]>;
+  byColorValue: Map<string, ProductVariant>;
+}
+
+/**
+ * Estado derivado de selección del PDP.
+ * Se usa para separar reglas de interacción de los datos crudos del API.
+ */
+export interface ProductSelectionState {
+  variantSchema: string;
+  requiresValue: boolean;
+  requiresColor: boolean;
+  selectedValue: string;
+  selectedColor: string;
+  availableStock: number;
+  canAdd: boolean;
+  uiSoldOut: boolean;
+  isInvalidCombo: boolean;
+  helperSelectionText: string;
+}
+
+/**
+ * View model del detalle de producto para el PDP.
+ * Extiende el contrato base del API sin mutarlo; permite transportar
+ * datos ya preparados para render, metadata visual y galería canónica.
+ */
+export interface ProductDetailViewModel {
+  product: ProductDetail;
+  primaryImage: string | null;
+  canonicalProductImage: string | null;
+  galleryImages: NormalizedProductGalleryImage[];
+}
+
+// =============================
 // Homepage
 // =============================
 

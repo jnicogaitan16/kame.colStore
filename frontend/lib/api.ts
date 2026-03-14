@@ -1,9 +1,10 @@
 /**
  * Cliente API para el catálogo (Django backend).
  *
- * Objetivo del fix:
- * - Centralizar el fetch para evitar cache de Next (imágenes/JSON desactualizados)
- * - Forzar no-store + revalidate:0 en App Router
+ * Estrategia de caché actual:
+ * - Centralizar fetch, headers y credenciales del frontend hacia Django.
+ * - Mantener `no-store` por defecto para flujos mutables o sensibles.
+ * - Permitir `next.revalidate` en lecturas cacheables como el PDP.
  */
 import type {
   Category,
@@ -120,6 +121,13 @@ export type CheckoutResponse = {
   subtotal?: number;
   shipping_cost?: number;
   total?: number;
+};
+
+export type ProductFetchOptions = {
+  cache?: RequestCache;
+  next?: {
+    revalidate?: number;
+  };
 };
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "/api").replace(/\/$/, "");
@@ -364,11 +372,16 @@ export async function apiFetch<T>(
     }
   }
 
-  const cacheOpt = options.cache ?? "no-store";
+  const nextFromOptions = (options as RequestInit & {
+    next?: { revalidate?: number };
+  }).next;
 
-  // IMPORTANT: Do not mix `cache: "no-store"` with `next.revalidate`.
-  // If caller wants ISR-style revalidate, they must provide a non-"no-store" cache option.
-  const nextOpt = cacheOpt === "no-store" ? undefined : (options as any).next;
+  const cacheOpt =
+    options.cache ??
+    (nextFromOptions?.revalidate != null ? "force-cache" : "no-store");
+
+  // IMPORTANT: never send `next.revalidate` together with `cache: "no-store"`.
+  const nextOpt = cacheOpt === "no-store" ? undefined : nextFromOptions;
 
   const res = await fetch(url, {
     ...options,
@@ -543,8 +556,15 @@ function normalizeProductDetail(raw: any): ProductDetail {
   } as ProductDetail;
 }
 
-export async function getProductBySlug(slug: string): Promise<ProductDetail> {
-  const raw = await apiFetch<any>(`/products/${encodeURIComponent(slug)}/`);
+export async function getProductBySlug(
+  slug: string,
+  options?: ProductFetchOptions
+): Promise<ProductDetail> {
+  const raw = await apiFetch<any>(`/products/${encodeURIComponent(slug)}/`, {
+    cache: options?.cache,
+    next: options?.next,
+  });
+
   return normalizeProductDetail(raw);
 }
 
