@@ -56,16 +56,15 @@ export default function MobileMenu({
   brandLabel = "Kame.col",
   defaultDeptSlug = "mujer",
 }: MobileMenuProps) {
-  // `rendered` can be omitted by callers; only hide when explicitly false.
-  if (rendered === false) return null;
+  const navDepts = useMemo<MobileMenuNavDepartment[]>(
+    () => (Array.isArray(navDepartments) ? navDepartments : []),
+    [navDepartments]
+  );
 
-  const navDepts: MobileMenuNavDepartment[] = Array.isArray(navDepartments)
-    ? navDepartments
-    : [];
-
-  const legacyCats: MobileMenuCategory[] = Array.isArray(categories)
-    ? categories
-    : [];
+  const legacyCats = useMemo<MobileMenuCategory[]>(
+    () => (Array.isArray(categories) ? categories : []),
+    [categories]
+  );
 
   const isOpen = open === true;
 
@@ -127,6 +126,9 @@ export default function MobileMenu({
       </li>
     );
   };
+
+  // `rendered` can be omitted by callers; only hide when explicitly false.
+  if (rendered === false) return null;
 
   return (
     <div
