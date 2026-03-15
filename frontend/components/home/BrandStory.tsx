@@ -23,13 +23,11 @@ function splitParagraphs(content: string): string[] {
 }
 
 export function BrandStory({ story }: { story: HomepageStory | null }) {
-  if (!story) return null;
-
-  const hasSomething =
-    Boolean(String(story.title || "").trim()) ||
-    Boolean(String(story.content || "").trim());
-
-  if (!hasSomething) return null;
+  const safeStory = story ?? null;
+  const title = String(safeStory?.title || "").trim();
+  const content = String(safeStory?.content || "").trim();
+  const subtitle = String(safeStory?.subtitle || "").trim();
+  const hasSomething = Boolean(title) || Boolean(content);
 
   const sectionRef = useRef<HTMLElement | null>(null);
   const [isVisible, setIsVisible] = useState(false);
@@ -65,14 +63,14 @@ export function BrandStory({ story }: { story: HomepageStory | null }) {
     };
   }, [isVisible]);
 
-  const paragraphs = useMemo(() => splitParagraphs(story.content || ""), [story.content]);
+  const paragraphs = useMemo(() => splitParagraphs(content), [content]);
 
   // Headline with two levels (title + claim in italic).
   // If the CMS content already has 2+ paragraphs, use the first one as the claim.
   // Otherwise, fall back to the subtitle as the claim (if provided).
   const claim = useMemo(
-    () => (paragraphs.length >= 2 ? paragraphs[0] : story.subtitle || ""),
-    [paragraphs, story.subtitle]
+    () => (paragraphs.length >= 2 ? paragraphs[0] : subtitle),
+    [paragraphs, subtitle]
   );
 
   // Body paragraphs: if claim comes from content, use the rest; otherwise use content as body.
@@ -80,6 +78,8 @@ export function BrandStory({ story }: { story: HomepageStory | null }) {
     () => (paragraphs.length >= 2 ? paragraphs.slice(1) : paragraphs),
     [paragraphs]
   );
+
+  if (!safeStory || !hasSomething) return null;
 
   return (
     <section
@@ -121,7 +121,7 @@ export function BrandStory({ story }: { story: HomepageStory | null }) {
           <div className="space-y-8 text-center">
             <header className="space-y-5">
               <h2 className="text-4xl md:text-6xl font-extrabold tracking-tight text-white leading-[1.05] drop-shadow-[0_2px_18px_rgba(0,0,0,0.65)]">
-                {story.title}
+                {title}
               </h2>
 
               {claim ? (
