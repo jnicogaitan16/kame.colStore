@@ -1,3 +1,8 @@
+/**
+ * Notice: estilos encapsulados fuera de globals.css.
+ * Variantes (warning, error, info, success) y tonos (soft, strong) para banners/alertas.
+ */
+
 export type NoticeVariant = "warning" | "error" | "info" | "success";
 
 export type NoticeStyleTokens = {

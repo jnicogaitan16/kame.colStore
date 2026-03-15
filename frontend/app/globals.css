@@ -1,138 +1,22 @@
-/* Tailwind directives (keeps build compatible and clearer for tooling) */
+/* =============================================================================
+   CONTRATO 10: globals.css — Segmentación por dominios
+   Orden: directives → tokens → base → utilities → typography → controls
+   → surface/elevation → home/motion → drawer/viewer → product-card
+   → loaders → PDP → legal.
+   No renombrar clases productivas. No cambiar valores visuales.
+   ============================================================================= */
+
 /* stylelint-disable at-rule-no-unknown */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 /* stylelint-enable at-rule-no-unknown */
 
-/* Tailwind component-like classes (btns / pills) */
-
-/* =========================
-   Shared buttons (Brand / Dark system)
-   ========================= */
-
-/* Primary CTA (match current checkout button look) */
-.btn-primary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-
-  min-height: 3rem;          /* 48px (h-12) */
-  padding: 0.875rem 1.25rem; /* más alto que py-3 */
-  border-radius: 0.75rem;    /* un poco más premium que 0.5rem */
-
-  font-size: 0.875rem;
-  font-weight: 600;
-  line-height: 1.25rem;
-  font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
-  letter-spacing: var(--tracking-action);
-  text-transform: uppercase;
-
-  background: rgba(255, 255, 255, 0.9); /* bg-white/90 */
-  color: #000; /* text-black */
-
-  transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease;
-}
-
-.btn-primary:hover {
-  background: rgba(255, 255, 255, 1); /* hover:bg-white */
-}
-
-.btn-primary:disabled {
-  opacity: 0.5;
-  pointer-events: none;
-}
-
-/* Secondary CTA (dark outline) */
-.btn-secondary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-
-  min-height: 3rem;          /* 48px */
-  padding: 0.875rem 1.25rem;
-  border-radius: 0.75rem;
-
-  font-size: 0.875rem;
-  font-weight: 600;
-  line-height: 1.25rem;
-  font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
-  letter-spacing: var(--tracking-action);
-  text-transform: uppercase;
-
-  border: 1px solid rgba(255, 255, 255, 0.15); /* border-white/15 */
-  background: rgba(255, 255, 255, 0.05); /* bg-white/5 */
-  color: rgba(255, 255, 255, 1);
-
-  transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease;
-}
-
-.btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.1); /* hover:bg-white/10 */
-}
-
-.btn-secondary:disabled {
-  opacity: 0.5;
-  pointer-events: none;
-}
-
-/* =========================
-   Pills (filters/tabs)
-   ========================= */
-
-/* Pill (not selected) */
-.pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 9999px; /* rounded-full */
-  padding: 0.5rem 1rem; /* py-2 px-4 */
-  font-size: 0.75rem; /* text-xs */
-  font-weight: 600; /* font-semibold */
-  font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
-  letter-spacing: var(--tracking-label);
-  text-transform: uppercase;
-
-  border: 1px solid rgba(255, 255, 255, 0.1); /* border-white/10 */
-  background: rgba(255, 255, 255, 0.05); /* bg-white/5 */
-  color: rgba(255, 255, 255, 0.8); /* text-white/80 */
-
-  transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease;
-}
-
-.pill:hover {
-  background: rgba(255, 255, 255, 0.1); /* hover:bg-white/10 */
-  border-color: color-mix(in srgb, var(--accent-soft) 45%, transparent);
-}
-
-/* Pill (selected) */
-.pill-active {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-
-  border-radius: 9999px;
-  padding: 0.5rem 1rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
-  letter-spacing: var(--tracking-label);
-  text-transform: uppercase;
-
-  border: 1px solid color-mix(in srgb, var(--accent-soft) 90%, transparent);
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 1);
-
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--accent-soft) 35%, transparent),      /* ring premium neutral */
-    0 10px 30px rgba(0, 0, 0, 0.25);         /* profundidad suave */
-}
+/* -----------------------------------------------------------------------------
+   1. Global tokens (:root) — solo variables, sin @layer
+   ----------------------------------------------------------------------------- */
 
 :root {
-  /* =========================
-     Design Tokens (Global)
-     ========================= */
-
   /* Core surfaces */
   --bg: #0A0A0A;
   --surface: #111111;
@@ -143,10 +27,10 @@
   --muted: rgba(255, 255, 255, 0.65);
 
   /* Brand accents */
-  --accent: #F4F4F5;  /* premium neutral accent (zinc-100 softened) */
+  --accent: #F4F4F5;
   --accent-strong: #FFFFFF;
   --accent-soft: rgba(244, 244, 245, 0.88);
-  --danger: #EF4444;  /* red-500 */
+  --danger: #EF4444;
 
   /* Typography system */
   --tracking-brand: 0.12em;
@@ -170,70 +54,16 @@
   --leading-normal: 1.5;
   --leading-relaxed: 1.75;
 
-  /* Backward compatibility (map old vars to new system) */
+  /* Backward compatibility */
   --foreground: var(--text);
   --background: var(--bg);
 
   color-scheme: dark;
-
-  /* =========================
-     Token-based utility classes
-     Use these instead of inventing new blues/reds.
-     ========================= */
-  @layer utilities {
-    .bg-app {
-      background: var(--bg);
-    }
-
-    .bg-surface {
-      background: var(--surface);
-    }
-
-    .border-subtle {
-      border-color: var(--border);
-    }
-
-    .text-app {
-      color: var(--text);
-    }
-
-    .text-muted {
-      color: var(--muted);
-    }
-
-    .text-accent {
-      color: var(--accent);
-    }
-
-    .text-brand-accent {
-      color: var(--accent);
-    }
-
-    .text-price-accent {
-      color: var(--accent);
-    }
-
-    .text-highlight-accent {
-      color: var(--accent-soft);
-    }
-
-    .border-accent {
-      border-color: var(--accent);
-    }
-
-    .ring-accent {
-      --tw-ring-color: var(--accent);
-    }
-
-    .text-danger {
-      color: var(--danger);
-    }
-
-    .border-danger {
-      border-color: var(--danger);
-    }
-  }
 }
+
+/* -----------------------------------------------------------------------------
+   2. Base layer + document defaults
+   ----------------------------------------------------------------------------- */
 
 @layer base {
   body {
@@ -255,6 +85,94 @@
     font-weight: 600;
   }
 }
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  overflow-x: hidden;
+  margin: 0;
+}
+
+html,
+body {
+  height: 100%;
+  min-height: 100%;
+}
+
+html {
+  background: var(--background);
+  scroll-behavior: smooth;
+}
+
+img,
+video,
+canvas {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* -----------------------------------------------------------------------------
+   3. Utility layer (token-based; fuera de :root)
+   ----------------------------------------------------------------------------- */
+
+@layer utilities {
+  .bg-app {
+    background: var(--bg);
+  }
+
+  .bg-surface {
+    background: var(--surface);
+  }
+
+  .border-subtle {
+    border-color: var(--border);
+  }
+
+  .text-app {
+    color: var(--text);
+  }
+
+  .text-muted {
+    color: var(--muted);
+  }
+
+  .text-accent {
+    color: var(--accent);
+  }
+
+  .text-brand-accent {
+    color: var(--accent);
+  }
+
+  .text-price-accent {
+    color: var(--accent);
+  }
+
+  .text-highlight-accent {
+    color: var(--accent-soft);
+  }
+
+  .border-accent {
+    border-color: var(--accent);
+  }
+
+  .ring-accent {
+    --tw-ring-color: var(--accent);
+  }
+
+  .text-danger {
+    color: var(--danger);
+  }
+
+  .border-danger {
+    border-color: var(--danger);
+  }
+}
+
+/* -----------------------------------------------------------------------------
+   4. Typography primitives (@layer components)
+   ----------------------------------------------------------------------------- */
 
 @layer components {
   .type-brand {
@@ -335,216 +253,118 @@
   }
 }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
-  overflow-x: hidden;
-  margin: 0;
+/* -----------------------------------------------------------------------------
+   5. Shared controls (buttons / pills)
+   ----------------------------------------------------------------------------- */
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  min-height: 3rem;
+  padding: 0.875rem 1.25rem;
+  border-radius: 0.75rem;
+
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: var(--tracking-action);
+  text-transform: uppercase;
+
+  background: rgba(255, 255, 255, 0.9);
+  color: #000;
+
+  transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease;
 }
 
-html,
-body {
-  height: 100%;
-  min-height: 100%;
+.btn-primary:hover {
+  background: rgba(255, 255, 255, 1);
 }
 
-html {
-  background: var(--background);
+.btn-primary:disabled {
+  opacity: 0.5;
+  pointer-events: none;
 }
 
-/* Prevent accidental horizontal scroll on mobile layouts */
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 
-/* Safe default for media elements */
-img,
-video,
-canvas {
-  max-width: 100%;
-  height: auto;
-  display: block;
+  min-height: 3rem;
+  padding: 0.875rem 1.25rem;
+  border-radius: 0.75rem;
+
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: var(--tracking-action);
+  text-transform: uppercase;
+
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 1);
+
+  transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease;
 }
 
-/* Swiper: ocultar scrollbar en móvil si hace falta */
-.swiper-pagination-bullet-active {
-  background: var(--accent);
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 
-/* =========================
-   Hero animations (Carousel)
-   ========================= */
-
-/* Hero reveal: abre desde el centro hacia los laterales */
-.hero-reveal {
-  clip-path: inset(0 50% 0 50%);
-  transform: scale(1.02);
-  filter: saturate(1.05) contrast(1.05);
-  will-change: clip-path, transform;
+.btn-secondary:disabled {
+  opacity: 0.5;
+  pointer-events: none;
 }
 
-.hero-reveal.is-active {
-  animation: heroRevealOpen 900ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+.pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  padding: 0.5rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.8);
+
+  transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease;
 }
 
-@keyframes heroRevealOpen {
-  0% {
-    clip-path: inset(0 50% 0 50%);
-    transform: scale(1.02);
-  }
-  100% {
-    clip-path: inset(0 0 0 0);
-    transform: scale(1);
-  }
+.pill:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: color-mix(in srgb, var(--accent-soft) 45%, transparent);
 }
 
-/* Panel tipo Skeleton: entra desde la izquierda */
-.hero-skeleton-panel {
-  background: linear-gradient(
-    90deg,
-    rgba(0, 0, 0, 0.92) 0%,
-    rgba(0, 0, 0, 0.65) 60%,
-    rgba(0, 0, 0, 0) 100%
-  );
-  transform: translateX(-14%);
-  opacity: 0;
-  will-change: transform, opacity;
-}
+.pill-active {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 
-.hero-skeleton-panel.is-active {
-  animation: skeletonPanelIn 650ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
-}
+  border-radius: 9999px;
+  padding: 0.5rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
 
-@keyframes skeletonPanelIn {
-  0% {
-    transform: translateX(-14%);
-    opacity: 0;
-  }
-  100% {
-    transform: translateX(0%);
-    opacity: 1;
-  }
-}
+  border: 1px solid color-mix(in srgb, var(--accent-soft) 90%, transparent);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 1);
 
-/* Accesibilidad: respeta reduced motion */
-@media (prefers-reduced-motion: reduce) {
-  .hero-reveal.is-active,
-  .hero-skeleton-panel.is-active {
-    animation: none !important;
-  }
-
-  .hero-reveal {
-    clip-path: inset(0 0 0 0);
-    transform: none;
-  }
-
-  .hero-skeleton-panel {
-    transform: none;
-    opacity: 1;
-  }
-}
-
-/* =========================
-   Optional UX Enhancements
-   ========================= */
-
-/* Smooth scroll for anchor links */
-html {
-  scroll-behavior: smooth;
-}
-
-/* Smooth color / background transitions (useful for header mode change) */
-
-.header-transition {
-  transition:
-    background-color 300ms ease,
-    border-color 300ms ease,
-    box-shadow 300ms ease,
-    color 300ms ease;
-}
-
-/* =========================
-   Scroll reveal (BrandStory)
-   ========================= */
-
-/* Reveal suave al entrar al viewport */
-.brand-story-reveal {
-  opacity: 0;
-  transform: translateY(14px);
-  transition:
-    opacity 700ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    transform 700ms cubic-bezier(0.2, 0.8, 0.2, 1);
-  will-change: transform, opacity;
-}
-
-.brand-story-reveal.is-visible {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.card-reveal {
-  opacity: 0;
-  transform: translateY(18px) scale(0.985);
-  filter: blur(10px);
-  transition:
-    opacity 700ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    transform 700ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    filter 700ms cubic-bezier(0.2, 0.8, 0.2, 1);
-  will-change: opacity, transform, filter;
-}
-
-.card-reveal.is-visible {
-  opacity: 1;
-  transform: translateY(0) scale(1);
-  filter: blur(0);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .brand-story-reveal,
-  .card-reveal {
-    opacity: 1;
-    transform: none;
-    filter: none;
-    transition: none !important;
-  }
-}
-
-
-/* =========================
-   Card surface (premium texture)
-   ========================= */
-
-.card-surface {
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.03) 0%,
-    rgba(255, 255, 255, 0.01) 100%
-  );
-}
-
-/* =========================
-   Luxury elevation (Streetwear)
-   ========================= */
-
-.elevation-soft {
   box-shadow:
-    0 10px 30px rgba(0, 0, 0, 0.35),
-    0 2px 6px rgba(0, 0, 0, 0.4);
+    0 0 0 1px color-mix(in srgb, var(--accent-soft) 35%, transparent),
+    0 10px 30px rgba(0, 0, 0, 0.25);
 }
-
-.elevation-hover {
-  transition:
-    transform 300ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    box-shadow 300ms cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.elevation-hover:hover {
-  transform: translateY(-4px);
-  box-shadow:
-    0 18px 50px rgba(0, 0, 0, 0.5),
-    0 4px 12px rgba(0, 0, 0, 0.6);
-}
-
-/* ============================= */
-/* GLASS BUTTON (Style) */
-/* ============================= */
 
 .btn-glass {
   display: inline-flex;
@@ -589,10 +409,36 @@ html {
   transform: translateY(-2px);
 }
 
-/* ============================================
-   PRODUCT MEDIA SURFACE (Dark Consistente)
-   Fondo oficial para imágenes PNG de producto
-   ============================================ */
+/* -----------------------------------------------------------------------------
+   6. Surface / elevation / generic helpers
+   ----------------------------------------------------------------------------- */
+
+.card-surface {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.03) 0%,
+    rgba(255, 255, 255, 0.01) 100%
+  );
+}
+
+.elevation-soft {
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.35),
+    0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.elevation-hover {
+  transition:
+    transform 300ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 300ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.elevation-hover:hover {
+  transform: translateY(-4px);
+  box-shadow:
+    0 18px 50px rgba(0, 0, 0, 0.5),
+    0 4px 12px rgba(0, 0, 0, 0.6);
+}
 
 .product-media-surface {
   background: linear-gradient(
@@ -605,19 +451,132 @@ html {
   border-radius: 1rem;
 }
 
+.swiper-pagination-bullet-active {
+  background: var(--accent);
+}
 
-/* ============================= */
-/* DRAWER GLASS SYSTEM (Global) */
-/* Contract: shell + panel + active + backdrop for header/cart drawers */
-/* Shared shell contract:
-   - .drawer-shell: root fixed shell container
-   - .drawer-backdrop: overlay/backdrop layer
-   - .drawer-panel-left / .drawer-panel-right: side-specific panel base
-   - .drawer-header-row: shared top row for title / brand / actions
-   - .drawer-body-scroll: shared scrollable body region
-   - .drawer-footer-row: shared footer region
-*/
-/* ============================= */
+.header-transition {
+  transition:
+    background-color 300ms ease,
+    border-color 300ms ease,
+    box-shadow 300ms ease,
+    color 300ms ease;
+}
+
+/* -----------------------------------------------------------------------------
+   7. Home / motion / reveal systems
+   ----------------------------------------------------------------------------- */
+
+.hero-reveal {
+  clip-path: inset(0 50% 0 50%);
+  transform: scale(1.02);
+  filter: saturate(1.05) contrast(1.05);
+  will-change: clip-path, transform;
+}
+
+.hero-reveal.is-active {
+  animation: heroRevealOpen 900ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+@keyframes heroRevealOpen {
+  0% {
+    clip-path: inset(0 50% 0 50%);
+    transform: scale(1.02);
+  }
+  100% {
+    clip-path: inset(0 0 0 0);
+    transform: scale(1);
+  }
+}
+
+.hero-skeleton-panel {
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.92) 0%,
+    rgba(0, 0, 0, 0.65) 60%,
+    rgba(0, 0, 0, 0) 100%
+  );
+  transform: translateX(-14%);
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+.hero-skeleton-panel.is-active {
+  animation: skeletonPanelIn 650ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+@keyframes skeletonPanelIn {
+  0% {
+    transform: translateX(-14%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0%);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-reveal.is-active,
+  .hero-skeleton-panel.is-active {
+    animation: none !important;
+  }
+
+  .hero-reveal {
+    clip-path: inset(0 0 0 0);
+    transform: none;
+  }
+
+  .hero-skeleton-panel {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+.brand-story-reveal {
+  opacity: 0;
+  transform: translateY(14px);
+  transition:
+    opacity 700ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 700ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: transform, opacity;
+}
+
+.brand-story-reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.card-reveal {
+  opacity: 0;
+  transform: translateY(18px) scale(0.985);
+  filter: blur(10px);
+  transition:
+    opacity 700ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 700ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    filter 700ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: opacity, transform, filter;
+}
+
+.card-reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  filter: blur(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-story-reveal,
+  .card-reveal {
+    opacity: 1;
+    transform: none;
+    filter: none;
+    transition: none !important;
+  }
+}
+
+/* -----------------------------------------------------------------------------
+   8. Drawer / viewer systems
+   ----------------------------------------------------------------------------- */
 
 .drawer-shell {
   position: fixed;
@@ -728,8 +687,6 @@ html {
   transition: none !important;
 }
 
-/* Footer section inside drawers */
-
 .drawer-glass-footer {
   background: rgba(0, 0, 0, 0.45);
 
@@ -754,10 +711,6 @@ html {
   border-top: 1px solid rgba(255, 255, 255, 0.10);
 }
 
-/* ============================= */
-/* VIEWER GLASS SYSTEM (Global) */
-/* ============================= */
-
 .viewer-glass {
   border: 1px solid rgba(255, 255, 255, 0.10);
   background: rgba(255, 255, 255, 0.05);
@@ -765,12 +718,12 @@ html {
   -webkit-backdrop-filter: blur(18px) saturate(1.4);
 }
 
-/* =========================
-   PREMIUM PRODUCT CARD (H&M-ish)
-   ========================= */
+/* -----------------------------------------------------------------------------
+   9. Product card systems
+   ----------------------------------------------------------------------------- */
 
 .card-premium {
-  border-radius: 1.25rem; /* 20px */
+  border-radius: 1.25rem;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: linear-gradient(
     180deg,
@@ -796,17 +749,12 @@ html {
     0 4px 12px rgba(0, 0, 0, 0.6);
 }
 
-/* Imagen con protagonismo (Full-bleed: sin marco) */
 .card-premium-media {
-  /* IMPORTANTE: sin padding, sin border interno */
   padding: 0 !important;
   border: 0 !important;
-
-  /* el recorte lo hace el overflow del card */
   background: transparent;
 }
 
-/* Área texto minimal */
 .card-premium-meta {
   padding: 1rem 1rem 1.1rem;
   display: grid;
@@ -841,26 +789,19 @@ html {
   color: rgba(255, 255, 255, 0.82);
 }
 
-/* Ratio tipo moda: 4:5 (H&M feel) */
 .card-premium-ratio {
   aspect-ratio: 4 / 5;
 }
 
-/* Imagen full bleed */
 .card-premium-img {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-
-  /* Editorial */
   object-fit: cover;
-
-  /* Evita “marcos” por inline images */
   display: block;
 }
 
-/* Accesibilidad: reduce motion */
 @media (prefers-reduced-motion: reduce) {
   .card-premium,
   .card-premium:hover {
@@ -869,16 +810,15 @@ html {
   }
 }
 
-/* ===============================
-   Premium Circular Loader (Glass overlay)
-=================================*/
+/* -----------------------------------------------------------------------------
+   10. Loaders / route overlays
+   ----------------------------------------------------------------------------- */
 
 .premium-loader-overlay {
   position: fixed;
   inset: 0;
   z-index: 9999;
 
-  /* Match the app glass language (like drawer/cart) */
   background: rgba(0, 0, 0, 0.45);
   border: 1px solid rgba(255, 255, 255, 0.10);
 
@@ -891,7 +831,6 @@ html {
   align-items: center;
   justify-content: center;
 
-  /* smoother perceived transition */
   animation: loaderOverlayIn 180ms ease-out both;
 }
 
@@ -910,7 +849,6 @@ html {
 
   animation: spin 0.9s linear infinite;
 
-  /* subtle premium glow, consistent with accent */
   box-shadow: 0 0 18px color-mix(in srgb, var(--accent-soft) 25%, transparent);
 }
 
@@ -918,9 +856,6 @@ html {
   to { transform: rotate(360deg); }
 }
 
-/* ===============================
-   Elegant Enter Transition
-=================================*/
 .elegant-enter {
   animation: elegantEnter 320ms ease-out both;
 }
@@ -937,17 +872,6 @@ html {
     filter: blur(0);
   }
 }
-
-/* ===============================
-   Global Route/Page Loading Overlay (Liquid Glass)
-   Contract: keep global overlay available for route/page transitions
-   Toggle:
-     document.documentElement.dataset.routeLoading = "1";
-     delete document.documentElement.dataset.routeLoading;
-
-     document.documentElement.dataset.pageLoading = "1";
-     delete document.documentElement.dataset.pageLoading;
-=================================*/
 
 html[data-route-loading="1"] body::before,
 html[data-page-loading="1"] body::before {
@@ -988,7 +912,6 @@ html[data-page-loading="1"] body::after {
   box-shadow: 0 0 18px color-mix(in srgb, var(--accent-soft) 25%, transparent);
 }
 
-/* Prevent scroll / interactions while loading */
 html[data-route-loading="1"],
 html[data-page-loading="1"] {
   overflow: hidden;
@@ -999,20 +922,20 @@ html[data-page-loading="1"] body {
   pointer-events: none;
 }
 
-/* ===============================
-   PDP premium layout helpers
-=================================*/
+/* -----------------------------------------------------------------------------
+   11. PDP systems
+   ----------------------------------------------------------------------------- */
 
 .pdp-bleed {
   width: 100%;
-  border-radius: 1.25rem; /* 2xl */
+  border-radius: 1.25rem;
   overflow: hidden;
   background: rgba(255,255,255,0.02);
   border: 1px solid rgba(255,255,255,0.06);
 }
 
 .pdp-bleed--full {
-  border-radius: 0; /* full-bleed in mobile */
+  border-radius: 0;
   border-left: 0;
   border-right: 0;
 }
@@ -1021,7 +944,7 @@ html[data-page-loading="1"] body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 2.25rem; /* 36px */
+  height: 2.25rem;
   padding: 0 0.85rem;
   border-radius: 999px;
   border: 1px solid rgba(255,255,255,0.12);
@@ -1071,16 +994,11 @@ html[data-page-loading="1"] body {
   gap: 0.9rem 1rem;
 }
 
-/* ===============================
-   PDP Minimal Hero (no frames)
-=================================*/
-
 .pdp-hero {
   position: relative;
   width: 100%;
 }
 
-/* full-bleed image: no border, no frame */
 .pdp-hero-bleed {
   width: 100%;
   overflow: hidden;
@@ -1090,7 +1008,6 @@ html[data-page-loading="1"] body {
   box-shadow: none !important;
 }
 
-/* Breadcrumb overlay */
 .pdp-breadcrumb-overlay {
   position: absolute;
   left: 16px;
@@ -1106,7 +1023,6 @@ html[data-page-loading="1"] body {
   font-size: 12px;
   color: rgba(255, 255, 255, 0.78);
 
-  /* subtle glass for readability */
   padding: 8px 10px;
   border-radius: 999px;
   background: rgba(0, 0, 0, 0.30);
@@ -1115,7 +1031,6 @@ html[data-page-loading="1"] body {
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-/* Optional: fade edge at bottom of hero to separate content */
 .pdp-hero-fade {
   pointer-events: none;
   position: absolute;
@@ -1130,16 +1045,10 @@ html[data-page-loading="1"] body {
   z-index: 2;
 }
 
-/* ===============================
-   PDP Variant Premium System
-=================================*/
-
-/* Section spacing */
 .pdp-variant-section {
   margin-top: 1.25rem;
 }
 
-/* Section title */
 .pdp-variant-title {
   font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
   font-size: var(--text-xs);
@@ -1151,7 +1060,6 @@ html[data-page-loading="1"] body {
   margin-bottom: 0.6rem;
 }
 
-/* SIZE GRID */
 .pdp-size-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1186,7 +1094,6 @@ html[data-page-loading="1"] body {
   cursor: not-allowed;
 }
 
-/* COLOR GRID (same visual system as SIZE) */
 .pdp-color-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1194,8 +1101,8 @@ html[data-page-loading="1"] body {
 }
 
 .pdp-color-chip {
-  height: 42px;                 /* igual que talla */
-  border-radius: 12px;          /* igual que talla */
+  height: 42px;
+  border-radius: 12px;
   border: 1px solid rgba(255,255,255,0.12);
   background: rgba(255,255,255,0.03);
   font-size: 0.9rem;
@@ -1223,7 +1130,6 @@ html[data-page-loading="1"] body {
   cursor: not-allowed;
 }
 
-/* Guide link (pill, no underline) */
 .pdp-guide-link {
   display: inline-flex;
   align-items: center;
@@ -1241,7 +1147,7 @@ html[data-page-loading="1"] body {
   padding: 6px 10px;
   border-radius: 999px;
 
-  text-decoration: none;               /* ✅ sin línea */
+  text-decoration: none;
   transition: all 160ms ease;
 }
 
@@ -1264,7 +1170,6 @@ html[data-page-loading="1"] body {
   color: rgba(255,255,255,0.85);
 }
 
-/* Size guide as a clean inline action (no pill/border/background) */
 .pdp-guide-link-inline {
   display: inline-flex;
   align-items: center;
@@ -1287,6 +1192,10 @@ html[data-page-loading="1"] body {
 .pdp-guide-link-inline:hover {
   color: var(--accent-strong);
 }
+
+/* -----------------------------------------------------------------------------
+   12. Legal / content-specific styles
+   ----------------------------------------------------------------------------- */
 
 .legal-richtext h3 {
   margin-top: 2.5rem;
