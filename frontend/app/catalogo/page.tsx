@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import CatalogoClient from "./CatalogoClient";
+import { getCatalogo } from "@/lib/api";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 
 export async function generateMetadata(): Promise<Metadata> {
   return {
@@ -30,6 +31,10 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default function CatalogoPage() {
-  return <CatalogoClient />;
+export default async function CatalogoPage() {
+  const res = await getCatalogo({ page_size: 48 });
+
+  const products = Array.isArray(res?.results) ? res.results : [];
+
+  return <CatalogoClient initialProducts={products} />;
 }
