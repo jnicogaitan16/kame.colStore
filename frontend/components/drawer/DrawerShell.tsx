@@ -1,13 +1,16 @@
-
-
 "use client";
 
-import type { ReactNode, Ref, RefObject, TouchEventHandler } from "react";
+import type { AriaAttributes, ReactNode, Ref, RefObject, TouchEventHandler } from "react";
 import Link from "next/link";
 
 type DrawerShellProps = {
   isOpen: boolean;
   side?: "left" | "right";
+  ariaLabel?: string;
+  ariaLabelledBy?: AriaAttributes["aria-labelledby"];
+  bodyClassName?: string;
+  panelClassName?: string;
+  backdropClassName?: string;
   panelRef?: RefObject<HTMLElement | HTMLDivElement | null>;
   isDragging?: boolean;
   backdropOpacity?: number;
@@ -25,6 +28,11 @@ type DrawerShellProps = {
 export default function DrawerShell({
   isOpen,
   side = "left",
+  ariaLabel,
+  ariaLabelledBy,
+  bodyClassName,
+  panelClassName,
+  backdropClassName,
   panelRef,
   isDragging = false,
   backdropOpacity = 1,
@@ -43,22 +51,37 @@ export default function DrawerShell({
   const panelSideClass = side === "left" ? "drawer-panel-left" : "drawer-panel-right";
   const panelTransitionClass = isDragging ? "drawer-panel-drag-active" : "drawer-panel-transition";
 
+  const resolvedAriaLabel = ariaLabelledBy ? undefined : ariaLabel ?? "Drawer";
+
   return (
     <div className="drawer-shell" aria-hidden={!isOpen}>
       <div
-        className="drawer-backdrop drawer-drag-backdrop"
+        className={[
+          "drawer-backdrop drawer-drag-backdrop",
+          backdropClassName,
+        ]
+          .filter(Boolean)
+          .join(" ")}
         style={{ opacity: backdropOpacity }}
         onClick={onClose}
+        aria-hidden="true"
       />
 
       <aside
         ref={panelRef as Ref<HTMLElement> | undefined}
+        role="dialog"
+        aria-modal="true"
+        aria-label={resolvedAriaLabel}
+        aria-labelledby={ariaLabelledBy}
         className={[
           panelSideClass,
           "drawer-panel-surface",
           panelTransitionClass,
           "transform will-change-transform",
-        ].join(" ")}
+          panelClassName,
+        ]
+          .filter(Boolean)
+          .join(" ")}
         style={{ transform: `translateX(${translateX}px)` }}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
@@ -79,7 +102,7 @@ export default function DrawerShell({
           </div>
         )}
 
-        <div className="drawer-body-scroll">{children}</div>
+        <div className={["drawer-body-scroll", bodyClassName].filter(Boolean).join(" ")}>{children}</div>
 
         {footerContent ? <div className="drawer-footer-row">{footerContent}</div> : null}
       </aside>

@@ -10,11 +10,24 @@ import {
   type TouchEvent,
 } from "react";
 
+/**
+ * Current contract:
+ * - This hook is intentionally scoped to the left-side mobile menu drawer.
+ * - It currently supports swipe-to-close only when the user drags toward the left.
+ * - It is NOT yet the shared hook for right-side drawers such as MiniCart.
+ *
+ * Future evolution:
+ * - If drawer gesture unification is needed, this hook can be generalized with
+ *   a directional contract such as `side: "left" | "right"`.
+ * - That generalization should happen in a dedicated refactor, isolated from
+ *   visual or cart-specific changes.
+ */
 const MENU_DRAG_THRESHOLD_PX = 12;
 const MENU_HORIZONTAL_DOMINANCE_RATIO = 1.2;
 const MENU_CLOSE_THRESHOLD_RATIO = 0.32;
 const MENU_FAST_SWIPE_VELOCITY = 0.55;
 
+// Left-side drawer only in the current phase.
 type UseHorizontalDrawerDragParams = {
   isOpen: boolean;
   onClose: () => void;
@@ -105,6 +118,7 @@ export function useHorizontalDrawerDrag({
           return;
         }
 
+        // Current directional rule: left drawer closes only with a leftward swipe.
         if (absDeltaX > absDeltaY * MENU_HORIZONTAL_DOMINANCE_RATIO && deltaX < 0) {
           setLockedAxis("x");
           setIsDragging(true);
@@ -157,6 +171,8 @@ export function useHorizontalDrawerDrag({
     resetDragState();
   }, [resetDragState]);
 
+  // Returned values remain compatible with Header.tsx.
+  // MiniCart does not consume this hook in the current phase.
   return useMemo(
     () => ({
       panelRef,
