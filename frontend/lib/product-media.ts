@@ -116,11 +116,21 @@ function getObjectThumbUrl(input: Record<string, unknown>): string | null {
   const candidates = [
     input.thumb_url,
     input.thumbUrl,
+    input.image_thumb_url,
+    input.imageThumbUrl,
     input.thumbnail_url,
     input.thumbnailUrl,
     input.thumbnail,
     input.thumb,
     input.small,
+    input.image_medium_url,
+    input.imageMediumUrl,
+    input.image_large_url,
+    input.imageLargeUrl,
+    input.image,
+    input.image_url,
+    input.imageUrl,
+    input.url,
   ];
 
   for (const candidate of candidates) {
@@ -231,6 +241,12 @@ export function collectProductImageCandidates(
     typeof record.image === "string" ? record.image : undefined,
     typeof record.image_url === "string" ? record.image_url : undefined,
     typeof record.imageUrl === "string" ? record.imageUrl : undefined,
+    typeof record.image_thumb_url === "string" ? record.image_thumb_url : undefined,
+    typeof record.imageThumbUrl === "string" ? record.imageThumbUrl : undefined,
+    typeof record.image_medium_url === "string" ? record.image_medium_url : undefined,
+    typeof record.imageMediumUrl === "string" ? record.imageMediumUrl : undefined,
+    typeof record.image_large_url === "string" ? record.image_large_url : undefined,
+    typeof record.imageLargeUrl === "string" ? record.imageLargeUrl : undefined,
     typeof record.secure_url === "string" ? record.secure_url : undefined,
     typeof record.public_url === "string" ? record.public_url : undefined,
     typeof record.publicUrl === "string" ? record.publicUrl : undefined,
@@ -266,6 +282,12 @@ export function getProductPrimaryImage(product: unknown): string | null {
   collectProductImageCandidates(record.primary_image, explicitCandidates);
   collectProductImageCandidates(record.primaryImage, explicitCandidates);
   collectProductImageCandidates(record.main_image, explicitCandidates);
+  collectProductImageCandidates(record.image_large_url, explicitCandidates);
+  collectProductImageCandidates(record.imageLargeUrl, explicitCandidates);
+  collectProductImageCandidates(record.image_medium_url, explicitCandidates);
+  collectProductImageCandidates(record.imageMediumUrl, explicitCandidates);
+  collectProductImageCandidates(record.image_thumb_url, explicitCandidates);
+  collectProductImageCandidates(record.imageThumbUrl, explicitCandidates);
   collectProductImageCandidates(record.image, explicitCandidates);
   collectProductImageCandidates(record.image_url, explicitCandidates);
   collectProductImageCandidates(record.imageUrl, explicitCandidates);
@@ -312,6 +334,13 @@ export function getProductGalleryImages(product: unknown): NormalizedProductGall
   appendGalleryCandidates(record.media, gallery, seen);
   appendGalleryCandidates(record.product_images, gallery, seen);
   appendGalleryCandidates(record.productImages, gallery, seen);
+  appendGalleryCandidates(record.color_images, gallery, seen);
+  appendGalleryCandidates(record.colorImages, gallery, seen);
+  appendGalleryCandidates(record.variant_images, gallery, seen);
+  appendGalleryCandidates(record.variantImages, gallery, seen);
+  appendGalleryCandidates(record.variant_image, gallery, seen);
+  appendGalleryCandidates(record.variantImage, gallery, seen);
+  appendGalleryCandidates(record.variants, gallery, seen);
 
   return gallery;
 }
