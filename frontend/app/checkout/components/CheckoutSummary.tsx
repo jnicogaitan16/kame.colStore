@@ -43,7 +43,7 @@ type CheckoutSummaryProps = {
   subtotal: number;
   shipping: ShippingQuote | null;
   hasBlockingWarnings: boolean;
-  stockValidateStatus: "idle" | "loading" | "ok" | "error";
+  stockValidateStatus: "idle" | "checking" | "ok" | "error";
   stockWarningsByVariantId: Record<string, StockWarningLike>;
   stockHintsByVariantId: Record<string, StockHintLike>;
   handleAdjustToAvailable: (e?: React.MouseEvent, onlyVariantId?: number) => void;
