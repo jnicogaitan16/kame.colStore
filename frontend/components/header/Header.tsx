@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState, useCallback } from "react";
-import Link from "next/link";
 
 import Navbar from "./Navbar";
 import MobileMenuContent from "./MobileMenuContent";
@@ -28,10 +27,13 @@ export default function Header({
   cartCount = 0,
 }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [isCartOpen, setIsCartOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
 
-  useBodyScrollLock(mobileMenuOpen || isCartOpen);
+  const storeCartOpen = useCartStore((s) => s.isOpen);
+  const closeCart = useCartStore((s) => s.closeCart);
+  const toggleCart = useCartStore((s) => s.toggleCart);
+
+  useBodyScrollLock(mobileMenuOpen || storeCartOpen);
 
   const {
     panelRef,
@@ -94,7 +96,7 @@ export default function Header({
           ].join(" ")}
           data-scrolled={isScrolled ? "true" : "false"}
           data-mobile-menu-open={mobileMenuOpen ? "true" : "false"}
-          data-cart-open={isCartOpen ? "true" : "false"}
+          data-cart-open={storeCartOpen ? "true" : "false"}
           style={
             isScrolled
               ? {
@@ -109,7 +111,7 @@ export default function Header({
             navDepartments={navDepartments}
             cartCount={effectiveCartCount}
             onOpenMobileMenu={() => setMobileMenuOpen(true)}
-            onToggleCart={() => setIsCartOpen((current) => !current)}
+            onToggleCart={toggleCart}
             isScrolled={isScrolled}
           />
         </header>
@@ -139,7 +141,7 @@ export default function Header({
         />
       </DrawerShell>
 
-      <MiniCart open={isCartOpen} onClose={() => setIsCartOpen(false)} />
+      <MiniCart open={storeCartOpen} onClose={closeCart} />
     </>
   );
 }

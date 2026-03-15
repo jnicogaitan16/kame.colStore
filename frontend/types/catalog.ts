@@ -1,13 +1,21 @@
 /**
  * Tipos alineados con la API del catálogo (Django DRF).
  *
- * Estructura estándar e-commerce:
- * - Department
- * - Category (tree via parent_id)
- * - Product (list/detail)
- * - ProductVariant (stock real desde InventoryPool)
+ * Capas que este archivo distingue explícitamente:
+ * - Contrato API: payloads crudos que llegan desde backend.
+ * - Media backend: estructuras de imagen tal como pueden venir del API.
+ * - Media normalizada UI: estructura estable ya apta para render.
+ * - View model PDP: estructura derivada que consume la UI del detalle.
  *
- * Importante de arquitectura:
+ * Regla arquitectónica:
+ * - Los tipos `Product`, `ProductDetail`, `ProductVariant`, `Category`, etc.
+ *   representan contrato backend o compatibilidad directa con ese contrato.
+ * - La normalización de media no debe inferirse desde estos tipos; debe pasar por
+ *   los helpers compartidos de `frontend/lib/product-media.ts`.
+ * - El PDP debe consumir un view model derivado, no reinterpretar manualmente el
+ *   payload crudo del API.
+ *
+ * Importante para navegación:
  * - `Category` representa taxonomía de catálogo.
  * - `Category` no sustituye el contrato de navegación pública.
  * - Para navegación pública del header/mobile menu debe priorizarse
@@ -65,24 +73,36 @@ export interface Product {
 
   category: Category;
 
+  // Campo backend explícito. Puede venir vacío o requerir normalización.
   primary_image: string | null;
-  // Fuente de verdad para imágenes en todo el front
+
+  // Colección de media enviada por backend. No implica por sí sola que ya esté
+  // filtrada, deduplicada o lista para UI; debe normalizarse con product-media.ts.
   images?: ProductImage[];
-  // Legacy opcional (si algún endpoint aún lo envía)
+
+  // Campo legacy opcional de compatibilidad.
   image_url?: string | null;
   is_active: boolean;
 }
 
 // =============================
-// Imágenes  
+// Media backend (payload API)
 // =============================
 
+/**
+ * Estructura de imagen tal como puede venir desde backend.
+ * Aún no representa media canónica de UI.
+ */
 export type ProductImage = {
   url: string;
   thumb_url?: string | null;
   alt_text?: string | null;
 };
 
+/**
+ * Variante de media backend asociada a color.
+ * Sigue siendo contrato API, no media normalizada de frontend.
+ */
 export interface ProductColorImage extends ProductImage {
   color?: string | null;
 }
@@ -98,6 +118,7 @@ export interface ProductVariant {
   stock: number;          // stock real desde InventoryPool
   is_active: boolean;
 
+  // Media opcional asociada a la variante según contrato backend.
   image_url?: string | null;
   image_thumb_url?: string | null;
   images?: ProductImage[];
@@ -115,13 +136,14 @@ export interface ProductDetail extends Product {
 }
 
 // =============================
-// PDP View Model / Frontend derivados
+// Media normalizada UI + View model PDP
 // =============================
 
 /**
- * Imagen ya normalizada para render del PDP.
- * Diferente del contrato API: aquí el frontend asume `url` usable
- * y puede adjuntar metadata lista para galería / fallback visual.
+ * Media ya normalizada para frontend.
+ *
+ * A diferencia de `ProductImage`, esta estructura representa una URL canónica
+ * apta para render en cards, PDP, metadata visual y galerías.
  */
 export interface NormalizedProductGalleryImage {
   url: string;
@@ -157,14 +179,22 @@ export interface ProductSelectionState {
 }
 
 /**
- * View model del detalle de producto para el PDP.
- * Extiende el contrato base del API sin mutarlo; permite transportar
- * datos ya preparados para render, metadata visual y galería canónica.
+ * View model derivado del detalle de producto para el PDP.
+ *
+ * No es payload backend. Agrupa el contrato crudo junto con media canónica y
+ * estructuras preparadas para render consistente en la UI del detalle.
  */
 export interface ProductDetailViewModel {
+  // Contrato backend original del detalle.
   product: ProductDetail;
+
+  // Imagen principal ya resuelta para UI.
   primaryImage: string | null;
+
+  // Alias explícito para usos donde se quiera remarcar la imagen canónica del producto.
   canonicalProductImage: string | null;
+
+  // Galería final ya normalizada para render.
   galleryImages: NormalizedProductGalleryImage[];
 }
 

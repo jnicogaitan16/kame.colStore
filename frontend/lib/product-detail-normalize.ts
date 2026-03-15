@@ -1,6 +1,10 @@
 
 
-import { getPrimaryImageUrl, normalizeMediaUrl } from "@/lib/api";
+import {
+  getProductGalleryImages,
+  getProductPrimaryImage,
+  normalizeProductMediaUrl,
+} from "@/lib/product-media";
 import type {
   NormalizedProductGalleryImage,
   ProductDetail,
@@ -120,7 +124,7 @@ export function normalizeGalleryImages(input: unknown): NormalizedProductGallery
         const raw = image.trim();
         if (!raw) return null;
 
-        const url = normalizeMediaUrl(raw);
+        const url = normalizeProductMediaUrl(raw);
         if (!url) return null;
 
         return {
@@ -139,7 +143,7 @@ export function normalizeGalleryImages(input: unknown): NormalizedProductGallery
 
       if (!rawUrl) return null;
 
-      const url = normalizeMediaUrl(rawUrl);
+      const url = normalizeProductMediaUrl(rawUrl);
       if (!url) return null;
 
       const rawThumb = normalizeOption(
@@ -151,7 +155,7 @@ export function normalizeGalleryImages(input: unknown): NormalizedProductGallery
           rawUrl
       );
 
-      const thumb_url = normalizeMediaUrl(rawThumb || rawUrl) || url;
+      const thumb_url = normalizeProductMediaUrl(rawThumb || rawUrl) || url;
       const alt_text =
         normalizeOption(record.alt_text ?? record.altText ?? record.alt ?? "") ||
         null;
@@ -184,7 +188,7 @@ export function dedupeGalleryImages(
 
 export function getPrimaryImageUrlFromSource(source: ImageSourceLike | null | undefined): string | null {
   if (!source) return null;
-  return getPrimaryImageUrl(source) || null;
+  return getProductPrimaryImage(source) || null;
 }
 
 export function getSourceImages(source: ImageSourceLike | null | undefined): unknown {
@@ -205,13 +209,13 @@ export function resolveVariantGalleryImages(
   variant: ProductVariant | null
 ): NormalizedProductGalleryImage[] {
   if (!variant) return [];
-  return dedupeGalleryImages(normalizeGalleryImages(getSourceImages(variant)));
+  return dedupeGalleryImages(getProductGalleryImages(variant));
 }
 
 export function resolveProductGalleryImages(
   product: ProductDetail
 ): NormalizedProductGalleryImage[] {
-  return dedupeGalleryImages(normalizeGalleryImages(getSourceImages(product)));
+  return dedupeGalleryImages(getProductGalleryImages(product));
 }
 
 export function buildVariantMatrix(variants: ProductVariant[]): ProductVariantMatrix {

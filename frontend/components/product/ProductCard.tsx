@@ -3,14 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { productPath } from "@/lib/routes";
-import { getPrimaryImageUrl } from "@/lib/api";
+import { getProductPrimaryImage } from "@/lib/product-media";
 
 interface ProductCardProps {
   product: any;
 }
 
 export function ProductCard({ product }: ProductCardProps) {
-  const img = getPrimaryImageUrl(product as any) || "";
+  const img = getProductPrimaryImage(product) || "";
 
   const name = (product as any)?.name ?? "";
   const price = (product as any)?.price ?? "0";

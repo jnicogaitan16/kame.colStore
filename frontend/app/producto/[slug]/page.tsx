@@ -2,6 +2,11 @@ import { cache } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getProductBySlug } from "@/lib/api";
+import {
+  getProductGalleryImages,
+  getProductPrimaryImage,
+  toAbsoluteProductMediaUrl,
+} from "@/lib/product-media";
 import { buildProductDetailPDPViewModel } from "@/lib/product-detail-normalize";
 import { ProductDetailClient } from "./ProductDetailClient";
 
@@ -11,16 +16,7 @@ interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://kamecol.com";
 const OG_DEFAULT_PATH = "/og/default.jpg";
-const INVALID_IMAGE_PATTERNS = [
-  "/media/cache/",
-  "/_next/",
-  "blob:",
-  "data:",
-  "localhost",
-  "127.0.0.1",
-];
 
 const getCachedProductBySlug = cache(
   async (slug: string, options?: { next?: { revalidate?: number } }) => {
@@ -35,160 +31,13 @@ function truncate(text: string, max = 180): string {
   return t.slice(0, max - 1).trimEnd() + "…";
 }
 
-function isLikelyPublicImageUrl(value: unknown): value is string {
-  const raw = String(value || "").trim();
-  if (!raw) return false;
-
-  const normalized = raw.toLowerCase();
-  if (
-    !/(^https?:\/\/|^\/|^[a-z0-9].*\/(.+)\.(jpg|jpeg|png|webp|avif|gif)(\?.*)?$)/i.test(raw) &&
-    !/\.(jpg|jpeg|png|webp|avif|gif)(\?.*)?$/i.test(raw)
-  ) {
-    return false;
-  }
-
-  return !INVALID_IMAGE_PATTERNS.some((pattern) => normalized.includes(pattern));
-}
-
-function collectImageCandidates(input: any, bucket: Array<string | null | undefined>) {
-  if (!input) return;
-
-  if (typeof input === "string") {
-    bucket.push(input);
-    return;
-  }
-
-  if (Array.isArray(input)) {
-    for (const item of input) {
-      collectImageCandidates(item, bucket);
-    }
-    return;
-  }
-
-  if (typeof input === "object") {
-    bucket.push(
-      input.url,
-      input.src,
-      input.image,
-      input.image_url,
-      input.imageUrl,
-      input.secure_url,
-      input.public_url,
-      input.publicUrl,
-      input.file,
-      input.path,
-      input.original,
-      input.large,
-      input.medium,
-      input.small,
-      input.thumbnail,
-      input.thumbnail_url,
-      input.thumbnailUrl,
-      input.cover,
-      input.cover_image,
-      input.coverImage,
-      input.primary,
-      input.primary_image,
-      input.primaryImage
-    );
-  }
-}
-
-function normalizeImageCandidate(rawValue: string): string | null {
-  const raw = String(rawValue || "").trim();
-  if (!isLikelyPublicImageUrl(raw)) return null;
-
-  if (raw.startsWith("http://") || raw.startsWith("https://")) {
-    return raw;
-  }
-
-  if (raw.startsWith("/")) {
-    return raw;
-  }
-
-  if (/^[a-z0-9].*\.(jpg|jpeg|png|webp|avif|gif)(\?.*)?$/i.test(raw)) {
-    return `/${raw}`;
-  }
-
-  return null;
-}
-
-function pickPrimaryImageUrl(product: any): string | null {
-  const candidates: Array<string | null | undefined> = [];
-
-  collectImageCandidates(product?.primary_image, candidates);
-  collectImageCandidates(product?.primaryImage, candidates);
-  collectImageCandidates(product?.image, candidates);
-  collectImageCandidates(product?.image_url, candidates);
-  collectImageCandidates(product?.imageUrl, candidates);
-  collectImageCandidates(product?.cover, candidates);
-  collectImageCandidates(product?.cover_image, candidates);
-  collectImageCandidates(product?.coverImage, candidates);
-  collectImageCandidates(product?.thumbnail, candidates);
-  collectImageCandidates(product?.thumbnail_url, candidates);
-  collectImageCandidates(product?.thumbnailUrl, candidates);
-
-  collectImageCandidates(product?.images, candidates);
-  collectImageCandidates(product?.gallery, candidates);
-  collectImageCandidates(product?.gallery_images, candidates);
-  collectImageCandidates(product?.galleryImages, candidates);
-  collectImageCandidates(product?.media, candidates);
-  collectImageCandidates(product?.product_images, candidates);
-  collectImageCandidates(product?.productImages, candidates);
-  collectImageCandidates(product?.color_images, candidates);
-  collectImageCandidates(product?.colorImages, candidates);
-  collectImageCandidates(product?.variant_images, candidates);
-  collectImageCandidates(product?.variantImages, candidates);
-  collectImageCandidates(product?.variant_image, candidates);
-  collectImageCandidates(product?.variantImage, candidates);
-  collectImageCandidates(product?.default_image, candidates);
-  collectImageCandidates(product?.defaultImage, candidates);
-
-  const firstValid = candidates
-    .map((candidate) => (typeof candidate === "string" ? normalizeImageCandidate(candidate) : null))
-    .find((candidate) => Boolean(candidate));
-
-  return firstValid || null;
-}
-
-function toAbsoluteHttpsUrl(inputUrl: string): string {
-  const raw = String(inputUrl || "").trim();
-  if (!raw) return new URL(OG_DEFAULT_PATH, siteUrl).toString();
-
-  try {
-    const abs = new URL(raw, siteUrl).toString();
-    if (abs.startsWith("http://")) {
-      return "https://" + abs.slice("http://".length);
-    }
-    return abs;
-  } catch {
-    return new URL(OG_DEFAULT_PATH, siteUrl).toString();
-  }
-}
-
 function isNotFoundProduct(product: any): boolean {
   return !product || product?.detail === "Not found" || product?.detail === "Not found.";
 }
 
 function normalizeProductForClient(product: any) {
-  const primaryImage = pickPrimaryImageUrl(product) || OG_DEFAULT_PATH;
-  const normalizedGallery = [
-    primaryImage,
-    ...(Array.isArray(product?.images) ? product.images : []),
-    ...(Array.isArray(product?.gallery) ? product.gallery : []),
-  ]
-    .flatMap((item) => {
-      if (typeof item === "string") return [normalizeImageCandidate(item)];
-      if (item && typeof item === "object") {
-        const candidates: Array<string | null | undefined> = [];
-        collectImageCandidates(item, candidates);
-        return candidates.map((candidate) =>
-          typeof candidate === "string" ? normalizeImageCandidate(candidate) : null
-        );
-      }
-      return [];
-    })
-    .filter((value, index, arr): value is string => Boolean(value) && arr.indexOf(value) === index);
+  const primaryImage = getProductPrimaryImage(product) || OG_DEFAULT_PATH;
+  const normalizedGallery = getProductGalleryImages(product).map((item) => item.url);
 
   return {
     ...product,
@@ -201,8 +50,8 @@ function buildProductMetadata(product: any, slug: string): Metadata {
   const name = String(product?.name || product?.title || "Producto").trim();
   const descSource = product?.short_description || product?.shortDescription || product?.description || "";
   const description = truncate(descSource, 180) || "Producto en Kame.Col.";
-  const primaryImage = pickPrimaryImageUrl(product) || OG_DEFAULT_PATH;
-  const ogImage = toAbsoluteHttpsUrl(primaryImage);
+  const primaryImage = getProductPrimaryImage(product) || OG_DEFAULT_PATH;
+  const ogImage = toAbsoluteProductMediaUrl(primaryImage, OG_DEFAULT_PATH);
 
   return {
     title: `${name} | Kame.Col`,
@@ -261,7 +110,7 @@ function buildFallbackMetadata(slug: string): Metadata {
       url: `/producto/${encodeURIComponent(slug)}`,
       images: [
         {
-          url: toAbsoluteHttpsUrl(OG_DEFAULT_PATH),
+          url: toAbsoluteProductMediaUrl(OG_DEFAULT_PATH, OG_DEFAULT_PATH),
           width: 1200,
           height: 630,
           alt: "Kame.Col",
@@ -272,7 +121,7 @@ function buildFallbackMetadata(slug: string): Metadata {
       card: "summary_large_image",
       title: "Producto | Kame.Col",
       description: "Producto en Kame.Col.",
-      images: [toAbsoluteHttpsUrl(OG_DEFAULT_PATH)],
+      images: [toAbsoluteProductMediaUrl(OG_DEFAULT_PATH, OG_DEFAULT_PATH)],
     },
   };
 }
@@ -285,6 +134,15 @@ function renderTemporaryApiFailure() {
       </div>
     </main>
   );
+}
+
+function logPdpStageError(stage: string, slug: string, e: any) {
+  console.error(`[PDP] ${stage}`, {
+    slug,
+    message: e?.message,
+    status: e?.status,
+    stack: e?.stack,
+  });
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -316,24 +174,44 @@ export default async function ProductPage({ params }: PageProps) {
 
   if (!slug) notFound();
 
+  let product: any;
   try {
-    const product: any = await getCachedProductBySlug(slug, {
+    product = await getCachedProductBySlug(slug, {
       next: { revalidate: 60 },
     });
-
-    if (isNotFoundProduct(product)) {
-      notFound();
-    }
-
-    const normalizedProduct = normalizeProductForClient(product);
-    const productViewModel = buildProductDetailPDPViewModel(normalizedProduct);
-
-    return <ProductDetailClient product={productViewModel as any} />;
   } catch (e: any) {
     if (typeof e?.status === "number" && e.status === 404) {
       notFound();
     }
 
+    logPdpStageError("fetch failed", slug, e);
+    return renderTemporaryApiFailure();
+  }
+
+  if (isNotFoundProduct(product)) {
+    notFound();
+  }
+
+  let normalizedProduct: any;
+  try {
+    normalizedProduct = normalizeProductForClient(product);
+  } catch (e: any) {
+    logPdpStageError("normalization failed", slug, e);
+    return renderTemporaryApiFailure();
+  }
+
+  let productViewModel: any;
+  try {
+    productViewModel = buildProductDetailPDPViewModel(normalizedProduct);
+  } catch (e: any) {
+    logPdpStageError("view-model build failed", slug, e);
+    return renderTemporaryApiFailure();
+  }
+
+  try {
+    return <ProductDetailClient product={productViewModel as any} />;
+  } catch (e: any) {
+    logPdpStageError("render failed", slug, e);
     return renderTemporaryApiFailure();
   }
 }

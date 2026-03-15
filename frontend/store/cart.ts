@@ -53,6 +53,13 @@ export type StockValidateStatus = "idle" | "checking" | "ok" | "error";
 
 interface CartState {
   items: CartItem[];
+  /**
+   * Legacy UI flag kept for backward compatibility with any remaining consumers.
+   *
+   * Important architectural note:
+   * the visible MiniCart rendered from the header/layout is no longer controlled
+   * by this store flag as a source of truth. Header.tsx owns that UI state.
+   */
   isOpen: boolean;
   stockWarningsByVariantId: Record<string, StockWarning>;
   stockHintsByVariantId: Record<string, StockHint>;
@@ -67,6 +74,12 @@ interface CartState {
   removeItem: (variantId: number) => void;
   updateQuantity: (variantId: number, quantity: number) => void;
 
+  /**
+   * Legacy UI actions preserved for compatibility.
+   *
+   * They must not be treated as the source of truth for the visible MiniCart in
+   * the header/layout flow, which is now controlled by Header.tsx local state.
+   */
   openCart: () => void;
   closeCart: () => void;
   toggleCart: () => void;
@@ -107,6 +120,8 @@ export const useCartStore = create<CartState>()(
   persist(
     (set, get) => ({
       items: [],
+      // Legacy UI flag. Kept to avoid breaking hidden/older consumers, but the
+      // visible MiniCart in header/layout is controlled outside the store.
       isOpen: false,
       stockWarningsByVariantId: {},
       stockHintsByVariantId: {},
@@ -418,7 +433,7 @@ export const useCartStore = create<CartState>()(
         });
       },
 
-      applyOptimisticStockCheck: (_variantId, _nextQty) => {
+      applyOptimisticStockCheck: () => {
         // Store-only contract: no optimistic logic. Validation must come from backend.
         return;
       },
