@@ -4,7 +4,7 @@ import { ProductCard } from "@/components/product/ProductCard";
 import { categoryPath } from "@/lib/routes";
 import type { PaginatedResponse, Product } from "@/types/catalog";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 
 interface PageProps {
   params: Promise<{ slug: string }>;

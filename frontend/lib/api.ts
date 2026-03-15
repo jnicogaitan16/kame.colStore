@@ -1,10 +1,19 @@
 /**
  * Cliente API para el catálogo (Django backend).
  *
- * Estrategia de caché actual:
- * - Centralizar fetch, headers y credenciales del frontend hacia Django.
- * - Mantener `no-store` por defecto para flujos mutables o sensibles.
- * - Permitir `next.revalidate` en lecturas cacheables como el PDP.
+ * Contrato de caché del SDK:
+ * - `apiFetch()` centraliza transporte, headers, credenciales y política base.
+ * - `apiFetch()` NO es cacheable por defecto: respeta `options.cache` y
+ *   `options.next.revalidate` cuando el caller los define.
+ * - Si el caller no define política, `apiFetch()` usa `no-store` como fallback
+ *   seguro para flujos sensibles o mutables.
+ *
+ * Familias de endpoint:
+ * - Navegación, home, promos y lecturas públicas: cacheables con
+ *   `next.revalidate` explícito.
+ * - PDP: cacheable de forma configurable por el caller, normalmente con
+ *   revalidación corta.
+ * - Checkout, stock validate y mutaciones: sin caché (`no-store`).
  */
 import type {
   Category,
@@ -202,10 +211,11 @@ export async function apiFetch<T>(
   const hasExplicitCache = options.cache != null;
   const hasRevalidate = nextFromOptions?.revalidate != null;
 
-  // Rules:
-  // - respect explicit cache from caller
-  // - if caller provides revalidate, do NOT inject cache
-  // - otherwise default to no-store for mutable/sensitive flows
+  // Base cache contract:
+  // - respect explicit `cache` from caller
+  // - respect explicit `next.revalidate` from caller
+  // - if caller defines `revalidate`, do NOT inject `cache`
+  // - otherwise default to `no-store` as the safe fallback
   const cacheOpt = hasExplicitCache
     ? options.cache
     : hasRevalidate
@@ -254,6 +264,10 @@ export async function apiFetch<T>(
 /**
  * Legacy flat catalog categories.
  *
+ * Cache policy:
+ * - Public read endpoint.
+ * - Cacheable with ISR-style revalidation (`next.revalidate`).
+ *
  * This endpoint remains available only as a legacy fallback source.
  * It must not be treated as the preferred public navigation contract.
  * Prefer `getNavigation()` for public navigation and only use this data
@@ -272,6 +286,10 @@ export async function getCategories(): Promise<Category[]> {
 
 /**
  * Official public navigation contract.
+ *
+ * Cache policy:
+ * - Public read endpoint.
+ * - Cacheable with ISR-style revalidation (`next.revalidate`).
  *
  * Responsibilities in this API layer are intentionally limited to:
  * - fetching `/navigation/`
@@ -324,6 +342,14 @@ export async function getNavigation(): Promise<NavigationResponse> {
 /**
  * Primary public catalog listing wrapper based on `/products/`.
  *
+ * Cache policy:
+ * - Public read endpoint.
+ * - By default this wrapper inherits the safe `no-store` fallback from
+ *   `apiFetch()` because listing freshness may depend on active filters,
+ *   stock visibility or search context.
+ * - If a listing flow later needs caching, that policy must be declared
+ *   explicitly at the call site or by extending this wrapper intentionally.
+ *
  * Use this for general product listings, including category and department
  * filtering. This is the canonical SDK entry point for filtered product lists.
  */
@@ -349,6 +375,12 @@ export async function getProducts(params?: {
 
 /**
  * Catalog view wrapper based on `/catalogo/`.
+ *
+ * Cache policy:
+ * - Public read endpoint, but this wrapper currently remains on the safe
+ *   default path inherited from `apiFetch()` (`no-store` unless a policy is
+ *   explicitly declared later).
+ * - Do not assume ISR here unless it is added intentionally.
  *
  * Use this only when the frontend explicitly depends on the backend contract of
  * `/catalogo/` for the catalog page or compatibility flows. Do not use it as a
@@ -398,6 +430,15 @@ function normalizeProductDetail(raw: any): ProductDetail {
   } as ProductDetail;
 }
 
+/**
+ * Product detail wrapper for PDP.
+ *
+ * Cache policy:
+ * - Public read endpoint.
+ * - Cache is intentionally delegated to the caller through `options`.
+ * - Typical PDP usage may provide short `next.revalidate`, but this wrapper
+ *   must stay configurable and must not hardcode a cache policy here.
+ */
 export async function getProductBySlug(
   slug: string,
   options?: ProductFetchOptions
@@ -410,15 +451,33 @@ export async function getProductBySlug(
   return normalizeProductDetail(raw);
 }
 
+/**
+ * Homepage banners.
+ *
+ * Cache policy:
+ * - Public home read endpoint.
+ * - Cacheable with ISR-style revalidation.
+ */
 export async function getHomepageBanners(): Promise<HomepageBanner[]> {
-  return apiFetch<HomepageBanner[]>("/homepage-banners/");
+  return apiFetch<HomepageBanner[]>("/homepage-banners/", {
+    next: { revalidate: 300 },
+  });
 }
 
+/**
+ * Homepage promos.
+ *
+ * Cache policy:
+ * - Public home read endpoint.
+ * - Cacheable with ISR-style revalidation.
+ */
 export async function getHomepagePromos(
   placement?: "TOP" | "MID"
 ): Promise<HomepagePromo[]> {
   const qs = placement ? `?placement=${encodeURIComponent(placement)}` : "";
-  return apiFetch<HomepagePromo[]>(`/homepage-promos/${qs}`);
+  return apiFetch<HomepagePromo[]>(`/homepage-promos/${qs}`, {
+    next: { revalidate: 300 },
+  });
 }
 
 function extractArray<T>(res: any): T[] {
@@ -441,6 +500,11 @@ function isActiveRow(row: any): boolean {
 
 /**
  * Sección de Home (Brand Story).
+ *
+ * Cache policy:
+ * - Public home read endpoint.
+ * - Cacheable with ISR-style revalidation.
+ *
  * Soporta múltiples variantes de endpoint y payload:
  * - Listas: {results:[...]}, {sections:[...]}, [...]
  * - Objeto: {title, content, ...} (legacy)
@@ -459,7 +523,9 @@ export async function getHomepageStory(): Promise<HomepageStory | null> {
 
   for (const path of candidates) {
     try {
-      const data = await apiFetch<any>(path);
+      const data = await apiFetch<any>(path, {
+        next: { revalidate: 300 },
+      });
 
       // 1) Si viene una lista (o wrappers comunes), tomamos la primera activa.
       const rows = extractArray<HomepageStory>(data);
@@ -506,6 +572,13 @@ export async function getHomepageStory(): Promise<HomepageStory | null> {
   return null;
 }
 
+/**
+ * Server-side cart stock validation.
+ *
+ * Cache policy:
+ * - Sensitive POST operation.
+ * - Must remain uncached and continue using the safe default `no-store` path.
+ */
 export async function validateCartStock(
   items: StockValidateItem[],
   opts?: { signal?: AbortSignal }
@@ -551,6 +624,13 @@ export async function validateCartStock(
   };
 }
 
+/**
+ * Checkout submission.
+ *
+ * Cache policy:
+ * - Sensitive POST operation.
+ * - Must remain uncached and continue using the safe default `no-store` path.
+ */
 export async function checkout(
   payload: CheckoutPayload
 ): Promise<CheckoutResponse> {

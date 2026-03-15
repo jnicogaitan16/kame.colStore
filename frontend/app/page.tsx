@@ -3,6 +3,8 @@ import { HeroCarousel } from "@/components/home/HeroCarousel";
 import { BrandStory } from "@/components/home/BrandStory";
 import HomepagePromos from "@/components/home/HomepagePromos";
 
+export const revalidate = 300;
+
 export default async function HomePage() {
   const [bannersRes, storyRes] = await Promise.allSettled([
     getHomepageBanners(),
