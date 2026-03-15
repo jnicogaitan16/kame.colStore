@@ -1,19 +1,20 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 
-import { apiFetch, checkout, getPrimaryImageUrl, type CheckoutResponse } from "@/lib/api";
-import { useCartStore } from "@/store/cart";
 import Link from "next/link";
-import Image from "next/image";
-import { Button } from "@/components/ui/Button";
-import Notice from "@/components/ui/Notice";
-import FieldError from "@/components/forms/FieldError";
+
+import { apiFetch, checkout, type CheckoutResponse } from "@/lib/api";
+import { useCartStore } from "@/store/cart";
 import { buildWhatsAppUrl } from "@/lib/whatsapp";
 import { normalizeApiError } from "@/lib/errors/normalizeApiError";
+
+import CheckoutForm from "./components/CheckoutForm";
+import CheckoutSummary from "./components/CheckoutSummary";
+import CheckoutSuccess from "./components/CheckoutSuccess";
 
 /* ---------------------------------------------
  * Helpers (pure)
@@ -45,20 +46,6 @@ function sanitizeCoPhone(
   return { ok: true, phone10: normalized };
 }
 
-function formatCoPhoneDisplay(input: string): string {
-  const digits = String(input || "").replace(/\D/g, "");
-
-  // Si pegan +57..., nos quedamos con los últimos 10 (celular)
-  const normalized = digits.length >= 10 ? digits.slice(-10) : digits;
-
-  const a = normalized.slice(0, 3);
-  const b = normalized.slice(3, 6);
-  const c = normalized.slice(6, 10);
-
-  if (!b) return a;
-  if (!c) return `${a} ${b}`;
-  return `${a} ${b} ${c}`;
-}
 
 function computeSubtotal(items: Array<{ price: string; quantity: number }>) {
   return Math.round(
@@ -197,96 +184,6 @@ const ALLOWED_FIELDS: Array<keyof CheckoutFormValues> = [
   "notes",
 ];
 
-/* ---------------------------------------------
- * UI atoms inside the same file
- * ------------------------------------------- */
-
-type CopyButtonProps = {
-  valueToCopy: string;
-  label?: string;
-  copiedLabel?: string;
-  className?: string;
-  asField?: boolean;
-  leading?: ReactNode;
-  displayValue?: string;
-};
-
-function CopyButton({
-  valueToCopy,
-  label = "Copiar",
-  copiedLabel = "Copiado",
-  className = "",
-  asField = false,
-  leading,
-  displayValue,
-}: CopyButtonProps) {
-  const [copied, setCopied] = useState(false);
-
-  return (
-    <button
-      type="button"
-      onClick={async () => {
-        const text = valueToCopy || "";
-        if (!text) return;
-
-        const markCopied = () => {
-          setCopied(true);
-          window.setTimeout(() => setCopied(false), 1500);
-        };
-
-        try {
-          if (navigator.clipboard?.writeText) {
-            await navigator.clipboard.writeText(text);
-            markCopied();
-            return;
-          }
-        } catch {
-          // fall through
-        }
-
-        try {
-          const ta = document.createElement("textarea");
-          ta.value = text;
-          ta.setAttribute("readonly", "true");
-          ta.style.position = "fixed";
-          ta.style.left = "-9999px";
-          ta.style.top = "0";
-          document.body.appendChild(ta);
-          ta.select();
-          ta.setSelectionRange(0, ta.value.length);
-          const ok = document.execCommand("copy");
-          document.body.removeChild(ta);
-          if (ok) markCopied();
-        } catch {
-          // ignore
-        }
-      }}
-      className={
-        (asField
-          ? "w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/90 hover:bg-white/10"
-          : "type-action inline-flex items-center justify-center rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white/85 hover:bg-white/10") +
-        " " +
-        className
-      }
-    >
-      {asField ? (
-        <span className="flex w-full items-center justify-between gap-3">
-          <span className="flex min-w-0 items-center gap-3">
-            {leading ? <span className="shrink-0">{leading}</span> : null}
-            <span className="truncate font-mono text-white tracking-[var(--tracking-action)]">
-              {displayValue ?? valueToCopy}
-            </span>
-          </span>
-          <span className="type-action shrink-0 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white/85">
-            {copied ? copiedLabel : label}
-          </span>
-        </span>
-      ) : (
-        <>{copied ? copiedLabel : label}</>
-      )}
-    </button>
-  );
-}
 
 /* ---------------------------------------------
  * Main Component
@@ -296,10 +193,6 @@ export default function CheckoutClient() {
   const items = useCartStore((state) => state.items);
   const clearCart = useCartStore((state) => state.clearCart);
   const updateQuantity = useCartStore((state) => state.updateQuantity);
-  const removeItem = useCartStore((state) => state.removeItem);
-  const applyOptimisticStockCheck = useCartStore(
-    (state) => state.applyOptimisticStockCheck
-  );
 
   const setStockWarnings = useCartStore((state) => state.setStockWarnings);
   const setStockHints = useCartStore((state) => state.setStockHints);
@@ -374,7 +267,6 @@ export default function CheckoutClient() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // (kept) map for future: “Ajustar todos”
-  const [exceedsByVariantId, setExceedsByVariantId] = useState<Record<number, number>>({});
 
   const lastStockKeyRef = useRef<string>("");
 
@@ -650,7 +542,6 @@ export default function CheckoutClient() {
       return;
     }
 
-    setExceedsByVariantId({});
     setSubmitNotice(null);
 
     const checkoutItems = buildCheckoutItems();
@@ -700,7 +591,6 @@ export default function CheckoutClient() {
         console.error("Checkout error:", error, e);
       }
 
-      setExceedsByVariantId({});
 
       const nextErrs: Partial<Record<keyof CheckoutFormValues, true>> = {};
       let hasItemsValidation = false;
@@ -726,7 +616,6 @@ export default function CheckoutClient() {
           message:
             "La cantidad que pediste supera las unidades disponibles para uno o más productos. Ajusta tu pedido y vuelve a intentar.",
         });
-        setExceedsByVariantId({});
         return;
       }
 
@@ -750,25 +639,6 @@ export default function CheckoutClient() {
           }
         } catch {
           // ignore
-        }
-
-        try {
-          const src: any = normalizedWarnings || null;
-          const nextExceeds: Record<number, number> = {};
-          if (src && typeof src === "object") {
-            for (const [k, v] of Object.entries(src)) {
-              const vid = Number(k);
-              if (!Number.isFinite(vid)) continue;
-              const status = (v as any)?.status;
-              const available = (v as any)?.available;
-              if (status === "exceeds_stock" && typeof available === "number") {
-                nextExceeds[vid] = available;
-              }
-            }
-          }
-          setExceedsByVariantId(nextExceeds);
-        } catch {
-          setExceedsByVariantId({});
         }
 
         setSubmitNotice({
@@ -892,136 +762,12 @@ export default function CheckoutClient() {
       : orderSummary.whatsapp_link;
 
     return (
-      <div className="mx-auto max-w-2xl px-4 py-10 text-zinc-100">
-        <h1 className="type-page-title mb-6 text-center text-zinc-100">
-          Pedido creado
-        </h1>
-
-        <div className="card-surface mb-6 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-zinc-100">
-          <div className="mb-5 flex flex-col items-center justify-center gap-3 text-center">
-            <h2 className="type-section-title text-white">
-              Paga por transferencia
-            </h2>
-
-            <div className="relative h-14 w-32 opacity-95">
-              <Image
-                src="/bre-b-logo.png"
-                alt="Bre-B"
-                fill
-                className="object-contain"
-                sizes="128px"
-                priority
-              />
-            </div>
-          </div>
-
-          <div className="mb-4">
-            <div className="mt-2">
-              {brebKey ? (
-                <CopyButton
-                  valueToCopy={brebKey}
-                  asField
-                  label="Copiar llave"
-                  copiedLabel="Copiada"
-                  leading={
-                    <div className="relative h-4 w-4 opacity-90">
-                      <Image
-                        src="/bre-b-key.png"
-                        alt="Llave Bre-B"
-                        fill
-                        className="object-contain"
-                        sizes="16px"
-                      />
-                    </div>
-                  }
-                />
-              ) : (
-                <div className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/60">
-                  (No configurada)
-                </div>
-              )}
-            </div>
-            {!brebKey ? (
-              <p className="type-ui-label mt-2 text-amber-200/80">
-                Configura{" "}
-                <span className="font-mono tracking-[var(--tracking-action)]">NEXT_PUBLIC_BREB_KEY</span> para
-                mostrar tu llave.
-              </p>
-            ) : null}
-          </div>
-
-          <div className="mb-4 rounded-xl border border-white/10 bg-black/20 px-3 py-3 text-center">
-            <p className="type-ui-label text-white/60">
-              Total a transferir
-            </p>
-            <p className="type-page-title mt-1 text-white md:text-[2.5rem]">
-              ${totalText}
-            </p>
-          </div>
-
-          <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-3 text-sm text-white/80">
-            <p className="type-ui-label mb-2 text-white/60">
-              Pasos
-            </p>
-            <ol className="type-legal-body list-decimal space-y-1 pl-4 text-white/80">
-              <li>Abre tu app bancaria y elige transferir por Bre-B.</li>
-              <li>Pega la llave Bre-B (cópiala con el botón).</li>
-              <li>Transfiere el total exacto mostrado arriba.</li>
-              <li>Cuando termines el pago, confirma.</li>
-            </ol>
-          </div>
-
-          {(typeof orderSummary.subtotal === "number" ||
-            typeof orderSummary.total === "number") && (
-            <div className="mt-4 space-y-2">
-              {typeof orderSummary.subtotal === "number" && (
-                <div className="type-body flex justify-between">
-                  <span>Subtotal</span>
-                  <span>${orderSummary.subtotal.toLocaleString("es-CO")}</span>
-                </div>
-              )}
-              {typeof orderSummary.shipping_cost === "number" && (
-                <div className="type-body flex justify-between">
-                  <span>Envío</span>
-                  <span>
-                    ${orderSummary.shipping_cost.toLocaleString("es-CO")}
-                  </span>
-                </div>
-              )}
-              {typeof orderSummary.total === "number" && (
-                <div className="type-price flex justify-between border-t border-white/10 pt-2 text-white">
-                  <span>Total</span>
-                  <span>${orderSummary.total.toLocaleString("es-CO")}</span>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div className="flex flex-col gap-3">
-          {whatsapp ? (
-            <a
-              href={whatsapp}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex w-full"
-            >
-              <Button type="button" variant="primary" fullWidth>
-                Confirmar pago
-              </Button>
-            </a>
-          ) : null}
-
-          <Link href="/" className="inline-flex w-full">
-            <button
-              type="button"
-              className="type-action inline-flex w-full items-center justify-center rounded-xl border border-white/10 bg-transparent px-4 py-3 text-white/85 transition hover:bg-white/5"
-            >
-              Volver al inicio
-            </button>
-          </Link>
-        </div>
-      </div>
+      <CheckoutSuccess
+        orderSummary={orderSummary}
+        brebKey={brebKey}
+        whatsappUrl={whatsapp}
+        totalText={totalText}
+      />
     );
   }
 
@@ -1049,475 +795,36 @@ export default function CheckoutClient() {
         )}
 
         {items.length > 0 && (
-          <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-6">
-            <div>
-              <h2 className="type-section-title mb-3 text-white/60">
-                Datos de contacto
-              </h2>
-
-              <div className="space-y-4">
-                <div data-field-wrapper="full_name">
-                  <label className="type-ui-label mb-1 block text-white/80">
-                    Nombre completo
-                  </label>
-                  <input
-                    type="text"
-                    id="full_name"
-                    data-field="full_name"
-                    {...register("full_name")}
-                    className={inputBaseClass(
-                      inputBorderClass(!!(submitAttempted && errors.full_name))
-                    )}
-                    aria-invalid={submitAttempted && errors.full_name ? true : undefined}
-                    aria-describedby={errors.full_name ? fieldErrorId("full_name") : undefined}
-                  />
-                  <FieldError
-                    id={fieldErrorId("full_name")}
-                    message={errors.full_name?.message as string}
-                  />
-                </div>
-
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div data-field-wrapper="email">
-                    <label className="type-ui-label mb-1 block text-white/80">
-                      Email
-                    </label>
-                    <input
-                      type="email"
-                      id="email"
-                      data-field="email"
-                      placeholder="correo@ejemplo.com"
-                      {...register("email")}
-                      className={inputBaseClass(
-                        inputBorderClass(!!(submitAttempted && errors.email))
-                      )}
-                      aria-invalid={submitAttempted && errors.email ? true : undefined}
-                      aria-describedby={errors.email ? fieldErrorId("email") : undefined}
-                    />
-                    <FieldError
-                      id={fieldErrorId("email")}
-                      message={errors.email?.message as string}
-                    />
-                  </div>
-
-                  <div data-field-wrapper="phone">
-                    <label className="type-ui-label mb-1 block text-white/80">
-                      Teléfono
-                    </label>
-
-                    <div
-                      className={
-                        "flex rounded-xl border bg-white/5 text-sm text-zinc-100 transition focus-within:border-white/20 focus-within:ring-2 focus-within:ring-white/20" +
-                        (submitAttempted && errors.phone
-                          ? " border-rose-500/30 ring-rose-500/20 focus-within:border-rose-500/45 focus-within:ring-rose-500/20"
-                          : " border-white/10")
-                      }
-                    >
-                      <div className="flex items-center gap-1 border-r border-white/10 bg-white/5 px-3 text-white/80">
-                        <span aria-hidden>🇨🇴</span>
-                        <span className="type-ui-label text-white/80">
-                          +57
-                        </span>
-                      </div>
-
-                      <input
-                        type="tel"
-                        id="phone"
-                        data-field="phone"
-                        {...register("phone", {
-                          onChange: (e) => {
-                            const next = formatCoPhoneDisplay(e.target.value);
-                            setValue("phone", next, {
-                              shouldDirty: true,
-                              shouldValidate: submitAttempted,
-                            });
-                          },
-                        })}
-                        placeholder="310 000 0000"
-                        inputMode="numeric"
-                        autoComplete="tel"
-                        className="h-10 w-full rounded-r-xl border-0 bg-transparent px-3 py-2 text-base md:text-sm text-zinc-100 placeholder:text-white/35 focus:outline-none"
-                        aria-invalid={submitAttempted && errors.phone ? true : undefined}
-                        aria-describedby={errors.phone ? fieldErrorId("phone") : undefined}
-                      />
-                    </div>
-
-                    <FieldError
-                      id={fieldErrorId("phone")}
-                      message={errors.phone?.message as string}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid gap-4 md:grid-cols-3">
-                  <div data-field-wrapper="document_type">
-                    <label className="type-ui-label mb-1 block text-white/80">
-                      Tipo de documento
-                    </label>
-                    <select
-                      id="document_type"
-                      data-field="document_type"
-                      {...register("document_type")}
-                      className={inputBaseClass(
-                        inputBorderClass(!!(submitAttempted && errors.document_type))
-                      )}
-                      aria-invalid={submitAttempted && errors.document_type ? true : undefined}
-                      aria-describedby={
-                        errors.document_type ? fieldErrorId("document_type") : undefined
-                      }
-                    >
-                      <option value="CC">CC</option>
-                      <option value="NIT">NIT</option>
-                    </select>
-                    <FieldError
-                      id={fieldErrorId("document_type")}
-                      message={errors.document_type?.message as string}
-                    />
-                  </div>
-
-                  <div className="md:col-span-2" data-field-wrapper="cedula">
-                    <label className="type-ui-label mb-1 block text-white/80">
-                      Número de documento
-                    </label>
-                    <input
-                      type="tel"
-                      id="cedula"
-                      data-field="cedula"
-                      {...register("cedula", {
-                        onChange: (e) => {
-                          const raw = String(e.target.value ?? "");
-                          const digitsOnly = raw.replace(/\D/g, "");
-                          setValue("cedula", digitsOnly, {
-                            shouldDirty: true,
-                            shouldValidate: submitAttempted,
-                          });
-                        },
-                      })}
-                      placeholder="12345678"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      autoComplete="off"
-                      className={inputBaseClass(
-                        inputBorderClass(!!(submitAttempted && errors.cedula))
-                      )}
-                      aria-invalid={submitAttempted && errors.cedula ? true : undefined}
-                      aria-describedby={errors.cedula ? fieldErrorId("cedula") : undefined}
-                    />
-                    <FieldError
-                      id={fieldErrorId("cedula")}
-                      message={errors.cedula?.message as string}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <h2 className="type-section-title mb-3 text-white/60">
-                Envío
-              </h2>
-
-              <div className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div data-field-wrapper="city_code">
-                    <label className="type-ui-label mb-1 block text-white/80">
-                      Ciudad
-                    </label>
-                    <select
-                      id="city_code"
-                      data-field="city_code"
-                      {...register("city_code")}
-                      className={inputBaseClass(
-                        inputBorderClass(!!(submitAttempted && errors.city_code))
-                      )}
-                      aria-invalid={submitAttempted && errors.city_code ? true : undefined}
-                      aria-describedby={errors.city_code ? fieldErrorId("city_code") : undefined}
-                    >
-                      <option value="">Selecciona una ciudad</option>
-                      {cities.map((city) => (
-                        <option key={city.code} value={city.code}>
-                          {city.label}
-                        </option>
-                      ))}
-                    </select>
-                    <FieldError
-                      id={fieldErrorId("city_code")}
-                      message={errors.city_code?.message as string}
-                    />
-                  </div>
-
-                  <div data-field-wrapper="address">
-                    <label className="type-ui-label mb-1 block text-white/80">
-                      Dirección
-                    </label>
-                    <input
-                      type="text"
-                      id="address"
-                      data-field="address"
-                      {...register("address")}
-                      placeholder="Calle 123 #45-67"
-                      className={inputBaseClass(
-                        inputBorderClass(!!(submitAttempted && errors.address))
-                      )}
-                      aria-invalid={submitAttempted && errors.address ? true : undefined}
-                      aria-describedby={errors.address ? fieldErrorId("address") : undefined}
-                    />
-                    <FieldError
-                      id={fieldErrorId("address")}
-                      message={errors.address?.message as string}
-                    />
-                  </div>
-                </div>
-
-                <div data-field-wrapper="notes">
-                  <label className="type-ui-label mb-1 block text-white/80">
-                    Indicaciones para el envío (opcional)
-                  </label>
-                  <textarea
-                    rows={3}
-                    id="notes"
-                    data-field="notes"
-                    {...register("notes")}
-                    placeholder="Apartamento, portería, referencias..."
-                    className={
-                      "min-h-[96px] w-full resize-none" +
-                      inputBorderClass(!!(submitAttempted && errors.notes)) +
-                      " rounded-xl bg-white/5 px-3 py-2 text-base md:text-sm text-zinc-100 placeholder:text-white/35 outline-none transition focus:border-white/20 focus:ring-2 focus:ring-white/20"
-                    }
-                    aria-invalid={submitAttempted && errors.notes ? true : undefined}
-                    aria-describedby={errors.notes ? fieldErrorId("notes") : undefined}
-                  />
-                  <FieldError
-                    id={fieldErrorId("notes")}
-                    message={errors.notes?.message as string}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {submitNotice && (
-              <Notice
-                variant={submitNotice.variant}
-                tone={submitNotice.tone}
-                title={submitNotice.title}
-              >
-                {submitNotice.message}
-              </Notice>
-            )}
-
-            <Button
-              type="submit"
-              variant="primary"
-              fullWidth
-              className="type-action"
-              disabled={
-                isSubmitting ||
-                stockValidateStatus === "loading" ||
-                hasBlockingWarnings
-              }
-            >
-              {isSubmitting ? "Procesando pedido..." : "Confirmar pedido"}
-            </Button>
-          </form>
+          <CheckoutForm
+            register={register}
+            handleSubmit={handleSubmit}
+            errors={errors}
+            submitAttempted={submitAttempted}
+            fieldErrorId={fieldErrorId}
+            inputBaseClass={inputBaseClass}
+            inputBorderClass={inputBorderClass}
+            cities={cities}
+            setValue={setValue}
+            onSubmit={onSubmit}
+            onInvalid={onInvalid}
+            isSubmitting={isSubmitting}
+            hasBlockingWarnings={hasBlockingWarnings}
+            stockValidateStatus={stockValidateStatus}
+            submitNotice={submitNotice}
+          />
         )}
       </section>
 
-      <aside className="w-full md:w-1/3">
-        <div className="card-surface rounded-2xl border border-white/10 bg-white/5 p-4">
-          <h2 className="type-section-title mb-3 text-white/60">
-            Resumen del pedido
-          </h2>
-
-          {items.length === 0 ? (
-            <p className="type-body text-white/70">
-              No hay productos en tu carrito.{" "}
-              <Link
-                href="/"
-                className="type-action text-white/85 hover:text-white hover:underline"
-              >
-                Ver productos
-              </Link>
-            </p>
-          ) : (
-            <>
-              <ul className="mb-4 max-h-56 space-y-3 overflow-y-auto text-sm">
-                {items.map((item) => (
-                  <li
-                    key={item.variantId}
-                    className="flex items-start justify-between gap-3"
-                  >
-                    <div className="flex min-w-0 items-start gap-3">
-                      <div className="relative h-16 w-16 shrink-0 overflow-hidden product-media-surface">
-                        {(() => {
-                          const p: any = (item as any)?.product || item;
-                          const thumb =
-                            getPrimaryImageUrl(p) ||
-                            (item as any)?.imageUrl ||
-                            "";
-                          const alt =
-                            p?.name || (item as any)?.productName || "Producto";
-
-                          return thumb ? (
-                            <img
-                              src={thumb}
-                              alt={alt}
-                              loading="lazy"
-                              className="h-full w-full object-contain p-2"
-                            />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center text-white/40">
-                              <svg
-                                className="h-6 w-6"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                                aria-hidden="true"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={1.5}
-                                  d="M3 7a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"
-                                />
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={1.5}
-                                  d="M8 11l2.5 3 3.5-4.5L19 16"
-                                />
-                              </svg>
-                            </div>
-                          );
-                        })()}
-                      </div>
-
-                      <div className="min-w-0">
-                        <p className="type-card-title truncate text-zinc-100">
-                          {item.productName}
-                        </p>
-                        <p className="type-ui-label truncate text-white/60">
-                          {item.variantLabel} × {item.quantity}
-                        </p>
-
-                        {(() => {
-                          const hint: any = stockHintsByVariantId[String(item.variantId)];
-                          if (!hint || hint.kind !== "last_unit" || !hint.message) return null;
-                          return (
-                            <p className="type-body mt-1 whitespace-normal break-words text-white/70">
-                              ⚡ {hint.message}
-                            </p>
-                          );
-                        })()}
-
-                        {(() => {
-                          const w = stockWarningsByVariantId[String(item.variantId)];
-                          if (!w || w.status === "ok") return null;
-
-                          const available =
-                            typeof w.available === "number"
-                              ? w.available
-                              : w.available != null
-                              ? Number(w.available)
-                              : null;
-
-                          const status = String((w as any)?.status || "ok");
-                          const isStockInsufficientStatus =
-                            status === "exceeds_stock" || status === "insufficient";
-
-                          const canAdjust =
-                            isStockInsufficientStatus &&
-                            available !== null &&
-                            Number.isFinite(available) &&
-                            available >= 0 &&
-                            available < item.quantity;
-
-                          return (
-                            <div className="mt-1">
-                              <Notice
-                                variant="warning"
-                                tone="soft"
-                                compact
-                                title={typeof w?.message === "string" && w.message.trim() ? w.message : "Drop casi agotado"}
-                              >
-                                {available !== null && Number.isFinite(available) ? (
-                                  <p className="text-xs leading-snug text-white/72">
-                                    Pediste {item.quantity}. Solo quedan {available} en este drop.
-                                  </p>
-                                ) : (
-                                  <p className="text-xs leading-snug text-white/72">
-                                    La cantidad que pediste supera las unidades disponibles.
-                                  </p>
-                                )}
-                              </Notice>
-
-                              {canAdjust ? (
-                                <button
-                                  type="button"
-                                  onClick={(e) => handleAdjustToAvailable(e, item.variantId)}
-                                  className="type-action mt-2 inline-flex items-center justify-center rounded-lg border border-white/12 bg-white/5 px-3 py-2 text-white/82 transition hover:border-white/18 hover:bg-white/8"
-                                >
-                                  Ajustar a disponible
-                                </button>
-                              ) : null}
-                            </div>
-                          );
-                        })()}
-                      </div>
-                    </div>
-
-                    <span className="type-price shrink-0 text-white">
-                      $
-                      {(parseFloat(item.price) * item.quantity).toLocaleString("es-CO")}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-
-              <div className="space-y-1">
-                <div className="type-body flex justify-between">
-                  <span>Subtotal</span>
-                  <span>${subtotal.toLocaleString("es-CO")}</span>
-                </div>
-
-                {shipping && (
-                  <div className="type-body flex justify-between">
-                    <span>{shipping.label}</span>
-                    <span>${shipping.amount.toLocaleString("es-CO")}</span>
-                  </div>
-                )}
-
-                <div className="type-price mt-2 flex justify-between border-t border-white/10 pt-2 text-white">
-                  <span>Total estimado</span>
-                  <span>
-                    $
-                    {(subtotal + (shipping ? shipping.amount : 0)).toLocaleString("es-CO")}
-                  </span>
-                </div>
-
-                <p className="type-body mt-2 text-white/50">
-                  El pedido se crea al confirmar y luego podrás realizar el pago
-                  por transferencia. Actualmente es el único medio de pago
-                  disponible.
-                </p>
-
-                {!hasBlockingWarnings && stockValidateStatus === "error" && (
-                  <div className="mt-3">
-                    <Notice
-                      variant="warning"
-                      tone="soft"
-                      compact
-                      title="No pudimos validar el stock"
-                    >
-                      Intenta de nuevo en unos segundos. Si el problema persiste,
-                      continúa y confirmamos disponibilidad por WhatsApp.
-                    </Notice>
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-        </div>
-      </aside>
+      <CheckoutSummary
+        items={items}
+        subtotal={subtotal}
+        shipping={shipping}
+        hasBlockingWarnings={hasBlockingWarnings}
+        stockValidateStatus={stockValidateStatus}
+        stockWarningsByVariantId={stockWarningsByVariantId}
+        stockHintsByVariantId={stockHintsByVariantId}
+        handleAdjustToAvailable={handleAdjustToAvailable}
+      />
     </div>
   );
 }
