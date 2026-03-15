@@ -139,6 +139,21 @@ export type ProductFetchOptions = {
   };
 };
 
+function buildListQueryString(
+  params?: Record<string, string | number | undefined>
+): string {
+  const searchParams = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(params || {})) {
+    if (value == null) continue;
+    if (typeof value === "string" && value.trim() === "") continue;
+    searchParams.set(key, String(value));
+  }
+
+  const qs = searchParams.toString();
+  return qs ? `?${qs}` : "";
+}
+
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "/api").replace(/\/$/, "");
 
 const DJANGO_BASE = (process.env.DJANGO_API_BASE || "").replace(/\/$/, "");
@@ -360,16 +375,15 @@ export async function getProducts(params?: {
   page_size?: number;
   search?: string;
 }): Promise<PaginatedResponse<Product>> {
-  const qs = new URLSearchParams();
+  const query = buildListQueryString({
+    category: params?.category,
+    department: params?.department,
+    page: params?.page,
+    page_size: params?.page_size,
+    search: params?.search,
+  });
 
-  if (params?.category) qs.set("category", params.category);
-  if (params?.department) qs.set("department", params.department);
-  if (params?.page) qs.set("page", String(params.page));
-  if (params?.page_size) qs.set("page_size", String(params.page_size));
-  if (params?.search) qs.set("search", params.search);
-
-  const query = qs.toString();
-  return apiFetch<PaginatedResponse<Product>>(`/products/${query ? `?${query}` : ""}`);
+  return apiFetch<PaginatedResponse<Product>>(`/products/${query}`);
 }
 
 
@@ -377,31 +391,36 @@ export async function getProducts(params?: {
  * Catalog view wrapper based on `/catalogo/`.
  *
  * Cache policy:
- * - Public read endpoint, but this wrapper currently remains on the safe
- *   default path inherited from `apiFetch()` (`no-store` unless a policy is
- *   explicitly declared later).
- * - Do not assume ISR here unless it is added intentionally.
+ * - Public read endpoint.
+ * - By default this wrapper inherits the safe fallback from `apiFetch()`
+ *   (`no-store` unless the caller provides an explicit cache policy).
+ * - Public SSR listing flows may pass an explicit policy from the caller
+ *   (for example `next.revalidate`) when the page contract requires it.
  *
  * Use this only when the frontend explicitly depends on the backend contract of
  * `/catalogo/` for the catalog page or compatibility flows. Do not use it as a
  * generic replacement for `getProducts()`.
  */
-export async function getCatalogo(params?: {
-  category?: string;
-  search?: string;
-  page?: number;
-  page_size?: number;
-}): Promise<PaginatedResponse<Product>> {
-  const searchParams = new URLSearchParams();
-  if (params?.category) searchParams.set("category", params.category);
-  if (params?.search) searchParams.set("search", params.search);
-  if (params?.page) searchParams.set("page", String(params.page));
-  if (params?.page_size) searchParams.set("page_size", String(params.page_size));
-  const qs = searchParams.toString();
+export async function getCatalogo(
+  params?: {
+    category?: string;
+    search?: string;
+    page?: number;
+    page_size?: number;
+  },
+  options?: ProductFetchOptions
+): Promise<PaginatedResponse<Product>> {
+  const query = buildListQueryString({
+    category: params?.category,
+    search: params?.search,
+    page: params?.page,
+    page_size: params?.page_size,
+  });
 
-  const url = `/catalogo/${qs ? `?${qs}` : ""}`;
-
-  return apiFetch<PaginatedResponse<Product>>(url);
+  return apiFetch<PaginatedResponse<Product>>(`/catalogo/${query}`, {
+    cache: options?.cache,
+    next: options?.next,
+  });
 }
 
 function normalizeProductDetail(raw: any): ProductDetail {
