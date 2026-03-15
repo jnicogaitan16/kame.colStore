@@ -376,18 +376,26 @@ export async function apiFetch<T>(
     next?: { revalidate?: number };
   }).next;
 
-  const cacheOpt =
-    options.cache ??
-    (nextFromOptions?.revalidate != null ? "force-cache" : "no-store");
+  const hasExplicitCache = options.cache != null;
+  const hasRevalidate = nextFromOptions?.revalidate != null;
 
-  // IMPORTANT: never send `next.revalidate` together with `cache: "no-store"`.
-  const nextOpt = cacheOpt === "no-store" ? undefined : nextFromOptions;
+  // Rules:
+  // - respect explicit cache from caller
+  // - if caller provides revalidate, do NOT inject cache
+  // - otherwise default to no-store for mutable/sensitive flows
+  const cacheOpt = hasExplicitCache
+    ? options.cache
+    : hasRevalidate
+      ? undefined
+      : "no-store";
+
+  const nextOpt = hasRevalidate ? nextFromOptions : undefined;
 
   const res = await fetch(url, {
     ...options,
     method,
     credentials: "include",
-    cache: cacheOpt,
+    ...(cacheOpt ? { cache: cacheOpt } : {}),
     ...(nextOpt ? { next: nextOpt } : {}),
     headers,
   });
@@ -429,7 +437,9 @@ export async function apiFetch<T>(
  * when `/navigation/` is unavailable or invalid upstream.
  */
 export async function getCategories(): Promise<Category[]> {
-  const data = await apiFetch<any>("/categories/");
+  const data = await apiFetch<any>("/categories/", {
+    next: { revalidate: 300 },
+  });
 
   if (Array.isArray(data)) return data;
   if (Array.isArray(data?.results)) return data.results;
@@ -450,7 +460,9 @@ export async function getCategories(): Promise<Category[]> {
  * `frontend/lib/navigation-normalize.ts`).
  */
 export async function getNavigation(): Promise<NavigationResponse> {
-  const data = await apiFetch<any>("/navigation/");
+  const data = await apiFetch<any>("/navigation/", {
+    next: { revalidate: 300 },
+  });
 
   const rawDepartments = Array.isArray(data?.departments)
     ? data.departments
