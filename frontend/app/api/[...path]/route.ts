@@ -2,6 +2,7 @@
 // Catch-all API proxy for /api/*
 // Forwards any request to `${DJANGO_API_BASE}/api/*`.
 // IMPORTANT: This proxy enforces trailing slashes to match DRF endpoints (APPEND_SLASH=False).
+// This file is transport-only: it must not define semantic cache policy for specific endpoints.
 
 const buildTargetUrl = (req: Request, params: { path?: string[] }) => {
   const base = (process.env.DJANGO_API_BASE || "").replace(/\/$/, "");
@@ -69,6 +70,9 @@ const forwardRequest = async (
 
   let backendRes: Response;
   try {
+    // Proxy transport stays uncached on purpose.
+    // Public cache strategy must be decided at the page / SDK / caller level,
+    // not by introducing endpoint-specific behavior in this catch-all proxy.
     backendRes = await fetch(target, {
       method: req.method,
       headers,
@@ -92,7 +96,7 @@ const forwardRequest = async (
   outHeaders.delete("transfer-encoding");
   outHeaders.delete("connection");
 
-  // Ensure proxy responses are not cached by Next.
+  // Preserve proxy-level no-store behavior without encoding endpoint-specific cache semantics here.
   outHeaders.set("cache-control", "no-store");
 
   return new Response(data, {

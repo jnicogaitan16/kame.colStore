@@ -32,8 +32,15 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function CatalogoPage() {
+  /**
+   * Contract:
+   * - The catalog first load is resolved on the server and cached with page-level ISR.
+   * - CatalogoClient receives only the initial snapshot ready for first render.
+   * - Future filters or pagination must be introduced explicitly without duplicating this initial fetch.
+   */
   const res = await getCatalogo({ page_size: 48 });
 
+  // This page only consumes the initial product list; pagination and filters stay outside this contract.
   const products = Array.isArray(res?.results) ? res.results : [];
 
   return <CatalogoClient initialProducts={products} />;
