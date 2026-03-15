@@ -20,6 +20,27 @@ type StockVisualState = {
   detail?: string;
 };
 
+type MiniCartProductLike = {
+  name?: string;
+  primary_image?: string | null;
+  primaryImage?: string | null;
+  image?: string | null;
+  image_url?: string | null;
+  imageUrl?: string | null;
+  images?: Array<{ image?: string | null; url?: string | null }>;
+};
+
+type MiniCartItemLike = {
+  variantId: number;
+  quantity: number;
+  price: string | number;
+  productSlug: string;
+  productName: string;
+  variantLabel: string;
+  imageUrl?: string | null;
+  product?: MiniCartProductLike | null;
+};
+
 function parseFiniteNumber(value: unknown): number {
   if (typeof value === "number") return Number.isFinite(value) ? value : NaN;
   if (value == null) return NaN;
@@ -27,7 +48,25 @@ function parseFiniteNumber(value: unknown): number {
   return Number.isFinite(parsed) ? parsed : NaN;
 }
 
-function normalizeCartStockState(item: any, hint: any, warning: any): StockVisualState | null {
+function normalizeCartStockState(
+  item: Pick<MiniCartItemLike, "quantity">,
+  hint: { kind?: string; message?: string } | undefined,
+  warning:
+    | {
+        requested?: unknown;
+        qty?: unknown;
+        quantity?: unknown;
+        requested_total?: unknown;
+        available?: unknown;
+        available_stock?: unknown;
+        available_qty?: unknown;
+        stock_available?: unknown;
+        stock?: unknown;
+        remaining?: unknown;
+        message?: string;
+      }
+    | undefined
+): StockVisualState | null {
   const quantity = Number(item?.quantity || 0);
 
   if (warning) {
@@ -296,29 +335,33 @@ function MiniCart({ open, onClose }: MiniCartProps) {
               const stockWarning = stockWarningsByVariantId[key];
               const stockState = normalizeCartStockState(item, stockHint, stockWarning);
 
+              const typedItem = item as MiniCartItemLike;
+              const product = typedItem.product ?? null;
+              const productForImage = product ?? typedItem;
+              const thumb =
+                getProductPrimaryImage(productForImage) ||
+                getProductPrimaryImage(product ?? undefined) ||
+                typedItem.imageUrl ||
+                "";
+              const alt = product?.name || typedItem.productName || "Producto";
+
               return (
                 <li key={item.variantId} className="px-5 py-4 flex gap-3 border-b border-white/5">
                   <div className="relative w-16 h-16 shrink-0 overflow-hidden product-media-surface">
-                    {(() => {
-                      const p: any = (item as any)?.product || item;
-                      const thumb = getProductPrimaryImage(p) || getProductPrimaryImage((item as any)?.product) || (item as any)?.imageUrl || "";
-                      const alt = p?.name || (item as any)?.productName || "Producto";
-
-                      return thumb ? (
-                        <img
-                          src={thumb}
-                          alt={alt}
-                          loading="lazy"
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-full items-center justify-center text-white/40">
-                          <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14" />
-                          </svg>
-                        </div>
-                      );
-                    })()}
+                    {thumb ? (
+                      <img
+                        src={thumb}
+                        alt={alt}
+                        loading="lazy"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-white/40">
+                        <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14" />
+                        </svg>
+                      </div>
+                    )}
                   </div>
                   <div className="min-w-0 flex-1">
                     <Link

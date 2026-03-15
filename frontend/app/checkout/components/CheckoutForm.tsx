@@ -47,7 +47,7 @@ type CheckoutFormProps = {
   onInvalid: SubmitErrorHandler<CheckoutFormValuesShape>;
   isSubmitting: boolean;
   hasBlockingWarnings: boolean;
-  stockValidateStatus: "idle" | "loading" | "ok" | "error";
+  stockValidateStatus: "idle" | "checking" | "ok" | "error";
   submitNotice: SubmitNotice | null;
 };
 
@@ -323,7 +323,7 @@ export default function CheckoutForm({
         variant="primary"
         fullWidth
         className="type-action"
-        disabled={isSubmitting || stockValidateStatus === "loading" || hasBlockingWarnings}
+        disabled={isSubmitting || stockValidateStatus === "checking" || hasBlockingWarnings}
       >
         {isSubmitting ? "Procesando pedido..." : "Confirmar pedido"}
       </Button>

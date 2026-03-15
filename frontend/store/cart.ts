@@ -51,7 +51,7 @@ export type StockHint = {
 
 export type StockValidateStatus = "idle" | "checking" | "ok" | "error";
 
-interface CartState {
+export interface CartState {
   items: CartItem[];
   /**
    * Legacy UI flag kept for backward compatibility with any remaining consumers.

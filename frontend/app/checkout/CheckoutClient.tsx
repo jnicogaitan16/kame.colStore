@@ -1,14 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-
 import Link from "next/link";
 
 import { apiFetch, checkout, type CheckoutResponse } from "@/lib/api";
-import { useCartStore } from "@/store/cart";
+import { useCartStore, type CartState } from "@/store/cart";
 import { buildWhatsAppUrl } from "@/lib/whatsapp";
 import { normalizeApiError } from "@/lib/errors/normalizeApiError";
 
@@ -30,22 +29,21 @@ function sanitizeCoPhone(
   const raw = String(input || "");
   const digits = raw.replace(/\D/g, "");
 
-  // If includes country code 57 + 10 digits => 12 digits total
   const normalized =
     digits.length === 12 && digits.startsWith("57")
       ? digits.slice(-10)
       : digits;
 
-  // Colombia mobile: 10 digits, starts with 3
   if (normalized.length !== 10) {
     return { ok: false, message: "Ingresa un celular válido (10 dígitos)." };
   }
+
   if (!normalized.startsWith("3")) {
     return { ok: false, message: "El celular debe iniciar con 3." };
   }
+
   return { ok: true, phone10: normalized };
 }
-
 
 function computeSubtotal(items: Array<{ price: string; quantity: number }>) {
   return Math.round(
@@ -61,12 +59,32 @@ function looksLikeItemsError(key: string) {
   return (
     k === "items" ||
     k.startsWith("items.") ||
-    k.includes("items[") ||
     k.includes("items[")
   );
 }
 
 type City = { code: string; label: string };
+
+type StoreStockWarningMap = CartState["stockWarningsByVariantId"];
+type StoreStockHintMap = CartState["stockHintsByVariantId"];
+type StoreScheduleValidate = CartState["scheduleValidate"];
+type StoreStockValidateStatus = CartState["stockValidateStatus"];
+type StoreCartItem = CartState["items"][number];
+
+type CheckoutItemCandidate = StoreCartItem & {
+  product_variant_id?: number;
+  id?: number;
+  qty?: number;
+  unit_price?: number | string;
+  unitPrice?: number | string;
+};
+
+type FieldErrorLike = {
+  message?: string;
+};
+
+type FieldErrorsLike = Partial<Record<keyof CheckoutFormValues, FieldErrorLike>>;
+type ApiFieldErrors = Record<string, unknown>;
 
 async function fetchCities(): Promise<City[]> {
   const data = await apiFetch<{ cities: City[] }>("/cities/");
@@ -78,16 +96,18 @@ async function fetchShippingQuote(params: {
   subtotal: number;
 }): Promise<{ amount: number; label: string } | null> {
   if (!params.city_code || params.subtotal <= 0) return null;
+
   return apiFetch<{ amount: number; label: string }>(
     `/shipping-quote/?city_code=${encodeURIComponent(params.city_code)}&subtotal=${params.subtotal}`
   );
 }
 
-function normalizeWarningsKeys(input: any): Record<string, any> {
+function normalizeWarningsKeys<T = unknown>(input: unknown): Record<string, T> {
   if (!input || typeof input !== "object") return {};
-  const out: Record<string, any> = {};
+
+  const out: Record<string, T> = {};
   for (const [k, v] of Object.entries(input)) {
-    out[String(k)] = v;
+    out[String(k)] = v as T;
   }
   return out;
 }
@@ -184,7 +204,6 @@ const ALLOWED_FIELDS: Array<keyof CheckoutFormValues> = [
   "notes",
 ];
 
-
 /* ---------------------------------------------
  * Main Component
  * ------------------------------------------- */
@@ -197,30 +216,26 @@ export default function CheckoutClient() {
   const setStockWarnings = useCartStore((state) => state.setStockWarnings);
   const setStockHints = useCartStore((state) => state.setStockHints);
 
-  // ✅ Centralized scheduler from store (store uses validateCartStock from api.ts)
-  const scheduleValidate = useCartStore((state: any) => state.scheduleValidate);
-
-  // ✅ Prefer status; fallback to legacy boolean if present
-  const stockValidateStatus = useCartStore((s: any) => {
-    const v = s?.stockValidateStatus;
-    if (v === "idle" || v === "loading" || v === "ok" || v === "error") return v;
-    return typeof s?.isStockValidating === "boolean" && s.isStockValidating
-      ? "loading"
-      : "idle";
-  });
-
-  // Read maps directly from the store (source of truth)
-  const stockWarningsByVariantId = useCartStore(
-    (s: any) => (s.stockWarningsByVariantId as Record<string, any>) || {}
+  const scheduleValidate = useCartStore(
+    (state): StoreScheduleValidate => state.scheduleValidate
   );
+
+  const stockValidateStatus = useCartStore(
+    (state): StoreStockValidateStatus => state.stockValidateStatus
+  );
+
+  const stockWarningsByVariantId = useCartStore(
+    (state): StoreStockWarningMap => state.stockWarningsByVariantId
+  );
+
   const stockHintsByVariantId = useCartStore(
-    (s: any) => (s.stockHintsByVariantId as Record<string, any>) || {}
+    (state): StoreStockHintMap => state.stockHintsByVariantId
   );
 
   const hasBlockingWarnings = useMemo(() => {
     return (items || []).some((item) => {
-      const w = stockWarningsByVariantId[String(item.variantId)];
-      const status = String(w?.status || "ok");
+      const warning = stockWarningsByVariantId[String(item.variantId)];
+      const status = String(warning?.status || "ok");
       return status === "insufficient" || status === "exceeds_stock";
     });
   }, [items, stockWarningsByVariantId]);
@@ -228,26 +243,38 @@ export default function CheckoutClient() {
   const adjustments = useMemo(() => {
     return (items || [])
       .map((item) => {
-        const w = stockWarningsByVariantId[String(item.variantId)];
-        const status = String(w?.status || "ok");
-        if (!(status === "insufficient" || status === "exceeds_stock")) return null;
+        const warning = stockWarningsByVariantId[String(item.variantId)];
+        const status = String(warning?.status || "ok");
 
-        const availableRaw = w?.available;
-        const available = typeof availableRaw === "number" ? availableRaw : Number(availableRaw);
+        if (!(status === "insufficient" || status === "exceeds_stock")) {
+          return null;
+        }
+
+        const availableRaw = warning?.available;
+        const available =
+          typeof availableRaw === "number"
+            ? availableRaw
+            : Number(availableRaw);
+
         const safeAvailable = Number.isFinite(available) ? available : 0;
 
         // Política: si available es 0, NO auto-removemos aquí.
         // Dejamos qty mínimo 1 (se mantendrá el warning y el usuario deberá remover).
         const targetQty = Math.max(1, safeAvailable);
+
         if (item.quantity > targetQty) {
           return { variantId: item.variantId, qty: targetQty };
         }
+
         return null;
       })
       .filter(Boolean) as Array<{ variantId: number; qty: number }>;
   }, [items, stockWarningsByVariantId]);
 
-  function handleAdjustToAvailable(e?: React.MouseEvent, onlyVariantId?: number) {
+  function handleAdjustToAvailable(
+    e?: MouseEvent,
+    onlyVariantId?: number
+  ) {
     if (e) e.preventDefault();
 
     const list = onlyVariantId
@@ -263,14 +290,16 @@ export default function CheckoutClient() {
   }
 
   const [cities, setCities] = useState<City[]>([]);
-  const [shipping, setShipping] = useState<{ amount: number; label: string } | null>(null);
+  const [shipping, setShipping] = useState<{
+    amount: number;
+    label: string;
+  } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // (kept) map for future: “Ajustar todos”
 
   const lastStockKeyRef = useRef<string>("");
 
-  const [orderSummary, setOrderSummary] = useState<CheckoutResponse | null>(null);
+  const [orderSummary, setOrderSummary] =
+    useState<CheckoutResponse | null>(null);
 
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [submitNotice, setSubmitNotice] = useState<{
@@ -320,16 +349,19 @@ export default function CheckoutClient() {
       : " border-white/10";
   }
 
-  // --- Robust field focusing helpers ---
   function findFieldElement(field: string): HTMLElement | null {
     try {
-      const byName = document.querySelector(`[name="${field}"]`) as HTMLElement | null;
+      const byName = document.querySelector(
+        `[name="${field}"]`
+      ) as HTMLElement | null;
       if (byName) return byName;
 
       const byId = document.getElementById(field) as HTMLElement | null;
       if (byId) return byId;
 
-      const byData = document.querySelector(`[data-field="${field}"]`) as HTMLElement | null;
+      const byData = document.querySelector(
+        `[data-field="${field}"]`
+      ) as HTMLElement | null;
       if (byData) return byData;
 
       const wrapper = document.querySelector(
@@ -352,7 +384,7 @@ export default function CheckoutClient() {
 
   function focusAndScrollField(field: keyof CheckoutFormValues) {
     try {
-      setFocus(field as any);
+      setFocus(field);
     } catch {
       // ignore
     }
@@ -369,7 +401,9 @@ export default function CheckoutClient() {
         }
 
         try {
-          if (typeof (el as any).focus === "function") (el as any).focus();
+          if (typeof el.focus === "function") {
+            el.focus();
+          }
         } catch {
           // ignore
         }
@@ -379,11 +413,13 @@ export default function CheckoutClient() {
     }
   }
 
-  function focusFirstInvalid(errsLike: any) {
+  function focusFirstInvalid(errsLike: FieldErrorsLike) {
     try {
       const firstKey =
         FIELD_ORDER.find((k) => !!errsLike?.[k]) ||
-        (Object.keys(errsLike || {})[0] as keyof CheckoutFormValues | undefined);
+        (Object.keys(errsLike || {})[0] as
+          | keyof CheckoutFormValues
+          | undefined);
 
       if (!firstKey) return;
       focusAndScrollField(firstKey);
@@ -392,15 +428,17 @@ export default function CheckoutClient() {
     }
   }
 
-  function setValidationBanner(errsLike: any) {
+  function setValidationBanner(errsLike: FieldErrorsLike) {
     try {
       const orderedFields = FIELD_ORDER.filter((f) => !!errsLike?.[f]);
       const count = orderedFields.length;
       const first = orderedFields[0];
+
       if (!first || count <= 0) return;
 
       if (count === 1) {
-        const msg = String((errsLike?.[first]?.message ?? "").toString()).trim();
+        const msg = String(errsLike?.[first]?.message ?? "").trim();
+
         setSubmitNotice({
           variant: "warning",
           title: `Revisa: ${FIELD_LABELS[first]}`,
@@ -421,16 +459,14 @@ export default function CheckoutClient() {
 
   function buildCheckoutItems() {
     const cartItems = items ?? [];
+
     const mapped = cartItems
-      .map((i) => {
-        const rawId: any =
-          (i as any).product_variant_id ?? (i as any).variantId ?? (i as any).id;
-        const rawQty: any = (i as any).quantity ?? (i as any).qty ?? 1;
-        const rawPrice: any =
-          (i as any).unit_price ??
-          (i as any).unitPrice ??
-          (i as any).price ??
-          0;
+      .map((rawItem) => {
+        const item = rawItem as CheckoutItemCandidate;
+
+        const rawId = item.product_variant_id ?? item.variantId ?? item.id;
+        const rawQty = item.quantity ?? item.qty ?? 1;
+        const rawPrice = item.unit_price ?? item.unitPrice ?? item.price ?? 0;
 
         const product_variant_id = Number(rawId);
         const quantity = Number(rawQty);
@@ -447,16 +483,16 @@ export default function CheckoutClient() {
         };
       })
       .filter(
-        (x) =>
-          Number.isFinite(x.product_variant_id) &&
-          x.product_variant_id > 0 &&
-          x.quantity > 0
+        (entry) =>
+          Number.isFinite(entry.product_variant_id) &&
+          entry.product_variant_id > 0 &&
+          entry.quantity > 0
       );
 
     return mapped;
   }
 
-  function applyServerFieldErrors(apiFieldErrors: Record<string, any>) {
+  function applyServerFieldErrors(apiFieldErrors: ApiFieldErrors) {
     const ordered: Array<keyof CheckoutFormValues> = [];
 
     for (const [path, rawMsgs] of Object.entries(apiFieldErrors || {})) {
@@ -467,11 +503,14 @@ export default function CheckoutClient() {
 
       const mapped =
         FIELD_ALIASES[key] ||
-        (ALLOWED_FIELDS.includes(key as any) ? (key as any) : null);
+        (ALLOWED_FIELDS.includes(key as keyof CheckoutFormValues)
+          ? (key as keyof CheckoutFormValues)
+          : null);
+
       if (!mapped) continue;
 
       const msgs = Array.isArray(rawMsgs) ? rawMsgs : [rawMsgs];
-      const msg = String(msgs?.[0] ?? "").trim() || "Campo inválido";
+      const msg = String(msgs[0] ?? "").trim() || "Campo inválido";
 
       setError(mapped, { type: "server", message: msg });
       ordered.push(mapped);
@@ -495,24 +534,24 @@ export default function CheckoutClient() {
       .catch(() => setCities([]));
   }, []);
 
-  // ✅ Centralized stock validate (store is the only place that calls validateCartStock)
   useEffect(() => {
     if (!stockValidateItems.length) return;
 
     const key = JSON.stringify(stockValidateItems);
     if (key === lastStockKeyRef.current) return;
+
     lastStockKeyRef.current = key;
 
     try {
-      scheduleValidate?.("checkout");
+      scheduleValidate("checkout");
     } catch {
       // ignore
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stockValidateItems, scheduleValidate]);
 
   useEffect(() => {
     if (!watchedCity || subtotal <= 0) return;
+
     fetchShippingQuote({ city_code: watchedCity, subtotal })
       .then((quote) => setShipping(quote))
       .catch(() => setShipping(null));
@@ -522,7 +561,7 @@ export default function CheckoutClient() {
    * Handlers
    * ------------------------------------------- */
 
-  const onInvalid = (errsLike: any) => {
+  const onInvalid = (errsLike: FieldErrorsLike) => {
     setSubmitAttempted(true);
     setValidationBanner(errsLike);
     focusFirstInvalid(errsLike);
@@ -559,6 +598,7 @@ export default function CheckoutClient() {
 
     try {
       const phoneCheck = sanitizeCoPhone(values.phone);
+
       if (!phoneCheck.ok) {
         setError("phone", { type: "manual", message: phoneCheck.message });
         setValidationBanner({ phone: { message: phoneCheck.message } });
@@ -583,30 +623,30 @@ export default function CheckoutClient() {
 
       setOrderSummary(res);
       clearCart();
-    } catch (error: any) {
+    } catch (error: unknown) {
       const e = normalizeApiError(error);
 
       if (!isProd()) {
-        // eslint-disable-next-line no-console
         console.error("Checkout error:", error, e);
       }
-
 
       const nextErrs: Partial<Record<keyof CheckoutFormValues, true>> = {};
       let hasItemsValidation = false;
 
       if (e.kind === "validation" && e.fieldErrors) {
-        const entries = Object.entries(e.fieldErrors as Record<string, any>);
+        const entries = Object.entries(e.fieldErrors as ApiFieldErrors);
 
         for (const [rawKey] of entries) {
           const key = String(rawKey || "");
-          if (looksLikeItemsError(key)) hasItemsValidation = true;
+          if (looksLikeItemsError(key)) {
+            hasItemsValidation = true;
+          }
         }
 
-        const applied = applyServerFieldErrors(
-          e.fieldErrors as Record<string, any>
-        );
-        for (const f of applied) nextErrs[f] = true;
+        const applied = applyServerFieldErrors(e.fieldErrors as ApiFieldErrors);
+        for (const field of applied) {
+          nextErrs[field] = true;
+        }
       }
 
       if (e.kind === "validation" && hasItemsValidation) {
@@ -620,26 +660,25 @@ export default function CheckoutClient() {
       }
 
       if (e.kind === "stock") {
-        const wbvRaw = (e.meta as any)?.warningsByVariantId;
-        const normalizedWarnings = normalizeWarningsKeys(wbvRaw);
+        const meta = (e.meta ?? {}) as {
+          warningsByVariantId?: unknown;
+          hintsByVariantId?: unknown;
+        };
 
-        if (normalizedWarnings && typeof normalizedWarnings === "object") {
-          setStockWarnings(normalizedWarnings as any);
-        } else {
-          setStockWarnings({});
-        }
+        const normalizedWarnings = normalizeWarningsKeys(meta.warningsByVariantId);
+        const normalizedHints = normalizeWarningsKeys(meta.hintsByVariantId);
 
-        try {
-          const hbvRaw = (e.meta as any)?.hintsByVariantId;
-          const normalizedHints = normalizeWarningsKeys(hbvRaw);
-          if (normalizedHints && typeof normalizedHints === "object") {
-            setStockHints(normalizedHints as any);
-          } else {
-            setStockHints({});
-          }
-        } catch {
-          // ignore
-        }
+        setStockWarnings(
+          normalizedWarnings && typeof normalizedWarnings === "object"
+            ? normalizedWarnings
+            : {}
+        );
+
+        setStockHints(
+          normalizedHints && typeof normalizedHints === "object"
+            ? normalizedHints
+            : {}
+        );
 
         setSubmitNotice({
           variant: "warning",
@@ -652,29 +691,35 @@ export default function CheckoutClient() {
 
       if (e.kind === "validation") {
         const hasFieldErrors = Object.keys(nextErrs).length > 0;
-
-        const orderedFields = FIELD_ORDER.filter((f) => !!nextErrs?.[f]);
+        const orderedFields = FIELD_ORDER.filter((field) => !!nextErrs?.[field]);
         const count = orderedFields.length;
         const first = orderedFields[0];
 
         if (hasFieldErrors && count === 1 && first) {
           let msg = "";
+
           try {
-            const fe = (e as any).fieldErrors as Record<string, any> | undefined;
+            const fe = e.fieldErrors as ApiFieldErrors | undefined;
+
             if (fe) {
               const rawEntry = Object.entries(fe).find(([k]) => {
                 const mapped =
                   FIELD_ALIASES[String(k)] ||
-                  (ALLOWED_FIELDS.includes(k as any) ? (k as any) : null);
+                  (ALLOWED_FIELDS.includes(k as keyof CheckoutFormValues)
+                    ? (k as keyof CheckoutFormValues)
+                    : null);
+
                 return mapped === first;
               });
+
               const rawMsgs = rawEntry ? rawEntry[1] : undefined;
               const arr = Array.isArray(rawMsgs)
                 ? rawMsgs
                 : rawMsgs != null
                 ? [rawMsgs]
                 : [];
-              msg = String(arr?.[0] ?? "").trim();
+
+              msg = String(arr[0] ?? "").trim();
             }
           } catch {
             // ignore
@@ -702,9 +747,10 @@ export default function CheckoutClient() {
           if (count === 1 && first) {
             focusAndScrollField(first);
           } else {
-            focusFirstInvalid(nextErrs);
+            focusFirstInvalid(nextErrs as FieldErrorsLike);
           }
         }
+
         return;
       }
 
@@ -714,7 +760,8 @@ export default function CheckoutClient() {
           tone: "strong",
           title: e.title || "No pudimos crear tu pedido",
           message:
-            e.message || "Tuvimos un problema creando tu pedido. Intenta de nuevo.",
+            e.message ||
+            "Tuvimos un problema creando tu pedido. Intenta de nuevo.",
         });
         return;
       }
@@ -724,7 +771,8 @@ export default function CheckoutClient() {
         tone: "strong",
         title: e.title || "Sin conexión",
         message:
-          e.message || "No pudimos conectar. Revisa tu internet e intenta de nuevo.",
+          e.message ||
+          "No pudimos conectar. Revisa tu internet e intenta de nuevo.",
       });
     } finally {
       setIsSubmitting(false);
