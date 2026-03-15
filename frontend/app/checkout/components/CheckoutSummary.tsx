@@ -7,7 +7,7 @@ import Image from "next/image";
 
 import Notice from "@/components/ui/Notice";
 import StockWarningChip from "@/components/cart/StockWarningChip";
-import { getPrimaryImageUrl } from "@/lib/api";
+import { getProductPrimaryImage } from "@/lib/product-media";
 
 type CheckoutSummaryItem = {
   variantId: number;
@@ -143,7 +143,7 @@ export default function CheckoutSummary({
                 const stockState = normalizeStockVisualState({ item, warning, hint });
                 const canAdjust = canAdjustToAvailable(item, warning);
                 const productLike = item.product || item;
-                const thumb = getPrimaryImageUrl(productLike) || item.imageUrl || "";
+                const thumb = getProductPrimaryImage(productLike) || item.imageUrl || "";
                 const alt = item.product?.name || item.productName || "Producto";
 
                 return (

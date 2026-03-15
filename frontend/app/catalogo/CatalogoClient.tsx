@@ -2,51 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { ProductCard } from "@/components/product/ProductCard";
-
-// Local fallback type to avoid path/alias issues; keep it minimal for UI rendering.
-type Product = {
-  id: string | number;
-  slug?: string;
-  [key: string]: any;
-};
-
-type CatalogoResponse = {
-  results?: Product[];
-  [key: string]: any;
-};
-
-async function fetchCatalogo(pageSize: number): Promise<CatalogoResponse> {
-  // Force same-origin, and force the trailing slash to avoid Django APPEND_SLASH redirects.
-  const url = `/api/catalogo/?${new URLSearchParams({ page_size: String(pageSize) }).toString()}`;
-
-  const res = await fetch(url, {
-    method: "GET",
-    headers: { Accept: "application/json" },
-    cache: "no-store",
-    credentials: "same-origin",
-  });
-
-  const contentType = res.headers.get("content-type") || "";
-  const text = await res.text();
-
-  if (!res.ok) {
-    // Provide a readable error even if backend returned HTML.
-    const preview = text.slice(0, 280);
-    throw new Error(`API ${res.status}: ${preview}`);
-  }
-
-  if (!contentType.includes("application/json")) {
-    const preview = text.slice(0, 280);
-    throw new Error(`API inválida: esperado JSON, recibí ${contentType || "(sin content-type)"}. ${preview}`);
-  }
-
-  try {
-    return JSON.parse(text);
-  } catch {
-    const preview = text.slice(0, 280);
-    throw new Error(`API inválida: no pude parsear JSON. ${preview}`);
-  }
-}
+import { getCatalogo } from "@/lib/api";
+import type { Product } from "@/types/catalog";
 
 export default function CatalogoClient() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -69,12 +26,12 @@ export default function CatalogoClient() {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetchCatalogo(48);
+        const res = await getCatalogo({ page_size: 48 });
         if (cancelled) return;
-        setProducts((res?.results ?? []) as Product[]);
+        setProducts(res?.results ?? []);
       } catch (e: any) {
         if (cancelled) return;
-        setError(e?.message || "No se pudo cargar el catálogo. Revisa /api/catalogo/ en Network.");
+        setError(e?.message || "No se pudo cargar el catálogo.");
       } finally {
         if (!cancelled) setLoading(false);
       }

@@ -1,14 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import DrawerShell from "@/components/drawer/DrawerShell";
 import StockWarningChip from "@/components/cart/StockWarningChip";
 import { useCartStore } from "@/store/cart";
 import { Button } from "@/components/ui/Button";
 import { productPath } from "@/lib/routes";
-import { getPrimaryImageUrl } from "@/lib/api";
-import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
+import { getProductPrimaryImage } from "@/lib/product-media";
 
 type MiniCartProps = {
   open?: boolean;
@@ -86,17 +85,17 @@ const FAST_SWIPE_VELOCITY = 0.55;
 function MiniCart({ open, onClose }: MiniCartProps) {
   // Block D: cart-specific content and store bindings
   const items = useCartStore((s) => s.items);
-  const storeIsOpen = useCartStore((s) => s.isOpen);
-  const closeCart = useCartStore((s) => s.closeCart);
-
-  // Block A: drawer control state
-  const isOpen = typeof open === "boolean" ? open : storeIsOpen;
-  const close = typeof onClose === "function" ? onClose : closeCart;
   const removeItem = useCartStore((s) => s.removeItem);
   const updateQuantity = useCartStore((s) => s.updateQuantity);
   const stockWarningsByVariantId = useCartStore((s) => s.stockWarningsByVariantId);
   const stockHintsByVariantId = useCartStore((s) => s.stockHintsByVariantId);
   const [animateIn, setAnimateIn] = useState(false);
+
+  // Block A: drawer control state
+  const isOpen = Boolean(open);
+  const close = useCallback(() => {
+    onClose?.();
+  }, [onClose]);
 
   // Block B: lateral drag state
   const asideRef = useRef<HTMLElement | null>(null);
@@ -105,11 +104,9 @@ function MiniCart({ open, onClose }: MiniCartProps) {
   const [startX, setStartX] = useState(0);
   const [startY, setStartY] = useState(0);
   const [dragLockedAxis, setDragLockedAxis] = useState<"x" | "y" | null>(null);
-  const [isGestureActive, setIsGestureActive] = useState(false);
   const dragStartTimeRef = useRef(0);
 
   // Block A: drawer control effects
-  useBodyScrollLock(isOpen);
 
   useEffect(() => {
     if (!isOpen) {
@@ -155,8 +152,6 @@ function MiniCart({ open, onClose }: MiniCartProps) {
     setStartX(0);
     setStartY(0);
     setDragLockedAxis(null);
-    setIsGestureActive(false);
-    dragStartTimeRef.current = 0;
   }
 
   function handleTouchStart(event: React.TouchEvent<HTMLElement>) {
@@ -167,7 +162,6 @@ function MiniCart({ open, onClose }: MiniCartProps) {
     setStartY(touch.clientY);
     setDragX(0);
     setDragLockedAxis(null);
-    setIsGestureActive(false);
     setIsDragging(false);
     dragStartTimeRef.current = performance.now();
   }
@@ -188,11 +182,9 @@ function MiniCart({ open, onClose }: MiniCartProps) {
 
       if (absDeltaX > absDeltaY * HORIZONTAL_DOMINANCE_RATIO && nextDeltaX > 0) {
         setDragLockedAxis("x");
-        setIsGestureActive(true);
         setIsDragging(true);
       } else {
         setDragLockedAxis("y");
-        setIsGestureActive(false);
         setIsDragging(false);
         return;
       }
@@ -202,8 +194,6 @@ function MiniCart({ open, onClose }: MiniCartProps) {
       return;
     }
 
-    event.preventDefault();
-    setIsGestureActive(true);
     setIsDragging(true);
     setDragX(Math.max(0, nextDeltaX));
   }
@@ -311,7 +301,7 @@ function MiniCart({ open, onClose }: MiniCartProps) {
                   <div className="relative w-16 h-16 shrink-0 overflow-hidden product-media-surface">
                     {(() => {
                       const p: any = (item as any)?.product || item;
-                      const thumb = getPrimaryImageUrl(p) || getPrimaryImageUrl((item as any)?.product) || (item as any)?.imageUrl || "";
+                      const thumb = getProductPrimaryImage(p) || getProductPrimaryImage((item as any)?.product) || (item as any)?.imageUrl || "";
                       const alt = p?.name || (item as any)?.productName || "Producto";
 
                       return thumb ? (

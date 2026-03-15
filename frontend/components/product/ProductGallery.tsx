@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Pagination } from "swiper/modules";
 import type { Swiper as SwiperType } from "swiper";
 import type { ProductImage as ProductImageType } from "@/types/catalog";
-import { normalizeMediaUrl } from "@/lib/api";
+import { normalizeProductMediaUrl } from "@/lib/product-media";
 import SoldOutBadge from "@/components/badges/SoldOutBadge";
 import "swiper/css";
 import "swiper/css/pagination";
@@ -24,8 +24,8 @@ export function ProductGallery({ images, productName, soldOut = false, variant =
 
     return images
       .map((img) => {
-        const url = img?.url ? normalizeMediaUrl(img.url) : "";
-        const thumb = (img?.thumb_url ?? img?.url) ? normalizeMediaUrl(img.thumb_url ?? img.url) : "";
+        const url = img?.url ? normalizeProductMediaUrl(img.url) : "";
+        const thumb = img?.thumb_url ?? img?.url ? normalizeProductMediaUrl(img.thumb_url ?? img.url) : "";
         return {
           ...img,
           url,

@@ -131,7 +131,9 @@ export function useHorizontalDrawerDrag({
 
       if (lockedAxis !== "x") return;
 
-      event.preventDefault();
+      if (event.cancelable) {
+        event.preventDefault();
+      }
 
       setIsDragging(true);
       setDragX(Math.min(0, deltaX));

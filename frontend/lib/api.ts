@@ -135,182 +135,6 @@ const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "/api").replace(/\/$/, "");
 const DJANGO_BASE = (process.env.DJANGO_API_BASE || "").replace(/\/$/, "");
 const SERVER_API_BASE = DJANGO_BASE ? `${DJANGO_BASE}/api` : "";
 
-const PUBLIC_SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://kamecol.com").replace(/\/$/, "");
-const PUBLIC_BACKEND_URL =
-  (process.env.NEXT_PUBLIC_BACKEND_URL || "").replace(/\/$/, "") ||
-  DJANGO_BASE ||
-  "";
-
-const INVALID_MEDIA_HOST_PATTERNS = [
-  "localhost",
-  "127.0.0.1",
-  "0.0.0.0",
-  ".local",
-  "192.168.",
-  "10.",
-  "172.16.",
-  "172.17.",
-  "172.18.",
-  "172.19.",
-  "172.20.",
-  "172.21.",
-  "172.22.",
-  "172.23.",
-  "172.24.",
-  "172.25.",
-  "172.26.",
-  "172.27.",
-  "172.28.",
-  "172.29.",
-  "172.30.",
-  "172.31.",
-];
-
-// =============================
-// Media URL helpers (absolute URLs everywhere)
-// =============================
-export function normalizeMediaUrl(src?: string | null) {
-  const s = String(src || "").trim();
-  if (!s) return "";
-
-  const sanitizeAbsoluteUrl = (value: string): string => {
-    try {
-      const url = new URL(value);
-      const hostname = url.hostname.toLowerCase();
-
-      if (INVALID_MEDIA_HOST_PATTERNS.some((pattern) => hostname.includes(pattern))) {
-        return "";
-      }
-
-      if (url.protocol === "http:") {
-        url.protocol = "https:";
-      }
-
-      return url.toString();
-    } catch {
-      return "";
-    }
-  };
-
-  if (s.startsWith("data:") || s.startsWith("blob:")) return "";
-
-  if (s.startsWith("http://") || s.startsWith("https://")) {
-    return sanitizeAbsoluteUrl(s);
-  }
-
-  if (s.startsWith("//")) {
-    return sanitizeAbsoluteUrl(`https:${s}`);
-  }
-
-  const rel = s.startsWith("/") ? s : `/${s}`;
-
-  if (rel.startsWith("/media/") || rel.startsWith("/api/media/")) {
-    if (PUBLIC_BACKEND_URL) {
-      return sanitizeAbsoluteUrl(`${PUBLIC_BACKEND_URL}${rel}`);
-    }
-    return sanitizeAbsoluteUrl(`${PUBLIC_SITE_URL}${rel}`);
-  }
-
-  if (rel.startsWith("/_next/") || rel.startsWith("/api/") || rel.startsWith("/admin/")) {
-    return "";
-  }
-
-  return sanitizeAbsoluteUrl(`${PUBLIC_SITE_URL}${rel}`);
-}
-
-function collectImageCandidates(input: any, bucket: Array<string | null | undefined>) {
-  if (!input) return;
-
-  if (typeof input === "string") {
-    bucket.push(input);
-    return;
-  }
-
-  if (Array.isArray(input)) {
-    for (const item of input) {
-      collectImageCandidates(item, bucket);
-    }
-    return;
-  }
-
-  if (typeof input === "object") {
-    bucket.push(
-      input.url,
-      input.src,
-      input.image,
-      input.image_url,
-      input.imageUrl,
-      input.secure_url,
-      input.public_url,
-      input.publicUrl,
-      input.main_image,
-      input.primary_image,
-      input.primaryImage,
-      input.thumbnail,
-      input.thumbnail_url,
-      input.thumbnailUrl,
-      input.thumb,
-      input.thumb_url,
-      input.file,
-      input.path,
-      input.original,
-      input.large,
-      input.medium,
-      input.small,
-      input.cover,
-      input.cover_image,
-      input.coverImage
-    );
-  }
-}
-
-function firstValidNormalizedImage(candidates: Array<string | null | undefined>): string | null {
-  for (const candidate of candidates) {
-    if (typeof candidate !== "string") continue;
-    const normalized = normalizeMediaUrl(candidate);
-    if (normalized) return normalized;
-  }
-  return null;
-}
-
-export function getPrimaryImageUrl(product: any) {
-  const explicitCandidates: Array<string | null | undefined> = [];
-  const productCandidates: Array<string | null | undefined> = [];
-  const galleryCandidates: Array<string | null | undefined> = [];
-  const variantCandidates: Array<string | null | undefined> = [];
-
-  collectImageCandidates(product?.primary_image, explicitCandidates);
-  collectImageCandidates(product?.primaryImage, explicitCandidates);
-  collectImageCandidates(product?.main_image, explicitCandidates);
-  collectImageCandidates(product?.image, explicitCandidates);
-  collectImageCandidates(product?.image_url, explicitCandidates);
-  collectImageCandidates(product?.imageUrl, explicitCandidates);
-
-  collectImageCandidates(product?.images, productCandidates);
-  collectImageCandidates(product?.product_images, productCandidates);
-  collectImageCandidates(product?.productImages, productCandidates);
-
-  collectImageCandidates(product?.gallery, galleryCandidates);
-  collectImageCandidates(product?.gallery_images, galleryCandidates);
-  collectImageCandidates(product?.galleryImages, galleryCandidates);
-  collectImageCandidates(product?.media, galleryCandidates);
-
-  collectImageCandidates(product?.color_images, variantCandidates);
-  collectImageCandidates(product?.colorImages, variantCandidates);
-  collectImageCandidates(product?.variant_images, variantCandidates);
-  collectImageCandidates(product?.variantImages, variantCandidates);
-  collectImageCandidates(product?.variant_image, variantCandidates);
-  collectImageCandidates(product?.variantImage, variantCandidates);
-  collectImageCandidates(product?.variants, variantCandidates);
-
-  return (
-    firstValidNormalizedImage(explicitCandidates) ||
-    firstValidNormalizedImage(productCandidates) ||
-    firstValidNormalizedImage(galleryCandidates) ||
-    firstValidNormalizedImage(variantCandidates) ||
-    null
-  );
-}
 
 const getCookie = (name: string): string | null => {
   if (typeof document === "undefined") return null;
@@ -327,17 +151,16 @@ const isUnsafeMethod = (method?: string) => {
   return !(m === "GET" || m === "HEAD" || m === "OPTIONS" || m === "TRACE");
 };
 
+/**
+ * Temporary legacy helper.
+ * Prefer `apiFetch()` for all new code so transport, credentials, cache rules,
+ * and error handling stay centralized in one path.
+ */
 export async function fetchJSON<T>(url: string, init?: RequestInit): Promise<T> {
-  const r = await fetch(url, {
+  return apiFetch<T>(url, {
     ...init,
-    // si estás usando Next app router y quieres frescura:
-    cache: "no-store",
+    cache: init?.cache ?? "no-store",
   });
-  if (!r.ok) {
-    const txt = await r.text().catch(() => "");
-    throw new Error(`API ${r.status}: ${txt || r.statusText}`);
-  }
-  return (await r.json()) as T;
 }
 
 export async function apiFetch<T>(
@@ -498,6 +321,12 @@ export async function getNavigation(): Promise<NavigationResponse> {
   return { departments };
 }
 
+/**
+ * Primary public catalog listing wrapper based on `/products/`.
+ *
+ * Use this for general product listings, including category and department
+ * filtering. This is the canonical SDK entry point for filtered product lists.
+ */
 export async function getProducts(params?: {
   category?: string;
   department?: string;
@@ -517,13 +346,14 @@ export async function getProducts(params?: {
   return apiFetch<PaginatedResponse<Product>>(`/products/${query ? `?${query}` : ""}`);
 }
 
-// Endpoint estable para filtrar productos por categoría (slug)
-// Nota: `apiFetch` ya prefixea con `/api`, por eso acá usamos `/products/...` (sin duplicar `/api`).
-export async function getProductsByCategorySlug(slug: string) {
-  const s = encodeURIComponent(String(slug || "").trim());
-  return apiFetch<any>(`/products/?category=${s}`);
-}
 
+/**
+ * Catalog view wrapper based on `/catalogo/`.
+ *
+ * Use this only when the frontend explicitly depends on the backend contract of
+ * `/catalogo/` for the catalog page or compatibility flows. Do not use it as a
+ * generic replacement for `getProducts()`.
+ */
 export async function getCatalogo(params?: {
   category?: string;
   search?: string;

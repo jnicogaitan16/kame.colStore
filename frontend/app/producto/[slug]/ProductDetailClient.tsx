@@ -62,6 +62,7 @@ interface ProductDetailClientProps {
   product: PDPViewModel;
 }
 
+
 type SelectionState = {
   variantSchema: VariantSchema;
   requiresValue: boolean;
@@ -82,6 +83,8 @@ type SelectionState = {
   selectValue: (value: string) => void;
   selectColor: (color: string) => void;
 };
+
+const EMPTY_VARIANTS: ProductVariant[] = [];
 
 function normalizeOption(value: unknown): string {
   return String(value || "").trim();
@@ -190,7 +193,7 @@ function formatPriceCOP(price: string): string {
 }
 
 function useProductSelection(product: PDPViewModel): SelectionState {
-  const variants = product.variants ?? [];
+  const variants = product.variants ?? EMPTY_VARIANTS;
   const variantSchema =
     (product.variantSchema ?? product.category?.variant_schema ?? "size_color") as VariantSchema;
 
