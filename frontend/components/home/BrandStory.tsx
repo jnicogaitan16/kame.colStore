@@ -85,64 +85,36 @@ export function BrandStory({ story }: { story: HomepageStory | null }) {
     <section
       ref={sectionRef}
       className={[
-        "relative mx-auto max-w-6xl px-6",
+        "relative mx-auto w-full max-w-5xl px-6 py-16 md:px-8 md:py-24 lg:py-28",
         "brand-story-reveal",
         isVisible ? "is-visible" : "",
       ].join(" ")}
     >
-      <div className="mx-auto relative overflow-hidden rounded-3xl border border-white/10 bg-black/60 backdrop-blur-md px-6 py-12 md:px-12 md:py-16 shadow-[0_20px_70px_rgba(0,0,0,0.55)]">
-        {/* Subtle premium background layers */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0"
-          style={{
-            background:
-              "radial-gradient(1000px 520px at 50% -10%, rgba(255,255,255,0.06), transparent 55%), radial-gradient(800px 420px at 20% 25%, rgba(255,255,255,0.04), transparent 60%), radial-gradient(900px 520px at 80% 65%, rgba(255,255,255,0.03), transparent 62%), linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.00) 55%, rgba(0,0,0,0.18))",
-          }}
-        />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 rounded-3xl"
-          style={{
-            boxShadow:
-              "inset 0 1px 0 rgba(255,255,255,0.06), inset 0 0 0 1px rgba(255,255,255,0.04)",
-          }}
-        />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute left-1/2 top-0 h-px w-2/3 -translate-x-1/2"
-          style={{
-            background:
-              "linear-gradient(90deg, transparent, rgba(255,255,255,0.22), rgba(255,255,255,0.10), transparent)",
-          }}
-        />
+      <div className="relative">
+        <div className="space-y-12 text-center md:space-y-14">
+          <header className="space-y-6 md:space-y-8">
+            <h2 className="mx-auto max-w-4xl text-5xl font-extrabold leading-[0.98] tracking-[-0.03em] text-white md:text-7xl lg:text-8xl">
+              {title}
+            </h2>
 
-        <div className="relative">
-          <div className="space-y-8 text-center">
-            <header className="space-y-5">
-              <h2 className="text-4xl md:text-6xl font-extrabold tracking-tight text-white leading-[1.05] drop-shadow-[0_2px_18px_rgba(0,0,0,0.65)]">
-                {title}
-              </h2>
+            {claim ? (
+              <p className="mx-auto max-w-3xl text-xl font-semibold italic leading-relaxed tracking-tight text-white/90 md:text-3xl lg:max-w-4xl">
+                {claim}
+              </p>
+            ) : null}
+          </header>
 
-              {claim ? (
-                <p className="mx-auto max-w-[40ch] md:max-w-[60ch] text-lg md:text-2xl font-bold italic tracking-tight text-white/90 leading-snug">
-                  {claim}
-                </p>
-              ) : null}
-            </header>
+          <div className="mx-auto h-px w-24 bg-white/10" />
 
-            <div className="mx-auto h-px w-16 bg-white/12" />
-
-            <div className="space-y-5">
-              {body.map((p, idx) => (
-                <p
-                  key={idx}
-                  className="mx-auto max-w-[40ch] md:max-w-[60ch] text-base md:text-lg leading-relaxed text-white/75"
-                >
-                  {p}
-                </p>
-              ))}
-            </div>
+          <div className="mx-auto max-w-3xl space-y-6 md:max-w-4xl md:space-y-8">
+            {body.map((p, idx) => (
+              <p
+                key={idx}
+                className="text-balance text-base leading-8 text-white/72 md:text-lg md:leading-9"
+              >
+                {p}
+              </p>
+            ))}
           </div>
         </div>
       </div>
