@@ -72,44 +72,59 @@ def _absolute_uri(request, url):
 
 
 def _spec_url(obj, spec_attr: str):
-    """Retorna URL del spec en modo lectura rápida, sin verificación remota.
+    """Retorna URL del spec solo si el derivado cacheado existe realmente.
 
-    Política de lectura optimizada:
+    Política:
     - NO forzar `generate()` en serialización.
-    - Intentar usar la URL del spec/cachefile si ya existe.
-    - NO llamar `storage.exists()` durante serialización.
+    - Verificar disponibilidad real del derivado antes de exponer su URL.
+    - Memoizar por objeto/spec para evitar consultas repetidas dentro del mismo ciclo.
     - Si el derivado no existe o algo falla, retornar None para fallback al original.
     """
     try:
+        cache = getattr(obj, "_resolved_spec_url_cache", None)
+        if cache is None:
+            cache = {}
+            setattr(obj, "_resolved_spec_url_cache", cache)
+
+        if spec_attr in cache:
+            return cache[spec_attr]
+
         spec = getattr(obj, spec_attr, None)
         if not spec:
+            cache[spec_attr] = None
             return None
 
-        # Intentar resolver el cachefile sin generarlo
+        # Intentar resolver el cachefile sin generarlo y verificar existencia real.
         try:
             cachefile = ImageCacheFile(spec)
-            url = getattr(cachefile, "url", None)
-            if url:
-                return url
+            storage = getattr(cachefile, "storage", None)
+            name = getattr(cachefile, "name", None)
+            if storage is not None and name:
+                try:
+                    if storage.exists(name):
+                        url = getattr(cachefile, "url", None)
+                        cache[spec_attr] = url or None
+                        return cache[spec_attr]
+                except Exception:
+                    pass
         except Exception:
             pass
 
-        # Fallback: si spec ya expone url, usarla sin verificación remota
-        try:
-            url = getattr(spec, "url", None)
-            if url:
-                return url
-        except Exception:
-            pass
-
+        cache[spec_attr] = None
         return None
     except Exception:
         return None
 
 
 # New helper: _resolve_public_image_urls
-def _resolve_public_image_urls(obj, request=None):
-    """Resuelve una sola vez todas las URLs públicas relevantes de una imagen."""
+def _resolve_public_image_urls(obj, request=None, primary_specs=None):
+    """Resuelve una sola vez todas las URLs públicas relevantes de una imagen.
+
+    `primary_specs` permite definir la prioridad del campo `image` público por tipo:
+    - banners: ("image_hero", "image_large", "image_medium", "image_thumb")
+    - promos: ("image_card", "image_large", "image_medium", "image_thumb")
+    - default: ("image_large", "image_medium", "image_thumb")
+    """
     if not getattr(obj, "image", None):
         return {
             "image": None,
@@ -118,12 +133,18 @@ def _resolve_public_image_urls(obj, request=None):
             "image_large_url": None,
         }
 
+    spec_priority = tuple(primary_specs or ("image_large", "image_medium", "image_thumb"))
+    resolved_priority = [_spec_url(obj, spec_attr) for spec_attr in spec_priority]
+
     thumb = _spec_url(obj, "image_thumb")
     medium = _spec_url(obj, "image_medium")
     large = _spec_url(obj, "image_large")
 
+    primary_public = next((url for url in resolved_priority if url), None)
+    original_public = public_media_url(obj.image.url, request=request)
+
     return {
-        "image": public_media_url(large or medium or thumb or obj.image.url, request=request),
+        "image": public_media_url(primary_public, request=request) or original_public,
         "image_thumb_url": public_media_url(thumb, request=request),
         "image_medium_url": public_media_url(medium, request=request),
         "image_large_url": public_media_url(large, request=request),
@@ -716,34 +737,31 @@ class HomepageBannerSerializer(serializers.ModelSerializer):
             "sort_order",
         ]
 
-    def get_image(self, obj):
-        if not obj.image:
-            return None
-        request = self.context.get("request")
-        return public_media_url(
-            _spec_url(obj, "image_hero")
-            or _spec_url(obj, "image_large")
-            or obj.image.url,
-            request=request,
+    def _get_resolved_urls(self, obj):
+        cache = self.context.setdefault("_resolved_image_urls", {})
+        key = (self.__class__.__name__, getattr(obj, "id", None))
+        if key in cache:
+            return cache[key]
+
+        resolved = _resolve_public_image_urls(
+            obj,
+            request=self.context.get("request"),
+            primary_specs=("image_hero", "image_large", "image_medium", "image_thumb"),
         )
+        cache[key] = resolved
+        return resolved
+
+    def get_image(self, obj):
+        return self._get_resolved_urls(obj)["image"]
 
     def get_image_thumb_url(self, obj):
-        if not obj.image:
-            return None
-        request = self.context.get("request")
-        return public_media_url(_spec_url(obj, "image_thumb"), request=request)
+        return self._get_resolved_urls(obj)["image_thumb_url"]
 
     def get_image_medium_url(self, obj):
-        if not obj.image:
-            return None
-        request = self.context.get("request")
-        return public_media_url(_spec_url(obj, "image_medium"), request=request)
+        return self._get_resolved_urls(obj)["image_medium_url"]
 
     def get_image_large_url(self, obj):
-        if not obj.image:
-            return None
-        request = self.context.get("request")
-        return public_media_url(_spec_url(obj, "image_large"), request=request)
+        return self._get_resolved_urls(obj)["image_large_url"]
 
 
 # ---------------------------------------------------------------------------
@@ -782,31 +800,28 @@ class HomepagePromoSerializer(serializers.ModelSerializer):
             "sort_order",
         ]
 
-    def get_image(self, obj):
-        if not obj.image:
-            return None
-        request = self.context.get("request")
-        return public_media_url(
-            _spec_url(obj, "image_card")
-            or _spec_url(obj, "image_large")
-            or obj.image.url,
-            request=request,
+    def _get_resolved_urls(self, obj):
+        cache = self.context.setdefault("_resolved_image_urls", {})
+        key = (self.__class__.__name__, getattr(obj, "id", None))
+        if key in cache:
+            return cache[key]
+
+        resolved = _resolve_public_image_urls(
+            obj,
+            request=self.context.get("request"),
+            primary_specs=("image_card", "image_large", "image_medium", "image_thumb"),
         )
+        cache[key] = resolved
+        return resolved
+
+    def get_image(self, obj):
+        return self._get_resolved_urls(obj)["image"]
 
     def get_image_thumb_url(self, obj):
-        if not obj.image:
-            return None
-        request = self.context.get("request")
-        return public_media_url(_spec_url(obj, "image_thumb"), request=request)
+        return self._get_resolved_urls(obj)["image_thumb_url"]
 
     def get_image_medium_url(self, obj):
-        if not obj.image:
-            return None
-        request = self.context.get("request")
-        return public_media_url(_spec_url(obj, "image_medium"), request=request)
+        return self._get_resolved_urls(obj)["image_medium_url"]
 
     def get_image_large_url(self, obj):
-        if not obj.image:
-            return None
-        request = self.context.get("request")
-        return public_media_url(_spec_url(obj, "image_large"), request=request)
+        return self._get_resolved_urls(obj)["image_large_url"]
