@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import DrawerShell from "@/components/drawer/DrawerShell";
 import StockWarningChip from "@/components/cart/StockWarningChip";
@@ -367,11 +368,13 @@ function MiniCart({ open, onClose }: MiniCartProps) {
                 <li key={item.variantId} className="px-5 py-4 flex gap-3 border-b border-white/5">
                   <div className="relative w-16 h-16 shrink-0 overflow-hidden product-media-surface">
                     {thumb ? (
-                      <img
+                      <Image
                         src={thumb}
                         alt={alt}
+                        fill
+                        sizes="64px"
                         loading="lazy"
-                        className="h-full w-full object-cover"
+                        className="object-cover"
                       />
                     ) : (
                       <div className="flex h-full items-center justify-center text-white/40">
