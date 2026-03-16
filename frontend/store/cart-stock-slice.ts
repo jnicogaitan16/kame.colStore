@@ -45,6 +45,16 @@ const abortActiveValidationRequest = () => {
   stockAbortController = null;
 };
 
+/**
+ * Abort in-flight validation and clear debounce timer.
+ * Used by the main store from clearCart() so that clearing the cart
+ * does not leave a stale request that would reapply warnings after reset.
+ */
+export function abortAndClearStockValidationRequest(): void {
+  clearValidateTimer();
+  abortActiveValidationRequest();
+}
+
 const buildValidationPayload = (items: CartState["items"]) =>
   (items || [])
     .map((item) => ({

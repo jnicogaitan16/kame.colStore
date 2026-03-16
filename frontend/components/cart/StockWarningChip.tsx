@@ -24,11 +24,11 @@ function cx(...parts: Array<string | undefined | null | false>): string {
 function labelFor(status: StockWarningStatus): string {
   switch (status) {
     case "unknown":
-      return "Disponibilidad sin validar";
+      return "Disponibilidad limitada";
     case "low":
-      return "Unidades limitadas";
+      return "Drop casi agotado";
     case "over":
-      return "No hay suficientes unidades";
+      return "Stock limitado";
   }
 }
 
@@ -40,27 +40,17 @@ function detailFor(
   const a = typeof available === "number" ? available : undefined;
   const r = typeof requested === "number" ? requested : undefined;
 
-  if (status === "unknown") return null;
+  void a;
+  void r;
 
-  if (typeof a === "number" && typeof r === "number") {
-    if (status === "over") return `Pediste ${r}. Solo quedan ${a} disponibles.`;
-    if (status === "low") {
-      if (a === 1) return "Queda la última unidad disponible.";
-      return `Quedan ${a} unidades disponibles.`;
-    }
+  switch (status) {
+    case "unknown":
+      return null;
+    case "low":
+      return "Quedan pocas piezas";
+    case "over":
+      return "Ajusta tu selección";
   }
-
-  if (typeof a === "number") {
-    if (status === "low") {
-      if (a === 1) return "Queda la última unidad disponible.";
-      return `Quedan ${a} unidades disponibles.`;
-    }
-
-    return `${a} unidades disponibles`;
-  }
-
-  if (typeof r === "number") return `${r} unidades solicitadas`;
-  return null;
 }
 
 export default function StockWarningChip({
@@ -77,7 +67,7 @@ export default function StockWarningChip({
   const isSubtle = variant === "subtle";
 
   const base = compact
-    ? "inline-flex max-w-full items-center gap-1.5 rounded-xl border px-3 py-2 text-sm leading-none backdrop-blur"
+    ? "inline-flex max-w-full items-start gap-2 rounded-xl border px-3 py-2 text-sm leading-snug backdrop-blur"
     : "inline-flex max-w-full items-start gap-2 rounded-2xl border px-3 py-2.5 text-sm leading-snug backdrop-blur";
 
   const tone =
@@ -95,43 +85,59 @@ export default function StockWarningChip({
 
   const icon = compact ? "mt-0.5 h-3.5 w-3.5 shrink-0 opacity-80" : "mt-0.5 h-4 w-4 shrink-0 opacity-80";
   const content = "min-w-0 flex-1";
-  const titleClass = compact ? "truncate" : "block";
-  const detailClass = compact ? "mt-0.5 text-[12px] leading-snug text-white/58" : "mt-1 text-[12px] leading-snug text-white/62";
+  const titleClass = compact ? "block leading-snug text-white/88" : "block";
+  const detailClass = compact
+    ? "mt-1 text-[12px] leading-[1.35] text-white/60"
+    : "mt-1 text-[12px] leading-snug text-white/62";
 
   const adjustBtn =
-    "ml-1 inline-flex shrink-0 items-center rounded-full px-2 py-0.5 " +
-    "text-[12px] font-medium text-white/80 transition-colors " +
+    "ml-2 inline-flex shrink-0 self-start items-center rounded-full px-2 py-0.5 " +
+    "text-[12px] font-medium leading-none text-white/80 transition-colors " +
     "hover:bg-white/10 hover:text-white active:bg-white/15 " +
     "focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20";
 
   const resolvedLabel = typeof message === "string" && message.trim() ? message.trim() : labelFor(status);
-  const resolvedDetail =
-    typeof detail === "string" && detail.trim()
+  const isLastPieceMessage = resolvedLabel === "Última pieza de este drop";
+  const isLimitedStockMessage = resolvedLabel === "Stock limitado";
+  const useSingleLineMessage = isLastPieceMessage || isLimitedStockMessage;
+  const resolvedDetail = useSingleLineMessage
+    ? null
+    : typeof detail === "string" && detail.trim()
       ? detail.trim()
       : detailFor(status, available, requested);
 
   return (
     <span
-      className={cx(base, tone, className)}
+      className={cx(base, compact && "min-w-0", tone, className)}
       title={resolvedDetail ? `${resolvedLabel} (${resolvedDetail})` : resolvedLabel}
     >
-      <svg
-        className={icon}
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
-        <path d="M12 9v4" />
-        <path d="M12 17h.01" />
-      </svg>
+      {isLastPieceMessage ? (
+        <span className={cx(icon, "inline-flex items-center justify-center text-[13px] leading-none")} aria-hidden="true">
+          ⚡
+        </span>
+      ) : isLimitedStockMessage ? (
+        <span className={cx(icon, "inline-flex items-center justify-center text-[13px] leading-none")} aria-hidden="true">
+          ⚠️
+        </span>
+      ) : (
+        <svg
+          className={icon}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
+          <path d="M12 9v4" />
+          <path d="M12 17h.01" />
+        </svg>
+      )}
 
-      <span className={content}>
-        <span className={titleClass}>{resolvedLabel}</span>
+      <span className={cx(content, compact && "self-start")}>
+        <span className={cx(titleClass, useSingleLineMessage && "leading-none")}>{resolvedLabel}</span>
         {resolvedDetail ? <span className={detailClass}>{resolvedDetail}</span> : null}
       </span>
 

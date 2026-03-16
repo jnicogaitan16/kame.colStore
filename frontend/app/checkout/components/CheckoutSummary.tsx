@@ -1,5 +1,3 @@
-
-
 "use client";
 
 import Link from "next/link";
@@ -72,24 +70,44 @@ function normalizeStockVisualState(params: {
   if (warning && String(warning.status || "ok") !== "ok") {
     const available = parseFiniteNumber(warning.available);
     const hasAvailable = Number.isFinite(available);
-    const message =
-      typeof warning.message === "string" && warning.message.trim()
-        ? warning.message.trim()
-        : "Drop casi agotado";
+    const isOverRequested = hasAvailable && item.quantity > available;
+
+    if (isOverRequested) {
+      return {
+        status: "over",
+        message: "Stock limitado",
+        detail: "Ajusta tu selección",
+      };
+    }
+
+    const isLastUnit = hasAvailable && available === 1 && !isOverRequested;
+
+    if (isLastUnit) {
+      return {
+        status: "low",
+        message: "Última pieza de este drop",
+      };
+    }
+
+    if (hasAvailable) {
+      return {
+        status: "low",
+        message: "Drop casi agotado",
+        detail: "Quedan pocas piezas",
+      };
+    }
 
     return {
-      status: hasAvailable && available <= 1 ? "low" : "over",
-      message,
-      detail: hasAvailable
-        ? `Pediste ${item.quantity}. Solo quedan ${available} en este drop.`
-        : "La cantidad que pediste supera las unidades disponibles.",
+      status: "over",
+      message: "Stock limitado",
+      detail: "Ajusta tu selección",
     };
   }
 
-  if (hint?.kind === "last_unit" && hint?.message) {
+  if (hint?.kind === "last_unit") {
     return {
       status: "low",
-      message: String(hint.message),
+      message: "Última pieza de este drop",
     };
   }
 
@@ -194,12 +212,13 @@ export default function CheckoutSummary({
                         </p>
 
                         {stockState ? (
-                          <div className="mt-1">
+                          <div className="mt-1.5 min-w-0">
                             <StockWarningChip
                               status={stockState.status}
                               message={stockState.message}
                               detail={stockState.detail}
                               compact
+                              className="w-full"
                             />
                           </div>
                         ) : null}

@@ -1,18 +1,17 @@
 /**
  * Carrito con Zustand + persist en localStorage (mobile-first).
- * Cada ítem es una variante con cantidad; el frontend no envía aún al backend (checkout después).
+ * Composición por dominios: items (cart-items-slice), UI legacy (cart-ui-slice),
+ * stock/validación (cart-stock-slice). clearCart orquesta items + stock y abort.
  */
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { validateCartStock } from "@/lib/api";
 
-const toKey = (id: number | string) => String(id);
-const DEV_VALIDATE_LOGS = process.env.NODE_ENV !== "production";
-
-// Non-persisted validation request control (do NOT store in Zustand state)
-let stockAbortController: AbortController | null = null;
-let stockValidateSeq = 0;
-let stockValidateTimer: ReturnType<typeof setTimeout> | null = null;
+import { createCartItemsSlice } from "./cart-items-slice";
+import { createCartUiSlice } from "./cart-ui-slice";
+import {
+  abortAndClearStockValidationRequest,
+  createCartStockSlice,
+} from "./cart-stock-slice";
 
 export interface CartItem {
   variantId: number;
@@ -34,19 +33,17 @@ export type StockWarningStatus =
   | "error";
 
 export type StockWarning = {
-  // Store-only: values come from backend.
   status: StockWarningStatus;
   available: number;
   requested: number;
   message: string;
-  updatedAt: number; // epoch ms
+  updatedAt: number;
 };
 
 export type StockHint = {
-  // Store-only: values come from backend.
   kind: "last_unit";
   message: string;
-  updatedAt: number; // epoch ms
+  updatedAt: number;
 };
 
 export type StockValidateStatus = "idle" | "checking" | "ok" | "error";
@@ -55,31 +52,19 @@ export interface CartState {
   items: CartItem[];
   /**
    * Legacy UI flag kept for backward compatibility with any remaining consumers.
-   *
-   * Important architectural note:
-   * the visible MiniCart rendered from the header/layout is no longer controlled
-   * by this store flag as a source of truth. Header.tsx owns that UI state.
+   * Visible MiniCart in header/layout is controlled by Header.tsx, not this flag.
    */
   isOpen: boolean;
   stockWarningsByVariantId: Record<string, StockWarning>;
   stockHintsByVariantId: Record<string, StockHint>;
   lastStockValidateRequestId: number;
-
-  // ✅ Centralizado (reemplaza isStockValidating)
   stockValidateStatus: StockValidateStatus;
-  // ✅ Opcional anti-spam / telemetry
   lastStockValidateAt: number;
 
   addItem: (item: Omit<CartItem, "quantity">, quantity?: number) => void;
   removeItem: (variantId: number) => void;
   updateQuantity: (variantId: number, quantity: number) => void;
 
-  /**
-   * Legacy UI actions preserved for compatibility.
-   *
-   * They must not be treated as the source of truth for the visible MiniCart in
-   * the header/layout flow, which is now controlled by Header.tsx local state.
-   */
   openCart: () => void;
   closeCart: () => void;
   toggleCart: () => void;
@@ -88,24 +73,18 @@ export interface CartState {
   scheduleValidate: (reason?: "add" | "qty" | "open" | "checkout") => void;
   refreshStockValidation: () => Promise<void>;
 
-  // ✅ Reciben el mapa “crudo” del backend y normalizan aquí
   setStockWarnings: (payload: Record<string, any>) => void;
   setStockHints: (payload: Record<string, any>) => void;
-
   setStockValidateStatus: (status: StockValidateStatus) => void;
   setLastStockValidateAt: (ts: number) => void;
-
   clearStockValidation: () => void;
-
   upsertStockWarning: (
     variantId: number,
     warning: Partial<Omit<StockWarning, "updatedAt">>
   ) => void;
   upsertStockHint: (variantId: number, hint: Partial<Omit<StockHint, "updatedAt">>) => void;
   clearStockHint: (variantId: number) => void;
-
   applyOptimisticStockCheck: (variantId: number, nextQty: number) => void;
-
   hasStockWarnings: () => boolean;
   hasBlockingStockIssues: () => boolean;
   getStockWarning: (variantId: number | string) => StockWarning | undefined;
@@ -118,379 +97,12 @@ export interface CartState {
 
 export const useCartStore = create<CartState>()(
   persist(
-    (set, get) => ({
-      items: [],
-      // Legacy UI flag. Kept to avoid breaking hidden/older consumers, but the
-      // visible MiniCart in header/layout is controlled outside the store.
-      isOpen: false,
-      stockWarningsByVariantId: {},
-      stockHintsByVariantId: {},
-      lastStockValidateRequestId: 0,
-
-      stockValidateStatus: "idle",
-      lastStockValidateAt: 0,
-
-      addItem: (item, quantity = 1) => {
-        set((state) => {
-          const existing = state.items.find((i) => i.variantId === item.variantId);
-          const next = existing
-            ? state.items.map((i) =>
-                i.variantId === item.variantId
-                  ? { ...i, quantity: i.quantity + quantity }
-                  : i
-              )
-            : [...state.items, { ...item, quantity }];
-
-          return { items: next };
-        });
-
-        get().scheduleValidate("add");
-      },
-
-      removeItem: (variantId) => {
-        set((state) => ({
-          items: state.items.filter((i) => i.variantId !== variantId),
-        }));
-
-        get().scheduleValidate("qty");
-      },
-
-      updateQuantity: (variantId, quantity) => {
-        if (quantity < 1) {
-          get().removeItem(variantId);
-          return;
-        }
-
-        set((state) => ({
-          items: state.items.map((i) =>
-            i.variantId === variantId ? { ...i, quantity } : i
-          ),
-        }));
-
-        get().scheduleValidate("qty");
-      },
-
-      openCart: () => {
-        set({ isOpen: true });
-      },
-
-      closeCart: () => set({ isOpen: false }),
-      toggleCart: () => set((s) => ({ isOpen: !s.isOpen })),
-
-      setStockValidateStatus: (status) => set({ stockValidateStatus: status }),
-      setLastStockValidateAt: (ts) => set({ lastStockValidateAt: ts }),
-      clearStockValidation: () =>
-        set({
-          stockWarningsByVariantId: {},
-          stockHintsByVariantId: {},
-          stockValidateStatus: "idle",
-          lastStockValidateAt: 0,
-        }),
-
-      // Debounced validation scheduler (150ms) to avoid request storms.
-      scheduleValidate: (reason) => {
-        if (stockValidateTimer) {
-          try {
-            clearTimeout(stockValidateTimer);
-          } catch {
-            // ignore
-          }
-        }
-
-        stockValidateTimer = setTimeout(() => {
-          if (DEV_VALIDATE_LOGS) {
-            console.log("VALIDATE scheduled run", { reason });
-          }
-          // Only run the latest scheduled validation.
-          void get().validateStockNow(reason);
-        }, 150);
-      },
-
-      // Single canonical validation action (contract)
-      refreshStockValidation: async () => {
-        get().scheduleValidate("qty");
-      },
-
-      validateStockNow: async (reason) => {
-        // Build payload from current cart items
-        const itemsPayload = (get().items || [])
-          .map((i) => ({
-            product_variant_id: i.variantId,
-            quantity: i.quantity,
-          }))
-          .filter(
-            (x) =>
-              Number.isFinite(x.product_variant_id) &&
-              x.product_variant_id > 0 &&
-              x.quantity > 0
-          );
-
-        if (DEV_VALIDATE_LOGS) {
-          console.log("VALIDATE payload", { reason, itemsPayload });
-        }
-
-        // If cart is empty, clear maps and stop.
-        if (!itemsPayload.length) {
-          if (stockAbortController) {
-            try {
-              stockAbortController.abort();
-            } catch {
-              // ignore
-            }
-            stockAbortController = null;
-          }
-          get().clearStockValidation();
-          return;
-        }
-
-        // Abort previous request
-        if (stockAbortController) {
-          try {
-            stockAbortController.abort();
-          } catch {
-            // ignore
-          }
-        }
-
-        if (stockValidateTimer) {
-          try {
-            clearTimeout(stockValidateTimer);
-          } catch {
-            // ignore
-          }
-          stockValidateTimer = null;
-        }
-
-        stockAbortController = new AbortController();
-
-        // Increment request id and mark validating
-        const mySeq = ++stockValidateSeq;
-        if (DEV_VALIDATE_LOGS) {
-          console.log("VALIDATE start", mySeq, { reason, itemsPayload });
-        }
-        set({ lastStockValidateRequestId: mySeq, stockValidateStatus: "checking" });
-
-        try {
-          const res = await validateCartStock(itemsPayload, {
-            signal: stockAbortController.signal,
-          });
-
-          if (DEV_VALIDATE_LOGS) {
-            console.log("VALIDATE done", mySeq, {
-              warningsByVariantId: (res as any)?.warningsByVariantId,
-              hintsByVariantId: (res as any)?.hintsByVariantId,
-            });
-          }
-
-          // Ignore stale responses
-          const isLatest = mySeq === stockValidateSeq;
-          if (DEV_VALIDATE_LOGS) {
-            console.log("VALIDATE apply", mySeq, { isLatest, currentSeq: stockValidateSeq });
-          }
-          if (!isLatest) return;
-
-          const warningsPayload = (res as any)?.warningsByVariantId || {};
-          const hintsPayload = (res as any)?.hintsByVariantId || {};
-
-          // ✅ Centralizado: no recrear warnings/hints aquí
-          get().setStockWarnings(warningsPayload);
-          get().setStockHints(hintsPayload);
-
-          set({ stockValidateStatus: "ok" });
-          get().setLastStockValidateAt(Date.now());
-        } catch (e: any) {
-          // Ignore aborts
-          if (e?.name === "AbortError") return;
-
-          if (DEV_VALIDATE_LOGS) {
-            console.log("VALIDATE error", mySeq, e);
-          }
-          if (mySeq !== stockValidateSeq) return;
-
-          // Non-blocking strategy: clear maps on failure (single consistent strategy)
-          set({
-            stockWarningsByVariantId: {},
-            stockHintsByVariantId: {},
-            stockValidateStatus: "error",
-          });
-          get().setLastStockValidateAt(Date.now());
-        }
-      },
-
-      setStockWarnings: (payload) => {
-        const now = Date.now();
-        const nextWarnings: Record<string, StockWarning> = {};
-
-        for (const [rawKey, value] of Object.entries(payload || {})) {
-          const k = toKey(rawKey);
-          const v: any = value || {};
-
-          nextWarnings[k] = {
-            status: (v.status ?? "ok") as StockWarningStatus,
-            available: Number(v.available ?? 0),
-            requested: Number(v.requested ?? 0),
-            message: String(v.message ?? ""),
-            updatedAt: now,
-          };
-        }
-
-        // Replace entire map to avoid stale entries.
-        // Safety: warning mata hint (remove any hint for variants that now have warnings)
-        const prevHints = get().stockHintsByVariantId;
-        const nextHints = { ...prevHints };
-        for (const k of Object.keys(nextWarnings)) {
-          delete nextHints[k];
-        }
-
-        set({ stockWarningsByVariantId: nextWarnings, stockHintsByVariantId: nextHints });
-      },
-
-      setStockHints: (payload) => {
-        const now = Date.now();
-        const nextHints: Record<string, StockHint> = {};
-
-        for (const [rawKey, value] of Object.entries(payload || {})) {
-          const k = toKey(rawKey);
-          // Safety: never store a hint if a warning exists for this variant
-          if (get().stockWarningsByVariantId[k]) continue;
-
-          const v: any = value || {};
-          if (!v.message) continue;
-
-          nextHints[k] = {
-            kind: "last_unit",
-            message: String(v.message),
-            updatedAt: now,
-          };
-        }
-
-        // Replace entire map to avoid stale entries.
-        set({ stockHintsByVariantId: nextHints });
-      },
-
-      upsertStockWarning: (variantId, warning) => {
-        const now = Date.now();
-        set((state) => {
-          const k = toKey(variantId);
-
-          // Safety: warning mata hint
-          const nextHints: Record<string, StockHint> = { ...state.stockHintsByVariantId };
-          delete nextHints[k];
-
-          const prev = state.stockWarningsByVariantId[k];
-          const next: Record<string, StockWarning> = { ...state.stockWarningsByVariantId };
-
-          next[k] = {
-            status: (warning.status ?? prev?.status ?? "ok") as StockWarningStatus,
-            available: warning.available ?? prev?.available ?? 0,
-            requested: (warning as any).requested ?? prev?.requested ?? 0,
-            message: warning.message ?? prev?.message ?? "",
-            updatedAt: now,
-          };
-
-          return { stockWarningsByVariantId: next, stockHintsByVariantId: nextHints };
-        });
-      },
-
-      upsertStockHint: (variantId, hint) => {
-        const now = Date.now();
-        set((state) => {
-          const k = toKey(variantId);
-
-          // Safety: never store a hint if a warning exists for this variant
-          if (state.stockWarningsByVariantId[k]) {
-            const nextNoop = { ...state.stockHintsByVariantId };
-            delete nextNoop[k];
-            return { stockHintsByVariantId: nextNoop };
-          }
-
-          const prev = state.stockHintsByVariantId[k];
-          const next: Record<string, StockHint> = { ...state.stockHintsByVariantId };
-
-          const message = hint.message ?? prev?.message ?? "";
-          if (!message) {
-            delete next[k];
-            return { stockHintsByVariantId: next };
-          }
-
-          next[k] = {
-            kind: "last_unit",
-            message,
-            updatedAt: now,
-          };
-
-          return { stockHintsByVariantId: next };
-        });
-      },
-
-      clearStockHint: (variantId) => {
-        set((state) => {
-          const k = toKey(variantId);
-          if (!state.stockHintsByVariantId[k]) return {} as any;
-          const next = { ...state.stockHintsByVariantId };
-          delete next[k];
-          return { stockHintsByVariantId: next };
-        });
-      },
-
-      applyOptimisticStockCheck: () => {
-        // Store-only contract: no optimistic logic. Validation must come from backend.
-        return;
-      },
-
-      hasStockWarnings: () => {
-        const map = get().stockWarningsByVariantId;
-        return Object.values(map).some((w) => {
-          if (!w) return false;
-          return (
-            w.status === "exceeds_stock" ||
-            w.status === "insufficient" ||
-            w.status === "missing" ||
-            w.status === "inactive" ||
-            w.status === "error"
-          );
-        });
-      },
-
-      hasBlockingStockIssues: () => {
-        const map = get().stockWarningsByVariantId;
-        return Object.values(map).some((w) => {
-          if (!w) return false;
-          return (
-            w.status === "exceeds_stock" ||
-            w.status === "insufficient" ||
-            w.status === "missing" ||
-            w.status === "inactive" ||
-            w.status === "error"
-          );
-        });
-      },
-
-      getStockWarning: (variantId) => {
-        const key = toKey(variantId);
-        return get().stockWarningsByVariantId[key];
-      },
-
-      getStockHint: (variantId) => {
-        const key = toKey(variantId);
-        return get().stockHintsByVariantId[key];
-      },
-
-      totalItems: () => get().items.reduce((acc, i) => acc + i.quantity, 0),
-
-      totalAmount: () =>
-        get().items.reduce((acc, i) => acc + parseFloat(i.price) * i.quantity, 0),
-
+    (set, get, api) => ({
+      ...createCartItemsSlice(set, get, api),
+      ...createCartUiSlice(set, get, api),
+      ...createCartStockSlice(set, get, api),
       clearCart: () => {
-        if (stockAbortController) {
-          try {
-            stockAbortController.abort();
-          } catch {
-            // ignore
-          }
-          stockAbortController = null;
-        }
-
+        abortAndClearStockValidationRequest();
         set({ items: [] });
         get().clearStockValidation();
       },

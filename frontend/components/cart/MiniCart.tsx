@@ -67,15 +67,13 @@ function normalizeCartStockState(
       }
     | undefined
 ): StockVisualState | null {
-  const quantity = Number(item?.quantity || 0);
-
   if (warning) {
     const requestedRaw =
       warning?.requested ??
       warning?.qty ??
       warning?.quantity ??
       warning?.requested_total ??
-      quantity;
+      item.quantity;
 
     const availableRaw =
       warning?.available ??
@@ -88,25 +86,45 @@ function normalizeCartStockState(
     const requested = parseFiniteNumber(requestedRaw);
     const available = parseFiniteNumber(availableRaw);
     const hasAvailable = Number.isFinite(available);
-    const safeRequested = Number.isFinite(requested) ? requested : quantity;
-    const message =
-      typeof warning?.message === "string" && warning.message.trim()
-        ? warning.message.trim()
-        : "Drop casi agotado";
+    const safeRequested = Number.isFinite(requested) ? requested : item.quantity;
+    const isOverRequested = hasAvailable && safeRequested > available;
+
+    if (isOverRequested) {
+      return {
+        status: "over",
+        message: "Stock limitado",
+        detail: "Ajusta tu selección",
+      };
+    }
+
+    const isLastUnit = hasAvailable && available === 1 && !isOverRequested;
+
+    if (isLastUnit) {
+      return {
+        status: "low",
+        message: "Última pieza de este drop",
+      };
+    }
+
+    if (hasAvailable) {
+      return {
+        status: "low",
+        message: "Drop casi agotado",
+        detail: "Quedan pocas piezas",
+      };
+    }
 
     return {
-      status: hasAvailable && available <= 1 ? "low" : "over",
-      message,
-      detail: hasAvailable
-        ? `Pediste ${safeRequested}. Solo quedan ${available} en este drop.`
-        : "La cantidad que pediste supera las unidades disponibles.",
+      status: "over",
+      message: "Stock limitado",
+      detail: "Ajusta tu selección",
     };
   }
 
-  if (hint?.kind === "last_unit" && hint?.message) {
+  if (hint?.kind === "last_unit") {
     return {
       status: "low",
-      message: String(hint.message),
+      message: "Última pieza de este drop",
     };
   }
 
@@ -374,12 +392,13 @@ function MiniCart({ open, onClose }: MiniCartProps) {
                     <p className="type-ui-label mt-1 text-white/56">{item.variantLabel}</p>
 
                     {stockState ? (
-                      <div className="mt-2">
+                      <div className="mt-2.5 min-w-0">
                         <StockWarningChip
                           status={stockState.status}
                           message={stockState.message}
                           detail={stockState.detail}
                           compact
+                          className="w-full"
                         />
                       </div>
                     ) : null}
