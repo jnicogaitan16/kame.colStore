@@ -24,6 +24,8 @@
 import type { NormalizedProductGalleryImage } from "@/types/catalog";
 
 const PUBLIC_SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://kamecol.com").replace(/\/$/, "");
+const PUBLIC_MEDIA_BASE_URL =
+  (process.env.NEXT_PUBLIC_MEDIA_BASE_URL || "").replace(/\/$/, "") || "";
 const PUBLIC_BACKEND_URL =
   (process.env.NEXT_PUBLIC_BACKEND_URL || "").replace(/\/$/, "") ||
   (process.env.DJANGO_API_BASE || "").replace(/\/$/, "") ||
@@ -71,6 +73,12 @@ function sanitizeAbsoluteUrl(value: string): string {
   } catch {
     return "";
   }
+}
+
+function joinBaseUrl(base: string, path: string): string {
+  const normalizedBase = String(base || "").replace(/\/$/, "");
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return `${normalizedBase}${normalizedPath}`;
 }
 
 function pushNormalizedCandidate(
@@ -201,17 +209,24 @@ export function normalizeProductMediaUrl(src?: string | null): string {
   const rel = s.startsWith("/") ? s : `/${s}`;
 
   if (rel.startsWith("/media/") || rel.startsWith("/api/media/")) {
-    if (PUBLIC_BACKEND_URL) {
-      return sanitizeAbsoluteUrl(`${PUBLIC_BACKEND_URL}${rel}`);
+    if (PUBLIC_MEDIA_BASE_URL) {
+      return sanitizeAbsoluteUrl(joinBaseUrl(PUBLIC_MEDIA_BASE_URL, rel));
     }
-    return sanitizeAbsoluteUrl(`${PUBLIC_SITE_URL}${rel}`);
+    if (PUBLIC_BACKEND_URL) {
+      return sanitizeAbsoluteUrl(joinBaseUrl(PUBLIC_BACKEND_URL, rel));
+    }
+    return sanitizeAbsoluteUrl(joinBaseUrl(PUBLIC_SITE_URL, rel));
   }
 
   if (rel.startsWith("/_next/") || rel.startsWith("/api/") || rel.startsWith("/admin/")) {
     return "";
   }
 
-  return sanitizeAbsoluteUrl(`${PUBLIC_SITE_URL}${rel}`);
+  if (PUBLIC_MEDIA_BASE_URL) {
+    return sanitizeAbsoluteUrl(joinBaseUrl(PUBLIC_MEDIA_BASE_URL, rel));
+  }
+
+  return sanitizeAbsoluteUrl(joinBaseUrl(PUBLIC_SITE_URL, rel));
 }
 
 export function collectProductImageCandidates(

@@ -247,7 +247,13 @@ class HomepagePromoListAPIView(generics.ListAPIView):
     serializer_class = HomepagePromoSerializer
 
     def get_queryset(self):
-        return HomepagePromo.objects.filter(is_active=True).order_by("sort_order", "id")
+        qs = HomepagePromo.objects.filter(is_active=True)
+
+        placement = (self.request.query_params.get("placement") or "").strip().upper()
+        if placement:
+            qs = qs.filter(placement__iexact=placement)
+
+        return qs.order_by("sort_order", "id")
 
 
 class HomepageStoryListAPIView(generics.ListAPIView):

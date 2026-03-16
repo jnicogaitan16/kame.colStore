@@ -489,6 +489,16 @@ export async function getHomepageBanners(): Promise<HomepageBanner[]> {
  * Cache policy:
  * - Public home read endpoint.
  * - Cacheable with ISR-style revalidation.
+ *
+ * Contract note:
+ * - When `placement` is provided, the backend is expected to respect that filter
+ *   and return only promos matching the requested placement.
+ * - If the backend returns inconsistent rows (for example `placement=TOP` but rows
+ *   labeled as `MID`), that is a backend contract violation.
+ * - This SDK wrapper must remain transport-only for this endpoint: it must not
+ *   silently fix, remap, or defensively filter placement mismatches.
+ * - Consumers that need extra resilience may validate the payload on their side,
+ *   but that validation must not redefine the backend contract here.
  */
 export async function getHomepagePromos(
   placement?: "TOP" | "MID"
