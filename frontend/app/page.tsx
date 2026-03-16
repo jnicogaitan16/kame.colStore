@@ -112,14 +112,14 @@ export default async function HomePage() {
       <div className="h-10 md:h-14" />
 
       {/* Content sections with consistent spacing */}
-      <main className="mx-auto max-w-6xl space-y-10 px-4 py-10 md:space-y-14 md:py-14">
+      <main className="mx-auto max-w-6xl space-y-14 px-4 py-12 md:space-y-20 md:py-16">
         {/* PROMOS (identity / gallery) */}
         <section>
           <HomepagePromos placement="MID" />
         </section>
 
         {story ? (
-          <section>
+          <section aria-label="Nuestra historia">
             <BrandStory story={story} />
           </section>
         ) : process.env.NODE_ENV !== "production" ? (
