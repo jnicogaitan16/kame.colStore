@@ -117,8 +117,6 @@ export default function Header({
         </header>
       </div>
 
-      {/* Header spacer to offset fixed positioning */}
-      <div className="h-12 md:h-14" />
 
       <DrawerShell
         isOpen={mobileMenuOpen}
