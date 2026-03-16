@@ -2,6 +2,7 @@
 
 /** Galería PDP/catálogo. Usa --accent y clases globales desde globals.css; estilos locales del swiper en <style jsx>. */
 import { useCallback, useMemo, useState } from "react";
+import Image from "next/image";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Pagination } from "swiper/modules";
 import type { Swiper as SwiperType } from "swiper";
@@ -94,15 +95,15 @@ export function ProductGallery({ images, productName, soldOut = false, variant =
                 const alt = img.alt_text ?? productName ?? "Producto";
 
                 return (
-                  <img
+                  <Image
                     key={src}
                     src={src}
                     alt={alt}
-                    loading={index === 0 ? "eager" : "lazy"}
-                    // Hint to the browser that the first slide is the highest priority request
-                    fetchPriority={index === 0 ? "high" : "auto"}
-                    decoding="async"
-                    className="h-full w-full object-contain cursor-zoom-in"
+                    fill
+                    sizes="(max-width: 768px) 100vw, 50vw"
+                    priority={index === 0}
+                    {...(index === 0 ? {} : { loading: "lazy" as const })}
+                    className="object-contain cursor-zoom-in"
                     onClick={() => openLightbox(index === activeIndex ? activeIndex : index)}
                   />
                 );

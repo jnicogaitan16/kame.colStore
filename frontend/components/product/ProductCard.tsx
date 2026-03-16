@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { productPath } from "@/lib/routes";
 import { getProductPrimaryImage } from "@/lib/product-media";
@@ -50,12 +51,13 @@ export function ProductCard({ product }: ProductCardProps) {
       {/* Media FULL-BLEED */}
       <div className="relative card-premium-media card-premium-ratio">
         {img ? (
-          <img
+          <Image
             src={img}
-            alt={name}
-            loading="lazy"
-            decoding="async"
+            alt={name || "Producto"}
+            fill
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
             className="card-premium-img"
+            loading="lazy"
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-white/20">
