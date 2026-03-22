@@ -339,18 +339,22 @@ function MiniCart({ open, onClose }: MiniCartProps) {
       onTouchEnd={handleTouchEnd}
       onTouchCancel={handleTouchCancel}
       headerContent={
-        <div className="drawer-header-row drawer-header-glass">
-          <h2 className="type-card-title text-zinc-950">Carrito ({totalItems()})</h2>
-          <button
-            type="button"
-            onClick={close}
-            className="rounded-full p-2 text-zinc-500 transition-colors duration-200 hover:bg-zinc-900/5 hover:text-zinc-950"
-            aria-label="Cerrar carrito"
-          >
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+        <div className="drawer-header-row drawer-header-glass relative">
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-16">
+            <h2 className="type-brand truncate text-center text-zinc-950">CARRITO ({totalItems()})</h2>
+          </div>
+          <div className="ml-auto flex items-center">
+            <button
+              type="button"
+              onClick={close}
+              className="rounded-full p-2 text-zinc-500 transition-colors duration-200 hover:bg-zinc-900/5 hover:text-zinc-950"
+              aria-label="Cerrar carrito"
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
       }
       footerContent={

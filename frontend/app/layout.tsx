@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter_Tight } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 
 import HeaderServer from "@/components/header/HeaderServer";
@@ -7,9 +7,9 @@ import { MiniCart } from "@/components/cart/MiniCart";
 import { CartHydration } from "@/components/cart/CartHydration";
 import Footer from "@/components/layout/Footer";
 
-const interTight = Inter_Tight({
+const inter = Inter({
   subsets: ["latin"],
-  weight: ["400", "600", "700"],
+  weight: ["400", "500", "600"],
   display: "swap",
   variable: "--font-body",
 });
@@ -62,7 +62,7 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body
-        className={`${interTight.variable} bg-stone-50 text-zinc-950 antialiased font-sans`}
+        className={`${inter.variable} bg-stone-50 text-zinc-950 antialiased font-sans`}
       >
         <div className="site-shell min-h-screen bg-stone-50 text-zinc-950">
           <CartHydration />
