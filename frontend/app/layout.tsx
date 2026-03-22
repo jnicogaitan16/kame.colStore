@@ -6,7 +6,6 @@ import HeaderServer from "@/components/header/HeaderServer";
 import { MiniCart } from "@/components/cart/MiniCart";
 import { CartHydration } from "@/components/cart/CartHydration";
 import Footer from "@/components/layout/Footer";
-import WhatsAppButton from "@/components/layout/WhatsAppButton";
 
 const interTight = Inter_Tight({
   subsets: ["latin"],
@@ -16,7 +15,6 @@ const interTight = Inter_Tight({
 });
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://kamecol.com";
-const whatsappPhone = process.env.NEXT_PUBLIC_WHATSAPP_PHONE?.trim();
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -64,15 +62,20 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body
-        className={`${interTight.variable} bg-zinc-950 text-zinc-100 antialiased font-sans`}
+        className={`${interTight.variable} bg-stone-50 text-zinc-950 antialiased font-sans`}
       >
-        <div className="min-h-screen bg-zinc-950 text-zinc-100">
+        <div className="site-shell min-h-screen bg-stone-50 text-zinc-950">
           <CartHydration />
           <HeaderServer />
-          <main className="pt-16 pb-20 md:pt-18 md:pb-8">{children}</main>
+          {/*
+            Keep the global shell neutral.
+            Do not add global top padding here to "fix" internal pages, because that would break
+            the full-bleed homepage hero and constrain the PDP hero composition.
+            Each view family must resolve its own top spacing through its dedicated shell.
+          */}
+          <main className="site-main pb-20 md:pb-8">{children}</main>
           <MiniCart />
           <Footer />
-          {whatsappPhone ? <WhatsAppButton phone={whatsappPhone} /> : null}
         </div>
       </body>
     </html>

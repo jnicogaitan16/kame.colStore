@@ -46,30 +46,34 @@ export function ProductCard({ product }: ProductCardProps) {
     <Link
       ref={cardRef}
       href={productPath(slug)}
-      className={`block card-premium card-reveal ${isVisible ? "is-visible" : ""}`}
+      className={`group block card-reveal ${isVisible ? "is-visible" : ""}`}
     >
       {/* Media FULL-BLEED */}
-      <div className="relative card-premium-media card-premium-ratio">
+      <div className="relative card-premium-ratio overflow-hidden bg-transparent">
         {img ? (
           <Image
             src={img}
             alt={name || "Producto"}
             fill
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-            className="card-premium-img"
+            className="card-premium-img transition-transform duration-500 ease-out group-hover:scale-[1.012]"
             loading="lazy"
           />
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center text-white/20">
-            <span className="type-brand text-white/30">Kame.col</span>
+          <div className="absolute inset-0 flex items-center justify-center bg-zinc-100 text-zinc-300">
+            <svg className="h-10 w-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.25} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14" />
+            </svg>
           </div>
         )}
       </div>
 
       {/* Meta */}
-      <div className="card-premium-meta">
-        <div className="card-premium-name">{name}</div>
-        <div className="card-premium-price">
+      <div className="pt-3.5 pb-0.5">
+        <div className="type-card-title text-zinc-900 leading-[1.18] tracking-[0.015em]">
+          {name}
+        </div>
+        <div className="mt-1.5 type-price text-[0.82rem] text-zinc-500">
           ${Number(price).toLocaleString("es-CO")}
         </div>
       </div>

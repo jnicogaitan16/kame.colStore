@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getNavigation, getProducts } from "@/lib/api";
-import { ProductCard } from "@/components/product/ProductCard";
+import ProductGrid from "@/components/product/ProductGrid";
 import { categoryPath } from "@/lib/routes";
 import type { PaginatedResponse, Product } from "@/types/catalog";
 
@@ -102,50 +102,52 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
     "";
 
   return (
-    <div className="mx-auto max-w-6xl bg-neutral-950 px-4 py-6 md:py-10">
-      {departmentName ? (
-        <p className="type-ui-label mb-1 text-white/58">
-          {departmentName}
-        </p>
-      ) : null}
+    <section className="page-shell page-shell--with-header">
+      <div className="mx-auto max-w-6xl px-4 md:px-6">
+        <header className="page-intro max-w-3xl">
+          {departmentName ? (
+            <div className="page-eyebrow">{departmentName}</div>
+          ) : null}
 
-      <h1 className="type-page-title mb-2 text-white/96">
-        {categoryName}
-      </h1>
-
-      <p className="type-body mb-6 text-white/68">
-        {count} producto{count !== 1 ? "s" : ""}
-      </p>
-
-      {results.length === 0 ? (
-        <p className="type-ui-label py-12 text-center text-white/54">
-          No hay productos en esta categoría.
-        </p>
-      ) : (
-        <>
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 md:gap-6 lg:grid-cols-4">
-            {results.map((product: Product) => (
-              <ProductCard
-                key={product.id}
-                product={{ ...product, sold_out: product.sold_out === true }}
-              />
-            ))}
+          <div className="page-title-block">
+            <h1 className="page-title">{categoryName}</h1>
+            <p className="page-subtitle">
+              {count} producto{count !== 1 ? "s" : ""}
+            </p>
           </div>
+        </header>
+      </div>
 
-          {next && (
-            <div className="mt-8 flex justify-center">
-              <a
-                href={`${categoryPath(slug, deptSlug)}${categoryPath(slug, deptSlug).includes("?") ? "&" : "?"}page=${pageNum + 1}${
-                  search ? `&search=${encodeURIComponent(search)}` : ""
-                }`}
-                className="btn-secondary min-h-0 rounded-lg px-4 py-2"
-              >
-                Ver más
-              </a>
-            </div>
-          )}
-        </>
-      )}
-    </div>
+      <div className="page-content-start page-body mx-auto max-w-6xl px-4 pb-6 md:px-6 md:pb-10">
+        {results.length === 0 ? (
+          <p className="type-ui-label py-12 text-center text-zinc-500">
+            No hay productos en esta categoría.
+          </p>
+        ) : (
+          <>
+            <ProductGrid
+              className="px-0 md:px-0"
+              products={results.map((product: Product) => ({
+                ...product,
+                sold_out: product.sold_out === true,
+              }))}
+            />
+
+            {next && (
+              <div className="mt-8 flex justify-center">
+                <a
+                  href={`${categoryPath(slug, deptSlug)}${categoryPath(slug, deptSlug).includes("?") ? "&" : "?"}page=${pageNum + 1}${
+                    search ? `&search=${encodeURIComponent(search)}` : ""
+                  }`}
+                  className="btn-secondary rounded-xl px-4 py-2.5"
+                >
+                  Ver más
+                </a>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </section>
   );
 }

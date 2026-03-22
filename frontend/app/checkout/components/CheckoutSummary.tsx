@@ -138,23 +138,23 @@ export default function CheckoutSummary({
   const totalEstimated = subtotal + (shipping ? shipping.amount : 0);
 
   return (
-    <aside className="w-full md:w-1/3">
-      <div className="card-surface rounded-2xl border border-white/10 bg-white/5 p-4">
-        <h2 className="type-section-title mb-3 text-white/60">Resumen del pedido</h2>
+    <aside className="w-full">
+      <div className="summary-shell rounded-[1.75rem] border border-zinc-900/10 bg-white/90 p-4 shadow-[0_16px_36px_rgba(24,24,27,0.07),0_2px_6px_rgba(24,24,27,0.04)] backdrop-blur-sm md:p-6">
+        <h2 className="type-section-title mb-4 text-zinc-700">Resumen del pedido</h2>
 
         {items.length === 0 ? (
-          <p className="type-body text-white/70">
+          <p className="type-body text-zinc-600">
             No hay productos en tu carrito.{" "}
             <Link
               href="/"
-              className="type-action text-white/85 hover:text-white hover:underline"
+              className="type-action text-zinc-800 transition-colors duration-200 hover:text-zinc-950 hover:underline"
             >
               Ver productos
             </Link>
           </p>
         ) : (
           <>
-            <ul className="mb-4 max-h-56 space-y-3 overflow-y-auto text-sm">
+            <ul className="mb-5 max-h-56 space-y-0 overflow-y-auto pr-1 text-sm md:mb-6 md:max-h-72">
               {items.map((item) => {
                 const warning = stockWarningsByVariantId[String(item.variantId)];
                 const hint = stockHintsByVariantId[String(item.variantId)];
@@ -167,10 +167,10 @@ export default function CheckoutSummary({
                 return (
                   <li
                     key={item.variantId}
-                    className="flex items-start justify-between gap-3"
+                    className="summary-item flex items-start justify-between gap-3.5 border-b border-zinc-900/8 py-3.5 first:pt-0 last:border-b-0 last:pb-0"
                   >
-                    <div className="flex min-w-0 items-start gap-3">
-                      <div className="relative h-16 w-16 shrink-0 overflow-hidden product-media-surface">
+                    <div className="flex min-w-0 flex-1 items-start gap-3.5 pr-3">
+                      <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-2xl border border-zinc-900/8 bg-white/92 shadow-[0_1px_2px_rgba(24,24,27,0.04)]">
                         {thumb ? (
                           <Image
                             src={thumb}
@@ -180,7 +180,7 @@ export default function CheckoutSummary({
                             className="object-contain p-2"
                           />
                         ) : (
-                          <div className="flex h-full w-full items-center justify-center text-white/40">
+                          <div className="flex h-full w-full items-center justify-center text-zinc-400">
                             <svg
                               className="h-6 w-6"
                               fill="none"
@@ -205,37 +205,32 @@ export default function CheckoutSummary({
                         )}
                       </div>
 
-                      <div className="min-w-0">
-                        <p className="type-card-title truncate text-zinc-100">{item.productName}</p>
-                        <p className="type-ui-label truncate text-white/60">
+                      <div className="min-w-0 flex-1 pt-0.5">
+                        <p className="type-card-title line-clamp-2 text-zinc-950">{item.productName}</p>
+                        <p className="type-ui-label mt-1 truncate text-zinc-600">
                           {item.variantLabel} × {item.quantity}
                         </p>
 
                         {stockState ? (
-                          <div className="mt-1.5 min-w-0">
+                          <div className="mt-3 min-w-0 max-w-[17.5rem] pr-1">
                             <StockWarningChip
                               status={stockState.status}
                               message={stockState.message}
                               detail={stockState.detail}
                               compact
                               className="w-full"
+                              onAdjust={
+                                canAdjust
+                                  ? () => handleAdjustToAvailable(undefined, item.variantId)
+                                  : undefined
+                              }
                             />
                           </div>
-                        ) : null}
-
-                        {canAdjust ? (
-                          <button
-                            type="button"
-                            onClick={(e) => handleAdjustToAvailable(e, item.variantId)}
-                            className="type-action mt-2 inline-flex items-center justify-center rounded-lg border border-white/12 bg-white/5 px-3 py-2 text-white/82 transition hover:border-white/18 hover:bg-white/8"
-                          >
-                            Ajustar a disponible
-                          </button>
                         ) : null}
                       </div>
                     </div>
 
-                    <span className="type-price shrink-0 text-white">
+                    <span className="type-price mt-0.5 shrink-0 self-start text-right text-zinc-950">
                       ${ (parseFloat(item.price) * item.quantity).toLocaleString("es-CO") }
                     </span>
                   </li>
@@ -243,31 +238,31 @@ export default function CheckoutSummary({
               })}
             </ul>
 
-            <div className="space-y-1">
-              <div className="type-body flex justify-between">
+            <div className="summary-totals rounded-[1.35rem] border border-zinc-900/10 bg-zinc-50/85 px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] md:px-5 md:py-5">
+              <div className="type-body flex items-center justify-between text-zinc-700">
                 <span>Subtotal</span>
                 <span>${subtotal.toLocaleString("es-CO")}</span>
               </div>
 
               {shipping ? (
-                <div className="type-body flex justify-between">
+                <div className="type-body mt-2 flex items-center justify-between text-zinc-700">
                   <span>{shipping.label}</span>
                   <span>${shipping.amount.toLocaleString("es-CO")}</span>
                 </div>
               ) : null}
 
-              <div className="type-price mt-2 flex justify-between border-t border-white/10 pt-2 text-white">
+              <div className="type-price mt-4 flex items-center justify-between border-t border-zinc-900/10 pt-3 text-zinc-950">
                 <span>Total estimado</span>
                 <span>${totalEstimated.toLocaleString("es-CO")}</span>
               </div>
 
-              <p className="type-body mt-2 text-white/50">
+              <p className="type-body mt-3 text-zinc-600">
                 El pedido se crea al confirmar y luego podrás realizar el pago por transferencia.
                 Actualmente es el único medio de pago disponible.
               </p>
 
               {!hasBlockingWarnings && stockValidateStatus === "error" ? (
-                <div className="mt-3">
+                <div className="mt-4">
                   <Notice
                     variant="warning"
                     tone="soft"

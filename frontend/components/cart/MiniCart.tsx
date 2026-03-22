@@ -49,6 +49,32 @@ function parseFiniteNumber(value: unknown): number {
   return Number.isFinite(parsed) ? parsed : NaN;
 }
 
+function resolveAvailableQuantity(
+  warning:
+    | {
+        available?: unknown;
+        available_stock?: unknown;
+        available_qty?: unknown;
+        stock_available?: unknown;
+        stock?: unknown;
+        remaining?: unknown;
+      }
+    | undefined,
+  fallback = 0
+): number {
+  const availableRaw =
+    warning?.available ??
+    warning?.available_stock ??
+    warning?.available_qty ??
+    warning?.stock_available ??
+    warning?.stock ??
+    warning?.remaining;
+
+  const parsed = parseFiniteNumber(availableRaw);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(0, Math.floor(parsed));
+}
+
 function normalizeCartStockState(
   item: Pick<MiniCartItemLike, "quantity">,
   hint: { kind?: string; message?: string } | undefined,
@@ -314,11 +340,11 @@ function MiniCart({ open, onClose }: MiniCartProps) {
       onTouchCancel={handleTouchCancel}
       headerContent={
         <div className="drawer-header-row drawer-header-glass">
-          <h2 className="type-card-title text-white/96">Carrito ({totalItems()})</h2>
+          <h2 className="type-card-title text-zinc-950">Carrito ({totalItems()})</h2>
           <button
             type="button"
             onClick={close}
-            className="rounded p-2 text-white/60 hover:bg-white/10 hover:text-white"
+            className="rounded-full p-2 text-zinc-500 transition-colors duration-200 hover:bg-zinc-900/5 hover:text-zinc-950"
             aria-label="Cerrar carrito"
           >
             <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -329,10 +355,10 @@ function MiniCart({ open, onClose }: MiniCartProps) {
       }
       footerContent={
         items.length > 0 ? (
-          <div className="mt-auto px-5 py-5 border-t border-white/10 drawer-glass-footer text-neutral-100">
+          <div className="mt-auto border-t border-zinc-900/8 px-5 py-5 drawer-glass-footer text-zinc-950">
             <div className="mb-4 flex items-baseline justify-between">
-              <span className="type-ui-label text-white/60">Total</span>
-              <span className="type-price text-white/96">${totalAmount().toLocaleString("es-CO")}</span>
+              <span className="type-ui-label text-zinc-500">Total</span>
+              <span className="type-price text-zinc-950">${totalAmount().toLocaleString("es-CO")}</span>
             </div>
             <Link href="/checkout" onClick={close} className="block">
               <Button variant="primary" fullWidth>
@@ -345,7 +371,7 @@ function MiniCart({ open, onClose }: MiniCartProps) {
     >
       <div className="p-4">
         {items.length === 0 ? (
-          <p className="type-ui-label py-8 text-center text-white/56">Tu carrito está vacío</p>
+          <p className="type-ui-label py-8 text-center text-zinc-500">Tu carrito está vacío</p>
         ) : (
           <ul className="space-y-4">
             {items.map((item) => {
@@ -353,6 +379,7 @@ function MiniCart({ open, onClose }: MiniCartProps) {
               const stockHint = stockHintsByVariantId[key];
               const stockWarning = stockWarningsByVariantId[key];
               const stockState = normalizeCartStockState(item, stockHint, stockWarning);
+              const availableQuantity = resolveAvailableQuantity(stockWarning, item.quantity);
 
               const typedItem = item as MiniCartItemLike;
               const product = typedItem.product ?? null;
@@ -365,7 +392,7 @@ function MiniCart({ open, onClose }: MiniCartProps) {
               const alt = product?.name || typedItem.productName || "Producto";
 
               return (
-                <li key={item.variantId} className="px-5 py-4 flex gap-3 border-b border-white/5">
+                <li key={item.variantId} className="flex items-start gap-3.5 border-b border-zinc-900/8 px-5 py-4.5">
                   <div className="relative w-16 h-16 shrink-0 overflow-hidden product-media-surface">
                     {thumb ? (
                       <Image
@@ -377,59 +404,64 @@ function MiniCart({ open, onClose }: MiniCartProps) {
                         className="object-cover"
                       />
                     ) : (
-                      <div className="flex h-full items-center justify-center text-white/40">
+                      <div className="flex h-full items-center justify-center text-zinc-400">
                         <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14" />
                         </svg>
                       </div>
                     )}
                   </div>
-                  <div className="min-w-0 flex-1">
+                  <div className="min-w-0 flex-1 pt-0.5">
                     <Link
                       href={productPath(item.productSlug)}
                       onClick={close}
-                      className="card-premium-name block line-clamp-2 hover:text-white/90 hover:underline"
+                      className="type-card-title block line-clamp-2 text-zinc-900 transition-colors duration-200 hover:text-zinc-700 hover:underline"
                     >
                       {item.productName}
                     </Link>
-                    <p className="type-ui-label mt-1 text-white/56">{item.variantLabel}</p>
+                    <p className="type-ui-label mt-1.5 text-zinc-500">{item.variantLabel}</p>
 
                     {stockState ? (
-                      <div className="mt-2.5 min-w-0">
+                      <div className="mt-2.5 min-w-0 max-w-[15.75rem] pr-1">
                         <StockWarningChip
                           status={stockState.status}
                           message={stockState.message}
                           detail={stockState.detail}
                           compact
                           className="w-full"
+                          onAdjust={
+                            stockState.status === "over"
+                              ? () => updateQuantity(item.variantId, availableQuantity)
+                              : undefined
+                          }
                         />
                       </div>
                     ) : null}
-                    <div className="mt-1 flex items-center justify-between">
-                      <div className="flex items-center gap-1">
+                    <div className="mt-3.5 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-1.5">
                         <button
                           type="button"
                           onClick={() => {
                             const nextQty = item.quantity - 1;
                             updateQuantity(item.variantId, nextQty);
                           }}
-                          className="pill w-8 h-8 p-0 bg-white/5 border border-white/10 hover:bg-white/10"
+                          className="pill h-8 w-8 border border-zinc-900/10 bg-white/92 p-0 text-zinc-800 hover:bg-white"
                         >
                           −
                         </button>
-                        <span className="type-ui-label w-8 text-center text-white/78">{item.quantity}</span>
+                        <span className="type-ui-label w-8 text-center text-zinc-700">{item.quantity}</span>
                         <button
                           type="button"
                           onClick={() => {
                             const nextQty = item.quantity + 1;
                             updateQuantity(item.variantId, nextQty);
                           }}
-                          className="pill w-8 h-8 p-0 bg-white/5 border border-white/10 hover:bg-white/10"
+                          className="pill h-8 w-8 border border-zinc-900/10 bg-white/92 p-0 text-zinc-800 hover:bg-white"
                         >
                           +
                         </button>
                       </div>
-                      <span className="type-price text-white/94">
+                      <span className="type-price shrink-0 text-zinc-900">
                         ${(parseFloat(item.price) * item.quantity).toLocaleString("es-CO")}
                       </span>
                     </div>
@@ -437,7 +469,7 @@ function MiniCart({ open, onClose }: MiniCartProps) {
                   <button
                     type="button"
                     onClick={() => removeItem(item.variantId)}
-                    className="shrink-0 text-white/45 hover:text-red-500"
+                    className="mt-1 shrink-0 rounded-full p-1.5 text-zinc-400 transition-colors duration-200 hover:bg-zinc-900/5 hover:text-zinc-700"
                     aria-label="Quitar del carrito"
                   >
                     <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -336,18 +336,6 @@ export default function CheckoutClient() {
     return `${String(name)}-error`;
   }
 
-  function inputBaseClass(extra?: string) {
-    return (
-      "w-full rounded-xl border bg-white/5 px-3 py-2 text-base md:text-sm text-zinc-100 placeholder:text-white/35 outline-none transition focus:border-white/20 focus:ring-2 focus:ring-white/20 " +
-      (extra || "")
-    ).trim();
-  }
-
-  function inputBorderClass(hasError: boolean) {
-    return hasError
-      ? " border-rose-500/30 ring-rose-500/20 focus:border-rose-500/45 focus:ring-rose-500/20"
-      : " border-white/10";
-  }
 
   function findFieldElement(field: string): HTMLElement | null {
     try {
@@ -824,18 +812,22 @@ export default function CheckoutClient() {
    * ------------------------------------------- */
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-8 px-4 py-8 text-zinc-100 md:flex-row md:py-12">
-      <section className="w-full md:w-2/3">
-        <h1 className="type-page-title mb-6 text-center text-zinc-100">
-          Checkout
-        </h1>
+    <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-1 text-[#111111] md:flex-row md:gap-10 md:px-6 md:py-2">
+      <section className="w-full md:w-[min(100%,44rem)] md:flex-1">
+        <div className="mb-8">
+          <p className="type-section-title mb-3 text-black/45">Finaliza tu pedido</p>
+          <h1 className="type-page-title text-[#111111]">Checkout</h1>
+          <p className="type-body mt-3 max-w-2xl text-black/62">
+            Completa tus datos de entrega y confirma tu pedido. Nos pondremos en contacto contigo para validar el pago y despacho.
+          </p>
+        </div>
 
         {!items.length && (
-          <div className="type-body rounded-2xl border border-white/10 bg-white/5 p-4 text-white/70">
+          <div className="type-body rounded-[1.5rem] border border-black/8 bg-white px-5 py-5 text-black/70 shadow-[0_10px_30px_rgba(15,23,42,0.04)]">
             Tu carrito está vacío.{" "}
             <Link
               href="/"
-              className="type-action text-white/85 hover:text-white hover:underline"
+              className="type-action text-black/88 hover:text-black hover:underline"
             >
               Volver a la tienda
             </Link>
@@ -849,8 +841,6 @@ export default function CheckoutClient() {
             errors={errors}
             submitAttempted={submitAttempted}
             fieldErrorId={fieldErrorId}
-            inputBaseClass={inputBaseClass}
-            inputBorderClass={inputBorderClass}
             cities={cities}
             setValue={setValue}
             onSubmit={onSubmit}
@@ -863,16 +853,18 @@ export default function CheckoutClient() {
         )}
       </section>
 
-      <CheckoutSummary
-        items={items}
-        subtotal={subtotal}
-        shipping={shipping}
-        hasBlockingWarnings={hasBlockingWarnings}
-        stockValidateStatus={stockValidateStatus}
-        stockWarningsByVariantId={stockWarningsByVariantId}
-        stockHintsByVariantId={stockHintsByVariantId}
-        handleAdjustToAvailable={handleAdjustToAvailable}
-      />
+      <div className="w-full md:sticky md:top-20 md:w-[26rem] md:self-start lg:w-[28rem] xl:w-[30rem]">
+        <CheckoutSummary
+          items={items}
+          subtotal={subtotal}
+          shipping={shipping}
+          hasBlockingWarnings={hasBlockingWarnings}
+          stockValidateStatus={stockValidateStatus}
+          stockWarningsByVariantId={stockWarningsByVariantId}
+          stockHintsByVariantId={stockHintsByVariantId}
+          handleAdjustToAvailable={handleAdjustToAvailable}
+        />
+      </div>
     </div>
   );
 }

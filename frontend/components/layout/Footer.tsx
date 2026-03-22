@@ -31,12 +31,12 @@ export default function Footer() {
   const contactEmail = process.env.NEXT_PUBLIC_CONTACT_EMAIL;
 
   return (
-    <footer className="bg-neutral-900 text-neutral-200">
+    <footer className="border-t border-zinc-900/8 bg-stone-50 text-zinc-700">
       <div className="mx-auto max-w-6xl px-4 py-12">
         <div className="grid gap-10 md:grid-cols-4 items-start">
           {/* Brand */}
           <div className="md:col-span-2 text-center md:text-left">
-            <h3 className="type-brand mb-3 text-white">Kame.col</h3>
+            <h3 className="type-brand mb-3 text-zinc-950">Kame.col</h3>
             <p className="type-body mx-auto max-w-md md:mx-0">
               Arte urbano y diseño con identidad. Camisetas, hoodies y piezas personalizadas hechas con calidad, detalle y actitud.
             </p>
@@ -44,7 +44,7 @@ export default function Footer() {
 
           {/* Social */}
           <div>
-            <h4 className="type-section-title mb-4 text-white text-center md:text-left">
+            <h4 className="type-section-title mb-4 text-zinc-700 text-center md:text-left">
               Síguenos
             </h4>
             <ul className="grid grid-cols-3 gap-3 text-sm md:block md:space-y-3">
@@ -54,7 +54,7 @@ export default function Footer() {
                     href={instagramUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex flex-col items-center justify-center text-center gap-1 hover:text-white md:flex-row md:items-center md:justify-start md:text-left md:gap-2"
+                    className="flex flex-col items-center justify-center gap-1 text-center text-zinc-600 transition-colors duration-200 hover:text-zinc-950 md:flex-row md:items-center md:justify-start md:gap-2 md:text-left"
                   >
                     <InstagramIcon /> Instagram
                   </a>
@@ -66,7 +66,7 @@ export default function Footer() {
                     href={tiktokUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex flex-col items-center justify-center text-center gap-1 hover:text-white md:flex-row md:items-center md:justify-start md:text-left md:gap-2"
+                    className="flex flex-col items-center justify-center gap-1 text-center text-zinc-600 transition-colors duration-200 hover:text-zinc-950 md:flex-row md:items-center md:justify-start md:gap-2 md:text-left"
                   >
                     <TikTokIcon /> TikTok
                   </a>
@@ -78,7 +78,7 @@ export default function Footer() {
                     href={facebookUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex flex-col items-center justify-center text-center gap-1 hover:text-white md:flex-row md:items-center md:justify-start md:text-left md:gap-2"
+                    className="flex flex-col items-center justify-center gap-1 text-center text-zinc-600 transition-colors duration-200 hover:text-zinc-950 md:flex-row md:items-center md:justify-start md:gap-2 md:text-left"
                   >
                     <FacebookIcon /> Facebook
                   </a>
@@ -89,14 +89,14 @@ export default function Footer() {
 
           {/* Contact */}
           <div className="text-center md:text-left">
-            <h4 className="type-section-title mb-4 text-white">
+            <h4 className="type-section-title mb-4 text-zinc-700">
               Contacto
             </h4>
             <ul className="space-y-2 type-body">
               <li>Bogotá, Colombia</li>
               {contactEmail ? (
                 <li>
-                  <a href={`mailto:${contactEmail}`} className="hover:text-white">
+                  <a href={`mailto:${contactEmail}`} className="text-zinc-700 transition-colors duration-200 hover:text-zinc-950">
                     {contactEmail}
                   </a>
                 </li>
@@ -106,7 +106,7 @@ export default function Footer() {
         </div>
 
         {/* Legal */}
-        <div className="mt-12 border-t border-neutral-800 pt-6">
+        <div className="mt-12 border-t border-zinc-900/8 pt-6">
           <div className="flex flex-col items-center justify-between gap-4 type-body md:flex-row">
             <div className="flex flex-col items-center gap-1 md:items-start">
               <span>
@@ -118,16 +118,16 @@ export default function Footer() {
                   href={process.env.NEXT_PUBLIC_LINKEDIN_URL}
                   target="_blank"
                   rel="noreferrer"
-                  className="type-action text-neutral-300 hover:text-white transition-colors"
+                  className="type-action text-zinc-600 transition-colors duration-200 hover:text-zinc-950"
                 >
                   Nicolás Gaitán
                 </a>
               </span>
             </div>
             <div className="flex gap-4 type-ui-label">
-              <Link href="/legal/politica-de-privacidad#terminos" className="hover:text-neutral-300">Términos</Link>
-              <Link href="/legal/politica-de-privacidad#privacidad" className="hover:text-neutral-300">Privacidad</Link>
-              <Link href="/legal/politica-de-privacidad#cookies" className="hover:text-neutral-300">Cookies</Link>
+              <Link href="/legal/politica-de-privacidad#terminos" className="text-zinc-600 transition-colors duration-200 hover:text-zinc-950">Términos</Link>
+              <Link href="/legal/politica-de-privacidad#privacidad" className="text-zinc-600 transition-colors duration-200 hover:text-zinc-950">Privacidad</Link>
+              <Link href="/legal/politica-de-privacidad#cookies" className="text-zinc-600 transition-colors duration-200 hover:text-zinc-950">Cookies</Link>
             </div>
           </div>
         </div>

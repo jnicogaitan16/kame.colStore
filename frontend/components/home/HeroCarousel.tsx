@@ -65,8 +65,12 @@ function getFallbackCopy(banner: HomepageBanner): {
 
 type HeroCarouselBannersProp = unknown;
 
-// Pull hero up behind the fixed navbar so the image starts at the very top.
-// Navbar height: h-12 (mobile) / h-14 (md+)
+// Home is its own overlay-hero family.
+// It intentionally remains full-bleed behind the fixed navbar and must not inherit PDP safe-area behavior.
+const HERO_SECTION_CLASS = "page-shell page-shell--hero-overlay relative w-full overflow-hidden min-h-[88svh] md:min-h-[100svh] -mt-12 md:-mt-14";
+const HERO_SLIDE_CLASS = "w-full min-h-[88svh] md:min-h-[100svh]";
+const HERO_CONTENT_CLASS = "relative z-10 mx-auto flex min-h-[88svh] md:min-h-[100svh] max-w-6xl items-center px-4 pt-16 pb-14 md:px-6 md:pt-20 md:pb-20";
+
 export function HeroCarousel({ banners }: { banners: HeroCarouselBannersProp }) {
   const bannersArray: HomepageBanner[] = extractArray<HomepageBanner>(banners);
 
@@ -88,7 +92,7 @@ export function HeroCarousel({ banners }: { banners: HeroCarouselBannersProp }) 
   };
 
   return (
-    <section className="relative w-full overflow-hidden min-h-[70vh] md:min-h-[100vh] -mt-12 md:-mt-14">
+    <section className={HERO_SECTION_CLASS}>
       <Swiper
         modules={[Autoplay, Pagination, EffectFade]}
         effect="fade"
@@ -97,7 +101,7 @@ export function HeroCarousel({ banners }: { banners: HeroCarouselBannersProp }) 
         autoplay={{ delay: 6000, disableOnInteraction: false }}
         loop={slides.length > 1}
         onSlideChange={(s) => setActiveIndex(s.realIndex)}
-        className="w-full min-h-[70vh] md:min-h-[100vh]"
+        className={HERO_SLIDE_CLASS}
       >
         {slides.map((b, idx) => {
           const img = normalizeBannerImage(b);
@@ -110,7 +114,7 @@ export function HeroCarousel({ banners }: { banners: HeroCarouselBannersProp }) 
 
           return (
             <SwiperSlide key={b.id}>
-              <div className="relative w-full min-h-[70vh] md:min-h-[100vh]">
+              <div className={`relative ${HERO_SLIDE_CLASS}`}>
                 <div
                   className={[
                     "absolute inset-0",
@@ -133,26 +137,32 @@ export function HeroCarousel({ banners }: { banners: HeroCarouselBannersProp }) 
                         }
                         sizes="100vw"
                       />
-                      <div className="absolute inset-0 bg-gradient-to-b from-black/65 via-black/35 to-black/75" />
+                      <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/12" />
+                      <div className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-28 bg-gradient-to-b from-black/42 via-black/24 to-transparent md:h-32" />
+                      <div className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-16 bg-black/10 md:h-20" />
                     </>
                   ) : (
-                    <div
-                      className="absolute inset-0"
-                      style={{
-                        background:
-                          "radial-gradient(1200px 620px at 50% 0%, rgba(255,255,255,0.12), rgba(255,255,255,0) 52%), linear-gradient(135deg, rgba(24,24,27,1) 0%, rgba(9,9,11,1) 40%, rgba(17,24,39,1) 100%)",
-                      }}
-                    />
+                    <>
+                      <div
+                        className="absolute inset-0"
+                        style={{
+                          background:
+                            "radial-gradient(1200px 620px at 50% 0%, rgba(255,255,255,0.55), rgba(255,255,255,0) 52%), linear-gradient(135deg, rgba(247,245,242,1) 0%, rgba(255,255,255,1) 38%, rgba(244,244,245,1) 100%)",
+                        }}
+                      />
+                      <div className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-28 bg-gradient-to-b from-black/18 via-black/8 to-transparent md:h-32" />
+                    </>
                   )}
                   {/* Premium highlights: soft top glow + subtle vertical sheen */}
-                  <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_70%_at_50%_0%,rgba(255,255,255,0.12)_0%,rgba(255,255,255,0)_55%)]" />
-                  <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.05)_0%,rgba(255,255,255,0)_30%,rgba(255,255,255,0)_70%,rgba(255,255,255,0.04)_100%)] opacity-70" />
+                  <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_70%_at_50%_0%,rgba(255,255,255,0.18)_0%,rgba(255,255,255,0)_58%)]" />
+                  <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.04)_0%,rgba(255,255,255,0)_28%,rgba(255,255,255,0)_72%,rgba(255,255,255,0.03)_100%)] opacity-55" />
+                  <div className="pointer-events-none absolute inset-x-0 top-0 z-[2] h-24 bg-[linear-gradient(180deg,rgba(8,8,10,0.20)_0%,rgba(8,8,10,0.10)_45%,rgba(8,8,10,0)_100%)] md:h-28" />
                   {slideFailed ? (
-                    <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.18),rgba(0,0,0,0.45))]" />
+                    <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.18),rgba(244,244,245,0.34))]" />
                   ) : null}
                 </div>
 
-                <div className="relative z-10 mx-auto flex min-h-[70vh] md:min-h-[100vh] max-w-6xl items-center px-4 pt-14 md:pt-16">
+                <div className={HERO_CONTENT_CLASS}>
                   <div
                     className={[
                       "max-w-xl",
@@ -161,27 +171,27 @@ export function HeroCarousel({ banners }: { banners: HeroCarouselBannersProp }) 
                     ].join(" ")}
                   >
                     {showText ? (
-                      <div className="inline-flex max-w-xl flex-col rounded-2xl border border-white/10 bg-black/20 px-5 py-5 backdrop-blur-md shadow-[0_10px_40px_rgba(0,0,0,0.28)] md:px-6 md:py-6">
+                      <div className="inline-flex max-w-lg flex-col rounded-2xl border border-white/35 bg-white/32 px-5 py-4 backdrop-blur-sm shadow-[0_12px_34px_rgba(24,24,27,0.08)] md:px-6 md:py-5">
                         {(slideFailed ? fallbackCopy.eyebrow : b.subtitle) ? (
-                          <p className="mb-3 inline-flex w-fit rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-semibold tracking-widest text-white/85">
+                          <p className="mb-3 inline-flex w-fit rounded-full border border-zinc-900/8 bg-white/72 px-3 py-1 text-[11px] font-semibold tracking-[0.22em] text-zinc-700">
                             {slideFailed ? fallbackCopy.eyebrow : b.subtitle}
                           </p>
                         ) : null}
 
                         {(slideFailed ? fallbackCopy.title : b.title) ? (
-                          <h1 className="text-3xl font-extrabold tracking-tight text-white md:text-5xl">
+                          <h1 className="text-3xl font-bold tracking-[-0.02em] text-zinc-950 md:text-5xl">
                             {slideFailed ? fallbackCopy.title : b.title}
                           </h1>
                         ) : null}
 
                         {(slideFailed ? fallbackCopy.description : b.description) ? (
-                          <p className="mt-4 text-sm leading-relaxed text-white/80 md:text-base">
+                          <p className="mt-4 text-sm leading-relaxed text-zinc-700 md:text-base">
                             {slideFailed ? fallbackCopy.description : b.description}
                           </p>
                         ) : null}
 
                         {slideFailed ? (
-                          <p className="mt-4 text-xs font-medium uppercase tracking-[0.18em] text-white/55">
+                          <p className="mt-4 text-[11px] font-medium uppercase tracking-[0.18em] text-zinc-500">
                             Media temporalmente no disponible
                           </p>
                         ) : null}
@@ -190,12 +200,12 @@ export function HeroCarousel({ banners }: { banners: HeroCarouselBannersProp }) 
                           href ? (
                             <a
                               href={href}
-                              className="mt-5 inline-flex w-fit items-center rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/15"
+                              className="mt-5 inline-flex w-fit items-center rounded-full border border-zinc-900/10 bg-zinc-950 px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-zinc-800"
                             >
                               {slideFailed ? fallbackCopy.ctaLabel : b.cta_label}
                             </a>
                           ) : (
-                            <span className="mt-5 inline-flex w-fit items-center rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white/95">
+                            <span className="mt-5 inline-flex w-fit items-center rounded-full border border-zinc-900/10 bg-white/78 px-4 py-2 text-sm font-semibold text-zinc-900">
                               {slideFailed ? fallbackCopy.ctaLabel : b.cta_label}
                             </span>
                           )
@@ -209,8 +219,8 @@ export function HeroCarousel({ banners }: { banners: HeroCarouselBannersProp }) 
           );
         })}
       </Swiper>
-      {/* Subtle fade at bottom so next section feels premium */}
-      <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-b from-transparent to-black/70" />
+      {/* Home-only bottom fade. Keep separate from PDP hero transitions. */}
+      <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-b from-transparent to-stone-50" />
     </section>
   );
 }

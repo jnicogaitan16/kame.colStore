@@ -54,7 +54,6 @@ export default async function HeaderServer() {
     <Header
       categories={resolved.legacyCategories}
       navDepartments={resolved.navDepartments}
-      cartCount={0}
     />
   );
 }

@@ -12,12 +12,13 @@ export interface ShareButtonProps {
 }
 
 export default function ShareButton({
-  title,
+  title: _title,
   url,
   ariaLabel = "Compartir producto",
   className = "",
 }: ShareButtonProps) {
   const [copied, setCopied] = useState(false);
+  void _title;
 
   /**
    * Construye una URL "canónica" para compartir:
@@ -127,7 +128,7 @@ export default function ShareButton({
       aria-label={ariaLabel}
       title={copied ? "Enlace copiado" : "Compartir"}
       className={
-        "inline-flex items-center justify-center p-1 text-white/80 hover:text-white transition-colors " +
+        "relative z-0 inline-flex items-center justify-center p-1 text-white/80 transition-colors hover:text-white " +
         className
       }
     >

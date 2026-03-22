@@ -18,15 +18,15 @@ export default function CatalogoClient({
    * - Future filters or pagination should be introduced explicitly, not inferred here.
    */
   return (
-    <main className="mx-auto max-w-6xl px-4 py-12 md:px-6 md:py-20 elegant-enter">
-      <header className="mb-10 md:mb-12">
-        <p className="type-section-title text-white/50">Catálogo</p>
-        <h1 className="type-page-title mt-3 text-white">Todos los productos</h1>
-        <p className="type-body mt-4 max-w-2xl">Productos sin filtros.</p>
+    <main className="mx-auto max-w-6xl px-4 pb-12 md:px-6 md:pb-16 elegant-enter">
+      <header className="mb-8 md:mb-10">
+        <p className="type-section-title text-zinc-600">Catálogo</p>
+        <h1 className="type-page-title mt-3 text-zinc-950">Todos los productos</h1>
+        <p className="type-body mt-4 max-w-2xl text-zinc-600">Productos sin filtros.</p>
       </header>
 
       {initialProducts.length === 0 ? (
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-white/70">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 text-zinc-600">
           Aún no hay productos disponibles.
         </div>
       ) : (

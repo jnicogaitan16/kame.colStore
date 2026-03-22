@@ -1,5 +1,3 @@
-
-
 "use client";
 
 import { useState } from "react";
@@ -78,18 +76,18 @@ function CopyButton({
       onClick={copy}
       className={
         (asField
-          ? "w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/90 hover:bg-white/10"
-          : "type-action inline-flex items-center justify-center rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white/85 hover:bg-white/10") +
+          ? "w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm text-black/90 shadow-[0_1px_2px_rgba(15,23,42,0.03)] hover:bg-black/[0.02]"
+          : "type-action inline-flex items-center justify-center rounded-xl border border-black/10 bg-white px-3 py-2 text-black/82 shadow-[0_1px_2px_rgba(15,23,42,0.03)] hover:bg-black/[0.02]") +
         " " +
         className
       }
     >
       {asField ? (
         <span className="flex w-full items-center justify-between gap-3">
-          <span className="truncate font-mono text-white">
+          <span className="truncate font-mono text-black/92">
             {displayValue ?? valueToCopy}
           </span>
-          <span className="type-action shrink-0 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white/85">
+          <span className="type-action shrink-0 rounded-xl border border-black/10 bg-[#f7f7f4] px-3 py-2 text-black/78">
             {copied ? copiedLabel : label}
           </span>
         </span>
@@ -107,16 +105,17 @@ export default function CheckoutSuccess({
   totalText,
 }: CheckoutSuccessProps) {
   return (
-    <div className="mx-auto max-w-2xl px-4 py-10 text-zinc-100">
-      <h1 className="type-page-title mb-6 text-center text-zinc-100">
+    <div className="page-shell page-shell--transactional text-[#111111]">
+      <div className="mx-auto max-w-2xl px-4 pb-10 pt-1 md:pb-12 md:pt-1">
+      <h1 className="type-page-title mb-4 text-center text-[#111111]">
         Pedido creado
       </h1>
 
-      <div className="card-surface mb-6 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-zinc-100">
-        <div className="mb-5 flex flex-col items-center justify-center gap-3 text-center">
-          <h2 className="type-section-title text-white">Paga por transferencia</h2>
+      <div className="card-surface mb-4 rounded-[1.75rem] border border-black/8 bg-white p-5 text-sm text-[#111111] shadow-[0_16px_44px_rgba(15,23,42,0.06)]">
+        <div className="mb-4 flex flex-col items-center justify-center gap-2.5 text-center">
+          <h2 className="type-section-title text-black/48">Paga por transferencia</h2>
 
-          <div className="relative h-14 w-32 opacity-95">
+          <div className="relative h-12 w-28 opacity-95">
             <Image
               src="/bre-b-logo.png"
               alt="Bre-B"
@@ -128,7 +127,7 @@ export default function CheckoutSuccess({
           </div>
         </div>
 
-        <div className="mb-4">
+        <div className="mb-3.5">
           <div className="mt-2">
             {brebKey ? (
               <CopyButton
@@ -138,23 +137,23 @@ export default function CheckoutSuccess({
                 copiedLabel="Copiada"
               />
             ) : (
-              <div className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/60">
+              <div className="w-full rounded-2xl border border-black/10 bg-[#fafaf7] px-4 py-3 text-sm text-black/48">
                 (No configurada)
               </div>
             )}
           </div>
         </div>
 
-        <div className="mb-4 rounded-xl border border-white/10 bg-black/20 px-3 py-3 text-center">
-          <p className="type-ui-label text-white/60">Total a transferir</p>
-          <p className="type-page-title mt-1 text-white md:text-[2.5rem]">
+        <div className="mb-3.5 rounded-[1.5rem] border border-black/8 bg-[#f7f7f4] px-4 py-3.5 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]">
+          <p className="type-ui-label text-black/50">Total a transferir</p>
+          <p className="type-page-title mt-0.5 text-[#111111] md:text-[2.35rem]">
             ${totalText}
           </p>
         </div>
 
-        <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-3 text-sm text-white/80">
-          <p className="type-ui-label mb-2 text-white/60">Pasos</p>
-          <ol className="type-legal-body list-decimal space-y-1 pl-4 text-white/80">
+        <div className="rounded-[1.5rem] border border-black/8 bg-[#fafaf7] px-4 py-3.5 text-sm text-black/72 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
+          <p className="type-ui-label mb-1.5 text-black/50">Pasos</p>
+          <ol className="type-body list-decimal space-y-1.25 pl-4 text-black/72">
             <li>Abre tu app bancaria y elige transferir por Bre-B.</li>
             <li>Pega la llave Bre-B.</li>
             <li>Transfiere el total exacto mostrado arriba.</li>
@@ -163,7 +162,7 @@ export default function CheckoutSuccess({
         </div>
 
         {(orderSummary.subtotal != null || orderSummary.total != null) && (
-          <div className="mt-4 space-y-2">
+          <div className="mt-3.5 space-y-1.5">
             {orderSummary.subtotal != null && (
               <div className="type-body flex justify-between">
                 <span>Subtotal</span>
@@ -179,7 +178,7 @@ export default function CheckoutSuccess({
             )}
 
             {orderSummary.total != null && (
-              <div className="type-price flex justify-between border-t border-white/10 pt-2 text-white">
+              <div className="type-price flex justify-between border-t border-black/8 pt-3 text-[#111111]">
                 <span>Total</span>
                 <span>${orderSummary.total.toLocaleString("es-CO")}</span>
               </div>
@@ -188,7 +187,7 @@ export default function CheckoutSuccess({
         )}
       </div>
 
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2.5">
         {whatsappUrl ? (
           <a
             href={whatsappUrl}
@@ -205,11 +204,12 @@ export default function CheckoutSuccess({
         <Link href="/" className="inline-flex w-full">
           <button
             type="button"
-            className="type-action inline-flex w-full items-center justify-center rounded-xl border border-white/10 bg-transparent px-4 py-3 text-white/85 transition hover:bg-white/5"
+            className="type-action inline-flex w-full items-center justify-center rounded-full border border-black/10 bg-white px-4 py-3 text-black/82 transition hover:bg-black/[0.02]"
           >
             Volver al inicio
           </button>
         </Link>
+      </div>
       </div>
     </div>
   );
