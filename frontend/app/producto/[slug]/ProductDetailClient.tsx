@@ -61,6 +61,7 @@ type PDPViewModel = {
 interface ProductDetailClientProps {
   product: PDPViewModel;
 }
+
 type SelectionState = {
   variantSchema: VariantSchema;
   requiresValue: boolean;
@@ -430,15 +431,15 @@ function ProductMedia({
 
 function ProductHeader({ name, price, slug }: { name: string; price: string; slug: string }) {
   return (
-    <div className="relative z-0 flex items-start gap-3">
-      <div className="pr-12">
-        <h1 className="type-page-title max-w-[12ch] text-zinc-950 md:max-w-[14ch]">
+    <div className="relative z-0 flex items-start gap-2.5">
+      <div className="max-w-[24rem] pr-10 md:max-w-[25rem] md:pr-11">
+        <h1 className="pdp-title max-w-[14ch] text-zinc-900 md:max-w-[15ch]">
           {name}
         </h1>
-        <p className="type-price mt-2 text-zinc-600">{formatPriceCOP(price)}</p>
+        <p className="pdp-price-refined mt-2.5">{formatPriceCOP(price)}</p>
       </div>
 
-      <div className="absolute right-0 top-0 z-0">
+      <div className="absolute right-0 top-0 z-0 opacity-80 transition-opacity duration-200 hover:opacity-100">
         <ShareButton
           title={`${name} | Kame.Col`}
           url={`/producto/${encodeURIComponent(slug)}`}
@@ -480,17 +481,17 @@ function ProductSelectors({
   }
 
   return (
-    <div className="mt-6 space-y-4">
+    <div className="mt-6 space-y-5">
       {!requiresValue && !requiresColor && sizeGuideTrigger && (
         <div className="flex items-center">{sizeGuideTrigger}</div>
       )}
 
-      <div className="pdp-controls-grid">
+      <div className="pdp-controls-grid gap-y-5">
         <div>
           {requiresColor && colorOptions.length > 0 ? (
             <>
-              <div className="type-section-title text-zinc-600">Color</div>
-              <div className="pdp-variant-section">
+              <div className="pdp-label-refined text-zinc-500/90">Color</div>
+              <div className="pdp-variant-section mt-2.5">
                 <div className="pdp-color-grid">
                   {colorOptions.map((color) => {
                     const soldOut = isColorSoldOut(color);
@@ -501,7 +502,7 @@ function ProductSelectors({
                         key={color}
                         type="button"
                         className={
-                          "pdp-color-chip " +
+                          "pdp-color-chip pdp-variant-refined " +
                           (selected ? "pdp-color-chip--selected " : "") +
                           (soldOut ? "pdp-color-chip--disabled " : "")
                         }
@@ -527,11 +528,11 @@ function ProductSelectors({
           {requiresValue && valueOptions.length > 0 ? (
             <>
               <div className="flex items-center justify-between gap-3">
-                <div className="type-section-title text-zinc-600">Talla</div>
+                <div className="pdp-label-refined text-zinc-500/90">Talla</div>
                 {sizeGuideTrigger}
               </div>
 
-              <div className="pdp-variant-section">
+              <div className="pdp-variant-section mt-2.5">
                 <div className="pdp-size-grid">
                   {valueOptions.map((value) => {
                     const soldOut = isSizeSoldOut(value);
@@ -542,7 +543,7 @@ function ProductSelectors({
                         key={value}
                         type="button"
                         className={
-                          "pdp-size-item " +
+                          "pdp-size-item pdp-variant-refined " +
                           (selected ? "pdp-size-item--selected " : "") +
                           (soldOut ? "pdp-size-item--disabled " : "")
                         }
@@ -587,20 +588,20 @@ function ProductPurchaseBox({
 }) {
   return (
     <div className="mt-6">
-      <div className="type-body mb-3 flex flex-wrap items-center gap-2 text-zinc-600">
+      <div className="pdp-description-refined mb-3.5 flex flex-wrap items-center gap-2 text-zinc-500">
         {isInvalidCombo ? (
-          <span className="type-body text-zinc-500">
+          <span className="pdp-description-refined text-zinc-500">
             Esta combinación no está disponible. Prueba otra talla o color.
           </span>
         ) : availableStock > 0 ? (
-          <span className="type-body text-zinc-600">
+          <span className="pdp-description-refined text-zinc-600">
             {availableStock} unidad{availableStock !== 1 ? "es" : ""} disponible
             {availableStock !== 1 ? "s" : ""}
           </span>
         ) : selectedVariant ? (
-          <span className="type-body text-zinc-500">Agotado</span>
+          <span className="pdp-description-refined text-zinc-500">Agotado</span>
         ) : (
-          <span className="type-body text-zinc-500">{helperSelectionText}</span>
+          <span className="pdp-description-refined text-zinc-500">{helperSelectionText}</span>
         )}
       </div>
 
@@ -610,7 +611,7 @@ function ProductPurchaseBox({
         disabled={!canAdd}
         variant="primary"
         fullWidth
-        className="type-action rounded-xl disabled:border disabled:border-zinc-900/8 disabled:bg-zinc-200 disabled:text-zinc-500 disabled:shadow-none"
+        className="pdp-cta-refined w-full min-h-[3rem] rounded-[0.5rem] disabled:border disabled:border-zinc-900/8 disabled:bg-zinc-200 disabled:text-zinc-500 disabled:shadow-none"
       >
         {canAdd ? "Agregar al carrito" : "Sin stock"}
       </Button>
@@ -630,24 +631,24 @@ function ProductDescription({
   if (!description) return null;
 
   return (
-    <section className="mt-8 border-t border-zinc-900/8 pt-6">
-      <h2 className="type-section-title text-zinc-700">Descripción</h2>
+    <section className="mt-8 border-t border-zinc-900/8 pt-5">
+      <h2 className="pdp-label-refined text-zinc-500">Descripción</h2>
 
       <div
         className={
           expanded
-            ? "type-body mt-3 whitespace-pre-wrap text-zinc-700"
-            : "type-body mt-3 whitespace-pre-wrap text-zinc-700 line-clamp-4"
+            ? "pdp-description-refined mt-2.5 whitespace-pre-wrap text-zinc-700"
+            : "pdp-description-refined mt-2.5 whitespace-pre-wrap text-zinc-700 line-clamp-4"
         }
       >
         {description}
       </div>
 
-      <div className="mt-3">
+      <div className="mt-2.5">
         <button
           type="button"
           onClick={onToggle}
-          className="type-action text-zinc-700 transition-colors duration-200 hover:text-zinc-950"
+          className="pdp-label-refined text-zinc-600 transition-colors duration-200 hover:text-zinc-900"
         >
           {expanded ? "Ver menos" : "Ver más"}
         </button>
@@ -691,7 +692,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
       type="button"
       onClick={() => setSizeGuideOpen(true)}
       aria-label="Abrir guía de medidas"
-      className="pdp-guide-link-inline type-section-title"
+      className="pdp-guide-link-inline pdp-label-refined text-zinc-500"
     >
       Guía de medidas
     </button>
@@ -749,7 +750,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
       className="page-shell--with-header pdp-shell pdp-shell--hero relative z-0 mx-auto max-w-6xl pb-6 md:pb-10"
       data-pdp-layout="hero-media"
     >
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-10">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 lg:gap-8">
         <ProductMedia
           productName={product.name}
           galleryImages={resolvedGalleryImages}
@@ -757,7 +758,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
           soldOut={selection.uiSoldOut}
         />
 
-        <div className="pdp-content-start relative z-0 px-4 md:px-6">
+        <div className="pdp-content-start relative z-0 px-4 md:px-6 lg:pt-3">
           <ProductHeader
             name={product.name}
             price={product.price}

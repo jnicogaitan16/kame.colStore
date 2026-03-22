@@ -52,8 +52,12 @@ export function ProductGallery({ images, productName, soldOut = false, variant =
   const isPdp = variant === "pdp";
 
   const wrapperClass = isPdp
-    ? "relative aspect-square w-full overflow-hidden rounded-none border-0 bg-transparent shadow-none isolate"
+    ? "relative w-full pb-10"
     : "relative aspect-square w-full overflow-hidden rounded-2xl border border-zinc-900/8 bg-white/80 shadow-[0_12px_30px_rgba(24,24,27,0.06)]";
+
+  const mediaFrameClass = isPdp
+    ? "relative aspect-square w-full overflow-visible rounded-none border-0 bg-transparent shadow-none isolate pb-0"
+    : "h-full w-full";
 
   const emptyClass = isPdp
     ? "aspect-square w-full overflow-hidden rounded-none bg-transparent border-0 shadow-none"
@@ -77,45 +81,47 @@ export function ProductGallery({ images, productName, soldOut = false, variant =
 
   return (
     <div className={wrapperClass}>
-      <SoldOutBadge show={soldOut === true} variant="detail" />
+      <div className={mediaFrameClass} data-gallery-frame={isPdp ? "pdp" : "default"}>
+        <SoldOutBadge show={soldOut === true} variant="detail" />
 
-      <Swiper
-        modules={[Pagination]}
-        spaceBetween={0}
-        slidesPerView={1}
-        pagination={{ clickable: true }}
-        onSwiper={(sw) => setActiveIndex(sw.activeIndex ?? 0)}
-        onSlideChange={(sw: SwiperType) => setActiveIndex(sw.activeIndex ?? 0)}
-        className="k-gallery-swiper h-full w-full"
-      >
-        {slides.map((img, index) => (
-          <SwiperSlide key={`${img.url}-${index}`}>
-            <div className="relative w-full aspect-square bg-transparent">
-              {(() => {
-                const baseSrc = (img.thumb_url ?? img.url) || null;
-                const src = baseSrc ? `${baseSrc}?v=${index}` : null;
-                if (!src) return null;
+        <Swiper
+          modules={[Pagination]}
+          spaceBetween={0}
+          slidesPerView={1}
+          pagination={{ clickable: true }}
+          onSwiper={(sw) => setActiveIndex(sw.activeIndex ?? 0)}
+          onSlideChange={(sw: SwiperType) => setActiveIndex(sw.activeIndex ?? 0)}
+          className={`k-gallery-swiper ${isPdp ? "k-gallery-swiper--pdp overflow-visible" : "h-full w-full"}`}
+        >
+          {slides.map((img, index) => (
+            <SwiperSlide key={`${img.url}-${index}`}>
+              <div className="relative w-full aspect-square bg-transparent">
+                {(() => {
+                  const baseSrc = (img.thumb_url ?? img.url) || null;
+                  const src = baseSrc ? `${baseSrc}?v=${index}` : null;
+                  if (!src) return null;
 
-                const alt = img.alt_text ?? productName ?? "Producto";
+                  const alt = img.alt_text ?? productName ?? "Producto";
 
-                return (
-                  <Image
-                    key={src}
-                    src={src}
-                    alt={alt}
-                    fill
-                    sizes="(max-width: 768px) 100vw, 50vw"
-                    priority={index === 0}
-                    {...(index === 0 ? {} : { loading: "lazy" as const })}
-                    className={imageClass}
-                    onClick={() => openLightbox(index === activeIndex ? activeIndex : index)}
-                  />
-                );
-              })()}
-            </div>
-          </SwiperSlide>
-        ))}
-      </Swiper>
+                  return (
+                    <Image
+                      key={src}
+                      src={src}
+                      alt={alt}
+                      fill
+                      sizes="(max-width: 768px) 100vw, 50vw"
+                      priority={index === 0}
+                      {...(index === 0 ? {} : { loading: "lazy" as const })}
+                      className={imageClass}
+                      onClick={() => openLightbox(index === activeIndex ? activeIndex : index)}
+                    />
+                  );
+                })()}
+              </div>
+            </SwiperSlide>
+          ))}
+        </Swiper>
+      </div>
       <ImageViewerModal
         open={lightboxOpen && slides.length > 0}
         onClose={closeLightbox}
@@ -138,6 +144,31 @@ export function ProductGallery({ images, productName, soldOut = false, variant =
           bottom: 12px;
         }
 
+        .k-gallery-swiper--pdp {
+          height: 100%;
+          width: 100%;
+        }
+
+        .k-gallery-swiper--pdp .swiper,
+        .k-gallery-swiper--pdp .swiper-wrapper,
+        .k-gallery-swiper--pdp .swiper-slide {
+          height: 100%;
+        }
+
+        [data-gallery-frame="pdp"] .k-gallery-swiper--pdp .swiper-pagination {
+          bottom: -34px;
+          left: 0;
+          right: 0;
+          width: 100%;
+        }
+
+        [data-gallery-frame="pdp"] .k-gallery-swiper--pdp,
+        [data-gallery-frame="pdp"] .k-gallery-swiper--pdp .swiper,
+        [data-gallery-frame="pdp"] .k-gallery-swiper--pdp .swiper-wrapper,
+        [data-gallery-frame="pdp"] .k-gallery-swiper--pdp .swiper-slide {
+          overflow: visible !important;
+        }
+
         .k-gallery-swiper .swiper-pagination-bullet {
           width: 5px;
           height: 5px;
@@ -145,6 +176,12 @@ export function ProductGallery({ images, productName, soldOut = false, variant =
           background: rgba(39, 39, 42, 0.18);
           opacity: 0.9;
           transition: transform 180ms ease, background-color 180ms ease, opacity 180ms ease;
+        }
+
+        [data-gallery-frame="pdp"] .k-gallery-swiper--pdp .swiper-pagination-bullets {
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
 
         .k-gallery-swiper .swiper-pagination-bullet-active {
@@ -156,6 +193,10 @@ export function ProductGallery({ images, productName, soldOut = false, variant =
         .k-gallery-swiper .swiper-pagination-bullet:hover {
           background: rgba(39, 39, 42, 0.30);
           opacity: 1;
+        }
+
+        [data-gallery-frame="pdp"] .k-gallery-swiper--pdp .swiper-pagination-bullet {
+          margin-top: 0;
         }
       `}</style>
     </div>

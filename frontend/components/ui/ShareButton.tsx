@@ -128,46 +128,33 @@ export default function ShareButton({
       aria-label={ariaLabel}
       title={copied ? "Enlace copiado" : "Compartir"}
       className={
-        "relative z-0 inline-flex items-center justify-center p-1 text-white/80 transition-colors hover:text-white " +
+        "relative z-0 inline-flex -translate-x-1.5 items-center justify-center p-0.5 text-zinc-700 transition-colors hover:text-zinc-950 " +
         className
       }
     >
       <svg
-        width="22"
-        height="22"
+        width="18"
+        height="18"
         viewBox="0 0 24 24"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
         aria-hidden="true"
       >
-        {/* Standard share icon: 3 nodes + connectors (bold, premium) */}
         <path
-          d="M8.2 11.3l7.6-4.4M8.2 12.7l7.6 4.4"
+          d="M12 16V4M12 4l-4 4M12 4l4 4"
           stroke="currentColor"
-          strokeWidth="2.2"
+          strokeWidth="1.6"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
-        <circle
-          cx="6.5"
-          cy="12"
-          r="2.8"
+        <rect
+          x="4"
+          y="12"
+          width="16"
+          height="8"
+          rx="2"
           stroke="currentColor"
-          strokeWidth="2.2"
-        />
-        <circle
-          cx="17.5"
-          cy="6.2"
-          r="2.8"
-          stroke="currentColor"
-          strokeWidth="2.2"
-        />
-        <circle
-          cx="17.5"
-          cy="17.8"
-          r="2.8"
-          stroke="currentColor"
-          strokeWidth="2.2"
+          strokeWidth="1.6"
         />
       </svg>
     </button>

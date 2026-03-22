@@ -126,13 +126,13 @@ export default function ImageViewerModal({
 
   const modal = (
     <div
-      className="fixed inset-0 z-[400] isolate bg-black/96"
+      className="fixed inset-0 z-[400] isolate bg-white"
       role="dialog"
       aria-modal="true"
       aria-label="Visor ampliado de producto"
       onClick={onClose}
     >
-      <div className="absolute inset-0 bg-black/96 backdrop-blur-[2px]" aria-hidden="true" />
+      <div className="absolute inset-0 bg-white" aria-hidden="true" />
 
       {/* Close button */}
       <div className="absolute right-4 top-0 z-[420] pt-[calc(env(safe-area-inset-top)+12px)]">
@@ -142,7 +142,7 @@ export default function ImageViewerModal({
             e.stopPropagation();
             onClose();
           }}
-          className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/8 text-white/78 transition-colors hover:bg-white/12 hover:text-white"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-zinc-900/8 bg-white text-zinc-700 shadow-[0_8px_24px_rgba(24,24,27,0.08)] transition-colors hover:bg-zinc-50 hover:text-zinc-950"
           aria-label="Cerrar visor de imagen"
         >
           <span aria-hidden="true" className="text-xl font-light leading-none">
@@ -153,7 +153,7 @@ export default function ImageViewerModal({
 
       {/* Swipe gallery */}
       <motion.div
-        className="absolute inset-0 z-[410] pt-[calc(env(safe-area-inset-top)+56px)] pb-[calc(env(safe-area-inset-bottom)+24px)]"
+        className="absolute inset-0 z-[410] bg-white pt-[calc(env(safe-area-inset-top)+56px)] pb-[calc(env(safe-area-inset-bottom)+24px)]"
         style={{ y }}
         drag={isZoomed ? false : "y"}
         dragConstraints={{ top: 0, bottom: 0 }}
@@ -167,7 +167,7 @@ export default function ImageViewerModal({
           resetY();
         }}
       >
-        <div className="flex h-full w-full items-center justify-center">
+        <div className="flex h-full w-full items-center justify-center bg-white">
           <Swiper
             key={`viewer-${total}`}
             initialSlide={safeIndex}
@@ -199,16 +199,16 @@ export default function ImageViewerModal({
             {images.map((img, idx) => (
               <SwiperSlide key={`${img.url}-${idx}`}>
                 <div
-                  className="flex h-full w-full items-center justify-center px-3 md:px-6"
+                  className="flex h-full w-full items-center justify-center bg-white px-4 md:px-8"
                   onDoubleClick={toggleZoom}
                   onTouchEnd={onTouchEndDoubleTap}
                 >
-                  <div className="swiper-zoom-container flex h-full w-full items-center justify-center overflow-hidden">
+                  <div className="swiper-zoom-container flex h-full w-full items-center justify-center overflow-hidden bg-white">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={img.url}
                       alt={img.alt || "Imagen producto"}
-                      className="max-h-full max-w-full select-none object-contain"
+                      className="max-h-full max-w-full select-none object-contain bg-white"
                       draggable={false}
                     />
                   </div>
@@ -234,8 +234,8 @@ export default function ImageViewerModal({
                 onClick={() => swiperRef.current?.slideTo(idx)}
                 className={
                   isActive
-                    ? "h-2 w-2 rounded-full bg-white/85"
-                    : "h-2 w-2 rounded-full bg-white/20"
+                    ? "h-2 w-2 rounded-full bg-zinc-950"
+                    : "h-2 w-2 rounded-full bg-zinc-900/18"
                 }
                 aria-label={`Ir a imagen ${idx + 1}`}
               />

@@ -67,9 +67,9 @@ type HeroCarouselBannersProp = unknown;
 
 // Home is its own overlay-hero family.
 // It intentionally remains full-bleed behind the fixed navbar and must not inherit PDP safe-area behavior.
-const HERO_SECTION_CLASS = "page-shell page-shell--hero-overlay relative w-full overflow-hidden min-h-[88svh] md:min-h-[100svh] -mt-12 md:-mt-14";
-const HERO_SLIDE_CLASS = "w-full min-h-[88svh] md:min-h-[100svh]";
-const HERO_CONTENT_CLASS = "relative z-10 mx-auto flex min-h-[88svh] md:min-h-[100svh] max-w-6xl items-center px-4 pt-16 pb-14 md:px-6 md:pt-20 md:pb-20";
+const HERO_SECTION_CLASS = "page-shell page-shell--hero-overlay relative w-full overflow-hidden min-h-[92svh] md:min-h-[100svh] -mt-12 md:-mt-14";
+const HERO_SLIDE_CLASS = "w-full min-h-[92svh] md:min-h-[100svh]";
+const HERO_CONTENT_CLASS = "relative z-10 mx-auto flex min-h-[92svh] md:min-h-[100svh] max-w-6xl items-center px-4 pt-16 pb-14 md:px-6 md:pt-20 md:pb-20";
 
 export function HeroCarousel({ banners }: { banners: HeroCarouselBannersProp }) {
   const bannersArray: HomepageBanner[] = extractArray<HomepageBanner>(banners);

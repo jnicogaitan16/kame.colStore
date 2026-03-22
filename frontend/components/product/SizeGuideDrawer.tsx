@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import { motion, useMotionValue, animate } from "framer-motion";
 import type { SizeGuide, SizeGuideKey } from "@/components/product/sizeGuideData";
 import { sizeGuides } from "@/components/product/sizeGuideData";
 
@@ -15,7 +16,13 @@ function isSizeGuideKey(k: string): k is SizeGuideKey {
 }
 
 export default function SizeGuideDrawer({ open, onClose, guideKey = "oversize" }: Props) {
-  const closeBtnRef = useRef<HTMLButtonElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+
+  const y = useMotionValue(0);
+
+  const resetY = useCallback(() => {
+    animate(y, 0, { type: "spring", stiffness: 420, damping: 38 });
+  }, [y]);
 
   const resolvedKey = useMemo<SizeGuideKey>(() => {
     if (isSizeGuideKey(guideKey)) return guideKey;
@@ -25,7 +32,12 @@ export default function SizeGuideDrawer({ open, onClose, guideKey = "oversize" }
   const guide = useMemo<SizeGuide>(() => sizeGuides[resolvedKey], [resolvedKey]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      y.set(0);
+      return;
+    }
+
+    resetY();
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -37,15 +49,16 @@ export default function SizeGuideDrawer({ open, onClose, guideKey = "oversize" }
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
-    // Focus the close button for basic accessibility
-    const t = window.setTimeout(() => closeBtnRef.current?.focus(), 0);
+    // Focus the panel for basic accessibility
+    const t = window.setTimeout(() => panelRef.current?.focus(), 0);
 
     return () => {
       window.clearTimeout(t);
       window.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = prevOverflow;
+      y.set(0);
     };
-  }, [open, onClose]);
+  }, [open, onClose, resetY, y]);
 
   // Keep mounted for animation consistency, but disable interactions when closed.
   const overlayState = open
@@ -56,55 +69,66 @@ export default function SizeGuideDrawer({ open, onClose, guideKey = "oversize" }
     ? "translate-y-0 opacity-100"
     : "translate-y-6 opacity-0";
 
+  const dragThreshold = 120;
+
   return (
     <div
       className={`fixed inset-0 z-50 transition-opacity duration-200 ${overlayState}`}
       role="dialog"
       aria-modal="true"
       aria-label="Guía de medidas"
-      onMouseDown={(e) => {
-        // click outside
-        if (e.target === e.currentTarget) onClose();
-      }}
     >
       {/* Overlay */}
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-[10px]" />
+      <div
+        className="sheet-premium-light-backdrop absolute inset-0"
+        onClick={onClose}
+      />
 
       {/* Panel (sheet from bottom) */}
-      <div className="absolute inset-x-0 bottom-0 flex justify-center p-4 md:p-6">
+      <motion.div
+        className="absolute inset-x-0 bottom-0 flex justify-center p-4 md:p-6"
+        style={{ y }}
+        drag="y"
+        dragConstraints={{ top: 0, bottom: 0 }}
+        dragElastic={0.15}
+        onClick={(e) => e.stopPropagation()}
+        onDragEnd={(_, info) => {
+          if (info.offset.y > dragThreshold || info.velocity.y > 800) {
+            onClose();
+            return;
+          }
+          resetY();
+        }}
+      >
         <div
-          className={`w-full max-w-2xl transform transition-all duration-250 ease-out ${panelState} rounded-2xl border border-white/10 bg-black/45 backdrop-blur-[12px] saturate-150 shadow-2xl`}
+          ref={panelRef}
+          tabIndex={-1}
+          className={`sheet-premium-light w-full max-w-2xl rounded-[28px] transition-opacity duration-250 ease-out ${panelState}`}
+          onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-center justify-between gap-3 border-b border-white/10 px-5 py-4">
+          <div className="sheet-premium-light-divider border-b px-5 pb-4 pt-3 md:px-6">
+            <div className="mb-3 flex justify-center">
+              <div className="h-1.5 w-12 rounded-full bg-zinc-950/12" aria-hidden="true" />
+            </div>
             <div>
-              <p className="text-sm font-semibold text-neutral-100">
+              <p className="text-sm font-semibold tracking-[0.08em] text-zinc-950">
                 Guía de medidas
               </p>
               {guide.subtitle ? (
-                <p className="mt-1 text-sm text-neutral-400">{guide.subtitle}</p>
+                <p className="mt-1 text-sm text-zinc-500">{guide.subtitle}</p>
               ) : null}
             </div>
-
-            <button
-              ref={closeBtnRef}
-              type="button"
-              onClick={onClose}
-              className="inline-flex h-10 w-10 items-center justify-center text-neutral-300 transition hover:text-white focus:outline-none"
-              aria-label="Cerrar"
-            >
-              <span className="text-xl leading-none">×</span>
-            </button>
           </div>
 
           {/* Content */}
-          <div className="px-5 pb-5 pt-4">
+          <div className="px-5 pb-5 pt-4 md:px-6 md:pb-6">
             <div className="mb-4">
-              <p className="text-sm font-semibold text-neutral-100">{guide.title}</p>
+              <p className="text-sm font-semibold text-zinc-950">{guide.title}</p>
             </div>
 
             {/* Table */}
-            <div className="overflow-x-auto rounded-2xl border border-white/10 bg-white/5">
+            <div className="sheet-premium-light-table overflow-x-auto rounded-2xl">
               <table className="min-w-full border-separate border-spacing-0">
                 <thead>
                   <tr>
@@ -112,7 +136,7 @@ export default function SizeGuideDrawer({ open, onClose, guideKey = "oversize" }
                       <th
                         key={col}
                         scope="col"
-                        className="sticky top-0 bg-white/5 px-4 py-3 text-left text-xs font-semibold uppercase tracking-widest text-neutral-300"
+                        className="sheet-premium-light-table-head sticky top-0 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-500"
                       >
                         {col}
                       </th>
@@ -122,12 +146,12 @@ export default function SizeGuideDrawer({ open, onClose, guideKey = "oversize" }
                 <tbody>
                   {guide.rows.length > 0 ? (
                     guide.rows.map((row) => (
-                      <tr key={row.size} className="border-t border-white/10">
-                        <td className="px-4 py-3 text-sm font-semibold text-neutral-100">
+                      <tr key={row.size} className="sheet-premium-light-table-row">
+                        <td className="px-4 py-3 text-sm font-semibold text-zinc-950">
                           {row.size}
                         </td>
                         {row.values.map((v, idx) => (
-                          <td key={idx} className="px-4 py-3 text-sm text-neutral-200">
+                          <td key={idx} className="px-4 py-3 text-sm text-zinc-700">
                             {v}
                           </td>
                         ))}
@@ -137,7 +161,7 @@ export default function SizeGuideDrawer({ open, onClose, guideKey = "oversize" }
                     <tr>
                       <td
                         colSpan={guide.columns.length}
-                        className="px-4 py-6 text-sm text-neutral-400"
+                        className="px-4 py-6 text-sm text-zinc-500"
                       >
                         Aún no hay datos para esta guía.
                       </td>
@@ -147,11 +171,11 @@ export default function SizeGuideDrawer({ open, onClose, guideKey = "oversize" }
               </table>
             </div>
 
-            <div className="mt-4 text-xs text-neutral-500">
+            <div className="mt-4 text-xs text-zinc-500">
             </div>
           </div>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }

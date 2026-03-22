@@ -102,27 +102,23 @@ export default async function HomePage() {
       {/* Home remains the controlled exception: it must start behind the fixed header instead of using the internal page shell offset. */}
       <HeroCarousel banners={banners} />
 
-      {/* Post-hero spacing begins only after the carousel so the home page does not break the full-bleed overlay start. */}
-      <div className="h-10 md:h-14" />
-
       <HomepagePromos placement="TOP" />
 
-      <div className="h-10 md:h-14" />
+      <main className="home-editorial-shell mx-auto max-w-6xl px-4 md:px-6">
+        <div className="home-editorial-flow">
+          <HomepagePromos placement="MID" />
 
-      {/* Only post-hero home content gets normal spacing; internal pages use the shared page-shell/page-intro convention instead. */}
-      <main className="mx-auto max-w-6xl space-y-14 px-4 py-12 md:px-6 md:space-y-20 md:py-16">
-        <HomepagePromos placement="MID" />
-
-        {story ? (
-          <section aria-label="Nuestra historia">
-            <BrandStory story={story} />
-          </section>
-        ) : process.env.NODE_ENV !== "production" ? (
-          <section className="rounded-2xl border border-zinc-900/8 bg-white/78 p-4 text-sm text-zinc-600 shadow-[0_16px_40px_rgba(24,24,27,0.06)] backdrop-blur-sm">
-            No llegó contenido de <code className="text-zinc-900">/api/home_sections/</code>. Revisa que exista al menos 1
-            registro activo en Django Admin → <span className="text-zinc-900">Secciones de Home</span>.
-          </section>
-        ) : null}
+          {story ? (
+            <section aria-label="Nuestra historia">
+              <BrandStory story={story} />
+            </section>
+          ) : process.env.NODE_ENV !== "production" ? (
+            <section className="rounded-2xl border border-zinc-900/8 bg-white/78 p-4 text-sm text-zinc-600 shadow-[0_16px_40px_rgba(24,24,27,0.06)] backdrop-blur-sm">
+              No llegó contenido de <code className="text-zinc-900">/api/home_sections/</code>. Revisa que exista al menos 1
+              registro activo en Django Admin → <span className="text-zinc-900">Secciones de Home</span>.
+            </section>
+          ) : null}
+        </div>
       </main>
     </div>
   );

@@ -25,8 +25,10 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     },
     ref
   ) => {
+    // Keep the default button typography opt-in friendly: caller `className` is merged last,
+    // so contexts like the PDP can refine tracking/weight without changing the global button system.
     const baseClasses =
-      "type-action inline-flex min-h-12 items-center justify-center rounded-xl transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900/12 focus-visible:ring-offset-2 focus-visible:ring-offset-stone-50 disabled:cursor-not-allowed disabled:opacity-100";
+      "inline-flex min-h-12 items-center justify-center rounded-xl text-[0.8125rem] font-semibold uppercase tracking-[0.045em] text-[rgba(24,24,27,0.9)] transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900/12 focus-visible:ring-offset-2 focus-visible:ring-offset-stone-50 disabled:cursor-not-allowed disabled:opacity-100";
 
     const variants: Record<ButtonVariant, string> = {
       primary:

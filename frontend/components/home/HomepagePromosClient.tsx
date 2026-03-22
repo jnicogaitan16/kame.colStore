@@ -106,7 +106,7 @@ function PromoCard({ promo, idx }: PromoCardProps) {
   const breakoutClass =
     "relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] w-screen";
 
-  const promoHeightClass = "min-h-[40vh] md:min-h-[44vh]";
+  const promoHeightClass = "min-h-[32vh] md:min-h-[38vh]";
 
   const handleImageError = () => {
     if (!imageFailed) {
@@ -246,7 +246,7 @@ function PromoCard({ promo, idx }: PromoCardProps) {
 export default function HomepagePromosClient({ promos }: Props) {
   return (
     <section>
-      <div className="flex flex-col gap-10">
+      <div className="flex flex-col gap-5 md:gap-8">
         {promos.map((promo, idx) => (
           <PromoCard key={promo.id} promo={promo} idx={idx} />
         ))}

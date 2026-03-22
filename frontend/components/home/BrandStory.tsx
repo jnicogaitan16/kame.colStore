@@ -91,26 +91,36 @@ export function BrandStory({ story }: { story: HomepageStory | null }) {
       ].join(" ")}
     >
       <div className="relative">
-        <div className="space-y-12 text-center md:space-y-14">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-8 top-0 h-24 rounded-full bg-zinc-950/[0.03] blur-3xl md:inset-x-16"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute left-1/2 top-10 h-20 w-20 -translate-x-1/2 rounded-full border border-zinc-900/6 opacity-70 blur-[1px]"
+        />
+        <div className="relative space-y-14 text-center md:space-y-16">
           <header className="space-y-6 md:space-y-8">
-            <h2 className="mx-auto max-w-4xl text-5xl font-extrabold leading-[0.98] tracking-[-0.03em] text-white md:text-7xl lg:text-8xl">
-              {title}
+            <h2 className="mx-auto max-w-4xl text-4xl font-extrabold leading-[1] tracking-[-0.02em] text-zinc-950 transition-[transform,filter,opacity] duration-700 ease-out md:text-7xl lg:text-8xl">
+              <span className="bg-gradient-to-b from-zinc-950 via-zinc-900 to-zinc-700 bg-clip-text text-transparent">
+                {title}
+              </span>
             </h2>
 
             {claim ? (
-              <p className="mx-auto max-w-3xl text-xl font-semibold italic leading-relaxed tracking-tight text-white/90 md:text-3xl lg:max-w-4xl">
+              <p className="mx-auto max-w-3xl text-lg font-medium italic leading-relaxed tracking-tight text-zinc-700/90 transition-colors duration-300 md:text-2xl lg:max-w-4xl lg:text-[1.95rem]">
                 {claim}
               </p>
             ) : null}
           </header>
 
-          <div className="mx-auto h-px w-24 bg-white/10" />
+          <div className="mx-auto h-px w-24 bg-gradient-to-r from-transparent via-zinc-900/10 to-transparent" />
 
           <div className="mx-auto max-w-3xl space-y-6 md:max-w-4xl md:space-y-8">
             {body.map((p, idx) => (
               <p
                 key={idx}
-                className="text-balance text-base leading-8 text-white/72 md:text-lg md:leading-9"
+                className="text-balance text-base leading-8 text-zinc-600/90 transition-colors duration-300 md:text-lg md:leading-9"
               >
                 {p}
               </p>
