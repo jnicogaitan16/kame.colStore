@@ -13,7 +13,6 @@ export type StockWarningChipProps = {
   detail?: string;
   variant?: StockWarningVariant;
   compact?: boolean;
-  onAdjust?: () => void;
   className?: string;
 };
 
@@ -61,13 +60,12 @@ export default function StockWarningChip({
   detail,
   variant = "default",
   compact = false,
-  onAdjust,
   className,
 }: StockWarningChipProps) {
   const isSubtle = variant === "subtle";
 
   const base = compact
-    ? "inline-flex max-w-full flex-col items-start gap-2 rounded-[1.1rem] border px-3 py-2.5 text-sm leading-snug shadow-[0_10px_24px_rgba(24,24,27,0.05)] backdrop-blur-sm"
+    ? "inline-flex max-w-full flex-col items-start gap-1.5 rounded-[1rem] border px-2.5 py-2 text-sm leading-snug shadow-[0_8px_18px_rgba(24,24,27,0.04)] backdrop-blur-sm"
     : "inline-flex max-w-full flex-col items-start gap-2.5 rounded-[1.25rem] border px-3.5 py-3 text-sm leading-snug shadow-[0_14px_30px_rgba(24,24,27,0.06)] backdrop-blur-sm";
 
   const tone =
@@ -85,7 +83,7 @@ export default function StockWarningChip({
 
   const icon = cx(
     compact
-      ? "mt-[0.1rem] h-4 w-4 shrink-0"
+      ? "mt-[0.1rem] h-3.5 w-3.5 shrink-0"
       : "mt-[0.1rem] h-[1.05rem] w-[1.05rem] shrink-0",
     status === "over"
       ? "text-amber-700"
@@ -94,28 +92,22 @@ export default function StockWarningChip({
         : "text-zinc-500"
   );
   const titleClass = cx(
-    compact ? "block text-[12.5px] leading-[1.3]" : "block text-[13px] leading-[1.35]",
+    compact ? "block text-[12px] leading-[1.25]" : "block text-[13px] leading-[1.35]",
     status === "over"
-      ? "font-semibold text-zinc-950"
+      ? "font-medium text-zinc-950"
       : status === "low"
         ? "font-medium text-zinc-900"
         : "font-medium text-zinc-800"
   );
   const detailClass = compact
-    ? "mt-1 text-[11px] leading-[1.4] text-zinc-500"
+    ? "mt-0.5 text-[10.5px] leading-[1.35] text-zinc-500"
     : "mt-1 text-[11.5px] leading-[1.45] text-zinc-500";
-
-  const adjustBtn =
-    status === "over"
-      ? "inline-flex min-h-0 w-auto items-center justify-center rounded-full border border-zinc-900/10 bg-zinc-900 px-2.5 py-1 text-[10.5px] font-medium leading-none tracking-[0.01em] text-white transition-colors hover:bg-zinc-800 active:bg-black focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900/15"
-      : "inline-flex min-h-0 w-auto items-center justify-center rounded-full border border-zinc-900/10 bg-white px-2.5 py-1 text-[10.5px] font-medium leading-none tracking-[0.01em] text-zinc-700 transition-colors hover:bg-zinc-50 hover:text-zinc-950 active:bg-zinc-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900/12";
 
   const headerRow = compact ? "flex w-full items-start gap-2" : "flex w-full items-start gap-2.5";
   const bodyStack = "min-w-0 flex-1";
-  const actionRow = compact ? "w-full pt-0.5" : "w-full pt-1";
 
   const resolvedLabel = typeof message === "string" && message.trim() ? message.trim() : labelFor(status);
-  const isLastPieceMessage = resolvedLabel === "Última pieza de este drop" || resolvedLabel === "Últimas unidades";
+  const isLastPieceMessage = resolvedLabel === "Última pieza" || resolvedLabel === "Últimas unidades";
   const isLimitedStockMessage = resolvedLabel === "Stock limitado";
   const useSingleLineMessage = isLastPieceMessage || isLimitedStockMessage;
   const resolvedDetail = useSingleLineMessage
@@ -160,14 +152,6 @@ export default function StockWarningChip({
           {resolvedDetail ? <span className={detailClass}>{resolvedDetail}</span> : null}
         </span>
       </span>
-
-      {onAdjust && status === "over" ? (
-        <span className={actionRow}>
-          <button type="button" className={adjustBtn} onClick={onAdjust}>
-            Ajustar
-          </button>
-        </span>
-      ) : null}
     </span>
   );
 }

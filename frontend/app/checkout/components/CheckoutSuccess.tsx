@@ -76,7 +76,7 @@ function CopyButton({
       onClick={copy}
       className={
         (asField
-          ? "w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm text-black/90 shadow-[0_1px_2px_rgba(15,23,42,0.03)] hover:bg-black/[0.02]"
+          ? "w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm text-black/90 shadow-[0_1px_2px_rgba(15,23,42,0.03)] hover:bg-black/[0.02] flex items-center"
           : "type-action inline-flex items-center justify-center rounded-xl border border-black/10 bg-white px-3 py-2 text-black/82 shadow-[0_1px_2px_rgba(15,23,42,0.03)] hover:bg-black/[0.02]") +
         " " +
         className
@@ -84,10 +84,10 @@ function CopyButton({
     >
       {asField ? (
         <span className="flex w-full items-center justify-between gap-3">
-          <span className="truncate font-mono text-black/92">
+          <span className="flex-1 text-center font-mono text-[0.9rem] tracking-wide text-black/92">
             {displayValue ?? valueToCopy}
           </span>
-          <span className="type-action shrink-0 rounded-xl border border-black/10 bg-[#f7f7f4] px-3 py-2 text-black/78">
+          <span className="type-action shrink-0 rounded-xl border border-black/90 bg-[#111111] px-3 py-2 text-white transition-colors duration-200">
             {copied ? copiedLabel : label}
           </span>
         </span>
@@ -105,13 +105,18 @@ export default function CheckoutSuccess({
   totalText,
 }: CheckoutSuccessProps) {
   return (
-    <div className="page-shell page-shell--transactional text-[#111111]">
-      <div className="mx-auto max-w-2xl px-4 pb-10 pt-1 md:pb-12 md:pt-1">
-      <h1 className="type-page-title mb-4 text-center text-[#111111]">
-        Pedido creado
-      </h1>
+    <div className="text-[#111111]">
+      <div className="mx-auto max-w-2xl px-4 pb-10 pt-0 md:pb-12 md:pt-0">
+        <div className="page-intro mb-6 md:mb-7">
+          <p className="page-eyebrow">Finaliza tu pedido</p>
+          <div className="page-title-block">
+            <h1 className="type-page-title text-left text-[#111111]">
+              Pedido creado
+            </h1>
+          </div>
+        </div>
 
-      <div className="card-surface mb-4 rounded-[1.75rem] border border-black/8 bg-white p-5 text-sm text-[#111111] shadow-[0_16px_44px_rgba(15,23,42,0.06)]">
+        <div className="card-surface mb-4 rounded-[1.75rem] border border-black/8 bg-white p-5 text-sm text-[#111111] shadow-[0_16px_44px_rgba(15,23,42,0.06)]">
         <div className="mb-4 flex flex-col items-center justify-center gap-2.5 text-center">
           <h2 className="type-section-title text-black/48">Paga por transferencia</h2>
 
@@ -187,29 +192,29 @@ export default function CheckoutSuccess({
         )}
       </div>
 
-      <div className="flex flex-col gap-2.5">
-        {whatsappUrl ? (
-          <a
-            href={whatsappUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex w-full"
-          >
-            <Button type="button" variant="primary" fullWidth>
-              Confirmar pago
-            </Button>
-          </a>
-        ) : null}
+        <div className="flex flex-col gap-2.5">
+          {whatsappUrl ? (
+            <a
+              href={whatsappUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex w-full"
+            >
+              <Button type="button" variant="primary" fullWidth>
+                Confirmar pago
+              </Button>
+            </a>
+          ) : null}
 
-        <Link href="/" className="inline-flex w-full">
-          <button
-            type="button"
-            className="type-action inline-flex w-full items-center justify-center rounded-full border border-black/10 bg-white px-4 py-3 text-black/82 transition hover:bg-black/[0.02]"
-          >
-            Volver al inicio
-          </button>
-        </Link>
-      </div>
+          <Link href="/" className="inline-flex w-full">
+            <button
+              type="button"
+              className="type-action inline-flex w-full items-center justify-center rounded-full border border-black/10 bg-white px-4 py-3 text-black/82 transition hover:bg-black/[0.02]"
+            >
+              Volver al inicio
+            </button>
+          </Link>
+        </div>
       </div>
     </div>
   );
