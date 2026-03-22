@@ -1,11 +1,10 @@
 "use client";
 
 /** Galería PDP/catálogo. Usa --accent y clases globales desde globals.css; estilos locales del swiper en <style jsx>. */
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Pagination } from "swiper/modules";
-import type { Swiper as SwiperType } from "swiper";
 import type { ProductImage as ProductImageType } from "@/types/catalog";
 import { normalizeProductMediaUrl } from "@/lib/product-media";
 import SoldOutBadge from "@/components/badges/SoldOutBadge";
@@ -24,23 +23,36 @@ export function ProductGallery({ images, productName, soldOut = false, variant =
   const slides = useMemo(() => {
     if (!images?.length) return [];
 
+    const seen = new Set<string>();
+
     return images
       .map((img) => {
         const url = img?.url ? normalizeProductMediaUrl(img.url) : "";
-        const thumb = img?.thumb_url ?? img?.url ? normalizeProductMediaUrl(img.thumb_url ?? img.url) : "";
+        const rawThumb = img?.thumb_url ?? img?.url ?? "";
+        const normalizedThumb = rawThumb ? normalizeProductMediaUrl(rawThumb) : "";
+        const thumb = normalizedThumb || url;
+
         return {
           ...img,
           url,
-          // ensure we always have a usable thumb
-          thumb_url: thumb || url,
+          thumb_url: thumb,
         };
       })
-      .filter((img) => Boolean(img.url));
+      .filter((img) => {
+        if (!img.url) return false;
+        if (seen.has(img.url)) return false;
+        seen.add(img.url);
+        return true;
+      });
   }, [images]);
 
-  const [activeIndex, setActiveIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+
+  useEffect(() => {
+    setLightboxOpen(false);
+    setLightboxIndex((current) => (slides.length === 0 ? 0 : Math.min(current, slides.length - 1)));
+  }, [slides]);
 
   const openLightbox = useCallback((index: number) => {
     setLightboxIndex(index);
@@ -89,16 +101,13 @@ export function ProductGallery({ images, productName, soldOut = false, variant =
           spaceBetween={0}
           slidesPerView={1}
           pagination={{ clickable: true }}
-          onSwiper={(sw) => setActiveIndex(sw.activeIndex ?? 0)}
-          onSlideChange={(sw: SwiperType) => setActiveIndex(sw.activeIndex ?? 0)}
           className={`k-gallery-swiper ${isPdp ? "k-gallery-swiper--pdp overflow-visible" : "h-full w-full"}`}
         >
           {slides.map((img, index) => (
             <SwiperSlide key={`${img.url}-${index}`}>
               <div className="relative w-full aspect-square bg-transparent">
                 {(() => {
-                  const baseSrc = (img.thumb_url ?? img.url) || null;
-                  const src = baseSrc ? `${baseSrc}?v=${index}` : null;
+                  const src = img.thumb_url || img.url || null;
                   if (!src) return null;
 
                   const alt = img.alt_text ?? productName ?? "Producto";
@@ -113,7 +122,7 @@ export function ProductGallery({ images, productName, soldOut = false, variant =
                       priority={index === 0}
                       {...(index === 0 ? {} : { loading: "lazy" as const })}
                       className={imageClass}
-                      onClick={() => openLightbox(index === activeIndex ? activeIndex : index)}
+                      onClick={() => openLightbox(index)}
                     />
                   );
                 })()}

@@ -26,9 +26,9 @@ export function ProductGrid({
     >
       <div className={PRODUCT_GRID_INNER_CLASS}>
         {products.map((product) => {
-          const key = String(
-            product?.id ?? product?.slug ?? `${product?.name ?? "product"}-${product?.price ?? "0"}`
-          );
+          const stableKey = product?.id ?? product?.slug;
+          const fallbackKey = `${product?.name ?? "product"}-${product?.price ?? "0"}`;
+          const key = String(stableKey ?? fallbackKey);
 
           return <ProductCard key={key} product={product} />;
         })}

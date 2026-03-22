@@ -114,7 +114,7 @@ export default async function HomePage() {
             </section>
           ) : process.env.NODE_ENV !== "production" ? (
             <section className="rounded-2xl border border-zinc-900/8 bg-white/78 p-4 text-sm text-zinc-600 shadow-[0_16px_40px_rgba(24,24,27,0.06)] backdrop-blur-sm">
-              No llegó contenido de <code className="text-zinc-900">/api/home_sections/</code>. Revisa que exista al menos 1
+              No llegó contenido de la historia del home desde <code className="text-zinc-900">/api/homepage-story/</code>. Revisa que exista al menos 1
               registro activo en Django Admin → <span className="text-zinc-900">Secciones de Home</span>.
             </section>
           ) : null}
