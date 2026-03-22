@@ -10,6 +10,8 @@ import { Zoom } from "swiper/modules";
 import "swiper/css";
 import "swiper/css/zoom";
 
+import { normalizeProductMediaUrl } from "@/lib/product-media";
+
 type ImageViewerModalProps = {
   open: boolean;
   onClose: () => void;
@@ -21,6 +23,24 @@ type ImageViewerModalProps = {
   initialIndex?: number;
 };
 
+function sanitizeViewerImages(images: Array<{ url: string; alt?: string }>) {
+  const seen = new Set<string>();
+
+  return images.reduce<Array<{ url: string; alt?: string }>>((acc, img) => {
+    const url = normalizeProductMediaUrl(String(img?.url ?? "").trim());
+    if (!url) return acc;
+    if (seen.has(url)) return acc;
+
+    seen.add(url);
+    acc.push({
+      url,
+      alt: img?.alt,
+    });
+
+    return acc;
+  }, []);
+}
+
 export default function ImageViewerModal({
   open,
   onClose,
@@ -28,7 +48,8 @@ export default function ImageViewerModal({
   index,
   setIndex,
 }: ImageViewerModalProps) {
-  const total = images?.length || 0;
+  const cleanImages = useMemo(() => sanitizeViewerImages(images || []), [images]);
+  const total = cleanImages.length;
   const [mounted, setMounted] = useState(false);
 
   // keep index in range even if images array changes
@@ -196,7 +217,7 @@ export default function ImageViewerModal({
             }}
             style={{ height: "100%", width: "100%" }}
           >
-            {images.map((img, idx) => (
+            {cleanImages.map((img, idx) => (
               <SwiperSlide key={`${img.url}-${idx}`}>
                 <div
                   className="flex h-full w-full items-center justify-center bg-white px-4 md:px-8"
@@ -225,7 +246,7 @@ export default function ImageViewerModal({
           className="absolute bottom-5 left-0 right-0 z-[420] flex justify-center gap-2"
           onClick={(e) => e.stopPropagation()}
         >
-          {images.map((_, idx) => {
+          {cleanImages.map((_, idx) => {
             const isActive = idx === active;
             return (
               <button

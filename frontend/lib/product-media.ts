@@ -56,6 +56,76 @@ const INVALID_MEDIA_HOST_PATTERNS = [
   "172.31.",
 ] as const;
 
+const VOLATILE_MEDIA_QUERY_PARAMS = new Set([
+  "v",
+  "ver",
+  "version",
+  "t",
+  "ts",
+  "timestamp",
+  "cb",
+  "cachebust",
+  "cacheBust",
+  "_",
+]);
+
+const SIGNED_MEDIA_QUERY_PARAMS = [
+  "x-amz-",
+  "signature",
+  "expires",
+  "policy",
+  "key-pair-id",
+  "googleaccessid",
+  "x-goog-",
+  "token",
+  "sig",
+  "se",
+  "sp",
+  "sr",
+  "skoid",
+  "sktid",
+  "skt",
+  "ske",
+  "sks",
+  "skv",
+] as const;
+
+function canonicalizeMediaUrl(url: URL): string {
+  url.hash = "";
+
+  const pathname = url.pathname.replace(/\/+/g, "/");
+  url.pathname = pathname !== "/" && pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
+
+  const hasSignedParams = Array.from(url.searchParams.keys()).some((key) => {
+    const normalizedKey = key.toLowerCase();
+    return SIGNED_MEDIA_QUERY_PARAMS.some((pattern) => normalizedKey.includes(pattern));
+  });
+
+  if (!hasSignedParams) {
+    const nextParams = new URLSearchParams();
+
+    const searchEntries = Array.from(url.searchParams.entries());
+
+    for (const [key, rawValue] of searchEntries) {
+      const normalizedKey = key.toLowerCase();
+
+      if (VOLATILE_MEDIA_QUERY_PARAMS.has(normalizedKey)) {
+        continue;
+      }
+
+      const value = rawValue.trim();
+      if (!value) continue;
+
+      nextParams.append(key, value);
+    }
+
+    const ordered = Array.from(nextParams.entries()).sort(([a], [b]) => a.localeCompare(b));
+    url.search = ordered.length ? new URLSearchParams(ordered).toString() : "";
+  }
+
+  return url.toString();
+}
+
 function sanitizeAbsoluteUrl(value: string): string {
   try {
     const url = new URL(value);
@@ -69,7 +139,7 @@ function sanitizeAbsoluteUrl(value: string): string {
       url.protocol = "https:";
     }
 
-    return url.toString();
+    return canonicalizeMediaUrl(url);
   } catch {
     return "";
   }
@@ -206,7 +276,7 @@ export function normalizeProductMediaUrl(src?: string | null): string {
     return sanitizeAbsoluteUrl(`https:${s}`);
   }
 
-  const rel = s.startsWith("/") ? s : `/${s}`;
+  const rel = (s.startsWith("/") ? s : `/${s}`).replace(/\/+/g, "/");
 
   if (rel.startsWith("/media/") || rel.startsWith("/api/media/")) {
     if (PUBLIC_MEDIA_BASE_URL) {
@@ -333,6 +403,31 @@ export function getProductPrimaryImage(product: unknown): string | null {
   );
 }
 
+export function dedupeNormalizedGalleryImages(
+  images: Array<NormalizedProductGalleryImage | null | undefined>
+): NormalizedProductGalleryImage[] {
+  const deduped: NormalizedProductGalleryImage[] = [];
+  const seen = new Set<string>();
+
+  for (const image of images) {
+    if (!image) continue;
+
+    const url = normalizeProductMediaUrl(image.url);
+    if (!url || seen.has(url)) continue;
+
+    const thumbUrl = image.thumb_url ? normalizeProductMediaUrl(image.thumb_url) || null : null;
+
+    deduped.push({
+      url,
+      thumb_url: thumbUrl,
+      alt_text: image.alt_text ?? null,
+    });
+    seen.add(url);
+  }
+
+  return deduped;
+}
+
 export function getProductGalleryImages(product: unknown): NormalizedProductGalleryImage[] {
   const record = typeof product === "object" && product !== null ? (product as Record<string, unknown>) : null;
   if (!record) return [];
@@ -357,7 +452,7 @@ export function getProductGalleryImages(product: unknown): NormalizedProductGall
   appendGalleryCandidates(record.variantImage, gallery, seen);
   appendGalleryCandidates(record.variants, gallery, seen);
 
-  return gallery;
+  return dedupeNormalizedGalleryImages(gallery);
 }
 
 export function toAbsoluteProductMediaUrl(

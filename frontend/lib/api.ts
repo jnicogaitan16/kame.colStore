@@ -542,10 +542,12 @@ function isActiveRow(row: any): boolean {
 export async function getHomepageStory(): Promise<HomepageStory | null> {
   // Preferimos `apiFetch` para mantener tunnel-safe (/api en browser)
   // y call directo al Django en server-side cuando `DJANGO_API_BASE` está seteado.
+  // Fuente preferida actual: `/homepage-story/`.
+  // Los demás endpoints se mantienen solo como fallback legacy temporal.
   const candidates = [
+    "/homepage-story/",
     "/home_sections/",
     "/home-sections/",
-    "/homepage-story/", // legacy: devolvía un objeto
   ];
 
   let lastStatus: number | null = null;
@@ -595,7 +597,7 @@ export async function getHomepageStory(): Promise<HomepageStory | null> {
 
   // útil para diagnóstico
   console.warn(
-    "getHomepageStory: no usable data from candidates. lastStatus=",
+    "getHomepageStory: no usable homepage story data from configured candidates. lastStatus=",
     lastStatus
   );
   return null;
