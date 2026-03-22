@@ -128,11 +128,13 @@ function buildFallbackMetadata(slug: string): Metadata {
 
 function renderTemporaryApiFailure() {
   return (
-    <main className="mx-auto max-w-4xl px-4 py-10">
-      <div className="rounded-2xl border border-white/10 bg-black/40 p-6 text-white/80">
-        No pudimos cargar este producto (API no respondió). Intenta de nuevo en unos segundos.
-      </div>
-    </main>
+    <section className="page-shell page-shell--pdp pdp-shell">
+      <main className="mx-auto max-w-4xl px-4 py-10 md:py-14">
+        <div className="rounded-2xl border border-zinc-900/8 bg-white/78 p-6 text-zinc-700 shadow-[0_16px_40px_rgba(24,24,27,0.06)] backdrop-blur-sm md:p-7">
+          No pudimos cargar este producto (API no respondió). Intenta de nuevo en unos segundos.
+        </div>
+      </main>
+    </section>
   );
 }
 

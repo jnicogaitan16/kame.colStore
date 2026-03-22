@@ -2,23 +2,23 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import type { HeaderAppearance } from "./types";
 import { categoryPath } from "@/lib/routes";
-
 import type {
   NormalizedNavCategory,
   NormalizedNavDepartment,
 } from "../../lib/navigation-normalize";
-
-
 export type NavbarProps = {
   navDepartments?: NormalizedNavDepartment[];
   categories?: NormalizedNavCategory[];
   onOpenMobileMenu?: () => void;
   onToggleCart?: () => void;
   cartCount: number;
-  isScrolled?: boolean;
-  variant?: "overlay" | "nav";
+  variant?: HeaderAppearance;
 };
+
+const NAVBAR_HEIGHT_MOBILE_CLASS = "h-12";
+const NAVBAR_HEIGHT_DESKTOP_CLASS = "md:h-14";
 
 function MenuIcon({ className = "" }: { className?: string }) {
   return (
@@ -106,7 +106,7 @@ function DesktopDeptTabs({
 
   return (
     <div
-      className="relative pb-2"
+      className="relative pb-1"
       onMouseEnter={() => {
         clearCloseTimer();
         setOpen(true);
@@ -151,7 +151,7 @@ function DesktopDeptTabs({
                 setActiveDeptSlug(d.slug);
                 setOpen(true);
               }}
-              className={`type-brand transition ${isActive ? "text-white/96" : "text-white/66 hover:text-white/90"}`}
+              className={`type-brand transition-colors duration-200 ${isActive ? "text-current" : "text-current/80 hover:text-current"}`}
               aria-pressed={isActive}
             >
               {d.name}
@@ -163,7 +163,7 @@ function DesktopDeptTabs({
       {/* Dropdown */}
       {open ? (
         <div
-          className="absolute left-0 top-full z-[90] w-72 rounded-2xl border border-white/10 bg-zinc-950/80 p-2 shadow-xl backdrop-blur-xl"
+          className="absolute left-0 top-full z-[90] w-72 rounded-2xl border border-zinc-900/8 bg-white p-2 text-zinc-900 shadow-[0_18px_42px_rgba(24,24,27,0.12)]"
           onMouseEnter={() => {
             clearCloseTimer();
             setOpen(true);
@@ -172,7 +172,7 @@ function DesktopDeptTabs({
             scheduleClose();
           }}
         >
-          <div className="type-ui-label px-3 pb-2 pt-2 text-white/56">
+          <div className="px-3 pb-2 pt-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-zinc-500">
             {activeDept?.name}
           </div>
           <ul className="max-h-[65vh] overflow-auto py-1">
@@ -181,14 +181,14 @@ function DesktopDeptTabs({
                 <li key={String(c.id ?? c.slug)}>
                   <Link
                     href={categoryHref(c.slug, activeDeptSlug)}
-                    className="type-card-title block rounded-xl px-3 py-2 text-white/88 transition hover:bg-white/5 hover:text-white"
+                    className="type-card-title block rounded-xl px-3 py-2 text-zinc-800 transition-colors duration-200 hover:bg-zinc-900/4 hover:text-zinc-950"
                   >
                     {c.name}
                   </Link>
                 </li>
               ))
             ) : (
-              <li className="type-ui-label px-3 py-3 text-white/60">Menú no disponible.</li>
+              <li className="type-ui-label px-3 py-3 text-zinc-500">Menú no disponible.</li>
             )}
           </ul>
         </div>
@@ -198,35 +198,52 @@ function DesktopDeptTabs({
 }
 
 export default function Navbar({
-  variant = "nav",
+  variant = "solid-internal",
   navDepartments,
   categories = [],
   onOpenMobileMenu = () => {},
   onToggleCart = () => {},
   cartCount,
-  isScrolled = false,
 }: NavbarProps) {
   // Única fuente de verdad de rutas
   const categoryHref = (slug: string, dept?: string) => categoryPath(slug, dept);
 
-  const isOverlay = variant === "overlay";
+  const appearance = variant;
+  const isOverlayHome = appearance === "overlay-home";
+  const isOverlayPdp = appearance === "overlay-pdp";
+  const isSolidInternal = appearance === "solid-internal";
+  const isOverlay = isOverlayHome || isOverlayPdp;
+  const showDesktopTabs = false;
 
-  const rootText = isOverlay ? "text-white" : "text-zinc-100";
+  const rootText = isOverlay ? "text-white" : "text-zinc-900";
 
-  const iconBtnClass =
-    "md:hidden relative z-50 pointer-events-auto inline-flex h-9 w-9 items-center justify-center text-white/80 transition hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30 leading-none";
+  const iconBtnClass = `relative z-20 pointer-events-auto inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 leading-none ${
+    isOverlay
+      ? "text-white hover:bg-white/10 hover:text-white focus-visible:ring-white/30"
+      : "text-zinc-700 hover:bg-zinc-900/5 hover:text-zinc-950 focus-visible:ring-zinc-900/15"
+  }`;
 
-  const desktopNavClass = isOverlay
-    ? "hidden md:flex items-center gap-6 pr-4 text-white/85"
-    : "hidden md:flex items-center gap-6 pr-4 text-white/80";
+  const desktopNavClass = `${showDesktopTabs ? "hidden md:flex" : "hidden"} items-center gap-6 pr-4 ${
+    isOverlay ? "text-white" : "text-zinc-700"
+  }`;
 
-  const linkClass = isOverlay ? "hover:text-white/90" : "hover:text-zinc-200";
+  const linkClass = `type-brand transition-colors duration-200 ${
+    isOverlay ? "text-white hover:text-white" : "text-zinc-600 hover:text-zinc-950"
+  }`;
 
-  const brandClass = "type-brand justify-self-center text-white/94 tracking-[0.12em]";
+  const brandClass = `type-brand relative z-10 justify-self-center tracking-[0.16em] transition-colors duration-200 ${
+    isOverlay ? "text-white" : "text-zinc-950"
+  }`;
 
-  const cartBtnClass = isOverlay
-    ? "relative rounded-lg p-1.5 text-white/90 transition hover:bg-white/10 hover:text-white leading-none"
-    : "relative rounded-lg p-1.5 text-white/80 transition hover:bg-white/5 hover:text-white leading-none";
+  const cartBtnClass = `relative z-20 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full p-1.5 transition-colors duration-200 leading-none pointer-events-auto ${
+    isOverlay
+      ? "text-white hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-white/30"
+      : "text-zinc-700 hover:bg-zinc-900/5 hover:text-zinc-950 focus-visible:ring-2 focus-visible:ring-zinc-900/15"
+  }`;
+
+  const cartBadgeClass = `type-ui-label pointer-events-none absolute -right-0.5 -top-0.5 z-10 select-none ${
+    isOverlay ? "text-white" : "text-zinc-950"
+  }`;
 
   const orderedDepts = Array.isArray(navDepartments)
     ? navDepartments.filter((dept) => Array.isArray(dept.categories) && dept.categories.length > 0)
@@ -242,11 +259,16 @@ export default function Navbar({
 
   return (
     <div
-      className={`mx-auto grid h-12 max-w-6xl grid-cols-[1fr_auto_1fr] items-center px-4 md:h-14 ${rootText}`}
-      data-scrolled={isScrolled ? "true" : "false"}
+      className={`mx-auto grid ${NAVBAR_HEIGHT_MOBILE_CLASS} ${NAVBAR_HEIGHT_DESKTOP_CLASS} w-full max-w-6xl grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center px-4 md:px-6 ${rootText}`}
+      data-appearance={appearance}
+      data-overlay-home={isOverlayHome ? "true" : "false"}
+      data-overlay-pdp={isOverlayPdp ? "true" : "false"}
+      data-solid-internal={isSolidInternal ? "true" : "false"}
+      data-layout-role="navbar"
+      data-height-source="header"
     >
       {/* Left: hamburger + desktop categories */}
-      <div className="flex items-center justify-self-start">
+      <div className="flex min-w-0 items-center justify-self-start overflow-visible">
         <button
           type="button"
           onClick={(e) => {
@@ -264,7 +286,11 @@ export default function Navbar({
 
         <nav className={desktopNavClass} aria-label="Categorías">
           {orderedDepts.length > 0 ? (
-            <DesktopDeptTabs orderedDepts={orderedDepts} initialSlug={initialSlug} categoryHref={categoryHref} />
+            <DesktopDeptTabs
+              orderedDepts={orderedDepts}
+              initialSlug={initialSlug}
+              categoryHref={categoryHref}
+            />
           ) : (
             orderedLegacyCategories.map((c) => (
               <Link key={String(c.id ?? c.slug)} href={categoryHref(c.slug)} className={linkClass}>
@@ -281,7 +307,7 @@ export default function Navbar({
       </Link>
 
       {/* Right: cart */}
-      <div className="flex items-center gap-3 justify-self-end">
+      <div className="flex min-w-0 items-center justify-self-end overflow-visible">
         <button
           type="button"
           onClick={() => {
@@ -293,8 +319,7 @@ export default function Navbar({
           <BagIcon className="h-6 w-6" />
           {cartCount > 0 && (
             <span
-              className="type-ui-label absolute right-1 top-1 z-10 select-none text-white drop-shadow-[0_6px_14px_rgba(0,0,0,0.85)]"
-              style={{ textShadow: "0 2px 10px rgba(0,0,0,0.75), 0 0 2px rgba(0,0,0,0.9)" }}
+              className={cartBadgeClass}
               aria-label={`Productos en el carrito: ${cartCount > 99 ? "99+" : cartCount}`}
             >
               {cartCount > 99 ? "99+" : cartCount}

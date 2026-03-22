@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Swiper, SwiperSlide } from "swiper/react";
 import type { Swiper as SwiperType } from "swiper";
 import { motion, useMotionValue, animate } from "framer-motion";
@@ -28,6 +29,7 @@ export default function ImageViewerModal({
   setIndex,
 }: ImageViewerModalProps) {
   const total = images?.length || 0;
+  const [mounted, setMounted] = useState(false);
 
   // keep index in range even if images array changes
   const safeIndex = useMemo(() => {
@@ -46,9 +48,9 @@ export default function ImageViewerModal({
   // Swipe-down to close (only when not zoomed)
   const y = useMotionValue(0);
 
-  const resetY = () => {
+  const resetY = useCallback(() => {
     animate(y, 0, { type: "spring", stiffness: 420, damping: 38 });
-  };
+  }, [y]);
 
   const toggleZoom = () => {
     const s: any = swiperRef.current as any;
@@ -65,15 +67,18 @@ export default function ImageViewerModal({
     if (delta > 0 && delta < DOUBLE_TAP_MS) toggleZoom();
   };
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // Keep local active index aligned with controlled index
   useEffect(() => {
     if (!open) return;
     setActive(safeIndex);
     setIsZoomed(false);
     resetY();
-    // Ensure any previous zoom is cleared
     (swiperRef.current as any)?.zoom?.out?.();
-  }, [open, safeIndex]);
+  }, [open, resetY, safeIndex]);
 
   // If parent changes index, sync Swiper
   useEffect(() => {
@@ -84,10 +89,22 @@ export default function ImageViewerModal({
   }, [open, safeIndex]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || !mounted) return;
 
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const html = document.documentElement;
+    const body = document.body;
+
+    const prevHtmlOverflow = html.style.overflow;
+    const prevHtmlOverscroll = html.style.overscrollBehavior;
+    const prevBodyOverflow = body.style.overflow;
+    const prevBodyOverscroll = body.style.overscrollBehavior;
+    const prevBodyTouchAction = body.style.touchAction;
+
+    html.style.overflow = "hidden";
+    html.style.overscrollBehavior = "none";
+    body.style.overflow = "hidden";
+    body.style.overscrollBehavior = "none";
+    body.style.touchAction = "none";
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -96,36 +113,53 @@ export default function ImageViewerModal({
     window.addEventListener("keydown", onKey);
 
     return () => {
-      document.body.style.overflow = prev;
+      html.style.overflow = prevHtmlOverflow;
+      html.style.overscrollBehavior = prevHtmlOverscroll;
+      body.style.overflow = prevBodyOverflow;
+      body.style.overscrollBehavior = prevBodyOverscroll;
+      body.style.touchAction = prevBodyTouchAction;
       window.removeEventListener("keydown", onKey);
     };
-  }, [open, onClose]);
+  }, [open, onClose, mounted]);
 
-  if (!open || !total) return null;
+  if (!open || !total || !mounted) return null;
 
-  return (
-    <div className="fixed inset-0 z-[200] bg-black">
-      {/* Close button (minimal, no header bar) */}
-      <div className="absolute right-4 z-[210] pt-[calc(env(safe-area-inset-top)+12px)]">
+  const modal = (
+    <div
+      className="fixed inset-0 z-[400] isolate bg-black/96"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Visor ampliado de producto"
+      onClick={onClose}
+    >
+      <div className="absolute inset-0 bg-black/96 backdrop-blur-[2px]" aria-hidden="true" />
+
+      {/* Close button */}
+      <div className="absolute right-4 top-0 z-[420] pt-[calc(env(safe-area-inset-top)+12px)]">
         <button
           type="button"
-          onClick={onClose}
-          className="p-2 text-white/70 hover:text-white/90 transition-colors"
+          onClick={(e) => {
+            e.stopPropagation();
+            onClose();
+          }}
+          className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/8 text-white/78 transition-colors hover:bg-white/12 hover:text-white"
           aria-label="Cerrar visor de imagen"
         >
-          <span aria-hidden="true" className="text-xl font-light leading-none">×</span>
+          <span aria-hidden="true" className="text-xl font-light leading-none">
+            ×
+          </span>
         </button>
       </div>
 
       {/* Swipe gallery */}
       <motion.div
-        className="absolute inset-0 z-[205] pt-[calc(env(safe-area-inset-top)+56px)] pb-[calc(env(safe-area-inset-bottom)+24px)]"
+        className="absolute inset-0 z-[410] pt-[calc(env(safe-area-inset-top)+56px)] pb-[calc(env(safe-area-inset-bottom)+24px)]"
         style={{ y }}
         drag={isZoomed ? false : "y"}
         dragConstraints={{ top: 0, bottom: 0 }}
         dragElastic={0.15}
+        onClick={(e) => e.stopPropagation()}
         onDragEnd={(_, info) => {
-          // Close if pulled enough or fast enough
           if (info.offset.y > 120 || info.velocity.y > 800) {
             onClose();
             return;
@@ -133,61 +167,64 @@ export default function ImageViewerModal({
           resetY();
         }}
       >
-        <Swiper
-          key={`viewer-${total}`}
-          initialSlide={safeIndex}
-          slidesPerView={1}
-          spaceBetween={0}
-          modules={[Zoom]}
-          zoom={{
-            maxRatio: 3,
-            minRatio: 1,
-          }}
-          allowTouchMove={!isZoomed}
-          onSwiper={(s) => {
-            swiperRef.current = s;
+        <div className="flex h-full w-full items-center justify-center">
+          <Swiper
+            key={`viewer-${total}`}
+            initialSlide={safeIndex}
+            slidesPerView={1}
+            spaceBetween={0}
+            modules={[Zoom]}
+            zoom={{
+              maxRatio: 3,
+              minRatio: 1,
+            }}
+            allowTouchMove={!isZoomed}
+            onSwiper={(s) => {
+              swiperRef.current = s;
+              (s as any).on?.("zoomChange", (_swiper: any, scale: number) => {
+                setIsZoomed(Number(scale) > 1);
+              });
+            }}
+            onSlideChange={(s) => {
+              (s as any).zoom?.out?.();
+              setIsZoomed(false);
+              resetY();
 
-            // Track zoom state so we can lock slide swipe + disable swipe-down-to-close
-            (s as any).on?.("zoomChange", (_swiper: any, scale: number) => {
-              setIsZoomed(Number(scale) > 1);
-            });
-          }}
-          onSlideChange={(s) => {
-            // When changing slide, always reset zoom + gesture state
-            (s as any).zoom?.out?.();
-            setIsZoomed(false);
-            resetY();
-
-            const i = s.activeIndex;
-            setActive(i);
-            setIndex(i);
-          }}
-          style={{ height: "100%" }}
-        >
-          {images.map((img, idx) => (
-            <SwiperSlide key={`${img.url}-${idx}`}>
-              <div
-                className="flex h-full w-full items-center justify-center px-3"
-                onDoubleClick={toggleZoom}
-                onTouchEnd={onTouchEndDoubleTap}
-              >
-                <div className="swiper-zoom-container flex h-full w-full items-center justify-center">
-                  <img
-                    src={img.url}
-                    alt={img.alt || "Imagen producto"}
-                    className="max-h-full max-w-full select-none object-contain"
-                    draggable={false}
-                  />
+              const i = s.activeIndex;
+              setActive(i);
+              setIndex(i);
+            }}
+            style={{ height: "100%", width: "100%" }}
+          >
+            {images.map((img, idx) => (
+              <SwiperSlide key={`${img.url}-${idx}`}>
+                <div
+                  className="flex h-full w-full items-center justify-center px-3 md:px-6"
+                  onDoubleClick={toggleZoom}
+                  onTouchEnd={onTouchEndDoubleTap}
+                >
+                  <div className="swiper-zoom-container flex h-full w-full items-center justify-center overflow-hidden">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={img.url}
+                      alt={img.alt || "Imagen producto"}
+                      className="max-h-full max-w-full select-none object-contain"
+                      draggable={false}
+                    />
+                  </div>
                 </div>
-              </div>
-            </SwiperSlide>
-          ))}
-        </Swiper>
+              </SwiperSlide>
+            ))}
+          </Swiper>
+        </div>
       </motion.div>
 
       {/* Dots */}
       {total > 1 ? (
-        <div className="absolute bottom-5 left-0 right-0 z-[210] flex justify-center gap-2">
+        <div
+          className="absolute bottom-5 left-0 right-0 z-[420] flex justify-center gap-2"
+          onClick={(e) => e.stopPropagation()}
+        >
           {images.map((_, idx) => {
             const isActive = idx === active;
             return (
@@ -208,4 +245,6 @@ export default function ImageViewerModal({
       ) : null}
     </div>
   );
+
+  return createPortal(modal, document.body);
 }

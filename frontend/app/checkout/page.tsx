@@ -1,5 +1,9 @@
 import CheckoutClient from "./CheckoutClient";
 
 export default function CheckoutPage() {
-  return <CheckoutClient />;
+  return (
+    <main className="page-shell page-shell--transactional min-h-screen">
+      <CheckoutClient />
+    </main>
+  );
 }

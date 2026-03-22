@@ -87,7 +87,7 @@ export default async function HomePage() {
   }
 
   return (
-    <>
+    <div className="home-page" data-page-type="home">
       {isDevEnvironment() ? (
         <>
           <Suspense fallback={null}>
@@ -99,36 +99,31 @@ export default async function HomePage() {
         </>
       ) : null}
 
-      {/* Hero full-bleed */}
+      {/* Home remains the controlled exception: it must start behind the fixed header instead of using the internal page shell offset. */}
       <HeroCarousel banners={banners} />
 
-      {/* Spacer between Hero and TOP promos */}
+      {/* Post-hero spacing begins only after the carousel so the home page does not break the full-bleed overlay start. */}
       <div className="h-10 md:h-14" />
 
-      {/* PROMOS TOP (full-bleed, same level as Hero) */}
       <HomepagePromos placement="TOP" />
 
-      {/* Spacer after TOP promos */}
       <div className="h-10 md:h-14" />
 
-      {/* Content sections with consistent spacing */}
-      <main className="mx-auto max-w-6xl space-y-14 px-4 py-12 md:space-y-20 md:py-16">
-        {/* PROMOS (identity / gallery) */}
-        <section>
-          <HomepagePromos placement="MID" />
-        </section>
+      {/* Only post-hero home content gets normal spacing; internal pages use the shared page-shell/page-intro convention instead. */}
+      <main className="mx-auto max-w-6xl space-y-14 px-4 py-12 md:px-6 md:space-y-20 md:py-16">
+        <HomepagePromos placement="MID" />
 
         {story ? (
           <section aria-label="Nuestra historia">
             <BrandStory story={story} />
           </section>
         ) : process.env.NODE_ENV !== "production" ? (
-          <section className="rounded-xl border border-white/10 bg-neutral-900/40 p-4 text-sm text-neutral-400">
-            No llegó contenido de <code className="text-neutral-200">/api/home_sections/</code>. Revisa que exista al menos 1
-            registro activo en Django Admin → <span className="text-neutral-200">Secciones de Home</span>.
+          <section className="rounded-2xl border border-zinc-900/8 bg-white/78 p-4 text-sm text-zinc-600 shadow-[0_16px_40px_rgba(24,24,27,0.06)] backdrop-blur-sm">
+            No llegó contenido de <code className="text-zinc-900">/api/home_sections/</code>. Revisa que exista al menos 1
+            registro activo en Django Admin → <span className="text-zinc-900">Secciones de Home</span>.
           </section>
         ) : null}
       </main>
-    </>
+    </div>
   );
 }

@@ -52,18 +52,22 @@ export function ProductGallery({ images, productName, soldOut = false, variant =
   const isPdp = variant === "pdp";
 
   const wrapperClass = isPdp
-    ? "relative aspect-square w-full overflow-hidden rounded-none border-0 bg-transparent shadow-none"
-    : "relative aspect-square w-full overflow-hidden rounded-2xl bg-neutral-950/40 border border-white/10";
+    ? "relative aspect-square w-full overflow-hidden rounded-none border-0 bg-transparent shadow-none isolate"
+    : "relative aspect-square w-full overflow-hidden rounded-2xl border border-zinc-900/8 bg-white/80 shadow-[0_12px_30px_rgba(24,24,27,0.06)]";
 
   const emptyClass = isPdp
     ? "aspect-square w-full overflow-hidden rounded-none bg-transparent border-0 shadow-none"
-    : "aspect-square w-full overflow-hidden rounded-2xl bg-neutral-950/40 border border-white/10";
+    : "aspect-square w-full overflow-hidden rounded-2xl border border-zinc-900/8 bg-white/80 shadow-[0_12px_30px_rgba(24,24,27,0.06)]";
+
+  const imageClass = isPdp
+    ? "object-contain cursor-zoom-in bg-transparent"
+    : "object-contain cursor-zoom-in bg-transparent";
 
   if (slides.length === 0) {
     return (
       <div className={emptyClass}>
-        <div className="flex h-full items-center justify-center text-slate-400">
-          <svg className="h-24 w-24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className={`flex h-full items-center justify-center ${isPdp ? "text-zinc-500" : "text-zinc-400"}`}>
+          <svg className="h-20 w-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14" />
           </svg>
         </div>
@@ -86,7 +90,7 @@ export function ProductGallery({ images, productName, soldOut = false, variant =
       >
         {slides.map((img, index) => (
           <SwiperSlide key={`${img.url}-${index}`}>
-            <div className="relative w-full aspect-square">
+            <div className="relative w-full aspect-square bg-transparent">
               {(() => {
                 const baseSrc = (img.thumb_url ?? img.url) || null;
                 const src = baseSrc ? `${baseSrc}?v=${index}` : null;
@@ -103,7 +107,7 @@ export function ProductGallery({ images, productName, soldOut = false, variant =
                     sizes="(max-width: 768px) 100vw, 50vw"
                     priority={index === 0}
                     {...(index === 0 ? {} : { loading: "lazy" as const })}
-                    className="object-contain cursor-zoom-in"
+                    className={imageClass}
                     onClick={() => openLightbox(index === activeIndex ? activeIndex : index)}
                   />
                 );
@@ -123,6 +127,13 @@ export function ProductGallery({ images, productName, soldOut = false, variant =
         setIndex={setLightboxIndex}
       />
       <style jsx global>{`
+        .k-gallery-swiper,
+        .k-gallery-swiper .swiper,
+        .k-gallery-swiper .swiper-wrapper,
+        .k-gallery-swiper .swiper-slide {
+          background: transparent !important;
+        }
+
         .k-gallery-swiper .swiper-pagination {
           bottom: 12px;
         }
@@ -131,7 +142,7 @@ export function ProductGallery({ images, productName, soldOut = false, variant =
           width: 5px;
           height: 5px;
           margin: 0 5px !important;
-          background: rgba(255, 255, 255, 0.22);
+          background: rgba(39, 39, 42, 0.18);
           opacity: 0.9;
           transition: transform 180ms ease, background-color 180ms ease, opacity 180ms ease;
         }
@@ -143,7 +154,7 @@ export function ProductGallery({ images, productName, soldOut = false, variant =
         }
 
         .k-gallery-swiper .swiper-pagination-bullet:hover {
-          background: rgba(255, 255, 255, 0.32);
+          background: rgba(39, 39, 42, 0.30);
           opacity: 1;
         }
       `}</style>

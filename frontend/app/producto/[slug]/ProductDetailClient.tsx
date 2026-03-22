@@ -61,8 +61,6 @@ type PDPViewModel = {
 interface ProductDetailClientProps {
   product: PDPViewModel;
 }
-
-
 type SelectionState = {
   variantSchema: VariantSchema;
   requiresValue: boolean;
@@ -400,35 +398,31 @@ function ProductMedia({
   soldOut: boolean;
 }) {
   return (
-    <div>
-      <div className="pdp-hero">
-        <div className="pdp-hero-bleed">
-          {galleryImages.length > 0 ? (
-            <ProductGallery
-              images={galleryImages}
-              productName={productName}
-              soldOut={soldOut}
-              variant="pdp"
+    <div className="pdp-hero relative z-0">
+      <div className="pdp-hero-bleed pdp-no-top-wash relative z-0">
+        {galleryImages.length > 0 ? (
+          <ProductGallery
+            images={galleryImages}
+            productName={productName}
+            soldOut={soldOut}
+            variant="pdp"
+          />
+        ) : fallbackImage ? (
+          <div className="aspect-square w-full bg-zinc-100">
+            <img
+              src={fallbackImage}
+              alt={productName || "Producto"}
+              className="h-full w-full object-cover"
+              loading="eager"
             />
-          ) : fallbackImage ? (
-            <div className="aspect-square w-full bg-black/20">
-              <img
-                src={fallbackImage}
-                alt={productName || "Producto"}
-                className="h-full w-full object-cover"
-                loading="eager"
-              />
+          </div>
+        ) : (
+          <div className="aspect-square w-full bg-zinc-100">
+            <div className="flex h-full w-full items-center justify-center text-neutral-600">
+              Sin imagen
             </div>
-          ) : (
-            <div className="aspect-square w-full bg-black/20">
-              <div className="flex h-full w-full items-center justify-center text-neutral-600">
-                Sin imagen
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="pdp-hero-fade" />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -436,15 +430,15 @@ function ProductMedia({
 
 function ProductHeader({ name, price, slug }: { name: string; price: string; slug: string }) {
   return (
-    <div className="relative flex items-start gap-3">
+    <div className="relative z-0 flex items-start gap-3">
       <div className="pr-12">
-        <h1 className="type-page-title max-w-[12ch] text-neutral-100 md:max-w-[14ch]">
+        <h1 className="type-page-title max-w-[12ch] text-zinc-950 md:max-w-[14ch]">
           {name}
         </h1>
-        <p className="type-body mt-2 text-white/72">{formatPriceCOP(price)}</p>
+        <p className="type-price mt-2 text-zinc-600">{formatPriceCOP(price)}</p>
       </div>
 
-      <div className="absolute right-0 top-0">
+      <div className="absolute right-0 top-0 z-0">
         <ShareButton
           title={`${name} | Kame.Col`}
           url={`/producto/${encodeURIComponent(slug)}`}
@@ -495,7 +489,7 @@ function ProductSelectors({
         <div>
           {requiresColor && colorOptions.length > 0 ? (
             <>
-              <div className="type-section-title md:justify-end">Color</div>
+              <div className="type-section-title text-zinc-600">Color</div>
               <div className="pdp-variant-section">
                 <div className="pdp-color-grid">
                   {colorOptions.map((color) => {
@@ -533,7 +527,7 @@ function ProductSelectors({
           {requiresValue && valueOptions.length > 0 ? (
             <>
               <div className="flex items-center justify-between gap-3">
-                <div className="type-section-title">Talla</div>
+                <div className="type-section-title text-zinc-600">Talla</div>
                 {sizeGuideTrigger}
               </div>
 
@@ -593,20 +587,20 @@ function ProductPurchaseBox({
 }) {
   return (
     <div className="mt-6">
-      <div className="type-body mb-3 flex flex-wrap items-center gap-2 text-white/65">
+      <div className="type-body mb-3 flex flex-wrap items-center gap-2 text-zinc-600">
         {isInvalidCombo ? (
-          <span className="type-body text-white/60">
+          <span className="type-body text-zinc-500">
             Esta combinación no está disponible. Prueba otra talla o color.
           </span>
         ) : availableStock > 0 ? (
-          <span className="type-body text-white/72">
+          <span className="type-body text-zinc-600">
             {availableStock} unidad{availableStock !== 1 ? "es" : ""} disponible
             {availableStock !== 1 ? "s" : ""}
           </span>
         ) : selectedVariant ? (
-          <span className="type-body text-white/60">Agotado</span>
+          <span className="type-body text-zinc-500">Agotado</span>
         ) : (
-          <span className="type-body text-white/60">{helperSelectionText}</span>
+          <span className="type-body text-zinc-500">{helperSelectionText}</span>
         )}
       </div>
 
@@ -616,7 +610,7 @@ function ProductPurchaseBox({
         disabled={!canAdd}
         variant="primary"
         fullWidth
-        className="type-action rounded-xl disabled:bg-white/10 disabled:text-white/70 disabled:shadow-none"
+        className="type-action rounded-xl disabled:border disabled:border-zinc-900/8 disabled:bg-zinc-200 disabled:text-zinc-500 disabled:shadow-none"
       >
         {canAdd ? "Agregar al carrito" : "Sin stock"}
       </Button>
@@ -636,14 +630,14 @@ function ProductDescription({
   if (!description) return null;
 
   return (
-    <section className="mt-8 border-t border-white/10 pt-6">
-      <h2 className="type-section-title text-neutral-100">Descripción</h2>
+    <section className="mt-8 border-t border-zinc-900/8 pt-6">
+      <h2 className="type-section-title text-zinc-700">Descripción</h2>
 
       <div
         className={
           expanded
-            ? "type-body mt-3 whitespace-pre-wrap text-white/84"
-            : "type-body mt-3 whitespace-pre-wrap text-white/84 line-clamp-4"
+            ? "type-body mt-3 whitespace-pre-wrap text-zinc-700"
+            : "type-body mt-3 whitespace-pre-wrap text-zinc-700 line-clamp-4"
         }
       >
         {description}
@@ -653,7 +647,7 @@ function ProductDescription({
         <button
           type="button"
           onClick={onToggle}
-          className="type-action text-white/85 hover:text-white"
+          className="type-action text-zinc-700 transition-colors duration-200 hover:text-zinc-950"
         >
           {expanded ? "Ver menos" : "Ver más"}
         </button>
@@ -751,7 +745,10 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
   };
 
   return (
-    <section className="mx-auto max-w-6xl pt-0 pb-6 md:pb-10">
+    <section
+      className="page-shell--with-header pdp-shell pdp-shell--hero relative z-0 mx-auto max-w-6xl pb-6 md:pb-10"
+      data-pdp-layout="hero-media"
+    >
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-10">
         <ProductMedia
           productName={product.name}
@@ -760,7 +757,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
           soldOut={selection.uiSoldOut}
         />
 
-        <div className="px-4 pt-4 md:px-6">
+        <div className="pdp-content-start relative z-0 px-4 md:px-6">
           <ProductHeader
             name={product.name}
             price={product.price}
