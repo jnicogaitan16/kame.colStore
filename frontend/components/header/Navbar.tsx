@@ -15,6 +15,7 @@ export type NavbarProps = {
   onToggleCart?: () => void;
   cartCount: number;
   variant?: HeaderAppearance;
+  cartTargetRef?: React.Ref<HTMLButtonElement>;
 };
 
 const NAVBAR_HEIGHT_MOBILE_CLASS = "h-12";
@@ -204,6 +205,7 @@ export default function Navbar({
   onOpenMobileMenu = () => {},
   onToggleCart = () => {},
   cartCount,
+  cartTargetRef,
 }: NavbarProps) {
   // Única fuente de verdad de rutas
   const categoryHref = (slug: string, dept?: string) => categoryPath(slug, dept);
@@ -216,6 +218,9 @@ export default function Navbar({
   const showDesktopTabs = false;
 
   const rootText = isOverlay ? "text-white" : "text-zinc-900";
+  const rootSurfaceClass = isOverlay
+    ? "bg-transparent backdrop-blur-none shadow-none [background-image:none] before:hidden after:hidden"
+    : "bg-white/90 backdrop-blur-md shadow-sm [background-image:none] before:hidden after:hidden";
 
   const iconBtnClass = `relative z-20 pointer-events-auto inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 leading-none ${
     isOverlay
@@ -259,7 +264,7 @@ export default function Navbar({
 
   return (
     <div
-      className={`mx-auto grid ${NAVBAR_HEIGHT_MOBILE_CLASS} ${NAVBAR_HEIGHT_DESKTOP_CLASS} w-full max-w-6xl grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center px-4 md:px-6 ${rootText}`}
+      className={`mx-auto grid ${NAVBAR_HEIGHT_MOBILE_CLASS} ${NAVBAR_HEIGHT_DESKTOP_CLASS} w-full max-w-6xl grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center px-4 md:px-6 transition-[background-color,backdrop-filter,box-shadow,background-image] duration-300 ${rootText} ${rootSurfaceClass}`}
       data-appearance={appearance}
       data-overlay-home={isOverlayHome ? "true" : "false"}
       data-overlay-pdp={isOverlayPdp ? "true" : "false"}
@@ -309,12 +314,14 @@ export default function Navbar({
       {/* Right: cart */}
       <div className="flex min-w-0 items-center justify-self-end overflow-visible">
         <button
+          ref={cartTargetRef}
           type="button"
           onClick={() => {
             if (typeof onToggleCart === "function") onToggleCart();
           }}
           className={cartBtnClass}
           aria-label="Ver carrito"
+          data-cart-target="true"
         >
           <BagIcon className="h-6 w-6" />
           {cartCount > 0 && (

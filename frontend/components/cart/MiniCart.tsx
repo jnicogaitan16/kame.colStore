@@ -49,31 +49,6 @@ function parseFiniteNumber(value: unknown): number {
   return Number.isFinite(parsed) ? parsed : NaN;
 }
 
-function resolveAvailableQuantity(
-  warning:
-    | {
-        available?: unknown;
-        available_stock?: unknown;
-        available_qty?: unknown;
-        stock_available?: unknown;
-        stock?: unknown;
-        remaining?: unknown;
-      }
-    | undefined,
-  fallback = 0
-): number {
-  const availableRaw =
-    warning?.available ??
-    warning?.available_stock ??
-    warning?.available_qty ??
-    warning?.stock_available ??
-    warning?.stock ??
-    warning?.remaining;
-
-  const parsed = parseFiniteNumber(availableRaw);
-  if (!Number.isFinite(parsed)) return fallback;
-  return Math.max(0, Math.floor(parsed));
-}
 
 function normalizeCartStockState(
   item: Pick<MiniCartItemLike, "quantity">,
@@ -129,7 +104,7 @@ function normalizeCartStockState(
     if (isLastUnit) {
       return {
         status: "low",
-        message: "Última pieza de este drop",
+        message: "Última pieza",
       };
     }
 
@@ -151,7 +126,7 @@ function normalizeCartStockState(
   if (hint?.kind === "last_unit") {
     return {
       status: "low",
-      message: "Última pieza de este drop",
+      message: "Última pieza",
     };
   }
 
@@ -170,7 +145,6 @@ function MiniCart({ open, onClose }: MiniCartProps) {
   // Block D: cart-specific content and store bindings
   const items = useCartStore((s) => s.items);
   const removeItem = useCartStore((s) => s.removeItem);
-  const updateQuantity = useCartStore((s) => s.updateQuantity);
   const stockWarningsByVariantId = useCartStore((s) => s.stockWarningsByVariantId);
   const stockHintsByVariantId = useCartStore((s) => s.stockHintsByVariantId);
   const [animateIn, setAnimateIn] = useState(false);
@@ -383,7 +357,6 @@ function MiniCart({ open, onClose }: MiniCartProps) {
               const stockHint = stockHintsByVariantId[key];
               const stockWarning = stockWarningsByVariantId[key];
               const stockState = normalizeCartStockState(item, stockHint, stockWarning);
-              const availableQuantity = resolveAvailableQuantity(stockWarning, item.quantity);
 
               const typedItem = item as MiniCartItemLike;
               const product = typedItem.product ?? null;
@@ -396,7 +369,7 @@ function MiniCart({ open, onClose }: MiniCartProps) {
               const alt = product?.name || typedItem.productName || "Producto";
 
               return (
-                <li key={item.variantId} className="flex items-start gap-3.5 border-b border-zinc-900/8 px-5 py-4.5">
+                <li key={item.variantId} className="flex items-start gap-3.5 border-b border-zinc-900/8 px-5 py-5">
                   <div className="relative w-16 h-16 shrink-0 overflow-hidden product-media-surface">
                     {thumb ? (
                       <Image
@@ -426,18 +399,13 @@ function MiniCart({ open, onClose }: MiniCartProps) {
                     <p className="type-ui-label mt-1.5 text-zinc-500">{item.variantLabel}</p>
 
                     {stockState ? (
-                      <div className="mt-2.5 min-w-0 max-w-[15.75rem] pr-1">
+                      <div className="mt-2.5 min-w-0 max-w-[13.25rem] pr-2">
                         <StockWarningChip
                           status={stockState.status}
                           message={stockState.message}
                           detail={stockState.detail}
                           compact
                           className="w-full"
-                          onAdjust={
-                            stockState.status === "over"
-                              ? () => updateQuantity(item.variantId, availableQuantity)
-                              : undefined
-                          }
                         />
                       </div>
                     ) : null}
@@ -447,7 +415,7 @@ function MiniCart({ open, onClose }: MiniCartProps) {
                           type="button"
                           onClick={() => {
                             const nextQty = item.quantity - 1;
-                            updateQuantity(item.variantId, nextQty);
+                            useCartStore.getState().updateQuantity(item.variantId, nextQty);
                           }}
                           className="pill h-8 w-8 border border-zinc-900/10 bg-white/92 p-0 text-zinc-800 hover:bg-white"
                         >
@@ -458,7 +426,7 @@ function MiniCart({ open, onClose }: MiniCartProps) {
                           type="button"
                           onClick={() => {
                             const nextQty = item.quantity + 1;
-                            updateQuantity(item.variantId, nextQty);
+                            useCartStore.getState().updateQuantity(item.variantId, nextQty);
                           }}
                           className="pill h-8 w-8 border border-zinc-900/10 bg-white/92 p-0 text-zinc-800 hover:bg-white"
                         >

@@ -85,7 +85,7 @@ function normalizeStockVisualState(params: {
     if (isLastUnit) {
       return {
         status: "low",
-        message: "Última pieza de este drop",
+        message: "Última pieza",
       };
     }
 
@@ -107,7 +107,7 @@ function normalizeStockVisualState(params: {
   if (hint?.kind === "last_unit") {
     return {
       status: "low",
-      message: "Última pieza de este drop",
+      message: "Última pieza",
     };
   }
 
@@ -219,12 +219,18 @@ export default function CheckoutSummary({
                               detail={stockState.detail}
                               compact
                               className="w-full"
-                              onAdjust={
-                                canAdjust
-                                  ? () => handleAdjustToAvailable(undefined, item.variantId)
-                                  : undefined
-                              }
                             />
+                            {canAdjust && stockState.status === "over" ? (
+                              <div className="mt-2">
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleAdjustToAvailable(e, item.variantId)}
+                                  className="inline-flex min-h-0 w-auto items-center justify-center rounded-full border border-zinc-900/10 bg-zinc-900 px-3 py-1.5 text-[11px] font-medium leading-none tracking-[0.01em] text-white transition-colors hover:bg-zinc-800 active:bg-black focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900/15"
+                                >
+                                  Ajustar cantidad disponible
+                                </button>
+                              </div>
+                            ) : null}
                           </div>
                         ) : null}
                       </div>

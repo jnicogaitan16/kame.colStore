@@ -218,7 +218,7 @@ def validate_cart_stock(items: List[dict], *, strict_stock: bool | None = None, 
 
         # Hint: last unit
         if available == 1 and requested_total == 1:
-            hints[variant_id] = {"kind": "last_unit", "message": "Última pieza de este drop"}
+            hints[variant_id] = {"kind": "last_unit", "message": "Última pieza"}
 
         if requested_total > available:
             warnings[variant_id] = {

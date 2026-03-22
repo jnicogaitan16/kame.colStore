@@ -5,6 +5,7 @@ import "./globals.css";
 import HeaderServer from "@/components/header/HeaderServer";
 import { MiniCart } from "@/components/cart/MiniCart";
 import { CartHydration } from "@/components/cart/CartHydration";
+import CartAddFlyout from "@/components/cart/CartAddFlyout";
 import Footer from "@/components/layout/Footer";
 
 const inter = Inter({
@@ -67,6 +68,7 @@ export default function RootLayout({
         <div className="site-shell min-h-screen bg-stone-50 text-zinc-950">
           <CartHydration />
           <HeaderServer />
+          <CartAddFlyout />
           {/*
             Keep the global shell neutral.
             Do not add global top padding here to "fix" internal pages, because that would break

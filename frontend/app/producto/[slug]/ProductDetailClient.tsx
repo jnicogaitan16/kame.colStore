@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 
 import { useCartStore } from "@/store/cart";
@@ -576,15 +576,19 @@ function ProductPurchaseBox({
   canAdd,
   helperSelectionText,
   isInvalidCombo,
+  isSubmittingToCart,
   onAddToCart,
   selectedVariant,
+  triggerRef,
 }: {
   availableStock: number;
   canAdd: boolean;
   helperSelectionText: string;
   isInvalidCombo: boolean;
+  isSubmittingToCart: boolean;
   onAddToCart: () => void;
   selectedVariant: ProductVariant | null;
+  triggerRef: React.Ref<HTMLDivElement>;
 }) {
   return (
     <div className="mt-6">
@@ -605,16 +609,18 @@ function ProductPurchaseBox({
         )}
       </div>
 
-      <Button
-        type="button"
-        onClick={onAddToCart}
-        disabled={!canAdd}
-        variant="primary"
-        fullWidth
-        className="pdp-cta-refined w-full min-h-[3rem] rounded-[0.5rem] disabled:border disabled:border-zinc-900/8 disabled:bg-zinc-200 disabled:text-zinc-500 disabled:shadow-none"
-      >
-        {canAdd ? "Agregar al carrito" : "Sin stock"}
-      </Button>
+      <div ref={triggerRef}>
+        <Button
+          type="button"
+          onClick={onAddToCart}
+          disabled={!canAdd || isSubmittingToCart}
+          variant="primary"
+          fullWidth
+          className="pdp-cta-refined w-full min-h-[3rem] rounded-[0.5rem] disabled:border disabled:border-zinc-900/8 disabled:bg-zinc-200 disabled:text-zinc-500 disabled:shadow-none"
+        >
+          {canAdd ? "Agregar al carrito" : "Sin stock"}
+        </Button>
+      </div>
     </div>
   );
 }
@@ -659,10 +665,11 @@ function ProductDescription({
 
 export function ProductDetailClient({ product }: ProductDetailClientProps) {
   const addItem = useCartStore((state) => state.addItem);
-  const openCart = useCartStore((state) => state.openCart);
 
   const [detailsExpanded, setDetailsExpanded] = useState(false);
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
+  const [isSubmittingToCart, setIsSubmittingToCart] = useState(false);
+  const addToCartButtonRef = useRef<HTMLDivElement>(null);
 
   const selection = useProductSelection(product);
   const sizeGuideKey = resolveSizeGuideKey(product.category?.slug);
@@ -698,15 +705,40 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
     </button>
   ) : null;
 
-  const handleAddToCart = () => {
-    if (selection.isInvalidCombo) return;
+  const triggerCartFlyAnimation = (imageUrl: string | null) => {
+    if (typeof window === "undefined") return;
 
-    const variants = product.variants ?? [];
+    const sourceRect = addToCartButtonRef.current?.getBoundingClientRect();
+    if (!sourceRect) return;
+
+    window.dispatchEvent(
+      new CustomEvent("cart:fly-to-cart", {
+        detail: {
+          imageUrl,
+          productId: product.id,
+          variantId: selection.selectedVariant?.id ?? null,
+          sourceRect: {
+            top: sourceRect.top,
+            left: sourceRect.left,
+            width: sourceRect.width,
+            height: sourceRect.height,
+          },
+        },
+      })
+    );
+  };
+
+  const handleAddToCart = () => {
+    if (selection.isInvalidCombo || isSubmittingToCart) return;
+
+    const variants = product.variants ?? EMPTY_VARIANTS;
 
     if (selection.variantSchema === "no_variant") {
       const variant = variants.length === 1 ? variants[0] : null;
       if (!variant) return;
       if ((product.stock_total ?? 0) <= 0) return;
+
+      setIsSubmittingToCart(true);
 
       addItem(
         {
@@ -721,13 +753,16 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
         1
       );
 
-      openCart();
+      triggerCartFlyAnimation(resolvedPrimaryImage);
+      window.setTimeout(() => setIsSubmittingToCart(false), 320);
       return;
     }
 
     const variantToAdd =
       selection.selectedVariant ?? (variants.length === 1 ? variants[0] : null);
     if (!variantToAdd) return;
+
+    setIsSubmittingToCart(true);
 
     addItem(
       {
@@ -742,7 +777,8 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
       1
     );
 
-    openCart();
+    triggerCartFlyAnimation(resolvedPrimaryImage);
+    window.setTimeout(() => setIsSubmittingToCart(false), 320);
   };
 
   return (
@@ -775,8 +811,10 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
             canAdd={selection.canAdd}
             helperSelectionText={selection.helperSelectionText}
             isInvalidCombo={selection.isInvalidCombo}
+            isSubmittingToCart={isSubmittingToCart}
             onAddToCart={handleAddToCart}
             selectedVariant={selection.selectedVariant}
+            triggerRef={addToCartButtonRef}
           />
 
           <ProductDescription

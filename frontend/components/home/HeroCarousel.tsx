@@ -137,9 +137,7 @@ export function HeroCarousel({ banners }: { banners: HeroCarouselBannersProp }) 
                         }
                         sizes="100vw"
                       />
-                      <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/12" />
-                      <div className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-28 bg-gradient-to-b from-black/42 via-black/24 to-transparent md:h-32" />
-                      <div className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-16 bg-black/10 md:h-20" />
+                      <div className="absolute inset-0 bg-gradient-to-b from-black/6 via-transparent to-black/12" />
                     </>
                   ) : (
                     <>
@@ -150,13 +148,13 @@ export function HeroCarousel({ banners }: { banners: HeroCarouselBannersProp }) 
                             "radial-gradient(1200px 620px at 50% 0%, rgba(255,255,255,0.55), rgba(255,255,255,0) 52%), linear-gradient(135deg, rgba(247,245,242,1) 0%, rgba(255,255,255,1) 38%, rgba(244,244,245,1) 100%)",
                         }}
                       />
-                      <div className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-28 bg-gradient-to-b from-black/18 via-black/8 to-transparent md:h-32" />
+                      <div className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-14 bg-gradient-to-b from-black/8 via-black/4 to-transparent md:h-16" />
                     </>
                   )}
                   {/* Premium highlights: soft top glow + subtle vertical sheen */}
                   <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_70%_at_50%_0%,rgba(255,255,255,0.18)_0%,rgba(255,255,255,0)_58%)]" />
                   <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.04)_0%,rgba(255,255,255,0)_28%,rgba(255,255,255,0)_72%,rgba(255,255,255,0.03)_100%)] opacity-55" />
-                  <div className="pointer-events-none absolute inset-x-0 top-0 z-[2] h-24 bg-[linear-gradient(180deg,rgba(8,8,10,0.20)_0%,rgba(8,8,10,0.10)_45%,rgba(8,8,10,0)_100%)] md:h-28" />
+                  <div className="pointer-events-none absolute inset-x-0 top-0 z-[2] h-10 bg-[linear-gradient(180deg,rgba(8,8,10,0.08)_0%,rgba(8,8,10,0.04)_45%,rgba(8,8,10,0)_100%)] md:h-12" />
                   {slideFailed ? (
                     <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.18),rgba(244,244,245,0.34))]" />
                   ) : null}
