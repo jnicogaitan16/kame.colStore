@@ -314,7 +314,6 @@ export default function CheckoutClient() {
     handleSubmit,
     watch,
     setError,
-    setFocus,
     setValue,
     formState: { errors },
   } = useForm<CheckoutFormValues>({
