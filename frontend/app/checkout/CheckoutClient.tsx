@@ -372,26 +372,23 @@ export default function CheckoutClient() {
 
   function focusAndScrollField(field: keyof CheckoutFormValues) {
     try {
-      setFocus(field);
-    } catch {
-      // ignore
-    }
-
-    try {
       window.requestAnimationFrame(() => {
         const el = findFieldElement(String(field));
         if (!el) return;
 
         try {
-          el.scrollIntoView({ behavior: "smooth", block: "center" });
+          if (typeof el.focus === "function") {
+            el.focus({ preventScroll: true });
+          }
         } catch {
           // ignore
         }
 
         try {
-          if (typeof el.focus === "function") {
-            el.focus();
-          }
+          el.scrollIntoView({
+            behavior: "smooth",
+            block: "nearest",
+          });
         } catch {
           // ignore
         }
@@ -640,9 +637,9 @@ export default function CheckoutClient() {
       if (e.kind === "validation" && hasItemsValidation) {
         setSubmitNotice({
           variant: "warning",
-          title: "Drop casi agotado",
+          title: "Stock limitado",
           message:
-            "La cantidad que pediste supera las unidades disponibles para uno o más productos. Ajusta tu pedido y vuelve a intentar.",
+            "Algunos productos ya no tienen la cantidad seleccionada. Ajusta tu pedido para continuar.",
         });
         return;
       }
@@ -670,9 +667,9 @@ export default function CheckoutClient() {
 
         setSubmitNotice({
           variant: "warning",
-          title: "Drop casi agotado",
+          title: "Stock limitado",
           message:
-            "La cantidad que pediste supera las unidades disponibles para uno o más productos. Ajusta tu pedido y vuelve a intentar.",
+            "Algunos productos ya no tienen la cantidad seleccionada. Ajusta tu pedido para continuar.",
         });
         return;
       }

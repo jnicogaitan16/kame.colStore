@@ -72,7 +72,7 @@ function fieldLabelClass() {
 
 function fieldControlClass(hasError: boolean, extra?: string) {
   return (
-    "field-control h-12 w-full rounded-2xl border bg-white px-4 py-3 text-[15px] text-zinc-950 placeholder:text-zinc-400 outline-none transition shadow-[0_1px_2px_rgba(15,23,42,0.03)] focus:border-zinc-900/18 focus:ring-2 focus:ring-zinc-900/8 md:text-sm " +
+    "field-control h-12 w-full rounded-2xl border bg-white px-4 py-3 text-[16px] text-zinc-950 placeholder:text-zinc-400 outline-none transition shadow-[0_1px_2px_rgba(15,23,42,0.03)] focus:border-zinc-900/18 focus:ring-2 focus:ring-zinc-900/8 md:text-[16px] " +
     (hasError
       ? "border-rose-400/70 ring-rose-400/15 focus:border-rose-500/70 focus:ring-rose-500/15 "
       : "border-zinc-900/10 ") +
@@ -82,7 +82,7 @@ function fieldControlClass(hasError: boolean, extra?: string) {
 
 function fieldTextareaClass(hasError: boolean, extra?: string) {
   return (
-    "field-textarea min-h-[112px] w-full resize-none rounded-2xl border bg-white px-4 py-3 text-[15px] text-zinc-950 placeholder:text-zinc-400 outline-none transition shadow-[0_1px_2px_rgba(15,23,42,0.03)] focus:border-zinc-900/18 focus:ring-2 focus:ring-zinc-900/8 md:text-sm " +
+    "field-textarea min-h-[112px] w-full resize-none rounded-2xl border bg-white px-4 py-3 text-[16px] text-zinc-950 placeholder:text-zinc-400 outline-none transition shadow-[0_1px_2px_rgba(15,23,42,0.03)] focus:border-zinc-900/18 focus:ring-2 focus:ring-zinc-900/8 md:text-[16px] " +
     (hasError
       ? "border-rose-400/70 ring-rose-400/15 focus:border-rose-500/70 focus:ring-rose-500/15 "
       : "border-zinc-900/10 ") +
@@ -104,7 +104,7 @@ function fieldAddonClass() {
 }
 
 function fieldAddonInputClass() {
-  return "h-full w-full rounded-r-2xl border-0 bg-transparent px-4 text-[15px] text-zinc-950 placeholder:text-zinc-400 outline-none md:text-sm";
+  return "h-full w-full rounded-r-2xl border-0 bg-transparent px-4 text-[16px] text-zinc-950 placeholder:text-zinc-400 outline-none md:text-[16px]";
 }
 
 export default function CheckoutForm({

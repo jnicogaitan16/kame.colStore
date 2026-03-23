@@ -76,7 +76,7 @@ function normalizeStockVisualState(params: {
       return {
         status: "over",
         message: "Stock limitado",
-        detail: "Ajusta tu selección",
+        detail: "Ajusta tu cantidad para continuar",
       };
     }
 
@@ -92,15 +92,15 @@ function normalizeStockVisualState(params: {
     if (hasAvailable) {
       return {
         status: "low",
-        message: "Drop casi agotado",
-        detail: "Quedan pocas piezas",
+        message: "Últimas unidades",
+        detail: "Disponibilidad reducida",
       };
     }
 
     return {
       status: "over",
       message: "Stock limitado",
-      detail: "Ajusta tu selección",
+      detail: "Ajusta tu cantidad para continuar",
     };
   }
 
@@ -170,14 +170,14 @@ export default function CheckoutSummary({
                     className="summary-item flex items-start justify-between gap-3.5 border-b border-zinc-900/8 py-3.5 first:pt-0 last:border-b-0 last:pb-0"
                   >
                     <div className="flex min-w-0 flex-1 items-start gap-3.5 pr-3">
-                      <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-2xl border border-zinc-900/8 bg-white/92 shadow-[0_1px_2px_rgba(24,24,27,0.04)]">
+                      <div className="relative h-16 w-16 shrink-0 overflow-hidden product-media-surface">
                         {thumb ? (
                           <Image
                             src={thumb}
                             alt={alt}
                             fill
                             sizes="64px"
-                            className="object-contain p-2"
+                            className="object-cover"
                           />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center text-zinc-400">
@@ -227,7 +227,7 @@ export default function CheckoutSummary({
                                   onClick={(e) => handleAdjustToAvailable(e, item.variantId)}
                                   className="inline-flex min-h-0 w-auto items-center justify-center rounded-full border border-zinc-900/10 bg-zinc-900 px-3 py-1.5 text-[11px] font-medium leading-none tracking-[0.01em] text-white transition-colors hover:bg-zinc-800 active:bg-black focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900/15"
                                 >
-                                  Ajustar cantidad disponible
+                                  Ajustar cantidad
                                 </button>
                               </div>
                             ) : null}

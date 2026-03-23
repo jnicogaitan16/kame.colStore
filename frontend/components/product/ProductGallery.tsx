@@ -1,7 +1,7 @@
 "use client";
 
 /** Galería PDP/catálogo. Usa --accent y clases globales desde globals.css; estilos locales del swiper en <style jsx>. */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Pagination } from "swiper/modules";
@@ -18,6 +18,23 @@ interface ProductGalleryProps {
   soldOut?: boolean;
   variant?: "default" | "pdp";
 }
+
+type TouchPointLike = {
+  clientX: number;
+  clientY: number;
+};
+
+type ZoomTransform = {
+  scale: number;
+  x: number;
+  y: number;
+};
+
+const DEFAULT_ZOOM_STATE: ZoomTransform = {
+  scale: 1,
+  x: 0,
+  y: 0,
+};
 
 export function ProductGallery({ images, productName, soldOut = false, variant = "default" }: ProductGalleryProps) {
   const slides = useMemo(() => {
@@ -46,6 +63,40 @@ export function ProductGallery({ images, productName, soldOut = false, variant =
       });
   }, [images]);
 
+  const isPdp = variant === "pdp";
+
+  const MIN_PDP_ZOOM = 1;
+  const MAX_PDP_ZOOM = 3;
+  const [pdpZoom, setPdpZoom] = useState<Record<number, ZoomTransform>>({});
+  const gestureRef = useRef<{
+    startX: number;
+    startY: number;
+    moved: boolean;
+    pinchIndex: number | null;
+    startDistance: number;
+    startScale: number;
+    panIndex: number | null;
+    panStartX: number;
+    panStartY: number;
+    panOriginX: number;
+    panOriginY: number;
+    blockClickUntil: number;
+  }>({
+    startX: 0,
+    startY: 0,
+    moved: false,
+    pinchIndex: null,
+    startDistance: 0,
+    startScale: 1,
+    panIndex: null,
+    panStartX: 0,
+    panStartY: 0,
+    panOriginX: 0,
+    panOriginY: 0,
+    blockClickUntil: 0,
+  });
+  const surfaceRefs = useRef<Record<number, HTMLButtonElement | null>>({});
+
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
@@ -54,14 +105,198 @@ export function ProductGallery({ images, productName, soldOut = false, variant =
     setLightboxIndex((current) => (slides.length === 0 ? 0 : Math.min(current, slides.length - 1)));
   }, [slides]);
 
+  useEffect(() => {
+    setPdpZoom({});
+  }, [slides, variant]);
+
   const openLightbox = useCallback((index: number) => {
     setLightboxIndex(index);
     setLightboxOpen(true);
   }, []);
 
-  const closeLightbox = useCallback(() => setLightboxOpen(false), []);
+  const closeLightbox = useCallback(() => {
+    setLightboxOpen(false);
+  }, []);
 
-  const isPdp = variant === "pdp";
+  const clamp = useCallback((value: number, min: number, max: number) => {
+    return Math.min(Math.max(value, min), max);
+  }, []);
+
+  const getDistance = useCallback((touchA: TouchPointLike, touchB: TouchPointLike) => {
+    const dx = touchB.clientX - touchA.clientX;
+    const dy = touchB.clientY - touchA.clientY;
+    return Math.hypot(dx, dy);
+  }, []);
+
+  const getZoomState = useCallback(
+    (index: number) => {
+      return pdpZoom[index] ?? DEFAULT_ZOOM_STATE;
+    },
+    [pdpZoom],
+  );
+
+  const clampZoomState = useCallback(
+    (index: number, nextScale: number, nextX: number, nextY: number) => {
+      const node = surfaceRefs.current[index];
+      const width = node?.clientWidth ?? 0;
+      const height = node?.clientHeight ?? 0;
+      const scale = clamp(nextScale, MIN_PDP_ZOOM, MAX_PDP_ZOOM);
+
+      if (!width || !height || scale <= 1) {
+        return DEFAULT_ZOOM_STATE;
+      }
+
+      const maxX = Math.max(0, ((width * scale) - width) / 2);
+      const maxY = Math.max(0, ((height * scale) - height) / 2);
+
+      return {
+        scale,
+        x: clamp(nextX, -maxX, maxX),
+        y: clamp(nextY, -maxY, maxY),
+      };
+    },
+    [clamp],
+  );
+
+  const updateZoomState = useCallback(
+    (index: number, nextScale: number, nextX: number, nextY: number) => {
+      setPdpZoom((current) => ({
+        ...current,
+        [index]: clampZoomState(index, nextScale, nextX, nextY),
+      }));
+    },
+    [clampZoomState],
+  );
+
+  const resetZoomState = useCallback((index: number) => {
+    setPdpZoom((current) => ({
+      ...current,
+      [index]: DEFAULT_ZOOM_STATE,
+    }));
+  }, []);
+
+  const handlePointerDown = useCallback((index: number, clientX: number, clientY: number) => {
+    gestureRef.current.startX = clientX;
+    gestureRef.current.startY = clientY;
+    gestureRef.current.moved = false;
+
+    const zoom = getZoomState(index);
+    if (zoom.scale > 1) {
+      gestureRef.current.panIndex = index;
+      gestureRef.current.panStartX = clientX;
+      gestureRef.current.panStartY = clientY;
+      gestureRef.current.panOriginX = zoom.x;
+      gestureRef.current.panOriginY = zoom.y;
+    }
+  }, [getZoomState]);
+
+  const handlePointerMove = useCallback(
+    (index: number, clientX: number, clientY: number) => {
+      const deltaX = Math.abs(clientX - gestureRef.current.startX);
+      const deltaY = Math.abs(clientY - gestureRef.current.startY);
+
+      if (deltaX > 8 || deltaY > 8) {
+        gestureRef.current.moved = true;
+      }
+
+      if (gestureRef.current.panIndex !== index) return;
+      const zoom = getZoomState(index);
+      if (zoom.scale <= 1) return;
+
+      updateZoomState(
+        index,
+        zoom.scale,
+        gestureRef.current.panOriginX + (clientX - gestureRef.current.panStartX),
+        gestureRef.current.panOriginY + (clientY - gestureRef.current.panStartY),
+      );
+    },
+    [getZoomState, updateZoomState],
+  );
+
+  const handlePointerRelease = useCallback((index: number) => {
+    if (gestureRef.current.panIndex === index) {
+      gestureRef.current.panIndex = null;
+    }
+
+    const zoom = getZoomState(index).scale;
+    if (zoom <= 1.01) {
+      resetZoomState(index);
+    }
+  }, [getZoomState, resetZoomState]);
+
+  const handleTouchStart = useCallback(
+    (index: number, e: React.TouchEvent<HTMLButtonElement>) => {
+      if (!isPdp) return;
+
+      if (e.touches.length === 2) {
+        gestureRef.current.blockClickUntil = Date.now() + 320;
+        gestureRef.current.pinchIndex = index;
+        gestureRef.current.panIndex = null;
+        gestureRef.current.moved = true;
+        gestureRef.current.startDistance = getDistance(e.touches[0], e.touches[1]);
+        gestureRef.current.startScale = getZoomState(index).scale;
+        return;
+      }
+
+      if (e.touches.length === 1) {
+        handlePointerDown(index, e.touches[0].clientX, e.touches[0].clientY);
+      }
+    },
+    [getDistance, getZoomState, handlePointerDown, isPdp],
+  );
+
+  const handleTouchMove = useCallback(
+    (index: number, e: React.TouchEvent<HTMLButtonElement>) => {
+      if (!isPdp) return;
+
+      if (e.touches.length === 2 && gestureRef.current.pinchIndex === index) {
+        e.preventDefault();
+        const nextDistance = getDistance(e.touches[0], e.touches[1]);
+        const nextScale = gestureRef.current.startScale * (nextDistance / gestureRef.current.startDistance);
+        const current = getZoomState(index);
+        updateZoomState(index, nextScale, current.x, current.y);
+        return;
+      }
+
+      if (e.touches.length === 1) {
+        const zoom = getZoomState(index);
+        if (zoom.scale > 1) {
+          e.preventDefault();
+        }
+        handlePointerMove(index, e.touches[0].clientX, e.touches[0].clientY);
+      }
+    },
+    [getDistance, getZoomState, handlePointerMove, isPdp, updateZoomState],
+  );
+
+  const handleTouchEnd = useCallback(
+    (index: number, e: React.TouchEvent<HTMLButtonElement>) => {
+      if (!isPdp) return;
+
+      if (e.touches.length < 2) {
+        gestureRef.current.pinchIndex = null;
+      }
+
+      if (e.touches.length === 0) {
+        handlePointerRelease(index);
+      }
+    },
+    [handlePointerRelease, isPdp],
+  );
+
+  const handleImageInteraction = useCallback(
+    (index: number) => {
+      const now = Date.now();
+      if (now < gestureRef.current.blockClickUntil) return;
+      if (gestureRef.current.moved) {
+        gestureRef.current.moved = false;
+        return;
+      }
+
+      openLightbox(index);
+    },
+    [openLightbox],
+  );
 
   const wrapperClass = isPdp
     ? "relative w-full pb-10"
@@ -76,8 +311,10 @@ export function ProductGallery({ images, productName, soldOut = false, variant =
     : "aspect-square w-full overflow-hidden rounded-2xl border border-zinc-900/8 bg-white/80 shadow-[0_12px_30px_rgba(24,24,27,0.06)]";
 
   const imageClass = isPdp
-    ? "object-contain cursor-zoom-in bg-transparent"
+    ? "object-contain cursor-zoom-in bg-transparent transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
     : "object-contain cursor-zoom-in bg-transparent";
+
+  const allowSwiperTouch = !isPdp || Object.values(pdpZoom).every((zoom) => (zoom?.scale ?? 1) <= 1.01);
 
   if (slides.length === 0) {
     return (
@@ -101,34 +338,69 @@ export function ProductGallery({ images, productName, soldOut = false, variant =
           spaceBetween={0}
           slidesPerView={1}
           pagination={{ clickable: true }}
+          allowTouchMove={allowSwiperTouch}
           className={`k-gallery-swiper ${isPdp ? "k-gallery-swiper--pdp overflow-visible" : "h-full w-full"}`}
         >
-          {slides.map((img, index) => (
-            <SwiperSlide key={`${img.url}-${index}`}>
-              <div className="relative w-full aspect-square bg-transparent">
-                {(() => {
-                  const src = img.thumb_url || img.url || null;
-                  if (!src) return null;
+          {slides.map((img, index) => {
+            const src = img.thumb_url || img.url || null;
+            if (!src) return null;
 
-                  const alt = img.alt_text ?? productName ?? "Producto";
+            const alt = img.alt_text ?? productName ?? "Producto";
+            const zoom = getZoomState(index);
 
-                  return (
-                    <Image
-                      key={src}
-                      src={src}
-                      alt={alt}
-                      fill
-                      sizes="(max-width: 768px) 100vw, 50vw"
-                      priority={index === 0}
-                      {...(index === 0 ? {} : { loading: "lazy" as const })}
-                      className={imageClass}
-                      onClick={() => openLightbox(index)}
-                    />
-                  );
-                })()}
-              </div>
-            </SwiperSlide>
-          ))}
+            return (
+              <SwiperSlide key={`${img.url}-${index}`}>
+                <div className="relative w-full aspect-square bg-transparent">
+                  <button
+                    ref={(node) => {
+                      surfaceRefs.current[index] = node;
+                    }}
+                    type="button"
+                    className={`group relative block h-full w-full overflow-hidden bg-transparent text-left ${isPdp ? "k-gallery-pdp-surface gallery-zoomable-surface" : ""}`}
+                    aria-label={`Ampliar imagen ${index + 1} de ${slides.length}`}
+                    data-pressed={isPdp && zoom.scale > 1 ? "true" : "false"}
+                    onPointerDown={(e) => handlePointerDown(index, e.clientX, e.clientY)}
+                    onPointerMove={(e) => handlePointerMove(index, e.clientX, e.clientY)}
+                    onPointerUp={() => handlePointerRelease(index)}
+                    onPointerCancel={() => handlePointerRelease(index)}
+                    onPointerLeave={() => handlePointerRelease(index)}
+                    onTouchStart={(e) => handleTouchStart(index, e)}
+                    onTouchMove={(e) => handleTouchMove(index, e)}
+                    onTouchEnd={(e) => handleTouchEnd(index, e)}
+                    onTouchCancel={(e) => handleTouchEnd(index, e)}
+                    onClick={() => handleImageInteraction(index)}
+                  >
+                    <span
+                      className={`absolute inset-0 ${isPdp ? "gallery-zoomable-press" : ""}`}
+                      style={
+                        isPdp
+                          ? {
+                              transform: `translate3d(${zoom.x}px, ${zoom.y}px, 0) scale(${zoom.scale})`,
+                              transformOrigin: "center center",
+                              transition:
+                                gestureRef.current.panIndex === index || gestureRef.current.pinchIndex === index
+                                  ? "none"
+                                  : "transform 220ms cubic-bezier(0.22,1,0.36,1)",
+                            }
+                          : undefined
+                      }
+                    >
+                      <Image
+                        key={src}
+                        src={src}
+                        alt={alt}
+                        fill
+                        sizes="(max-width: 768px) 100vw, 50vw"
+                        priority={index === 0}
+                        {...(index === 0 ? {} : { loading: "lazy" as const })}
+                        className={imageClass}
+                      />
+                    </span>
+                  </button>
+                </div>
+              </SwiperSlide>
+            );
+          })}
         </Swiper>
       </div>
       <ImageViewerModal
@@ -206,6 +478,15 @@ export function ProductGallery({ images, productName, soldOut = false, variant =
 
         [data-gallery-frame="pdp"] .k-gallery-swiper--pdp .swiper-pagination-bullet {
           margin-top: 0;
+        }
+        .k-gallery-pdp-surface {
+          -webkit-tap-highlight-color: transparent;
+          touch-action: manipulation;
+        }
+
+        .k-gallery-pdp-surface:focus-visible {
+          outline: none;
+          box-shadow: inset 0 0 0 1px rgba(24, 24, 27, 0.12);
         }
       `}</style>
     </div>

@@ -590,23 +590,32 @@ function ProductPurchaseBox({
   selectedVariant: ProductVariant | null;
   triggerRef: React.Ref<HTMLDivElement>;
 }) {
+  const availabilityMessage = (() => {
+    if (isInvalidCombo) {
+      return "Esta combinación no está disponible.";
+    }
+
+    if (availableStock > 0) {
+      return availableStock <= 3 ? "Últimas unidades disponibles." : "Disponible para compra.";
+    }
+
+    if (selectedVariant) {
+      return "Agotado";
+    }
+
+    return helperSelectionText;
+  })();
   return (
     <div className="mt-6">
       <div className="pdp-description-refined mb-3.5 flex flex-wrap items-center gap-2 text-zinc-500">
-        {isInvalidCombo ? (
-          <span className="pdp-description-refined text-zinc-500">
-            Esta combinación no está disponible. Prueba otra talla o color.
-          </span>
-        ) : availableStock > 0 ? (
-          <span className="pdp-description-refined text-zinc-600">
-            {availableStock} unidad{availableStock !== 1 ? "es" : ""} disponible
-            {availableStock !== 1 ? "s" : ""}
-          </span>
-        ) : selectedVariant ? (
-          <span className="pdp-description-refined text-zinc-500">Agotado</span>
-        ) : (
-          <span className="pdp-description-refined text-zinc-500">{helperSelectionText}</span>
-        )}
+        <span
+          className={
+            "pdp-description-refined " +
+            (availableStock > 0 && !isInvalidCombo ? "text-zinc-600" : "text-zinc-500")
+          }
+        >
+          {availabilityMessage}
+        </span>
       </div>
 
       <div ref={triggerRef}>
