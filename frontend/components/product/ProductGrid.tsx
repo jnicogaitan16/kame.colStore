@@ -25,12 +25,12 @@ export function ProductGrid({
       data-layout="product-grid"
     >
       <div className={PRODUCT_GRID_INNER_CLASS}>
-        {products.map((product) => {
+        {products.map((product, index) => {
           const stableKey = product?.id ?? product?.slug;
           const fallbackKey = `${product?.name ?? "product"}-${product?.price ?? "0"}`;
           const key = String(stableKey ?? fallbackKey);
 
-          return <ProductCard key={key} product={product} />;
+          return <ProductCard key={key} product={product} index={index} />;
         })}
       </div>
     </section>

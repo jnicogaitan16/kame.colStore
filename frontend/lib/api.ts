@@ -479,7 +479,7 @@ export async function getProductBySlug(
  */
 export async function getHomepageBanners(): Promise<HomepageBanner[]> {
   return apiFetch<HomepageBanner[]>("/homepage-banners/", {
-    next: { revalidate: 60 },
+    next: { revalidate: 300 },
   });
 }
 
@@ -505,7 +505,7 @@ export async function getHomepagePromos(
 ): Promise<HomepagePromo[]> {
   const qs = placement ? `?placement=${encodeURIComponent(placement)}` : "";
   return apiFetch<HomepagePromo[]>(`/homepage-promos/${qs}`, {
-    next: { revalidate: 60 },
+    next: { revalidate: 300 },
   });
 }
 

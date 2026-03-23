@@ -8,19 +8,30 @@ import { getProductPrimaryImage } from "@/lib/product-media";
 
 interface ProductCardProps {
   product: any;
+  index?: number;
 }
 
-export function ProductCard({ product }: ProductCardProps) {
+export function ProductCard({ product, index }: ProductCardProps) {
   const img = getProductPrimaryImage(product) || "";
 
   const name = (product as any)?.name ?? "";
   const price = (product as any)?.price ?? "0";
   const slug = (product as any)?.slug ?? "";
 
+  const safeIndex = typeof index === "number" ? index : Number.MAX_SAFE_INTEGER;
+  const isAboveTheFold = safeIndex < 4;
+  const isPriorityImage = safeIndex < 2;
+
   const cardRef = useRef<HTMLAnchorElement | null>(null);
-  const [isVisible, setIsVisible] = useState(false);
+  const [isVisible, setIsVisible] = useState(isAboveTheFold);
+  const [imageFailed, setImageFailed] = useState(false);
 
   useEffect(() => {
+    if (isAboveTheFold) {
+      if (!isVisible) setIsVisible(true);
+      return;
+    }
+
     const node = cardRef.current;
     if (!node || isVisible) return;
 
@@ -40,24 +51,26 @@ export function ProductCard({ product }: ProductCardProps) {
     observer.observe(node);
 
     return () => observer.disconnect();
-  }, [isVisible]);
+  }, [isAboveTheFold, isVisible]);
 
   return (
     <Link
       ref={cardRef}
       href={productPath(slug)}
-      className={`group block card-reveal ${isVisible ? "is-visible" : ""}`}
+      className={`group block ${isAboveTheFold ? "" : "card-reveal"} ${isVisible ? "is-visible" : ""}`.trim()}
     >
       {/* Media FULL-BLEED */}
       <div className="relative card-premium-ratio overflow-hidden bg-transparent">
-        {img ? (
+        {img && !imageFailed ? (
           <Image
             src={img}
             alt={name || "Producto"}
             fill
+            priority={isPriorityImage}
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
             className="card-premium-img transition-transform duration-500 ease-out group-hover:scale-[1.012]"
-            loading="lazy"
+            loading={isAboveTheFold ? "eager" : "lazy"}
+            onError={() => setImageFailed(true)}
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center bg-zinc-100 text-zinc-300">
