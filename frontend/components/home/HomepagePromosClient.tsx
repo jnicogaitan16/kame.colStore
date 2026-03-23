@@ -79,6 +79,7 @@ function PromoCard({ promo, idx }: PromoCardProps) {
   const isTop = true;
   const href = normalizeHref(promo.cta_url);
   const hasCta = !!href;
+  const shouldRenderVisualCta = !hasCta && imageFailed;
 
   const title = (promo.title || "").trim();
   const subtitle = (promo.subtitle || "").trim();
@@ -162,7 +163,7 @@ function PromoCard({ promo, idx }: PromoCardProps) {
       >
         <div className={HERO_CONTAINER_CLASS}>
           <div className="w-full">
-            {hasText || hasCta ? (
+            {hasText || shouldRenderVisualCta ? (
               <div className="inline-block rounded-2xl border border-white/10 bg-black/25 px-5 py-4 backdrop-blur-md shadow-[0_10px_40px_rgba(0,0,0,0.28)]">
                 {hasText ? (
                   <div>
@@ -198,20 +199,14 @@ function PromoCard({ promo, idx }: PromoCardProps) {
                   </div>
                 ) : null}
 
-                {hasCta ? (
+                {shouldRenderVisualCta ? (
                   <div className={hasText ? "mt-4" : ""}>
-                    <span
-                      className={
-                        isTop
-                          ? "text-base md:text-lg text-white/90 transition-all duration-300 group-hover:text-white"
-                          : "text-base text-white/90 underline decoration-white/20 transition-all duration-300 group-hover:text-white group-hover:decoration-white/60"
-                      }
-                    >
+                    <span className="inline-flex items-center rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white/95">
                       {(imageFailed ? fallbackCopy.ctaLabel : promo.cta_label)?.trim() ||
-                        "Ver más"}
+                        "Promo disponible"}
                     </span>
                   </div>
-                ) : imageFailed ? (
+                ) : imageFailed && !hasCta ? (
                   <div className="mt-4">
                     <span className="inline-flex items-center rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white/95">
                       Promo disponible

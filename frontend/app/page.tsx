@@ -4,7 +4,7 @@ import { HeroCarousel } from "@/components/home/HeroCarousel";
 import { BrandStory } from "@/components/home/BrandStory";
 import HomepagePromos from "@/components/home/HomepagePromos";
 
-export const revalidate = 300;
+export const revalidate = 60;
 
 function isDevEnvironment(): boolean {
   return process.env.NODE_ENV !== "production";

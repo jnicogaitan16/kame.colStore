@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Autoplay, Pagination, EffectFade } from "swiper/modules";
@@ -101,7 +102,7 @@ export function HeroCarousel({ banners }: { banners: HeroCarouselBannersProp }) 
         autoplay={{ delay: 6000, disableOnInteraction: false }}
         loop={slides.length > 1}
         onSlideChange={(s) => setActiveIndex(s.realIndex)}
-        className={HERO_SLIDE_CLASS}
+        className={HERO_SLIDE_CLASS + " hero-carousel-swiper"}
       >
         {slides.map((b, idx) => {
           const img = normalizeBannerImage(b);
@@ -112,107 +113,116 @@ export function HeroCarousel({ banners }: { banners: HeroCarouselBannersProp }) 
           const fallbackCopy = getFallbackCopy(b);
           const showText = b.show_text !== false || slideFailed;
 
-          return (
-            <SwiperSlide key={b.id}>
-              <div className={`relative ${HERO_SLIDE_CLASS}`}>
+          const ctaLabel = slideFailed ? fallbackCopy.ctaLabel : b.cta_label;
+          const slideAriaLabel = ctaLabel
+            ? `${ctaLabel}: ${slideFailed ? fallbackCopy.title : b.title || alt}`
+            : `Abrir ${slideFailed ? fallbackCopy.title : b.title || alt}`;
+
+          const slideInner = (
+            <div className={`relative ${HERO_SLIDE_CLASS}`}>
+              <div
+                className={[
+                  "absolute inset-0",
+                  isActive ? "opacity-100" : "opacity-0",
+                  "transition-opacity duration-700",
+                ].join(" ")}
+              >
+                {!slideFailed ? (
+                  <>
+                    <Image
+                      src={img}
+                      alt={alt}
+                      fill
+                      priority={idx === 0}
+                      unoptimized
+                      onError={() => markSlideAsFailed(b.id)}
+                      className={
+                        "object-cover transition-transform duration-[1200ms] ease-out " +
+                        (isActive ? "scale-[1.06]" : "scale-100")
+                      }
+                      sizes="100vw"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-b from-black/6 via-transparent to-black/12" />
+                  </>
+                ) : (
+                  <>
+                    <div
+                      className="absolute inset-0"
+                      style={{
+                        background:
+                          "radial-gradient(1200px 620px at 50% 0%, rgba(255,255,255,0.55), rgba(255,255,255,0) 52%), linear-gradient(135deg, rgba(247,245,242,1) 0%, rgba(255,255,255,1) 38%, rgba(244,244,245,1) 100%)",
+                      }}
+                    />
+                    <div className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-14 bg-gradient-to-b from-black/8 via-black/4 to-transparent md:h-16" />
+                  </>
+                )}
+                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_70%_at_50%_0%,rgba(255,255,255,0.18)_0%,rgba(255,255,255,0)_58%)]" />
+                <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.04)_0%,rgba(255,255,255,0)_28%,rgba(255,255,255,0)_72%,rgba(255,255,255,0.03)_100%)] opacity-55" />
+                <div className="pointer-events-none absolute inset-x-0 top-0 z-[2] h-10 bg-[linear-gradient(180deg,rgba(8,8,10,0.08)_0%,rgba(8,8,10,0.04)_45%,rgba(8,8,10,0)_100%)] md:h-12" />
+                {slideFailed ? (
+                  <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.18),rgba(244,244,245,0.34))]" />
+                ) : null}
+              </div>
+
+              <div className={HERO_CONTENT_CLASS}>
                 <div
                   className={[
-                    "absolute inset-0",
-                    isActive ? "opacity-100" : "opacity-0",
-                    "transition-opacity duration-700",
+                    "max-w-xl",
+                    "transition-all duration-700 ease-out",
+                    isActive ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0",
                   ].join(" ")}
                 >
-                  {!slideFailed ? (
-                    <>
-                      <Image
-                        src={img}
-                        alt={alt}
-                        fill
-                        priority={idx === 0}
-                        unoptimized
-                        onError={() => markSlideAsFailed(b.id)}
-                        className={
-                          "object-cover transition-transform duration-[1200ms] ease-out " +
-                          (isActive ? "scale-[1.06]" : "scale-100")
-                        }
-                        sizes="100vw"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-b from-black/6 via-transparent to-black/12" />
-                    </>
-                  ) : (
-                    <>
-                      <div
-                        className="absolute inset-0"
-                        style={{
-                          background:
-                            "radial-gradient(1200px 620px at 50% 0%, rgba(255,255,255,0.55), rgba(255,255,255,0) 52%), linear-gradient(135deg, rgba(247,245,242,1) 0%, rgba(255,255,255,1) 38%, rgba(244,244,245,1) 100%)",
-                        }}
-                      />
-                      <div className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-14 bg-gradient-to-b from-black/8 via-black/4 to-transparent md:h-16" />
-                    </>
-                  )}
-                  {/* Premium highlights: soft top glow + subtle vertical sheen */}
-                  <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_70%_at_50%_0%,rgba(255,255,255,0.18)_0%,rgba(255,255,255,0)_58%)]" />
-                  <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.04)_0%,rgba(255,255,255,0)_28%,rgba(255,255,255,0)_72%,rgba(255,255,255,0.03)_100%)] opacity-55" />
-                  <div className="pointer-events-none absolute inset-x-0 top-0 z-[2] h-10 bg-[linear-gradient(180deg,rgba(8,8,10,0.08)_0%,rgba(8,8,10,0.04)_45%,rgba(8,8,10,0)_100%)] md:h-12" />
-                  {slideFailed ? (
-                    <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.18),rgba(244,244,245,0.34))]" />
+                  {showText ? (
+                    <div className="inline-flex max-w-lg flex-col rounded-2xl border border-white/35 bg-white/32 px-5 py-4 backdrop-blur-sm shadow-[0_12px_34px_rgba(24,24,27,0.08)] md:px-6 md:py-5">
+                      {(slideFailed ? fallbackCopy.eyebrow : b.subtitle) ? (
+                        <p className="mb-3 inline-flex w-fit rounded-full border border-zinc-900/8 bg-white/72 px-3 py-1 text-[11px] font-semibold tracking-[0.22em] text-zinc-700">
+                          {slideFailed ? fallbackCopy.eyebrow : b.subtitle}
+                        </p>
+                      ) : null}
+
+                      {(slideFailed ? fallbackCopy.title : b.title) ? (
+                        <h1 className="text-3xl font-bold tracking-[-0.02em] text-zinc-950 md:text-5xl">
+                          {slideFailed ? fallbackCopy.title : b.title}
+                        </h1>
+                      ) : null}
+
+                      {(slideFailed ? fallbackCopy.description : b.description) ? (
+                        <p className="mt-4 text-sm leading-relaxed text-zinc-700 md:text-base">
+                          {slideFailed ? fallbackCopy.description : b.description}
+                        </p>
+                      ) : null}
+
+                      {slideFailed ? (
+                        <p className="mt-4 text-[11px] font-medium uppercase tracking-[0.18em] text-zinc-500">
+                          Media temporalmente no disponible
+                        </p>
+                      ) : null}
+
+                      {ctaLabel ? (
+                        <span className={href ? "mt-5 inline-flex w-fit items-center rounded-full border border-zinc-900/10 bg-zinc-950 px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-zinc-800" : "mt-5 inline-flex w-fit items-center rounded-full border border-zinc-900/10 bg-white/78 px-4 py-2 text-sm font-semibold text-zinc-900"}>
+                          {ctaLabel}
+                        </span>
+                      ) : null}
+                    </div>
                   ) : null}
                 </div>
-
-                <div className={HERO_CONTENT_CLASS}>
-                  <div
-                    className={[
-                      "max-w-xl",
-                      "transition-all duration-700 ease-out",
-                      isActive ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0",
-                    ].join(" ")}
-                  >
-                    {showText ? (
-                      <div className="inline-flex max-w-lg flex-col rounded-2xl border border-white/35 bg-white/32 px-5 py-4 backdrop-blur-sm shadow-[0_12px_34px_rgba(24,24,27,0.08)] md:px-6 md:py-5">
-                        {(slideFailed ? fallbackCopy.eyebrow : b.subtitle) ? (
-                          <p className="mb-3 inline-flex w-fit rounded-full border border-zinc-900/8 bg-white/72 px-3 py-1 text-[11px] font-semibold tracking-[0.22em] text-zinc-700">
-                            {slideFailed ? fallbackCopy.eyebrow : b.subtitle}
-                          </p>
-                        ) : null}
-
-                        {(slideFailed ? fallbackCopy.title : b.title) ? (
-                          <h1 className="text-3xl font-bold tracking-[-0.02em] text-zinc-950 md:text-5xl">
-                            {slideFailed ? fallbackCopy.title : b.title}
-                          </h1>
-                        ) : null}
-
-                        {(slideFailed ? fallbackCopy.description : b.description) ? (
-                          <p className="mt-4 text-sm leading-relaxed text-zinc-700 md:text-base">
-                            {slideFailed ? fallbackCopy.description : b.description}
-                          </p>
-                        ) : null}
-
-                        {slideFailed ? (
-                          <p className="mt-4 text-[11px] font-medium uppercase tracking-[0.18em] text-zinc-500">
-                            Media temporalmente no disponible
-                          </p>
-                        ) : null}
-
-                        {(slideFailed ? fallbackCopy.ctaLabel : b.cta_label) ? (
-                          href ? (
-                            <a
-                              href={href}
-                              className="mt-5 inline-flex w-fit items-center rounded-full border border-zinc-900/10 bg-zinc-950 px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-zinc-800"
-                            >
-                              {slideFailed ? fallbackCopy.ctaLabel : b.cta_label}
-                            </a>
-                          ) : (
-                            <span className="mt-5 inline-flex w-fit items-center rounded-full border border-zinc-900/10 bg-white/78 px-4 py-2 text-sm font-semibold text-zinc-900">
-                              {slideFailed ? fallbackCopy.ctaLabel : b.cta_label}
-                            </span>
-                          )
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
               </div>
+            </div>
+          );
+
+          return (
+            <SwiperSlide key={b.id}>
+              {href ? (
+                <Link
+                  href={href}
+                  className="block h-full focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black/30"
+                  aria-label={slideAriaLabel}
+                >
+                  {slideInner}
+                </Link>
+              ) : (
+                slideInner
+              )}
             </SwiperSlide>
           );
         })}

@@ -114,7 +114,6 @@ export function BrandStory({ story }: { story: HomepageStory | null }) {
             ) : null}
           </header>
 
-          <div className="mx-auto h-px w-24 bg-gradient-to-r from-transparent via-zinc-900/10 to-transparent" />
 
           <div className="mx-auto max-w-3xl space-y-6 md:max-w-4xl md:space-y-8">
             {body.map((p, idx) => (
