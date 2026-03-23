@@ -736,8 +736,13 @@ select {
   border-radius: 1rem;
 }
 
-.swiper-pagination-bullet-active {
-  background: var(--accent);
+.hero-carousel-swiper .swiper-pagination-bullet {
+  background: rgba(255, 255, 255, 0.72);
+  opacity: 1;
+}
+
+.hero-carousel-swiper .swiper-pagination-bullet-active {
+  background: #fff;
 }
 
 .header-transition {
