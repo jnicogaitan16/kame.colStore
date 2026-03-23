@@ -31,8 +31,8 @@ export default function CatalogoClient({
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-5 md:grid-cols-3 md:gap-8">
-          {initialProducts.map((product) => (
-            <ProductCard key={String(product.id)} product={product} />
+          {initialProducts.map((product, index) => (
+            <ProductCard key={String(product.id)} product={product} index={index} />
           ))}
         </div>
       )}
