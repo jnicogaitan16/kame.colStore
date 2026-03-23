@@ -46,9 +46,9 @@ function detailFor(
     case "unknown":
       return null;
     case "low":
-      return "Pocas piezas disponibles";
+      return "Disponibilidad reducida";
     case "over":
-      return "Ajusta la cantidad para continuar";
+      return "Ajusta tu cantidad para continuar";
   }
 }
 
@@ -106,15 +106,12 @@ export default function StockWarningChip({
   const headerRow = compact ? "flex w-full items-start gap-2" : "flex w-full items-start gap-2.5";
   const bodyStack = "min-w-0 flex-1";
 
-  const resolvedLabel = typeof message === "string" && message.trim() ? message.trim() : labelFor(status);
-  const isLastPieceMessage = resolvedLabel === "Última pieza" || resolvedLabel === "Últimas unidades";
-  const isLimitedStockMessage = resolvedLabel === "Stock limitado";
-  const useSingleLineMessage = isLastPieceMessage || isLimitedStockMessage;
-  const resolvedDetail = useSingleLineMessage
-    ? null
-    : typeof detail === "string" && detail.trim()
-      ? detail.trim()
-      : detailFor(status, available, requested);
+  const resolvedLabel =
+    typeof message === "string" && message.trim()
+      ? message.trim()
+      : labelFor(status);
+  const resolvedDetail =
+    typeof detail === "string" && detail.trim() ? detail.trim() : detailFor(status, available, requested);
 
   return (
     <span
@@ -122,33 +119,23 @@ export default function StockWarningChip({
       title={resolvedDetail ? `${resolvedLabel} (${resolvedDetail})` : resolvedLabel}
     >
       <span className={headerRow}>
-        {isLastPieceMessage ? (
-          <span className={cx(icon, "inline-flex items-center justify-center text-[12px] leading-none")} aria-hidden="true">
-            ⚡
-          </span>
-        ) : isLimitedStockMessage ? (
-          <span className={cx(icon, "inline-flex items-center justify-center text-[12px] leading-none")} aria-hidden="true">
-            ⚠️
-          </span>
-        ) : (
-          <svg
-            className={icon}
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
-            <path d="M12 9v4" />
-            <path d="M12 17h.01" />
-          </svg>
-        )}
+        <svg
+          className={icon}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
+          <path d="M12 9v4" />
+          <path d="M12 17h.01" />
+        </svg>
 
         <span className={bodyStack}>
-          <span className={cx(titleClass, useSingleLineMessage && "leading-[1.2]")}>{resolvedLabel}</span>
+          <span className={titleClass}>{resolvedLabel}</span>
           {resolvedDetail ? <span className={detailClass}>{resolvedDetail}</span> : null}
         </span>
       </span>

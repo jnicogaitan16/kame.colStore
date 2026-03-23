@@ -95,38 +95,30 @@ function normalizeCartStockState(
       return {
         status: "over",
         message: "Stock limitado",
-        detail: "Ajusta tu selección",
-      };
-    }
-
-    const isLastUnit = hasAvailable && available === 1 && !isOverRequested;
-
-    if (isLastUnit) {
-      return {
-        status: "low",
-        message: "Última pieza",
+        detail: "Ajusta tu cantidad",
       };
     }
 
     if (hasAvailable) {
       return {
         status: "low",
-        message: "Drop casi agotado",
-        detail: "Quedan pocas piezas",
+        message: "Últimas unidades",
+        detail: "Disponibilidad reducida",
       };
     }
 
     return {
       status: "over",
       message: "Stock limitado",
-      detail: "Ajusta tu selección",
+      detail: "Ajusta tu cantidad",
     };
   }
 
   if (hint?.kind === "last_unit") {
     return {
       status: "low",
-      message: "Última pieza",
+      message: "Últimas unidades",
+      detail: "Disponibilidad reducida",
     };
   }
 
