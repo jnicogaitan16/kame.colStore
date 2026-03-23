@@ -792,7 +792,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
 
   return (
     <section
-      className="page-shell--with-header pdp-shell pdp-shell--hero relative z-0 mx-auto max-w-6xl pb-6 md:pb-10"
+      className="page-shell--pdp pdp-shell pdp-shell--hero relative z-0 mx-auto max-w-6xl pb-6 md:pb-10"
       data-pdp-layout="hero-media"
     >
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 lg:gap-8">
