@@ -127,6 +127,7 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
           <>
             <ProductGrid
               className="px-0 md:px-0"
+              surface="catalog"
               products={results.map((product: Product) => ({
                 ...product,
                 sold_out: product.sold_out === true,
