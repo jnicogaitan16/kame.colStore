@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 
 import Notice from "@/components/ui/Notice";
+import { Button } from "@/components/ui/Button";
 import StockWarningChip from "@/components/cart/StockWarningChip";
 
 type CheckoutSummaryItem = {
@@ -43,7 +44,7 @@ type CheckoutSummaryProps = {
   stockValidateStatus: "idle" | "checking" | "ok" | "error";
   stockWarningsByVariantId: Record<string, StockWarningLike>;
   stockHintsByVariantId: Record<string, StockHintLike>;
-  handleAdjustToAvailable: (e?: React.MouseEvent, onlyVariantId?: number) => void;
+  handleAdjustToAvailable: (e?: React.MouseEvent<HTMLButtonElement>, onlyVariantId?: number) => void;
 };
 
 type StockVisualState = {
@@ -138,7 +139,7 @@ export default function CheckoutSummary({
 
   return (
     <aside className="w-full">
-      <div className="summary-shell rounded-[1.75rem] border border-zinc-900/10 bg-white/90 p-4 shadow-[0_16px_36px_rgba(24,24,27,0.07),0_2px_6px_rgba(24,24,27,0.04)] backdrop-blur-sm md:p-6">
+      <div className="summary-shell ui-surface-summary rounded-[1.75rem] p-4 md:p-6">
         <h2 className="type-section-title mb-4 text-zinc-700">Resumen del pedido</h2>
 
         {items.length === 0 ? (
@@ -168,7 +169,7 @@ export default function CheckoutSummary({
                     className="summary-item flex items-start justify-between gap-3.5 border-b border-zinc-900/8 py-3.5 first:pt-0 last:border-b-0 last:pb-0"
                   >
                     <div className="flex min-w-0 flex-1 items-start gap-3.5 pr-3">
-                      <div className="relative h-16 w-16 shrink-0 overflow-hidden product-media-surface">
+                      <div className="product-media-surface relative h-16 w-16 shrink-0 overflow-hidden">
                         {thumb ? (
                           <Image
                             src={thumb}
@@ -222,13 +223,14 @@ export default function CheckoutSummary({
                             />
                             {canAdjust && stockState.status === "over" ? (
                               <div className="mt-2">
-                                <button
+                                <Button
                                   type="button"
+                                  variant="primary"
                                   onClick={(e) => handleAdjustToAvailable(e, item.variantId)}
-                                  className="inline-flex min-h-0 w-auto items-center justify-center rounded-full border border-zinc-900/10 bg-zinc-900 px-3 py-1.5 text-[11px] font-medium leading-none tracking-[0.01em] text-white transition-colors hover:bg-zinc-800 active:bg-black focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900/15"
+                                  className="min-h-0 w-auto rounded-[0.8rem] px-3 py-2 text-[11px] leading-none tracking-[0.02em]"
                                 >
-                                  Ajustar cantidad
-                                </button>
+                                  Ajustar
+                                </Button>
                               </div>
                             ) : null}
                           </div>
@@ -244,7 +246,7 @@ export default function CheckoutSummary({
               })}
             </ul>
 
-            <div className="summary-totals rounded-[1.35rem] border border-zinc-900/10 bg-zinc-50/85 px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] md:px-5 md:py-5">
+            <div className="summary-totals ui-surface-summary-soft rounded-[1.35rem] px-4 py-4 md:px-5 md:py-5">
               <div className="type-body flex items-center justify-between text-zinc-700">
                 <span>Subtotal</span>
                 <span>${subtotal.toLocaleString("es-CO")}</span>

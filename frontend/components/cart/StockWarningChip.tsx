@@ -65,45 +65,27 @@ export default function StockWarningChip({
   const isSubtle = variant === "subtle";
 
   const base = compact
-    ? "inline-flex max-w-full flex-col items-start gap-1.5 rounded-[1rem] border px-2.5 py-2 text-sm leading-snug shadow-[0_8px_18px_rgba(24,24,27,0.04)] backdrop-blur-sm"
-    : "inline-flex max-w-full flex-col items-start gap-2.5 rounded-[1.25rem] border px-3.5 py-3 text-sm leading-snug shadow-[0_14px_30px_rgba(24,24,27,0.06)] backdrop-blur-sm";
+    ? "ui-warning-surface inline-flex max-w-full flex-col items-start gap-1.5 px-2.5 py-2"
+    : "ui-warning-surface inline-flex max-w-full flex-col items-start gap-2 px-3.5 py-3";
 
   const tone =
     status === "over"
       ? isSubtle
-        ? "border-amber-950/10 bg-[linear-gradient(180deg,rgba(255,251,245,0.94),rgba(255,247,237,0.9))] text-zinc-950"
-        : "border-amber-950/12 bg-[linear-gradient(180deg,rgba(255,252,248,0.98),rgba(255,247,237,0.94))] text-zinc-950"
-      : status === "low"
-        ? isSubtle
-          ? "border-zinc-900/7 bg-white/78 text-zinc-800"
-          : "border-zinc-900/8 bg-white/90 text-zinc-900"
-        : isSubtle
-          ? "border-zinc-900/7 bg-white/76 text-zinc-700"
-          : "border-zinc-900/8 bg-white/88 text-zinc-800";
+        ? "ui-warning-surface--soft"
+        : "ui-warning-surface--strong"
+      : "ui-warning-surface--soft";
 
-  const icon = cx(
-    compact
-      ? "mt-[0.1rem] h-3.5 w-3.5 shrink-0"
-      : "mt-[0.1rem] h-[1.05rem] w-[1.05rem] shrink-0",
-    status === "over"
-      ? "text-amber-700"
-      : status === "low"
-        ? "text-zinc-700"
-        : "text-zinc-500"
-  );
-  const titleClass = cx(
-    compact ? "block text-[12px] leading-[1.25]" : "block text-[13px] leading-[1.35]",
-    status === "over"
-      ? "font-medium text-zinc-950"
-      : status === "low"
-        ? "font-medium text-zinc-900"
-        : "font-medium text-zinc-800"
-  );
+  const icon = compact ? "mt-[0.1rem] h-3.5 w-3.5 shrink-0" : "mt-[0.1rem] h-[1rem] w-[1rem] shrink-0";
+
+  const titleClass = compact
+    ? "block text-[12px] font-medium leading-[1.25]"
+    : "block text-[12.5px] font-medium leading-[1.35]";
+
   const detailClass = compact
-    ? "mt-0.5 text-[10.5px] leading-[1.35] text-zinc-500"
-    : "mt-1 text-[11.5px] leading-[1.45] text-zinc-500";
+    ? "mt-0.5 text-[10.5px] leading-[1.35]"
+    : "mt-0.5 text-[11px] leading-[1.45]";
 
-  const headerRow = compact ? "flex w-full items-start gap-2" : "flex w-full items-start gap-2.5";
+  const headerRow = compact ? "flex w-full items-start gap-2" : "flex w-full items-start gap-2.25";
   const bodyStack = "min-w-0 flex-1";
 
   const resolvedLabel =

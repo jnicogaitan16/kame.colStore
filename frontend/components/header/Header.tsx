@@ -28,9 +28,9 @@ export default function Header({
 
   return (
     <>
-      <div className="fixed left-0 right-0 top-0 z-[80] w-full pointer-events-none bg-transparent [background-image:none] shadow-none before:hidden after:hidden">
+      <div className="fixed left-0 right-0 top-0 z-[80] w-full pointer-events-none">
         <header
-          className="site-header header-transition pointer-events-auto bg-transparent [background-image:none] shadow-none before:hidden after:hidden"
+          className="site-header header-transition pointer-events-auto"
           data-appearance={headerAppearance}
         >
           <Navbar

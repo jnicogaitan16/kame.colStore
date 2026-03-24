@@ -39,33 +39,16 @@ export function Notice({
   const tokens = NOTICE_STYLES[variant][tone];
   const listMode = hasUl(children);
 
-  const premiumOverrides =
-    variant === "warning" && tone === "soft"
-      ? {
-          container:
-            "border-zinc-900/6 bg-white/62 shadow-none",
-          title: "text-zinc-800",
-          text: "text-zinc-600",
-        }
-      : variant === "warning" && tone === "strong"
-        ? {
-            container:
-              "border-zinc-900/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.78),rgba(250,250,250,0.72))] shadow-none",
-            title: "text-zinc-900",
-            text: "text-zinc-700",
-          }
-        : variant === "error" && tone === "strong"
-          ? {
-              container:
-                "border-rose-900/12 bg-[linear-gradient(180deg,rgba(255,241,242,0.98),rgba(255,245,245,0.94))] shadow-[0_12px_28px_rgba(136,19,55,0.05)]",
-              title: "text-rose-950",
-              text: "text-rose-900/82",
-            }
-          : null;
+  const globalSurfaceClass =
+    variant === "warning"
+      ? tone === "strong"
+        ? "ui-warning-surface ui-warning-surface--strong"
+        : "ui-warning-surface ui-warning-surface--soft"
+      : null;
 
-  const effectiveContainer = premiumOverrides?.container ?? tokens.container;
-  const effectiveTitle = premiumOverrides?.title ?? tokens.title;
-  const effectiveText = premiumOverrides?.text ?? tokens.text;
+  const effectiveContainer = globalSurfaceClass ?? tokens.container;
+  const effectiveTitle = tokens.title;
+  const effectiveText = tokens.text;
 
   // Base keeps things premium + stable in tight layouts like MiniCart.
   // Note: no `w-full` so consumers can opt into chip mode with className.
@@ -74,12 +57,10 @@ export function Notice({
     " " +
     "[&_*]:min-w-0"; // avoid long text stretching cards
 
-  const radius = compact ? "rounded-[18px]" : "rounded-[24px]";
-  const padding = compact ? "px-3 py-2" : "px-4 py-3";
+  const radius = compact ? "ui-notice--compact" : "ui-notice";
 
-  // Typography tuned to not compete with CTAs.
-  const titleText = compact ? "text-[13px] leading-4" : "text-sm leading-5";
-  const bodyText = compact ? "text-[13px] leading-[18px]" : "text-sm leading-5";
+  const titleText = "ui-notice-title";
+  const bodyText = "ui-notice-body";
 
   const gridGap = compact ? "gap-2" : "gap-3";
   const iconBox = compact ? "mt-[1px]" : "mt-[2px]";
@@ -95,8 +76,6 @@ export function Notice({
       className={cx(
         containerBase,
         radius,
-        padding,
-        "border",
         effectiveContainer,
         listStyles,
         className
@@ -111,7 +90,7 @@ export function Notice({
 
         <div className="min-w-0 flex-1">
           {title ? (
-            <div className={cx("font-semibold tracking-tight", effectiveTitle, titleText)}>
+            <div className={cx(titleText, effectiveTitle)}>
               {title}
             </div>
           ) : null}

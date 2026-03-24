@@ -24,7 +24,7 @@ export const metadata: Metadata = {
     template: "%s | Kame.col",
   },
   description:
-    "Kame.col — prendas y accesorios con diseño premium.",
+    "Kame.col. Prendas urbanas con enfoque en diseño, calidad y detalle.",
   openGraph: {
     type: "website",
     locale: "es_CO",
@@ -32,7 +32,7 @@ export const metadata: Metadata = {
     siteName: "Kame.col",
     title: "Kame.col",
     description:
-      "Descubre hoodies, camisetas y accesorios con diseño premium.",
+      "Prendas urbanas con enfoque en diseño, calidad y detalle.",
     images: [
       {
         url: `${siteUrl}/og/default.jpg`,
@@ -46,12 +46,14 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Kame.col",
     description:
-      "Prendas y accesorios con identidad premium.",
+      "Prendas urbanas con enfoque en diseño, calidad y detalle.",
     images: [`${siteUrl}/og/default.jpg`],
   },
   icons: {
-    // Declare ONLY files that truly exist in frontend/public/
-    icon: "/favicon.ico",
+    icon: [
+      { url: "/icon_tortu.png", type: "image/png" },
+    ],
+    apple: "/icon_tortu.png",
   },
 };
 
