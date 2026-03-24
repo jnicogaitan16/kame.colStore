@@ -53,6 +53,7 @@ type PDPViewModel = {
   canonicalProductImage?: string | null;
   galleryImages?: GalleryImage[];
   firstAvailableVariantId?: number | null;
+  initialDisplayVariantId?: number | null;
   variantsByColor?: Record<string, ProductVariant[]>;
   variantsByValue?: Record<string, ProductVariant[]>;
   variantByColorValue?: Record<string, ProductVariant>;
@@ -235,13 +236,40 @@ function useProductSelection(product: PDPViewModel): SelectionState {
     return variants.find(hasStock) ?? null;
   }, [product.firstAvailableVariantId, variants]);
 
+  const initialDisplayVariant = useMemo(() => {
+    if (product.initialDisplayVariantId != null) {
+      return (
+        variants.find((variant) => variant.id === product.initialDisplayVariantId) ??
+        null
+      );
+    }
+
+    if (product.firstAvailableVariantId != null) {
+      return (
+        variants.find((variant) => variant.id === product.firstAvailableVariantId) ??
+        null
+      );
+    }
+
+    if (variants.length === 1) {
+      return variants[0] ?? null;
+    }
+
+    return firstAvailableVariant ?? variants[0] ?? null;
+  }, [
+    product.initialDisplayVariantId,
+    product.firstAvailableVariantId,
+    variants,
+    firstAvailableVariant,
+  ]);
+
   const defaultValue = getCanonicalOption(
     valueOptions,
-    firstAvailableVariant?.value ?? valueOptions[0] ?? ""
+    initialDisplayVariant?.value ?? valueOptions[0] ?? ""
   );
   const defaultColor = getCanonicalOption(
     colorOptions,
-    firstAvailableVariant?.color ?? colorOptions[0] ?? ""
+    initialDisplayVariant?.color ?? colorOptions[0] ?? ""
   );
 
   const [selectedValue, setSelectedValue] = useState(defaultValue);
@@ -261,7 +289,7 @@ function useProductSelection(product: PDPViewModel): SelectionState {
     if (variantSchema === "no_variant") {
       return variants.length === 1
         ? variants[0]
-        : firstAvailableVariant ?? variants[0] ?? null;
+        : initialDisplayVariant ?? firstAvailableVariant ?? variants[0] ?? null;
     }
 
     if (variantSchema === "size_color") {
@@ -283,6 +311,7 @@ function useProductSelection(product: PDPViewModel): SelectionState {
   }, [
     variants,
     variantSchema,
+    initialDisplayVariant,
     firstAvailableVariant,
     product,
     selectedColor,
@@ -324,9 +353,16 @@ function useProductSelection(product: PDPViewModel): SelectionState {
         selectedVariant,
         selectedColor,
         selectedValue,
-        firstAvailableVariant,
+        firstAvailableVariant: firstAvailableVariant ?? initialDisplayVariant,
       }),
-    [product, selectedVariant, selectedColor, selectedValue, firstAvailableVariant]
+    [
+      product,
+      selectedVariant,
+      selectedColor,
+      selectedValue,
+      firstAvailableVariant,
+      initialDisplayVariant,
+    ]
   );
 
   const helperSelectionText = useMemo(() => {
@@ -401,7 +437,7 @@ function useProductSelection(product: PDPViewModel): SelectionState {
     displayVariant,
     availableStock,
     canAdd: !selectedOutOfStock,
-    uiSoldOut: product.sold_out === true || selectedOutOfStock,
+    uiSoldOut: product.sold_out === true,
     helperSelectionText,
     isInvalidCombo,
     isSizeSoldOut,
@@ -454,11 +490,12 @@ function ProductMedia({
 }
 
 function ProductHeader({ name, price, slug }: { name: string; price: string; slug: string }) {
+  const displayName = name.toUpperCase();
   return (
     <div className="relative z-0 flex items-start gap-2.5">
       <div className="max-w-[24rem] pr-10 md:max-w-[25rem] md:pr-11">
         <h1 className="pdp-title max-w-[14ch] text-zinc-900 md:max-w-[15ch]">
-          {name}
+          {displayName}
         </h1>
         <p className="pdp-price-refined mt-2.5">{formatPriceCOP(price)}</p>
       </div>

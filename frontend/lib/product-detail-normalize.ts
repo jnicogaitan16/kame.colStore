@@ -24,6 +24,7 @@ export type PDPVariantOptions = {
   valueOptions: string[];
   colorOptions: string[];
   firstAvailableVariant: ProductVariant | null;
+  initialDisplayVariant: ProductVariant | null;
   requiresValue: boolean;
   requiresColor: boolean;
 };
@@ -95,6 +96,7 @@ export type PDPViewModel = ProductDetailViewModel &
     valueOptions: string[];
     colorOptions: string[];
     firstAvailableVariant: ProductVariant | null;
+    initialDisplayVariant: ProductVariant | null;
     firstAvailableVariantId: number | null;
     variantMatrix: ProductVariantMatrix;
     variantsByColor: PDPVariantLookupRecord;
@@ -535,6 +537,30 @@ export function findVariantByValuePreferImages(
   );
 }
 
+export function resolveInitialDisplayVariant(params: {
+  variants: ProductVariant[];
+  variantSchema: VariantSchema;
+  firstAvailableVariant: ProductVariant | null;
+}): ProductVariant | null {
+  const { variants, variantSchema, firstAvailableVariant } = params;
+
+  if (firstAvailableVariant) return firstAvailableVariant;
+  if (!variants.length) return null;
+  if (variants.length === 1) return variants[0] ?? null;
+
+  if (variantSchema === "size_color") {
+    return (
+      variants.find(
+        (variant) => resolveVariantGalleryImages(variant).length > 0
+      ) ??
+      variants[0] ??
+      null
+    );
+  }
+
+  return variants[0] ?? null;
+}
+
 export function resolveDisplayVariant(params: {
   variants: ProductVariant[];
   variantSchema: VariantSchema;
@@ -607,11 +633,17 @@ export function resolveVariantOptions(product: ProductDetail): PDPVariantOptions
   );
 
   const firstAvailableVariant = variants.find(hasStock) ?? null;
+  const initialDisplayVariant = resolveInitialDisplayVariant({
+    variants,
+    variantSchema,
+    firstAvailableVariant,
+  });
 
   return {
     valueOptions,
     colorOptions,
     firstAvailableVariant,
+    initialDisplayVariant,
     requiresValue,
     requiresColor,
   };
@@ -676,10 +708,11 @@ export function buildProductDetailPDPViewModel(
     valueOptions,
     colorOptions,
     firstAvailableVariant,
+    initialDisplayVariant,
     requiresValue,
     requiresColor,
   } = resolveVariantOptions(product);
-  const baseViewModel = buildProductDetailViewModel(product, firstAvailableVariant);
+  const baseViewModel = buildProductDetailViewModel(product, initialDisplayVariant);
   const variantsByColor = serializeVariantLookupMap(variantMatrix.byColor);
   const variantsByValue = serializeVariantLookupMap(variantMatrix.byValue);
   const variantByColorValue = serializeVariantValueMap(variantMatrix.byColorValue);
@@ -693,6 +726,7 @@ export function buildProductDetailPDPViewModel(
     valueOptions,
     colorOptions,
     firstAvailableVariant,
+    initialDisplayVariant,
     firstAvailableVariantId: firstAvailableVariant?.id ?? null,
     variantMatrix,
     variantsByColor,

@@ -7,6 +7,7 @@ import { getProductCardLoadPolicy } from "@/lib/product-card-policy";
 import type { ProductCardSurface } from "@/lib/product-card-policy";
 import { getProductCardImageCandidates } from "@/lib/product-media";
 import { productPath } from "@/lib/routes";
+import SoldOutBadge from "@/components/badges/SoldOutBadge";
 
 interface ProductCardProps {
   product: any;
@@ -52,6 +53,27 @@ export function ProductCard({
 
   const img = imageCandidates[imageIndex] || "";
 
+  const showSoldOutBadge = useMemo(() => {
+    if ((product as any)?.sold_out === true) return true;
+
+    const variants = Array.isArray((product as any)?.variants)
+      ? (product as any).variants
+      : [];
+
+    if (!variants.length) return false;
+
+    return variants.every((variant: any) => {
+      const stock = Number(
+        variant?.stock ??
+          variant?.stock_total ??
+          variant?.inventory ??
+          0
+      );
+
+      return !Number.isFinite(stock) || stock <= 0;
+    });
+  }, [product]);
+
   return (
     <Link
       href={productPath(slug)}
@@ -71,6 +93,14 @@ export function ProductCard({
       data-product-group-position={groupPosition}
     >
       <div className="relative card-premium-ratio overflow-hidden bg-transparent">
+        <div className="pointer-events-none absolute inset-0 z-[2]" aria-hidden="true">
+          <div className="absolute top-2 left-2">
+            <div className="inline-flex w-[84px] justify-start">
+              <SoldOutBadge show={showSoldOutBadge} variant="card" />
+            </div>
+          </div>
+        </div>
+
         {img && !imageFailed ? (
           <Image
             src={img}
