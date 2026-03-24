@@ -4,26 +4,36 @@ type Props = {
   show: boolean;
   variant?: "card" | "detail";
   className?: string;
+  label?: string;
 };
 
-export default function SoldOutBadge({ show, variant = "card", className = "" }: Props) {
+export default function SoldOutBadge({
+  show,
+  variant = "card",
+  className = "",
+  label = "SOLD OUT",
+}: Props) {
   if (!show) return null;
 
-  const base =
+  const shellClass =
     variant === "detail"
-      ? "absolute top-3 left-3 w-[140px] sm:w-[180px] rotate-[-12deg] opacity-95 z-10"
-      : "absolute top-2 left-2 w-[72px] sm:w-[84px] rotate-[-12deg] opacity-95 z-10";
+      ? "inline-flex w-full max-w-[140px] rotate-[-12deg] select-none"
+      : "inline-flex w-full max-w-[84px] rotate-[-12deg] select-none";
 
   return (
-    <div className={`${base} ${className}`}>
+    <span
+      className={`${shellClass} ${className}`.trim()}
+      aria-label={label}
+      role="img"
+    >
       <Image
         src="/badges/sold-out.png"
-        alt="Sold out"
-        width={400}
-        height={200}
+        alt={label}
+        width={320}
+        height={160}
         priority={variant === "detail"}
-        className="drop-shadow-[0_10px_20px_rgba(0,0,0,0.35)]"
+        className="block w-full h-auto object-contain select-none pointer-events-none"
       />
-    </div>
+    </span>
   );
 }

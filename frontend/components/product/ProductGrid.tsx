@@ -95,6 +95,7 @@ function ProductGridGroup({
     rootMargin: loadPolicy.revealRootMargin,
   });
   const groupVisible = isFirstGroup ? true : observedVisible;
+  const cardRevealDeferred = revealEnabled && !groupVisible;
 
   return (
     <>
@@ -126,9 +127,11 @@ function ProductGridGroup({
               product={item.product}
               index={item.absoluteIndex}
               surface={surface}
-              revealDeferred={revealEnabled}
+              revealDeferred={cardRevealDeferred}
               isVisible={groupVisible}
               revealDelayMs={item.revealDelayMs}
+              groupIndex={group.groupIndex}
+              groupPosition={item.groupPosition}
             />
           </div>
         );

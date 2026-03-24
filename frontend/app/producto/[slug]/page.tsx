@@ -235,6 +235,9 @@ export default async function ProductPage({ params }: PageProps) {
 
   let productViewModel: any;
   try {
+    // PDP contract: the normalizer is the single source of truth for
+    // initial display variant, available-first resolution, gallery priority,
+    // and sold-out semantics. This page must only orchestrate fetch -> normalize -> view model.
     productViewModel = buildProductDetailPDPViewModel(normalizedProduct);
   } catch (e: any) {
     logPdpStageError("view-model build failed", slug, e);

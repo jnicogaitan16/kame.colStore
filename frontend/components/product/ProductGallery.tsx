@@ -331,7 +331,17 @@ export function ProductGallery({ images, productName, soldOut = false, variant =
   return (
     <div className={wrapperClass}>
       <div className={mediaFrameClass} data-gallery-frame={isPdp ? "pdp" : "default"}>
-        <SoldOutBadge show={soldOut === true} variant="detail" />
+        <div
+          className="pointer-events-none absolute inset-0 z-[3]"
+          aria-hidden="true"
+          data-gallery-soldout-overlay={soldOut === true ? "true" : "false"}
+        >
+          <div className="absolute top-2 left-2 md:top-3 md:left-3">
+            <div className="k-gallery-soldout-badge-wrap k-gallery-soldout-badge-wrap--left">
+              <SoldOutBadge show={soldOut === true} variant="detail" />
+            </div>
+          </div>
+        </div>
 
         <Swiper
           modules={[Pagination]}
@@ -339,7 +349,7 @@ export function ProductGallery({ images, productName, soldOut = false, variant =
           slidesPerView={1}
           pagination={{ clickable: true }}
           allowTouchMove={allowSwiperTouch}
-          className={`k-gallery-swiper ${isPdp ? "k-gallery-swiper--pdp overflow-visible" : "h-full w-full"}`}
+          className={`k-gallery-swiper relative z-[1] ${isPdp ? "k-gallery-swiper--pdp overflow-visible" : "h-full w-full"}`}
         >
           {slides.map((img, index) => {
             const src = img.thumb_url || img.url || null;
@@ -421,6 +431,34 @@ export function ProductGallery({ images, productName, soldOut = false, variant =
           background: transparent !important;
         }
 
+        .k-gallery-soldout-badge-wrap {
+          display: inline-flex;
+          align-items: flex-start;
+          justify-content: flex-start;
+          width: clamp(96px, 24vw, 148px);
+          min-height: 40px;
+          opacity: 1;
+          transform: translateZ(0);
+          will-change: opacity, transform;
+        }
+
+        .k-gallery-soldout-badge-wrap--left {
+          transform-origin: top left;
+        }
+
+        [data-gallery-soldout-overlay="false"] .k-gallery-soldout-badge-wrap {
+          opacity: 0;
+        }
+
+        .k-gallery-soldout-badge-wrap :global(img),
+        .k-gallery-soldout-badge-wrap :global(svg),
+        .k-gallery-soldout-badge-wrap :global(canvas) {
+          display: block;
+          width: 100%;
+          height: auto;
+          object-fit: contain;
+        }
+
         .k-gallery-swiper .swiper-pagination {
           bottom: 12px;
         }
@@ -448,6 +486,10 @@ export function ProductGallery({ images, productName, soldOut = false, variant =
         [data-gallery-frame="pdp"] .k-gallery-swiper--pdp .swiper-wrapper,
         [data-gallery-frame="pdp"] .k-gallery-swiper--pdp .swiper-slide {
           overflow: visible !important;
+        }
+
+        [data-gallery-frame="pdp"] .k-gallery-soldout-badge-wrap {
+          width: clamp(92px, 22vw, 140px);
         }
 
         .k-gallery-swiper .swiper-pagination-bullet {
