@@ -2,6 +2,25 @@ import type { Metadata } from "next";
 import CatalogoClient from "./CatalogoClient";
 import { getCatalogo } from "@/lib/api";
 
+/**
+ * SERVER ENTRY (CATÁLOGO)
+ *
+ * Responsabilidad:
+ * - Obtener el snapshot inicial de productos desde backend.
+ * - Entregar datos al client (CatalogoClient).
+ *
+ * No es responsable de:
+ * - Política de imágenes (priority, loading, fetchPriority)
+ * - Reveal / IntersectionObserver
+ * - Heurísticas visuales de grid o cards
+ *
+ * Toda la lógica visual y de loading vive en:
+ * - ProductGrid
+ * - ProductCard
+ * - product-card-policy
+ * - useCardReveal
+ */
+
 export const revalidate = 300;
 
 export async function generateMetadata(): Promise<Metadata> {

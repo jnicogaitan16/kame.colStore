@@ -1470,13 +1470,20 @@ select {
 
 .card-reveal.is-visible {
   opacity: 1;
-  transform: translateY(0) scale(1);
+  transform: translateY(0);
   filter: blur(0);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .brand-story-reveal,
-  .card-reveal {
+  .brand-story-reveal {
+    opacity: 1;
+    transform: none;
+    filter: none;
+    transition: none !important;
+  }
+
+  .card-reveal,
+  .card-reveal.is-visible {
     opacity: 1;
     transform: none;
     filter: none;

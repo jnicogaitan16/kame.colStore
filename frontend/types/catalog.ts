@@ -82,6 +82,11 @@ export interface Product {
   // filtrada, deduplicada o lista para UI; debe normalizarse con product-media.ts.
   images?: ProductImage[];
 
+  // Nota arquitectónica para superficies de listing/card:
+  // - Las cards y listados deben consumir helpers compartidos de `frontend/lib/product-media.ts`.
+  // - Los candidatos de imagen no deben inferirse inline dentro de componentes.
+  // - Este tipo describe contrato backend/compatibilidad, no la política de resolución de media para UI.
+
   // Campo legacy opcional de compatibilidad.
   image_url?: string | null;
   is_active: boolean;

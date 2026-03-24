@@ -3,11 +3,13 @@ Serializers para la API del catálogo (DRF).
 Incluyen imágenes con URL absoluta y orden primary + gallery.
 """
 
+import logging
 from rest_framework import serializers
 from imagekit.cachefiles import ImageCacheFile
 
 from django.conf import settings
 from django.db.models import Exists, OuterRef
+logger = logging.getLogger(__name__)
 
 
 from .models import (
@@ -99,7 +101,16 @@ def _spec_url(obj, spec_attr: str):
             url = getattr(cachefile, "url", None) or getattr(spec, "url", None)
             cache[spec_attr] = url or None
             return cache[spec_attr]
-        except Exception:
+        except Exception as exc:
+            logger.warning(
+                "Failed resolving ImageKit spec",
+                extra={
+                    "spec_attr": spec_attr,
+                    "object_id": getattr(obj, "id", None),
+                    "object_class": obj.__class__.__name__ if obj is not None else None,
+                    "error": str(exc),
+                },
+            )
             cache[spec_attr] = None
             return None
     except Exception:
@@ -138,6 +149,40 @@ def _resolve_public_image_urls(obj, request=None, primary_specs=None):
         "image_thumb_url": public_media_url(thumb, request=request),
         "image_medium_url": public_media_url(medium, request=request),
         "image_large_url": public_media_url(large, request=request),
+    }
+
+
+# New helper: _resolve_listing_image_urls
+def _resolve_listing_image_urls(image_obj, request=None):
+    """Resuelve URLs específicas para listados/cards con prioridad liviana.
+
+    Política de listing/card:
+    1) card_image -> thumb, luego medium, luego large, luego original
+    2) primary_image legacy de listing -> medium, luego large, luego original
+    3) Nunca devolver paths crudos; siempre URLs públicas absolutas o None
+    """
+    if not image_obj or not getattr(image_obj, "image", None):
+        return {
+            "card_image": None,
+            "thumb": None,
+            "medium": None,
+            "large": None,
+            "original": None,
+            "primary_image": None,
+        }
+
+    thumb = public_media_url(_spec_url(image_obj, "image_thumb"), request=request)
+    medium = public_media_url(_spec_url(image_obj, "image_medium"), request=request)
+    large = public_media_url(_spec_url(image_obj, "image_large"), request=request)
+    original = public_media_url(image_obj.image.url, request=request)
+
+    return {
+        "card_image": thumb or medium or large or original,
+        "thumb": thumb,
+        "medium": medium,
+        "large": large,
+        "original": original,
+        "primary_image": medium or large or original,
     }
 
 
@@ -516,10 +561,18 @@ class ProductVariantSerializer(serializers.ModelSerializer):
 
 # ---------------------------------------------------------------------------
 # Product list (para GET /api/products/)
+#
+# Contrato de media para listing/card:
+# - `primary_card_url` es el campo preferido para cards/listings.
+# - `primary_thumb_url`, `primary_medium_url` y `primary_image` se mantienen
+#   como compatibilidad y soporte para consumers legacy.
+# - `primary_image` NO debe interpretarse como "original full size obligatorio".
+# - La política de listing prioriza payload liviano antes de caer al original.
 # ---------------------------------------------------------------------------
 
 class ProductListSerializer(serializers.ModelSerializer):
     category = CategorySerializer(read_only=True)
+    primary_card_url = serializers.SerializerMethodField()
     primary_image = serializers.SerializerMethodField()
     primary_thumb_url = serializers.SerializerMethodField()
     primary_medium_url = serializers.SerializerMethodField()
@@ -536,6 +589,7 @@ class ProductListSerializer(serializers.ModelSerializer):
             "stock_total",
             "sold_out",
             "category",
+            "primary_card_url",
             "primary_image",
             "primary_thumb_url",
             "primary_medium_url",
@@ -603,38 +657,33 @@ class ProductListSerializer(serializers.ModelSerializer):
         )
         return img if img and img.image else None
 
-    def get_primary_image(self, obj):
+    def _get_primary_list_image_urls(self, obj):
+        cache = getattr(self, "_primary_list_image_urls_cache", None)
+        if cache is None:
+            cache = {}
+            setattr(self, "_primary_list_image_urls_cache", cache)
+
+        key = getattr(obj, "id", None)
+        if key in cache:
+            return cache[key]
+
         request = self.context.get("request")
         img = self._get_primary_list_image(obj)
-        if not img or not getattr(img, "image", None):
-            return None
+        resolved = _resolve_listing_image_urls(img, request=request)
+        cache[key] = resolved
+        return resolved
 
-        cache_url = _spec_url(img, "image_large") or _spec_url(img, "image_medium")
-        return public_media_url(cache_url or img.image.url, request=request)
+    def get_primary_card_url(self, obj):
+        return self._get_primary_list_image_urls(obj)["card_image"]
+
+    def get_primary_image(self, obj):
+        return self._get_primary_list_image_urls(obj)["primary_image"]
 
     def get_primary_thumb_url(self, obj):
-        request = self.context.get("request")
-        img = self._get_primary_list_image(obj)
-        if not img or not getattr(img, "image", None):
-            return None
-
-        cache_url = _spec_url(img, "image_thumb")
-        if cache_url:
-            return public_media_url(cache_url, request=request)
-
-        return None
+        return self._get_primary_list_image_urls(obj)["thumb"]
 
     def get_primary_medium_url(self, obj):
-        request = self.context.get("request")
-        img = self._get_primary_list_image(obj)
-        if not img or not getattr(img, "image", None):
-            return None
-
-        cache_url = _spec_url(img, "image_medium")
-        if cache_url:
-            return public_media_url(cache_url, request=request)
-
-        return None
+        return self._get_primary_list_image_urls(obj)["medium"]
 
     def get_stock_total(self, obj):
         variants = obj.variants.filter(is_active=True)

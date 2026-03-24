@@ -170,6 +170,18 @@ function pushNormalizedCandidate(
   seen.add(normalized);
 }
 
+function pushUniqueNormalizedStringCandidate(
+  value: string | null | undefined,
+  bucket: string[],
+  seen: Set<string>
+) {
+  const normalized = normalizeProductMediaUrl(value);
+  if (!normalized || seen.has(normalized)) return;
+
+  bucket.push(normalized);
+  seen.add(normalized);
+}
+
 function getObjectAltText(input: Record<string, unknown>): string | null {
   const candidates = [
     input.alt_text,
@@ -353,6 +365,78 @@ export function collectProductImageCandidates(
     typeof record.cover_image === "string" ? record.cover_image : undefined,
     typeof record.coverImage === "string" ? record.coverImage : undefined
   );
+}
+
+export function getProductCardImageCandidates(product: unknown): string[] {
+  const record =
+    typeof product === "object" && product !== null
+      ? (product as Record<string, unknown>)
+      : null;
+
+  if (!record) return [];
+
+  const candidates: string[] = [];
+  const seen = new Set<string>();
+
+  pushUniqueNormalizedStringCandidate(
+    typeof record.primary_card_url === "string" ? record.primary_card_url : null,
+    candidates,
+    seen
+  );
+  pushUniqueNormalizedStringCandidate(
+    typeof record.primaryCardUrl === "string" ? record.primaryCardUrl : null,
+    candidates,
+    seen
+  );
+  pushUniqueNormalizedStringCandidate(
+    typeof record.primary_thumb_url === "string" ? record.primary_thumb_url : null,
+    candidates,
+    seen
+  );
+  pushUniqueNormalizedStringCandidate(
+    typeof record.primaryThumbUrl === "string" ? record.primaryThumbUrl : null,
+    candidates,
+    seen
+  );
+  pushUniqueNormalizedStringCandidate(
+    typeof record.primary_medium_url === "string" ? record.primary_medium_url : null,
+    candidates,
+    seen
+  );
+  pushUniqueNormalizedStringCandidate(
+    typeof record.primaryMediumUrl === "string" ? record.primaryMediumUrl : null,
+    candidates,
+    seen
+  );
+  pushUniqueNormalizedStringCandidate(
+    typeof record.primary_image === "string" ? record.primary_image : null,
+    candidates,
+    seen
+  );
+  pushUniqueNormalizedStringCandidate(
+    typeof record.primaryImage === "string" ? record.primaryImage : null,
+    candidates,
+    seen
+  );
+  pushUniqueNormalizedStringCandidate(
+    typeof record.image_url === "string" ? record.image_url : null,
+    candidates,
+    seen
+  );
+  pushUniqueNormalizedStringCandidate(
+    typeof record.imageUrl === "string" ? record.imageUrl : null,
+    candidates,
+    seen
+  );
+
+  pushUniqueNormalizedStringCandidate(getProductPrimaryImage(record), candidates, seen);
+
+  const galleryImages = getProductGalleryImages(record);
+  for (const image of galleryImages) {
+    pushUniqueNormalizedStringCandidate(image.url, candidates, seen);
+  }
+
+  return candidates;
 }
 
 export function getProductPrimaryImage(product: unknown): string | null {

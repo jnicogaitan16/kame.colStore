@@ -1,85 +1,58 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useCardReveal } from "@/hooks/useCardReveal";
+import { getProductCardLoadPolicy } from "@/lib/product-card-policy";
+import type { ProductCardSurface } from "@/lib/product-card-policy";
+import { getProductCardImageCandidates } from "@/lib/product-media";
 import { productPath } from "@/lib/routes";
 
 interface ProductCardProps {
   product: any;
   index?: number;
+  surface?: ProductCardSurface;
 }
 
-export function ProductCard({ product, index }: ProductCardProps) {
-  const imageCandidates = [
-    product?.primary_thumb_url,
-    product?.primary_medium_url,
-    product?.primary_image,
-  ].filter((value, index, array): value is string => {
-    if (typeof value !== "string") return false;
-    const trimmed = value.trim();
-    if (!trimmed) return false;
-    return array.findIndex((item) => item === value) === index;
-  });
+export function ProductCard({ product, index, surface = "catalog" }: ProductCardProps) {
+  const imageCandidates = getProductCardImageCandidates(product);
+  const imageCandidatesKey = useMemo(() => imageCandidates.join("|"), [imageCandidates]);
 
   const name = (product as any)?.name ?? "";
   const price = (product as any)?.price ?? "0";
   const slug = (product as any)?.slug ?? "";
 
-  const safeIndex = typeof index === "number" ? index : Number.MAX_SAFE_INTEGER;
-  const isAboveTheFold = safeIndex < 4;
-  const isPriorityImage = safeIndex < 2;
+  const safeIndex =
+    typeof index === "number" && Number.isFinite(index)
+      ? index
+      : Number.MAX_SAFE_INTEGER;
+  const loadPolicy = getProductCardLoadPolicy(safeIndex, surface);
+  const { ref: revealRef, isVisible } = useCardReveal({
+    enabled: loadPolicy.revealDeferred,
+  });
 
-  const cardRef = useRef<HTMLAnchorElement | null>(null);
-  const [isVisible, setIsVisible] = useState(isAboveTheFold);
   const [imageIndex, setImageIndex] = useState(0);
   const [imageFailed, setImageFailed] = useState(false);
 
   useEffect(() => {
     setImageIndex(0);
     setImageFailed(false);
-  }, [
-    product?.id,
-    product?.slug,
-    product?.primary_thumb_url,
-    product?.primary_medium_url,
-    product?.primary_image,
-  ]);
-
-  useEffect(() => {
-    if (isAboveTheFold) {
-      if (!isVisible) setIsVisible(true);
-      return;
-    }
-
-    const node = cardRef.current;
-    if (!node || isVisible) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const entry = entries[0];
-        if (!entry?.isIntersecting) return;
-        setIsVisible(true);
-        observer.disconnect();
-      },
-      {
-        threshold: 0.12,
-        rootMargin: "0px 0px -8% 0px",
-      }
-    );
-
-    observer.observe(node);
-
-    return () => observer.disconnect();
-  }, [isAboveTheFold, isVisible]);
+  }, [product?.id, product?.slug, imageCandidatesKey]);
 
   const img = imageCandidates[imageIndex] || "";
 
   return (
     <Link
-      ref={cardRef}
+      ref={revealRef as React.Ref<HTMLAnchorElement>}
       href={productPath(slug)}
-      className={`group block ${isAboveTheFold ? "" : "card-reveal"} ${isVisible ? "is-visible" : ""}`.trim()}
+      className={[
+        "group block",
+        loadPolicy.revealDeferred ? "card-reveal" : "",
+        isVisible ? "is-visible" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
     >
       <div className="relative card-premium-ratio overflow-hidden bg-transparent">
         {img && !imageFailed ? (
@@ -87,11 +60,11 @@ export function ProductCard({ product, index }: ProductCardProps) {
             src={img}
             alt={name || "Producto"}
             fill
-            priority={isPriorityImage}
+            priority={loadPolicy.priority}
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-            unoptimized
             className="card-premium-img transition-transform duration-500 ease-out group-hover:scale-[1.012]"
-            loading={isAboveTheFold ? "eager" : "lazy"}
+            loading={loadPolicy.loading}
+            fetchPriority={loadPolicy.fetchPriority}
             onError={() => {
               if (imageIndex < imageCandidates.length - 1) {
                 setImageIndex((current) => current + 1);
