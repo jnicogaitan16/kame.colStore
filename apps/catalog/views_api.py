@@ -28,6 +28,7 @@ from .models import (
     InventoryPool,
     Product,
     ProductColorImage,
+    ProductImage,
     ProductVariant,
 )
 from .serializers import (
@@ -133,7 +134,12 @@ class ProductListAPIView(generics.ListAPIView):
 
     def get_queryset(self):
         active_variants = ProductVariant.objects.filter(is_active=True).prefetch_related(
-            "images"
+            Prefetch(
+                "images",
+                queryset=ProductImage.objects.order_by(
+                    "-is_primary", "sort_order", "created_at", "id"
+                ),
+            )
         )
 
         color_images_queryset = ProductColorImage.objects.order_by(
@@ -208,7 +214,14 @@ class ProductDetailAPIView(generics.RetrieveAPIView):
         active_variants = (
             ProductVariant.objects.filter(is_active=True)
             .select_related("product", "product__category")
-            .prefetch_related("images")
+            .prefetch_related(
+                Prefetch(
+                    "images",
+                    queryset=ProductImage.objects.order_by(
+                        "-is_primary", "sort_order", "created_at", "id"
+                    ),
+                )
+            )
             .order_by("value", "color", "id")
         )
 
