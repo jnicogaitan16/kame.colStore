@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useCardReveal } from "@/hooks/useCardReveal";
 import { getProductCardLoadPolicy } from "@/lib/product-card-policy";
 import type { ProductCardSurface } from "@/lib/product-card-policy";
 import { getProductCardImageCandidates } from "@/lib/product-media";
@@ -13,9 +12,23 @@ interface ProductCardProps {
   product: any;
   index?: number;
   surface?: ProductCardSurface;
+  isVisible?: boolean;
+  revealDeferred?: boolean;
+  revealDelayMs?: number;
+  groupIndex?: number;
+  groupPosition?: number;
 }
 
-export function ProductCard({ product, index, surface = "catalog" }: ProductCardProps) {
+export function ProductCard({
+  product,
+  index,
+  surface = "catalog",
+  isVisible = true,
+  revealDeferred = false,
+  revealDelayMs = 0,
+  groupIndex,
+  groupPosition,
+}: ProductCardProps) {
   const imageCandidates = getProductCardImageCandidates(product);
   const imageCandidatesKey = useMemo(() => imageCandidates.join("|"), [imageCandidates]);
 
@@ -28,9 +41,6 @@ export function ProductCard({ product, index, surface = "catalog" }: ProductCard
       ? index
       : Number.MAX_SAFE_INTEGER;
   const loadPolicy = getProductCardLoadPolicy(safeIndex, surface);
-  const { ref: revealRef, isVisible } = useCardReveal({
-    enabled: loadPolicy.revealDeferred,
-  });
 
   const [imageIndex, setImageIndex] = useState(0);
   const [imageFailed, setImageFailed] = useState(false);
@@ -44,15 +54,21 @@ export function ProductCard({ product, index, surface = "catalog" }: ProductCard
 
   return (
     <Link
-      ref={revealRef as React.Ref<HTMLAnchorElement>}
       href={productPath(slug)}
       className={[
         "group block",
-        loadPolicy.revealDeferred ? "card-reveal" : "",
+        revealDeferred ? "card-reveal" : "",
         isVisible ? "is-visible" : "",
       ]
         .filter(Boolean)
         .join(" ")}
+      style={
+        revealDeferred
+          ? ({ ["--card-reveal-delay" as any]: `${Math.max(0, revealDelayMs)}ms` } as React.CSSProperties)
+          : undefined
+      }
+      data-product-group-index={groupIndex}
+      data-product-group-position={groupPosition}
     >
       <div className="relative card-premium-ratio overflow-hidden bg-transparent">
         {img && !imageFailed ? (

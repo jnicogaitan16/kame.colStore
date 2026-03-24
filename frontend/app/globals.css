@@ -1458,13 +1458,15 @@ select {
 }
 
 .card-reveal {
-  opacity: 0.01;
-  transform: translateY(10px);
-  filter: blur(2px);
+  --card-reveal-delay: 0ms;
+  opacity: 0;
+  transform: translateY(14px);
+  filter: blur(2.5px);
   transition:
-    opacity 420ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    transform 420ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    filter 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    opacity 560ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 560ms cubic-bezier(0.22, 1, 0.36, 1),
+    filter 560ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: var(--card-reveal-delay);
   will-change: opacity, transform, filter;
 }
 
@@ -1488,6 +1490,7 @@ select {
     transform: none;
     filter: none;
     transition: none !important;
+    transition-delay: 0ms !important;
   }
 }
 

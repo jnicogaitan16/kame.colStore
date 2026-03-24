@@ -1,5 +1,3 @@
-
-
 import { useEffect, useRef, useState } from "react";
 import type React from "react";
 
@@ -15,13 +13,13 @@ const DEFAULT_ROOT_MARGIN = "0px 0px -8% 0px";
 export function useCardReveal(
   options: UseCardRevealOptions
 ): {
-  ref: React.RefObject<HTMLAnchorElement | null>;
+  ref: React.RefObject<HTMLElement | null>;
   isVisible: boolean;
 } {
   const { enabled, threshold = DEFAULT_THRESHOLD, rootMargin = DEFAULT_ROOT_MARGIN } =
     options;
 
-  const ref = useRef<HTMLAnchorElement | null>(null);
+  const ref = useRef<HTMLElement | null>(null);
   const [isVisible, setIsVisible] = useState<boolean>(() => !enabled);
 
   useEffect(() => {
