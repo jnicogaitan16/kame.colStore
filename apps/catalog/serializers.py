@@ -543,26 +543,65 @@ class ProductListSerializer(serializers.ModelSerializer):
         ]
 
     def _get_primary_list_image(self, obj):
-        """Imagen primaria para cards/listados sin queries extra.
+        """Imagen primaria para cards/listados.
 
         Prioridad:
-        1) SIZE_COLOR -> usar `prefetched_color_images` si existe
-        2) fallback legacy -> usar imágenes prefetched de variantes activas
+        1) SIZE_COLOR -> prefetched_color_images priorizando primaria.
+        2) variantes prefetched + imágenes prefetched priorizando primaria.
+        3) fallback DB limpio alineado con PDP.
         """
         schema = getattr(getattr(obj, "category", None), "variant_schema", "")
 
+        def _image_sort_key(image):
+            return (
+                0 if bool(getattr(image, "is_primary", False)) else 1,
+                int(getattr(image, "sort_order", 0) or 0),
+                getattr(image, "created_at", None),
+                int(getattr(image, "id", 0) or 0),
+            )
+
         if schema == Category.VariantSchema.SIZE_COLOR:
-            color_images = getattr(obj, "prefetched_color_images", None) or []
+            color_images = [
+                image
+                for image in list(getattr(obj, "prefetched_color_images", None) or [])
+                if getattr(image, "image", None)
+            ]
             if color_images:
+                color_images.sort(key=_image_sort_key)
                 return color_images[0]
 
-        variants = getattr(obj, "prefetched_objects_cache", {}).get("variants") or []
-        for variant in variants:
-            variant_images = getattr(variant, "prefetched_objects_cache", {}).get("images") or []
-            if variant_images:
-                return variant_images[0]
+        variants = list(getattr(obj, "prefetched_objects_cache", {}).get("variants") or [])
+        candidate_images = []
 
-        return None
+        for variant in variants:
+            variant_images = [
+                image
+                for image in list(getattr(variant, "prefetched_objects_cache", {}).get("images") or [])
+                if getattr(image, "image", None)
+            ]
+            if variant_images:
+                candidate_images.extend(variant_images)
+
+        if candidate_images:
+            candidate_images.sort(key=_image_sort_key)
+            return candidate_images[0]
+
+        # Fallback DB alineado con PDP
+        if schema == Category.VariantSchema.SIZE_COLOR:
+            color_img = (
+                ProductColorImage.objects.filter(product=obj)
+                .order_by("-is_primary", "sort_order", "created_at", "id")
+                .first()
+            )
+            if color_img and color_img.image:
+                return color_img
+
+        img = (
+            ProductImage.objects.filter(variant__product=obj)
+            .order_by("-is_primary", "sort_order", "created_at", "id")
+            .first()
+        )
+        return img if img and img.image else None
 
     def get_primary_image(self, obj):
         request = self.context.get("request")
