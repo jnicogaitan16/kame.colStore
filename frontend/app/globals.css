@@ -641,7 +641,7 @@ canvas {
   color: rgba(24, 24, 27, 0.95);
   padding: 0.85rem 1rem;
   font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
-  font-size: 0.95rem;
+  font-size: 16px;
   font-weight: 400;
   line-height: 1.4;
   box-shadow:
@@ -679,6 +679,7 @@ canvas {
   padding-top: 0.95rem;
   padding-bottom: 0.95rem;
   line-height: 1.5;
+  font-size: 16px;
 }
 
 .ui-form-control--addon-shell {
@@ -728,6 +729,7 @@ canvas {
   box-shadow: none;
   padding: 0.85rem 1rem;
   font: inherit;
+  font-size: 16px;
   line-height: 1.4;
   color: inherit;
 }
@@ -960,6 +962,12 @@ select {
 
   .site-header {
     min-height: var(--header-height-desktop);
+  }
+
+  .ui-form-control,
+  .ui-form-control--textarea,
+  .ui-form-addon-input {
+    font-size: 15px;
   }
 }
 
