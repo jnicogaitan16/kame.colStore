@@ -1,6 +1,6 @@
 "use client";
 
-import { ProductCard } from "@/components/product/ProductCard";
+import ProductGrid from "@/components/product/ProductGrid";
 import type { Product } from "@/types/catalog";
 
 type CatalogoClientProps = {
@@ -25,17 +25,15 @@ export default function CatalogoClient({
         <p className="type-body mt-4 max-w-2xl text-zinc-600">Productos sin filtros.</p>
       </header>
 
-      {initialProducts.length === 0 ? (
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 text-zinc-600">
-          Aún no hay productos disponibles.
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 gap-5 md:grid-cols-3 md:gap-8">
-          {initialProducts.map((product, index) => (
-            <ProductCard key={String(product.id)} product={product} index={index} />
-          ))}
-        </div>
-      )}
+      <ProductGrid
+        products={initialProducts}
+        surface="catalog"
+        emptyState={
+          <div className="rounded-2xl border border-zinc-200 bg-white p-6 text-zinc-600">
+            Aún no hay productos disponibles.
+          </div>
+        }
+      />
     </main>
   );
 }

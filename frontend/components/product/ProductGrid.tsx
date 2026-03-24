@@ -1,9 +1,11 @@
+import type { ProductCardSurface } from "@/lib/product-card-policy";
 import { ProductCard } from "./ProductCard";
 
 interface ProductGridProps {
   products: any[];
   className?: string;
   emptyState?: React.ReactNode;
+  surface?: ProductCardSurface;
 }
 
 const PRODUCT_GRID_SECTION_CLASS = "relative w-full px-4 md:px-6";
@@ -14,6 +16,7 @@ export function ProductGrid({
   products,
   className = "",
   emptyState = null,
+  surface = "catalog",
 }: ProductGridProps) {
   if (!Array.isArray(products) || products.length === 0) {
     return emptyState ? <>{emptyState}</> : null;
@@ -30,7 +33,7 @@ export function ProductGrid({
           const fallbackKey = `${product?.name ?? "product"}-${product?.price ?? "0"}`;
           const key = String(stableKey ?? fallbackKey);
 
-          return <ProductCard key={key} product={product} index={index} />;
+          return <ProductCard key={key} product={product} index={index} surface={surface} />;
         })}
       </div>
     </section>

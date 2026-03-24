@@ -400,6 +400,12 @@ export async function getProducts(params?: {
  * Use this only when the frontend explicitly depends on the backend contract of
  * `/catalogo/` for the catalog page or compatibility flows. Do not use it as a
  * generic replacement for `getProducts()`.
+ *
+ * Architectural note:
+ * - Progressive listing render strategy is NOT defined in this file.
+ * - Image priority/loading policy is NOT defined in this file.
+ * - Card reveal/runtime behavior is NOT defined in this file.
+ * - This API layer only orchestrates transport and cache contract.
  */
 export async function getCatalogo(
   params?: {
