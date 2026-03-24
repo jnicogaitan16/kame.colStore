@@ -75,6 +75,8 @@ export interface Product {
 
   // Campo backend explícito. Puede venir vacío o requerir normalización.
   primary_image: string | null;
+  primary_thumb_url?: string | null;
+  primary_medium_url?: string | null;
 
   // Colección de media enviada por backend. No implica por sí sola que ya esté
   // filtrada, deduplicada o lista para UI; debe normalizarse con product-media.ts.
@@ -190,6 +192,8 @@ export interface ProductDetailViewModel {
 
   // Imagen principal ya resuelta para UI.
   primaryImage: string | null;
+  primaryThumb: string | null;
+  primaryMedium: string | null;
 
   // Alias explícito para usos donde se quiera remarcar la imagen canónica del producto.
   canonicalProductImage: string | null;

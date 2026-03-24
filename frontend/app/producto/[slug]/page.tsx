@@ -36,12 +36,43 @@ function isNotFoundProduct(product: any): boolean {
 }
 
 function normalizeProductForClient(product: any) {
-  const primaryImage = getProductPrimaryImage(product) || OG_DEFAULT_PATH;
-  const normalizedGallery = getProductGalleryImages(product).map((item) => item.url);
+  const fallbackPrimaryImage = getProductPrimaryImage(product) || OG_DEFAULT_PATH;
+  const fallbackGallery = getProductGalleryImages(product);
+
+  const primaryImage =
+    product?.primary_image ||
+    product?.primaryImage ||
+    fallbackPrimaryImage;
+
+  const primaryThumb =
+    product?.primary_thumb_url ||
+    product?.primaryThumb ||
+    product?.primary_medium_url ||
+    product?.primaryMedium ||
+    product?.primary_image ||
+    product?.primaryImage ||
+    fallbackGallery?.[0]?.thumb_url ||
+    fallbackGallery?.[0]?.url ||
+    primaryImage;
+
+  const primaryMedium =
+    product?.primary_medium_url ||
+    product?.primaryMedium ||
+    product?.primary_image ||
+    product?.primaryImage ||
+    fallbackGallery?.[0]?.url ||
+    primaryImage;
+
+  const normalizedGallery =
+    Array.isArray(product?.galleryImages) && product.galleryImages.length > 0
+      ? product.galleryImages
+      : fallbackGallery;
 
   return {
     ...product,
     primaryImage,
+    primaryThumb,
+    primaryMedium,
     normalizedGallery,
   };
 }

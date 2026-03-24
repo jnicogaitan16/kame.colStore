@@ -5,7 +5,6 @@ import Image from "next/image";
 
 import Notice from "@/components/ui/Notice";
 import StockWarningChip from "@/components/cart/StockWarningChip";
-import { getProductPrimaryImage } from "@/lib/product-media";
 
 type CheckoutSummaryItem = {
   variantId: number;
@@ -160,8 +159,7 @@ export default function CheckoutSummary({
                 const hint = stockHintsByVariantId[String(item.variantId)];
                 const stockState = normalizeStockVisualState({ item, warning, hint });
                 const canAdjust = canAdjustToAvailable(item, warning);
-                const productLike = item.product || item;
-                const thumb = getProductPrimaryImage(productLike) || item.imageUrl || "";
+                const thumb = item.imageUrl || "";
                 const alt = item.product?.name || item.productName || "Producto";
 
                 return (
@@ -177,6 +175,8 @@ export default function CheckoutSummary({
                             alt={alt}
                             fill
                             sizes="64px"
+                            loading="eager"
+                            unoptimized
                             className="object-cover"
                           />
                         ) : (

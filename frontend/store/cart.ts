@@ -21,6 +21,12 @@ export interface CartItem {
   variantLabel: string; // ej. "Talla M / Negro"
   price: string;
   quantity: number;
+  /**
+   * Canonical MiniCart media URL.
+   * This value must already be resolved before entering the cart store,
+   * and MiniCart should consume it directly without re-running media
+   * resolution logic during render.
+   */
   imageUrl: string | null;
 }
 

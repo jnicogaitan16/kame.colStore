@@ -41,10 +41,48 @@ export type ImageSourceLike = {
   image?: string | null;
   image_url?: string | null;
   imageUrl?: string | null;
+  primary_image?: string | null;
+  primary_thumb_url?: string | null;
+  primary_medium_url?: string | null;
   src?: string | null;
   url?: string | null;
   images?: unknown;
+  galleryImages?: unknown;
+  normalizedGallery?: unknown;
 };
+
+function getExplicitPrimaryImage(source: ImageSourceLike | null | undefined): string | null {
+  if (!source) return null;
+
+  return (
+    normalizeProductMediaUrl(source.primary_image ?? "") ||
+    normalizeProductMediaUrl(source.image_url ?? "") ||
+    normalizeProductMediaUrl(source.imageUrl ?? "") ||
+    normalizeProductMediaUrl(source.image ?? "") ||
+    normalizeProductMediaUrl(source.src ?? "") ||
+    normalizeProductMediaUrl(source.url ?? "") ||
+    null
+  );
+}
+
+function getExplicitPrimaryThumb(source: ImageSourceLike | null | undefined): string | null {
+  if (!source) return null;
+
+  return (
+    normalizeProductMediaUrl(source.primary_thumb_url ?? "") ||
+    normalizeProductMediaUrl(source.primary_medium_url ?? "") ||
+    getExplicitPrimaryImage(source)
+  );
+}
+
+function getExplicitPrimaryMedium(source: ImageSourceLike | null | undefined): string | null {
+  if (!source) return null;
+
+  return (
+    normalizeProductMediaUrl(source.primary_medium_url ?? "") ||
+    getExplicitPrimaryImage(source)
+  );
+}
 
 export type PDPVariantLookupRecord = Record<string, ProductVariant[]>;
 export type PDPVariantValueRecord = Record<string, ProductVariant>;
@@ -188,7 +226,7 @@ export function dedupeGalleryImages(
 
 export function getPrimaryImageUrlFromSource(source: ImageSourceLike | null | undefined): string | null {
   if (!source) return null;
-  return getProductPrimaryImage(source) || null;
+  return getExplicitPrimaryImage(source) || getProductPrimaryImage(source) || null;
 }
 
 export function getSourceImages(source: ImageSourceLike | null | undefined): unknown {
@@ -197,7 +235,7 @@ export function getSourceImages(source: ImageSourceLike | null | undefined): unk
 }
 
 export function resolveCanonicalProductImage(product: ProductDetail): string | null {
-  return getPrimaryImageUrlFromSource(product);
+  return getExplicitPrimaryImage(product) || getProductPrimaryImage(product) || null;
 }
 
 export function resolveVariantPrimaryImage(variant: ProductVariant | null): string | null {
@@ -215,6 +253,22 @@ export function resolveVariantGalleryImages(
 export function resolveProductGalleryImages(
   product: ProductDetail
 ): NormalizedProductGalleryImage[] {
+  const explicitGallery = normalizeGalleryImages(
+    (product as ProductDetail & {
+      normalizedGallery?: unknown;
+      galleryImages?: unknown;
+    }).normalizedGallery ??
+      (product as ProductDetail & {
+        normalizedGallery?: unknown;
+        galleryImages?: unknown;
+      }).galleryImages ??
+      []
+  );
+
+  if (explicitGallery.length > 0) {
+    return dedupeGalleryImages(explicitGallery);
+  }
+
   return dedupeGalleryImages(getProductGalleryImages(product));
 }
 
@@ -583,15 +637,30 @@ export function buildPDPFlags(params: {
 export function buildProductDetailViewModel(
   product: ProductDetail,
   displayVariant?: ProductVariant | null
-): ProductDetailViewModel {
+): ProductDetailViewModel & {
+  primaryThumb: string | null;
+  primaryMedium: string | null;
+} {
   const canonicalProductImage = resolveCanonicalProductImage(product);
   const variantPrimaryImage = resolveVariantPrimaryImage(displayVariant ?? null);
   const variantGallery = resolveVariantGalleryImages(displayVariant ?? null);
   const productGallery = resolveProductGalleryImages(product);
 
+  const explicitPrimaryThumb = getExplicitPrimaryThumb(product);
+  const explicitPrimaryMedium = getExplicitPrimaryMedium(product);
+
   return {
     product,
     primaryImage: variantPrimaryImage || canonicalProductImage,
+    primaryThumb:
+      explicitPrimaryThumb ||
+      productGallery[0]?.thumb_url ||
+      explicitPrimaryMedium ||
+      canonicalProductImage,
+    primaryMedium:
+      explicitPrimaryMedium ||
+      productGallery[0]?.url ||
+      canonicalProductImage,
     canonicalProductImage,
     galleryImages: variantGallery.length > 0 ? variantGallery : productGallery,
   };
