@@ -102,7 +102,16 @@ export default async function HomePage() {
       {/* Home remains the controlled exception: it must start behind the fixed header instead of using the internal page shell offset. */}
       <HeroCarousel banners={banners} />
 
+
       <HomepagePromos placement="TOP" />
+
+      <section className="sr-only" aria-label="Descripción de Kame.col">
+        <h1>Kame.col</h1>
+        <p>
+          Kame.col es una marca de ropa urbana en Bogotá, Colombia, enfocada en diseño,
+          calidad y detalle.
+        </p>
+      </section>
 
       <main className="home-editorial-shell mx-auto max-w-6xl px-4 md:px-6">
         <div className="home-editorial-flow">
