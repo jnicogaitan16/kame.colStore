@@ -91,12 +91,28 @@ function normalizeOption(value: unknown): string {
   return String(value || "").trim();
 }
 
+function normalizeOptionForCompare(value: unknown): string {
+  return normalizeOption(value).toLowerCase();
+}
+
+function isSameOption(a: unknown, b: unknown): boolean {
+  return normalizeOptionForCompare(a) === normalizeOptionForCompare(b);
+}
+
+function getCanonicalOption(options: string[], candidate: unknown): string {
+  const normalizedCandidate = normalizeOptionForCompare(candidate);
+  if (!normalizedCandidate) return "";
+
+  const exact = options.find((option) => isSameOption(option, normalizedCandidate));
+  return exact ?? normalizeOption(candidate);
+}
+
 function hasStock(variant: ProductVariant | null | undefined): boolean {
   return (variant?.stock ?? 0) > 0;
 }
 
 function buildVariantLabel(v: ProductVariant, variantSchema?: string): string {
-  const schema = normalizeOption(variantSchema).toLowerCase();
+  const schema = normalizeOptionForCompare(variantSchema);
   const parts: string[] = [];
 
   if (v.value) parts.push(v.value);
@@ -219,8 +235,14 @@ function useProductSelection(product: PDPViewModel): SelectionState {
     return variants.find(hasStock) ?? null;
   }, [product.firstAvailableVariantId, variants]);
 
-  const defaultValue = normalizeOption(firstAvailableVariant?.value ?? valueOptions[0] ?? "");
-  const defaultColor = normalizeOption(firstAvailableVariant?.color ?? colorOptions[0] ?? "");
+  const defaultValue = getCanonicalOption(
+    valueOptions,
+    firstAvailableVariant?.value ?? valueOptions[0] ?? ""
+  );
+  const defaultColor = getCanonicalOption(
+    colorOptions,
+    firstAvailableVariant?.color ?? colorOptions[0] ?? ""
+  );
 
   const [selectedValue, setSelectedValue] = useState(defaultValue);
   const [selectedColor, setSelectedColor] = useState(defaultColor);
@@ -357,14 +379,14 @@ function useProductSelection(product: PDPViewModel): SelectionState {
 
   const selectColor = (color: string) => {
     if (isColorSoldOut(color)) return;
-    if (selectedColor === color) return;
-    setSelectedColor(color);
+    if (isSameOption(selectedColor, color)) return;
+    setSelectedColor(getCanonicalOption(colorOptions, color));
   };
 
   const selectValue = (value: string) => {
     if (isSizeSoldOut(value)) return;
-    if (selectedValue === value) return;
-    setSelectedValue(value);
+    if (isSameOption(selectedValue, value)) return;
+    setSelectedValue(getCanonicalOption(valueOptions, value));
   };
 
   return {
@@ -496,17 +518,17 @@ function ProductSelectors({
               <div className="pdp-variant-section mt-2.5">
                 <div className="pdp-color-grid">
                   {colorOptions.map((color) => {
-                    const soldOut = isColorSoldOut(color);
-                    const selected = selectedColor === color;
+                    const selected = isSameOption(selectedColor, color);
+                    const soldOut = !selected && isColorSoldOut(color);
 
                     return (
                       <button
                         key={color}
                         type="button"
                         className={
-                          "pdp-color-chip pdp-variant-refined " +
-                          (selected ? "pdp-color-chip--selected " : "") +
-                          (soldOut ? "pdp-color-chip--disabled " : "")
+                          "ui-selectable-control pdp-color-chip pdp-variant-refined " +
+                          (selected ? "ui-selectable-control--selected " : "") +
+                          (soldOut ? "ui-selectable-control--disabled " : "")
                         }
                         disabled={soldOut}
                         onClick={() => selectColor(color)}
@@ -537,17 +559,17 @@ function ProductSelectors({
               <div className="pdp-variant-section mt-2.5">
                 <div className="pdp-size-grid">
                   {valueOptions.map((value) => {
-                    const soldOut = isSizeSoldOut(value);
-                    const selected = selectedValue === value;
+                    const selected = isSameOption(selectedValue, value);
+                    const soldOut = !selected && isSizeSoldOut(value);
 
                     return (
                       <button
                         key={value}
                         type="button"
                         className={
-                          "pdp-size-item pdp-variant-refined " +
-                          (selected ? "pdp-size-item--selected " : "") +
-                          (soldOut ? "pdp-size-item--disabled " : "")
+                          "ui-selectable-control pdp-size-item pdp-variant-refined " +
+                          (selected ? "ui-selectable-control--selected " : "") +
+                          (soldOut ? "ui-selectable-control--disabled " : "")
                         }
                         disabled={soldOut}
                         onClick={() => selectValue(value)}
@@ -607,6 +629,7 @@ function ProductPurchaseBox({
 
     return helperSelectionText;
   })();
+
   return (
     <div className="mt-6">
       <div className="pdp-description-refined mb-3.5 flex flex-wrap items-center gap-2 text-zinc-500">
@@ -627,7 +650,7 @@ function ProductPurchaseBox({
           disabled={!canAdd || isSubmittingToCart}
           variant="primary"
           fullWidth
-          className="pdp-cta-refined w-full min-h-[3rem] rounded-[0.5rem] disabled:border disabled:border-zinc-900/8 disabled:bg-zinc-200 disabled:text-zinc-500 disabled:shadow-none"
+          className="pdp-cta-refined w-full"
         >
           {canAdd ? "Agregar al carrito" : "Sin stock"}
         </Button>

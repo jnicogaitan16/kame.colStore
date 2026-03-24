@@ -356,7 +356,7 @@ function MiniCart({ open, onClose }: MiniCartProps) {
 
               return (
                 <li key={item.variantId} className="flex items-start gap-3.5 border-b border-zinc-900/8 px-5 py-5">
-                  <div className="relative h-16 w-16 shrink-0 overflow-hidden mini-cart-thumb-surface">
+                  <div className="relative h-16 w-16 shrink-0 overflow-hidden product-media-surface">
                     {thumb ? (
                       <Image
                         src={thumb}
@@ -404,18 +404,18 @@ function MiniCart({ open, onClose }: MiniCartProps) {
                             const nextQty = item.quantity - 1;
                             useCartStore.getState().updateQuantity(item.variantId, nextQty);
                           }}
-                          className="pill h-8 w-8 border border-zinc-900/10 bg-white/92 p-0 text-zinc-800 hover:bg-white"
+                          className="btn-secondary inline-flex h-8 w-8 min-h-0 items-center justify-center px-0 py-0 text-[0.875rem] font-medium leading-none"
                         >
                           −
                         </button>
-                        <span className="type-ui-label w-8 text-center text-zinc-700">{item.quantity}</span>
+                        <span className="type-ui-label inline-flex h-8 min-w-8 items-center justify-center text-center text-zinc-700">{item.quantity}</span>
                         <button
                           type="button"
                           onClick={() => {
                             const nextQty = item.quantity + 1;
                             useCartStore.getState().updateQuantity(item.variantId, nextQty);
                           }}
-                          className="pill h-8 w-8 border border-zinc-900/10 bg-white/92 p-0 text-zinc-800 hover:bg-white"
+                          className="btn-secondary inline-flex h-8 w-8 min-h-0 items-center justify-center px-0 py-0 text-[0.875rem] font-medium leading-none"
                         >
                           +
                         </button>

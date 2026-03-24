@@ -63,48 +63,42 @@ function formatCoPhoneDisplay(input: string): string {
 }
 
 function fieldWrapperClass() {
-  return "space-y-1.5";
+  return "space-y-2.5";
 }
 
 function fieldLabelClass() {
-  return "type-ui-label block text-zinc-700";
+  return "type-ui-label flex min-h-[1rem] items-center pl-1 text-zinc-700";
 }
 
 function fieldControlClass(hasError: boolean, extra?: string) {
   return (
-    "field-control h-12 w-full rounded-2xl border bg-white px-4 py-3 text-[16px] text-zinc-950 placeholder:text-zinc-400 outline-none transition shadow-[0_1px_2px_rgba(15,23,42,0.03)] focus:border-zinc-900/18 focus:ring-2 focus:ring-zinc-900/8 md:text-[16px] " +
-    (hasError
-      ? "border-rose-400/70 ring-rose-400/15 focus:border-rose-500/70 focus:ring-rose-500/15 "
-      : "border-zinc-900/10 ") +
+    "ui-form-control w-full " +
+    (hasError ? "ui-form-control--error " : "") +
     (extra || "")
   ).trim();
 }
 
 function fieldTextareaClass(hasError: boolean, extra?: string) {
   return (
-    "field-textarea min-h-[112px] w-full resize-none rounded-2xl border bg-white px-4 py-3 text-[16px] text-zinc-950 placeholder:text-zinc-400 outline-none transition shadow-[0_1px_2px_rgba(15,23,42,0.03)] focus:border-zinc-900/18 focus:ring-2 focus:ring-zinc-900/8 md:text-[16px] " +
-    (hasError
-      ? "border-rose-400/70 ring-rose-400/15 focus:border-rose-500/70 focus:ring-rose-500/15 "
-      : "border-zinc-900/10 ") +
+    "ui-form-control ui-form-control--textarea w-full align-top " +
+    (hasError ? "ui-form-control--error " : "") +
     (extra || "")
   ).trim();
 }
 
 function fieldAddonShellClass(hasError: boolean) {
   return (
-    "field-control flex h-12 rounded-2xl border bg-white text-zinc-950 transition shadow-[0_1px_2px_rgba(15,23,42,0.03)] focus-within:border-zinc-900/18 focus-within:ring-2 focus-within:ring-zinc-900/8 " +
-    (hasError
-      ? "border-rose-400/70 ring-rose-400/15 focus-within:border-rose-500/70 focus-within:ring-rose-500/15"
-      : "border-zinc-900/10")
+    "ui-form-control ui-form-control--addon-shell w-full " +
+    (hasError ? "ui-form-control--error" : "")
   ).trim();
 }
 
 function fieldAddonClass() {
-  return "field-addon flex items-center gap-1 rounded-l-2xl border-r border-zinc-900/8 bg-zinc-50 px-4 text-zinc-700";
+  return "ui-form-addon shrink-0 gap-2";
 }
 
 function fieldAddonInputClass() {
-  return "h-full w-full rounded-r-2xl border-0 bg-transparent px-4 text-[16px] text-zinc-950 placeholder:text-zinc-400 outline-none md:text-[16px]";
+  return "ui-form-addon-input min-w-0 w-full";
 }
 
 export default function CheckoutForm({
@@ -344,7 +338,6 @@ export default function CheckoutForm({
         type="submit"
         variant="primary"
         fullWidth
-        className="rounded-xl"
         disabled={isSubmitting || stockValidateStatus === "checking" || hasBlockingWarnings}
       >
         {isSubmitting ? "Procesando pedido..." : "Confirmar pedido"}

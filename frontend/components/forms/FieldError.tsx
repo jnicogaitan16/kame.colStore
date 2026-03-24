@@ -33,12 +33,12 @@ export default function FieldError({
       role="alert"
       aria-live="polite"
       className={[
-        "mt-1.5 inline-flex items-start gap-1.5 text-[12px] font-medium leading-[1.35] text-rose-700",
+        "ui-field-error",
         className || "",
       ].join(" ")}
     >
       {showIcon ? (
-        <span aria-hidden="true" className="mt-[1px] shrink-0 text-rose-600/90">
+        <span aria-hidden="true" className="ui-field-error-icon">
           <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5">
             <circle cx="8" cy="8" r="6.25" stroke="currentColor" strokeWidth="1.25" />
             <path d="M8 4.75V8.25" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" />

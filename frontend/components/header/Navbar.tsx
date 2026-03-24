@@ -218,9 +218,6 @@ export default function Navbar({
   const showDesktopTabs = false;
 
   const rootText = isOverlay ? "text-white" : "text-zinc-900";
-  const rootSurfaceClass = isOverlay
-    ? "bg-transparent backdrop-blur-none shadow-none [background-image:none] before:hidden after:hidden"
-    : "bg-white/90 backdrop-blur-md shadow-sm [background-image:none] before:hidden after:hidden";
 
   const iconBtnClass = `relative z-20 pointer-events-auto inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 leading-none ${
     isOverlay
@@ -264,7 +261,7 @@ export default function Navbar({
 
   return (
     <div
-      className={`mx-auto grid ${NAVBAR_HEIGHT_MOBILE_CLASS} ${NAVBAR_HEIGHT_DESKTOP_CLASS} w-full max-w-6xl grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center px-4 md:px-6 transition-[background-color,backdrop-filter,box-shadow,background-image] duration-300 ${rootText} ${rootSurfaceClass}`}
+      className={`mx-auto grid ${NAVBAR_HEIGHT_MOBILE_CLASS} ${NAVBAR_HEIGHT_DESKTOP_CLASS} w-full max-w-6xl grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center px-4 md:px-6 transition-[color] duration-300 ${rootText}`}
       data-appearance={appearance}
       data-overlay-home={isOverlayHome ? "true" : "false"}
       data-overlay-pdp={isOverlayPdp ? "true" : "false"}
