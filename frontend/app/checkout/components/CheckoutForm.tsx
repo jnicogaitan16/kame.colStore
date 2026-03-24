@@ -72,7 +72,7 @@ function fieldLabelClass() {
 
 function fieldControlClass(hasError: boolean, extra?: string) {
   return (
-    "ui-form-control w-full text-[16px] md:text-[15px] " +
+    "ui-form-control w-full " +
     (hasError ? "ui-form-control--error " : "") +
     (extra || "")
   ).trim();
@@ -80,7 +80,7 @@ function fieldControlClass(hasError: boolean, extra?: string) {
 
 function fieldTextareaClass(hasError: boolean, extra?: string) {
   return (
-    "ui-form-control ui-form-control--textarea w-full align-top text-[16px] md:text-[15px] " +
+    "ui-form-control ui-form-control--textarea w-full align-top " +
     (hasError ? "ui-form-control--error " : "") +
     (extra || "")
   ).trim();
@@ -98,7 +98,7 @@ function fieldAddonClass() {
 }
 
 function fieldAddonInputClass() {
-  return "ui-form-addon-input min-w-0 w-full text-[16px] md:text-[15px]";
+  return "ui-form-addon-input min-w-0 w-full";
 }
 
 export default function CheckoutForm({
