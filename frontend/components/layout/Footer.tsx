@@ -19,14 +19,14 @@ export default function Footer() {
           <div className="text-center md:col-span-2 md:text-left">
             <h3 className="type-brand mb-3 text-zinc-950">Kame.col</h3>
             <p className="type-body mx-auto max-w-md text-zinc-700/90 md:mx-0">
-            Prendas urbanas con enfoque en diseño, calidad y detalle.
+            Marca de ropa urbana.
             </p>
           </div>
 
           {/* Social */}
           <div>
             <h4 className="type-section-title mb-4 text-center text-zinc-700 md:text-left">
-              Síguenos
+              Redes
             </h4>
             <ul className="grid grid-cols-3 gap-3 text-sm md:block md:space-y-3.5">
               {instagramUrl ? (

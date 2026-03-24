@@ -24,7 +24,7 @@ export const metadata: Metadata = {
     template: "%s | Kame.col",
   },
   description:
-    "Kame.col. Prendas urbanas con enfoque en diseño, calidad y detalle.",
+    "Prendas urbanas con enfoque en diseño, calidad y detalle. Marca de ropa urbana en Bogotá, Colombia.",
   openGraph: {
     type: "website",
     locale: "es_CO",
@@ -32,13 +32,13 @@ export const metadata: Metadata = {
     siteName: "Kame.col",
     title: "Kame.col",
     description:
-      "Prendas urbanas con enfoque en diseño, calidad y detalle.",
+      "Prendas urbanas con enfoque en diseño, calidad y detalle. Marca de ropa urbana en Bogotá, Colombia.",
     images: [
       {
         url: `${siteUrl}/og/default.jpg`,
         width: 1200,
         height: 630,
-        alt: "Kame.col",
+        alt: "Kame.col - Prendas urbanas",
       },
     ],
   },
@@ -46,13 +46,13 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Kame.col",
     description:
-      "Prendas urbanas con enfoque en diseño, calidad y detalle.",
+      "Prendas urbanas con enfoque en diseño, calidad y detalle. Marca de ropa urbana en Bogotá, Colombia.",
     images: [`${siteUrl}/og/default.jpg`],
   },
   icons: {
     icon: [
       { url: "/favicon.ico" },
-      { url: "/icon_tortu.png", type: "image/png" },
+      { url: "/icon_tortu.png", type: "image/png", sizes: "192x192" },
     ],
     apple: "/icon_tortu.png",
   },
