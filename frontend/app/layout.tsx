@@ -50,9 +50,7 @@ export const metadata: Metadata = {
     images: [`${siteUrl}/og/default.jpg`],
   },
   icons: {
-    icon: [
-      { url: "/icon_tortu.png", type: "image/png" },
-    ],
+    icon: "/icon_tortu.png",
     apple: "/icon_tortu.png",
   },
 };
