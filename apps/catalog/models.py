@@ -8,6 +8,7 @@ import uuid
 from django.utils.text import slugify
 
 from imagekit.models import ImageSpecField
+from imagekit.cachefiles import ImageCacheFile
 from imagekit.processors import ResizeToFit
 
 from .variant_rules import (
@@ -315,6 +316,29 @@ def homepage_promo_upload_path(instance, filename):
     return f"homepage_promos/{uuid.uuid4().hex}{ext}"
 
 
+def warm_imagekit_derivatives(instance, spec_names: tuple[str, ...]) -> None:
+    """Genera y deja cacheados los derivados ImageKit críticos.
+
+    Objetivo:
+    - Evitar que serializers caigan al original por no encontrar derivados aún no generados.
+    - Hacer el trabajo una sola vez al guardar la imagen, no durante el render/API.
+    """
+    source_image = getattr(instance, "image", None)
+    if not source_image:
+        return
+
+    for spec_name in spec_names:
+        try:
+            spec = getattr(instance, spec_name, None)
+            if not spec:
+                continue
+            cachefile = ImageCacheFile(spec)
+            cachefile.generate()
+        except Exception:
+            # No bloquear el guardado por un fallo de warmup.
+            continue
+
+
 class ProductImage(models.Model):
     """Modelo para almacenar imágenes de variantes de productos.
     
@@ -460,6 +484,11 @@ class ProductImage(models.Model):
             except Exception:
                 # Si falla la optimización, continuar sin error
                 pass
+
+        warm_imagekit_derivatives(
+            self,
+            ("image_thumb", "image_medium", "image_large"),
+        )
     
     @property
     def product(self):
@@ -608,7 +637,14 @@ class ProductColorImage(models.Model):
             if not has_primary:
                 self.is_primary = True
 
-        return super().save(*args, **kwargs)
+        result = super().save(*args, **kwargs)
+
+        warm_imagekit_derivatives(
+            self,
+            ("image_thumb", "image_medium", "image_large"),
+        )
+
+        return result
 
     def __str__(self) -> str:
         product_name = self.product.name if self.product_id else "Producto"

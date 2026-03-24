@@ -72,13 +72,13 @@ def _absolute_uri(request, url):
 
 
 def _spec_url(obj, spec_attr: str):
-    """Retorna URL del spec solo si el derivado cacheado existe realmente.
+    """Retorna URL del spec usando cache memoizado y acceso directo al derivado.
 
     Política:
-    - NO forzar `generate()` en serialización.
-    - Verificar disponibilidad real del derivado antes de exponer su URL.
-    - Memoizar por objeto/spec para evitar consultas repetidas dentro del mismo ciclo.
-    - Si el derivado no existe o algo falla, retornar None para fallback al original.
+    - No verificar `storage.exists()` en serialización.
+    - Asumir que los derivados críticos ya fueron calentados al guardar la imagen.
+    - Memoizar por objeto/spec para evitar trabajo repetido dentro del mismo ciclo.
+    - Si algo falla, retornar None para fallback limpio.
     """
     try:
         cache = getattr(obj, "_resolved_spec_url_cache", None)
@@ -94,24 +94,14 @@ def _spec_url(obj, spec_attr: str):
             cache[spec_attr] = None
             return None
 
-        # Intentar resolver el cachefile sin generarlo y verificar existencia real.
         try:
             cachefile = ImageCacheFile(spec)
-            storage = getattr(cachefile, "storage", None)
-            name = getattr(cachefile, "name", None)
-            if storage is not None and name:
-                try:
-                    if storage.exists(name):
-                        url = getattr(cachefile, "url", None)
-                        cache[spec_attr] = url or None
-                        return cache[spec_attr]
-                except Exception:
-                    pass
+            url = getattr(cachefile, "url", None) or getattr(spec, "url", None)
+            cache[spec_attr] = url or None
+            return cache[spec_attr]
         except Exception:
-            pass
-
-        cache[spec_attr] = None
-        return None
+            cache[spec_attr] = None
+            return None
     except Exception:
         return None
 
@@ -517,8 +507,11 @@ class ProductVariantSerializer(serializers.ModelSerializer):
         if cache_url:
             return public_media_url(cache_url, request=request)
 
-        # Fallback limpio al original sin forzar generación
-        return self.get_image_url(obj)
+        medium_url = _spec_url(img, "image_medium")
+        if medium_url:
+            return public_media_url(medium_url, request=request)
+
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -528,6 +521,8 @@ class ProductVariantSerializer(serializers.ModelSerializer):
 class ProductListSerializer(serializers.ModelSerializer):
     category = CategorySerializer(read_only=True)
     primary_image = serializers.SerializerMethodField()
+    primary_thumb_url = serializers.SerializerMethodField()
+    primary_medium_url = serializers.SerializerMethodField()
     stock_total = serializers.SerializerMethodField()
     sold_out = serializers.SerializerMethodField()
 
@@ -542,39 +537,65 @@ class ProductListSerializer(serializers.ModelSerializer):
             "sold_out",
             "category",
             "primary_image",
+            "primary_thumb_url",
+            "primary_medium_url",
             "is_active",
         ]
 
-    def get_primary_image(self, obj):
-        """Imagen principal para cards/listados.
+    def _get_primary_list_image(self, obj):
+        """Imagen primaria para cards/listados sin queries extra.
 
         Prioridad:
-        1) SIZE_COLOR -> ProductColorImage del producto
-        2) fallback legacy -> ProductImage por variante
+        1) SIZE_COLOR -> usar `prefetched_color_images` si existe
+        2) fallback legacy -> usar imágenes prefetched de variantes activas
         """
-        request = self.context.get("request")
         schema = getattr(getattr(obj, "category", None), "variant_schema", "")
 
         if schema == Category.VariantSchema.SIZE_COLOR:
-            color_img = (
-                ProductColorImage.objects.filter(product=obj)
-                .order_by("-is_primary", "sort_order", "created_at")
-                .first()
-            )
-            if color_img and color_img.image:
-                cache_url = _spec_url(color_img, "image_medium") or _spec_url(color_img, "image_thumb")
-                return public_media_url(cache_url or color_img.image.url, request=request)
+            color_images = getattr(obj, "prefetched_color_images", None) or []
+            if color_images:
+                return color_images[0]
 
-        img = (
-            ProductImage.objects.filter(variant__product=obj)
-            .order_by("-is_primary", "sort_order", "created_at")
-            .first()
-        )
-        if not img or not img.image:
+        variants = getattr(obj, "prefetched_objects_cache", {}).get("variants") or []
+        for variant in variants:
+            variant_images = getattr(variant, "prefetched_objects_cache", {}).get("images") or []
+            if variant_images:
+                return variant_images[0]
+
+        return None
+
+    def get_primary_image(self, obj):
+        request = self.context.get("request")
+        img = self._get_primary_list_image(obj)
+        if not img or not getattr(img, "image", None):
             return None
 
-        cache_url = _spec_url(img, "image_medium") or _spec_url(img, "image_thumb")
+        cache_url = _spec_url(img, "image_large") or _spec_url(img, "image_medium")
         return public_media_url(cache_url or img.image.url, request=request)
+
+    def get_primary_thumb_url(self, obj):
+        request = self.context.get("request")
+        img = self._get_primary_list_image(obj)
+        if not img or not getattr(img, "image", None):
+            return None
+
+        cache_url = _spec_url(img, "image_thumb")
+        if cache_url:
+            return public_media_url(cache_url, request=request)
+
+        return None
+
+    def get_primary_medium_url(self, obj):
+        request = self.context.get("request")
+        img = self._get_primary_list_image(obj)
+        if not img or not getattr(img, "image", None):
+            return None
+
+        cache_url = _spec_url(img, "image_medium")
+        if cache_url:
+            return public_media_url(cache_url, request=request)
+
+        return None
 
     def get_stock_total(self, obj):
         variants = obj.variants.filter(is_active=True)
@@ -629,6 +650,9 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     variants = serializers.SerializerMethodField()
     stock_total = serializers.SerializerMethodField()
     sold_out = serializers.SerializerMethodField()
+    primary_image = serializers.SerializerMethodField()
+    primary_thumb_url = serializers.SerializerMethodField()
+    primary_medium_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -642,10 +666,64 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             "is_active",
             "stock_total",
             "sold_out",
+            "primary_image",
+            "primary_thumb_url",
+            "primary_medium_url",
             "created_at",
             "updated_at",
             "variants",
         ]
+    def _get_primary_detail_image(self, obj):
+        schema = getattr(getattr(obj, "category", None), "variant_schema", "")
+
+        if schema == Category.VariantSchema.SIZE_COLOR:
+            color_img = (
+                ProductColorImage.objects.filter(product=obj)
+                .order_by("-is_primary", "sort_order", "created_at")
+                .first()
+            )
+            if color_img and color_img.image:
+                return color_img
+
+        img = (
+            ProductImage.objects.filter(variant__product=obj)
+            .order_by("-is_primary", "sort_order", "created_at")
+            .first()
+        )
+        return img if img and img.image else None
+
+    def get_primary_image(self, obj):
+        request = self.context.get("request")
+        img = self._get_primary_detail_image(obj)
+        if not img:
+            return None
+
+        cache_url = _spec_url(img, "image_large") or _spec_url(img, "image_medium")
+        return public_media_url(cache_url or img.image.url, request=request)
+
+    def get_primary_thumb_url(self, obj):
+        request = self.context.get("request")
+        img = self._get_primary_detail_image(obj)
+        if not img:
+            return None
+
+        cache_url = _spec_url(img, "image_thumb")
+        if cache_url:
+            return public_media_url(cache_url, request=request)
+
+        return None
+
+    def get_primary_medium_url(self, obj):
+        request = self.context.get("request")
+        img = self._get_primary_detail_image(obj)
+        if not img:
+            return None
+
+        cache_url = _spec_url(img, "image_medium")
+        if cache_url:
+            return public_media_url(cache_url, request=request)
+
+        return None
 
     def _get_product_inventory_cache(self, obj):
         cache = getattr(self, "_product_inventory_cache", None)

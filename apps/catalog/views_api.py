@@ -136,10 +136,23 @@ class ProductListAPIView(generics.ListAPIView):
             "images"
         )
 
+        color_images_queryset = ProductColorImage.objects.order_by(
+            "sort_order", "id"
+        )
+        if hasattr(ProductColorImage, "is_active"):
+            color_images_queryset = color_images_queryset.filter(is_active=True)
+
         qs = (
             Product.objects.filter(is_active=True)
             .select_related("category", "category__department")
-            .prefetch_related(Prefetch("variants", queryset=active_variants))
+            .prefetch_related(
+                Prefetch("variants", queryset=active_variants),
+                Prefetch(
+                    "color_images",
+                    queryset=color_images_queryset,
+                    to_attr="prefetched_color_images",
+                ),
+            )
             .order_by("-created_at", "id")
         )
 

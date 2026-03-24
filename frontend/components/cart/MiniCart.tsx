@@ -8,7 +8,6 @@ import StockWarningChip from "@/components/cart/StockWarningChip";
 import { useCartStore } from "@/store/cart";
 import { Button } from "@/components/ui/Button";
 import { productPath } from "@/lib/routes";
-import { getProductPrimaryImage } from "@/lib/product-media";
 
 type MiniCartProps = {
   open?: boolean;
@@ -352,24 +351,20 @@ function MiniCart({ open, onClose }: MiniCartProps) {
 
               const typedItem = item as MiniCartItemLike;
               const product = typedItem.product ?? null;
-              const productForImage = product ?? typedItem;
-              const thumb =
-                getProductPrimaryImage(productForImage) ||
-                getProductPrimaryImage(product ?? undefined) ||
-                typedItem.imageUrl ||
-                "";
+              const thumb = typedItem.imageUrl || "";
               const alt = product?.name || typedItem.productName || "Producto";
 
               return (
                 <li key={item.variantId} className="flex items-start gap-3.5 border-b border-zinc-900/8 px-5 py-5">
-                  <div className="relative w-16 h-16 shrink-0 overflow-hidden product-media-surface">
+                  <div className="relative h-16 w-16 shrink-0 overflow-hidden mini-cart-thumb-surface">
                     {thumb ? (
                       <Image
                         src={thumb}
                         alt={alt}
                         fill
                         sizes="64px"
-                        loading="lazy"
+                        loading="eager"
+                        unoptimized
                         className="object-cover"
                       />
                     ) : (

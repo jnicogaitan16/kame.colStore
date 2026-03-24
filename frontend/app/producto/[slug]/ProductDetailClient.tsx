@@ -48,6 +48,8 @@ type PDPViewModel = {
   valueOptions?: string[];
   colorOptions?: string[];
   primaryImage?: string | null;
+  primaryThumb?: string | null;
+  primaryMedium?: string | null;
   canonicalProductImage?: string | null;
   galleryImages?: GalleryImage[];
   firstAvailableVariantId?: number | null;
@@ -714,6 +716,30 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
     </button>
   ) : null;
 
+  function getCartImageUrlForVariant(variantId: number | null | undefined): string | null {
+    if (variantId != null) {
+      const variantGallery = product.variantGalleryImagesById?.[String(variantId)] ?? [];
+      const variantThumb = variantGallery[0]?.thumb_url ?? null;
+      const variantGalleryUrl = variantGallery[0]?.url ?? null;
+      const variantPrimary = product.variantPrimaryImageById?.[String(variantId)] ?? null;
+
+      return (
+        variantThumb ??
+        variantGalleryUrl ??
+        variantPrimary ??
+        product.primaryThumb ??
+        product.primaryMedium ??
+        resolvedPrimaryImage
+      );
+    }
+
+    return (
+      product.primaryThumb ??
+      product.primaryMedium ??
+      resolvedPrimaryImage
+    );
+  }
+
   const triggerCartFlyAnimation = (imageUrl: string | null) => {
     if (typeof window === "undefined") return;
 
@@ -746,6 +772,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
       const variant = variants.length === 1 ? variants[0] : null;
       if (!variant) return;
       if ((product.stock_total ?? 0) <= 0) return;
+      const cartImageUrl = getCartImageUrlForVariant(variant.id);
 
       setIsSubmittingToCart(true);
 
@@ -757,12 +784,12 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
           productSlug: product.slug,
           variantLabel: buildVariantLabel(variant, selection.variantSchema),
           price: product.price,
-          imageUrl: resolvedPrimaryImage,
+          imageUrl: cartImageUrl,
         },
         1
       );
 
-      triggerCartFlyAnimation(resolvedPrimaryImage);
+      triggerCartFlyAnimation(cartImageUrl);
       window.setTimeout(() => setIsSubmittingToCart(false), 320);
       return;
     }
@@ -770,6 +797,8 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
     const variantToAdd =
       selection.selectedVariant ?? (variants.length === 1 ? variants[0] : null);
     if (!variantToAdd) return;
+
+    const cartImageUrl = getCartImageUrlForVariant(variantToAdd.id);
 
     setIsSubmittingToCart(true);
 
@@ -781,12 +810,12 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
         productSlug: product.slug,
         variantLabel: buildVariantLabel(variantToAdd, selection.variantSchema),
         price: product.price,
-        imageUrl: resolvedPrimaryImage,
+        imageUrl: cartImageUrl,
       },
       1
     );
 
-    triggerCartFlyAnimation(resolvedPrimaryImage);
+    triggerCartFlyAnimation(cartImageUrl);
     window.setTimeout(() => setIsSubmittingToCart(false), 320);
   };
 

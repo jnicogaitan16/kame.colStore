@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { productPath } from "@/lib/routes";
-import { getProductPrimaryImage } from "@/lib/product-media";
 
 interface ProductCardProps {
   product: any;
@@ -12,7 +11,16 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, index }: ProductCardProps) {
-  const img = getProductPrimaryImage(product) || "";
+  const imageCandidates = [
+    product?.primary_thumb_url,
+    product?.primary_medium_url,
+    product?.primary_image,
+  ].filter((value, index, array): value is string => {
+    if (typeof value !== "string") return false;
+    const trimmed = value.trim();
+    if (!trimmed) return false;
+    return array.findIndex((item) => item === value) === index;
+  });
 
   const name = (product as any)?.name ?? "";
   const price = (product as any)?.price ?? "0";
@@ -24,7 +32,19 @@ export function ProductCard({ product, index }: ProductCardProps) {
 
   const cardRef = useRef<HTMLAnchorElement | null>(null);
   const [isVisible, setIsVisible] = useState(isAboveTheFold);
+  const [imageIndex, setImageIndex] = useState(0);
   const [imageFailed, setImageFailed] = useState(false);
+
+  useEffect(() => {
+    setImageIndex(0);
+    setImageFailed(false);
+  }, [
+    product?.id,
+    product?.slug,
+    product?.primary_thumb_url,
+    product?.primary_medium_url,
+    product?.primary_image,
+  ]);
 
   useEffect(() => {
     if (isAboveTheFold) {
@@ -53,13 +73,14 @@ export function ProductCard({ product, index }: ProductCardProps) {
     return () => observer.disconnect();
   }, [isAboveTheFold, isVisible]);
 
+  const img = imageCandidates[imageIndex] || "";
+
   return (
     <Link
       ref={cardRef}
       href={productPath(slug)}
       className={`group block ${isAboveTheFold ? "" : "card-reveal"} ${isVisible ? "is-visible" : ""}`.trim()}
     >
-      {/* Media FULL-BLEED */}
       <div className="relative card-premium-ratio overflow-hidden bg-transparent">
         {img && !imageFailed ? (
           <Image
@@ -68,9 +89,16 @@ export function ProductCard({ product, index }: ProductCardProps) {
             fill
             priority={isPriorityImage}
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+            unoptimized
             className="card-premium-img transition-transform duration-500 ease-out group-hover:scale-[1.012]"
             loading={isAboveTheFold ? "eager" : "lazy"}
-            onError={() => setImageFailed(true)}
+            onError={() => {
+              if (imageIndex < imageCandidates.length - 1) {
+                setImageIndex((current) => current + 1);
+                return;
+              }
+              setImageFailed(true);
+            }}
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center bg-zinc-100 text-zinc-300">
@@ -81,7 +109,6 @@ export function ProductCard({ product, index }: ProductCardProps) {
         )}
       </div>
 
-      {/* Meta */}
       <div className="pt-3.5 pb-0.5">
         <div className="type-card-title text-zinc-900 leading-[1.18] tracking-[0.015em]">
           {name}
