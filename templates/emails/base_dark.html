@@ -136,6 +136,47 @@
         color: rgba(24, 24, 27, 0.94);
       }
 
+      .summary-row,
+      .summary-row-sm {
+        width: 100%;
+      }
+
+      .summary-label {
+        margin: 0;
+        font-size: 12px;
+        line-height: 18px;
+        font-weight: 500;
+        letter-spacing: 0.02em;
+        color: rgba(113, 113, 122, 0.92);
+      }
+
+      .summary-value,
+      .summary-value-sm {
+        margin: 0;
+        text-align: right;
+        font-size: 14px;
+        line-height: 20px;
+        font-weight: 600;
+        color: rgba(39, 39, 42, 0.92);
+      }
+
+      .summary-total .summary-label,
+      .summary-total .summary-value,
+      .summary-total-value {
+        font-size: 16px;
+        line-height: 24px;
+        font-weight: 700;
+        color: rgba(24, 24, 27, 0.98);
+      }
+
+      .summary-divider,
+      .summary-divider-inner {
+        border-top: 1px solid rgba(24, 24, 27, 0.08);
+        height: 1px;
+        line-height: 1px;
+        font-size: 1px;
+      }
+
       .divider {
         border-top: 1px solid rgba(24, 24, 27, 0.08);
         height: 1px;
@@ -226,6 +267,10 @@
           display: block !important;
           width: 100% !important;
           text-align: left !important;
+        }
+
+        .summary-value {
+          text-align: right !important;
         }
 
         .item-thumb {

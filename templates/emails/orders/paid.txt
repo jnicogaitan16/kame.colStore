@@ -6,6 +6,8 @@ Gracias por confiar en KAME.COL.
 Tu pago fue confirmado y ya estamos preparando tu pedido.
 
 Método: {% if payment_method %}{{ payment_method }}{% else %}Transferencia Bre-B{% endif %}
+Subtotal: {{ subtotal_fmt }}
+Envío: {% if shipping_is_free %}Gratis{% else %}{{ shipping_cost_fmt }}{% endif %}
 Total: {{ total_fmt }}
 {% if reference %}Referencia: {{ reference }}{% endif %}
 

@@ -36,17 +36,44 @@ Tu pago fue confirmado y ya estamos preparando tu pedido.
       <td style="padding:18px;">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
           <tr class="stack-col">
-            <td style="vertical-align:top; padding:0 12px 0 0;">
+            <td style="vertical-align:top; padding:0 18px 0 0;">
               <p class="meta-title" style="margin:0;">Método</p>
               <p class="meta-value" style="margin:4px 0 0 0;">
                 {% if payment_method %}{{ payment_method }}{% else %}Transferencia Bre-B{% endif %}
               </p>
             </td>
-            <td style="vertical-align:top; text-align:right; padding:0;">
-              <p class="meta-title" style="margin:0;">Total</p>
-              <p class="meta-value" style="margin:4px 0 0 0;">
-                {{ total_fmt }}
-              </p>
+            <td style="width:220px; min-width:220px; vertical-align:top; padding:0;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr class="summary-row">
+                  <td style="padding:0 0 4px 0;">
+                    <p class="summary-label">Subtotal</p>
+                  </td>
+                  <td style="padding:0 0 4px 12px;">
+                    <p class="summary-value">{{ subtotal_fmt }}</p>
+                  </td>
+                </tr>
+                <tr class="summary-row">
+                  <td style="padding:0;">
+                    <p class="summary-label">Envío</p>
+                  </td>
+                  <td style="padding:0 0 0 12px;">
+                    <p class="summary-value">{% if shipping_is_free %}Gratis{% else %}{{ shipping_cost_fmt }}{% endif %}</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td colspan="2" style="padding:12px 0;">
+                    <div class="summary-divider">&nbsp;</div>
+                  </td>
+                </tr>
+                <tr class="summary-row summary-total">
+                  <td style="padding:0;">
+                    <p class="summary-label">Total</p>
+                  </td>
+                  <td style="padding:0 0 0 12px;">
+                    <p class="summary-value">{{ total_fmt }}</p>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
         </table>
