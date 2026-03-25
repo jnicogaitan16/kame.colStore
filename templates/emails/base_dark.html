@@ -4,127 +4,287 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="x-apple-disable-message-reformatting" />
-    <meta name="color-scheme" content="dark" />
-    <meta name="supported-color-schemes" content="dark" />
+    <meta name="color-scheme" content="light" />
+    <meta name="supported-color-schemes" content="light" />
 
     <title>{% block title %}KAME.COL{% endblock %}</title>
+
     <style>
-      /* Base reset (limitado a lo que suelen aceptar clientes) */
-      html, body { margin: 0 !important; padding: 0 !important; width: 100% !important; height: 100% !important; }
-      * { -ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; }
-      table, td { border-collapse: collapse !important; mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
-      img { border: 0; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic; display: block; }
-      a { text-decoration: none; }
-
-      /* Tokens tipo Tailwind (mínimos y compatibles) */
-      .bg-dark { background: #0b0b0c; }
-      .text-white { color: #f5f7fb; }
-      .text-muted { color: #a9b1bd; }
-      .text-soft { color: #c9d1dc; }
-
-      .card { background: #141414; border: 1px solid #262626; border-radius: 14px; }
-
-      .px { padding-left: 24px; padding-right: 24px; }
-      .py { padding-top: 24px; padding-bottom: 24px; }
-      .pt { padding-top: 18px; }
-      .pb { padding-bottom: 18px; }
-
-      .h1 { font-size: 20px; line-height: 28px; font-weight: 700; margin: 0; }
-      .h2 { font-size: 16px; line-height: 24px; font-weight: 700; margin: 0; }
-      .p  { font-size: 14px; line-height: 22px; margin: 0; }
-      .small { font-size: 12px; line-height: 18px; }
-
-      .divider { border-top: 1px solid #262626; height: 1px; line-height: 1px; font-size: 1px; }
-
-      .btn {
-        display: inline-block;
-        background: #f5f7fb;
-        color: #0b0f14;
-        border-radius: 10px;
-        padding: 10px 14px;
-        font-size: 14px;
-        font-weight: 700;
+      html, body {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
       }
 
-      .link { color: #f5f7fb; text-decoration: underline; }
+      * {
+        -ms-text-size-adjust: 100%;
+        -webkit-text-size-adjust: 100%;
+      }
 
-      /* Mobile */
+      table, td {
+        border-collapse: collapse !important;
+        mso-table-lspace: 0pt;
+        mso-table-rspace: 0pt;
+      }
+
+      img {
+        border: 0;
+        outline: none;
+        text-decoration: none;
+        -ms-interpolation-mode: bicubic;
+        display: block;
+      }
+
+      a {
+        text-decoration: none;
+      }
+
+      body {
+        background: #f7f5f2 !important;
+        color: #18181b !important;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif !important;
+      }
+
+      .container {
+        width: 640px;
+        max-width: 640px;
+      }
+
+      .page-bg {
+        background: #f7f5f2;
+      }
+
+      .card {
+        background: #ffffff;
+        border: 1px solid rgba(24, 24, 27, 0.08);
+        border-radius: 18px;
+      }
+
+      .subcard {
+        background: #ffffff;
+        border: 1px solid rgba(24, 24, 27, 0.08);
+        border-radius: 14px;
+      }
+
+
+      .brand-main {
+        margin-top: 10px;
+        font-size: 24px;
+        line-height: 1;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #18181b;
+      }
+
+      .brand-sub {
+        margin-top: 8px;
+        font-size: 12px;
+        line-height: 18px;
+        color: rgba(82, 82, 91, 0.72);
+      }
+
+      .h1 {
+        margin: 0;
+        font-size: 28px;
+        line-height: 1.16;
+        font-weight: 600;
+        letter-spacing: 0.005em;
+        color: rgba(24, 24, 27, 0.96);
+      }
+
+      .label {
+        margin: 0;
+        font-size: 11px;
+        line-height: 16px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: rgba(82, 82, 91, 0.72);
+      }
+
+      .body {
+        margin: 0;
+        font-size: 15px;
+        line-height: 26px;
+        font-weight: 400;
+        letter-spacing: 0.008em;
+        color: rgba(63, 63, 70, 0.84);
+      }
+
+      .strong {
+        color: rgba(24, 24, 27, 0.96);
+        font-weight: 600;
+      }
+
+      .meta-title {
+        margin: 0;
+        font-size: 12px;
+        line-height: 18px;
+        font-weight: 500;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        color: rgba(113, 113, 122, 0.92);
+      }
+
+      .meta-value {
+        margin: 4px 0 0 0;
+        font-size: 15px;
+        line-height: 22px;
+        font-weight: 600;
+        color: rgba(24, 24, 27, 0.94);
+      }
+
+      .divider {
+        border-top: 1px solid rgba(24, 24, 27, 0.08);
+        height: 1px;
+        line-height: 1px;
+        font-size: 1px;
+      }
+
+      .btn-primary {
+        display: inline-block;
+        min-height: 48px;
+        padding: 14px 22px;
+        border-radius: 12px;
+        background: #111111;
+        color: #ffffff !important;
+        border: 1px solid rgba(24, 24, 27, 0.1);
+        font-size: 13px;
+        line-height: 20px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .btn-secondary {
+        display: inline-block;
+        min-height: 48px;
+        padding: 14px 22px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.92);
+        color: rgba(24, 24, 27, 0.92) !important;
+        border: 1px solid rgba(24, 24, 27, 0.12);
+        font-size: 13px;
+        line-height: 20px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+      .compact-email-cta {
+        display: inline-block;
+        padding: 10px 16px;
+        border-radius: 10px;
+        background: #111111;
+        color: #ffffff !important;
+        border: 1px solid rgba(24, 24, 27, 0.1);
+        font-size: 11px;
+        line-height: 14px;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+
+      .footer {
+        font-size: 12px;
+        line-height: 18px;
+        color: rgba(82, 82, 91, 0.72);
+      }
+
+      .footer-link {
+        color: rgba(82, 82, 91, 0.86) !important;
+      }
+
       @media screen and (max-width: 600px) {
-        .container { width: 100% !important; }
-        .px { padding-left: 16px !important; padding-right: 16px !important; }
+        .container {
+          width: 100% !important;
+          max-width: 100% !important;
+        }
+
+        .mobile-px {
+          padding-left: 16px !important;
+          padding-right: 16px !important;
+        }
+
+        .h1 {
+          font-size: 24px !important;
+        }
+
+        .brand-main {
+          font-size: 21px !important;
+        }
+        .compact-email-cta {
+          padding: 9px 14px !important;
+          font-size: 10.5px !important;
+          line-height: 13px !important;
+        }
+
+        .stack-col,
+        .stack-col td {
+          display: block !important;
+          width: 100% !important;
+          text-align: left !important;
+        }
+
+        .item-thumb {
+          width: 88px !important;
+          height: 110px !important;
+        }
       }
     </style>
   </head>
 
-  <body class="bg-dark" style="margin:0; padding:0; background:#0b0b0c; color:#f5f7fb; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;">
-    {# Preheader visible solo para preview (oculto en el body) #}
-    <div style="display:none; font-size:1px; line-height:1px; max-height:0px; max-width:0px; opacity:0; overflow:hidden; mso-hide:all;">
+  <body style="margin:0; padding:0; background:#f7f5f2;">
+    <div style="display:none; font-size:1px; line-height:1px; max-height:0; max-width:0; opacity:0; overflow:hidden; mso-hide:all;">
       {% block preheader %}Notificación de KAME.COL{% endblock %}
     </div>
 
-    {# Spacer anti-gmail preview bleeding #}
-    <div style="display:none; font-size:1px; line-height:1px; max-height:0px; max-width:0px; opacity:0; overflow:hidden; mso-hide:all;">
-      &zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;
-    </div>
-
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#0b0b0c" style="width:100%; background:#0b0b0c;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="page-bg" style="width:100%; background:#f7f5f2;">
       <tr>
-        <td align="center" bgcolor="#0b0b0c" style="padding: 28px 12px; background:#0b0b0c;">
-          {# Container central #}
-          <table role="presentation" width="640" cellpadding="0" cellspacing="0" border="0" class="container" style="width:640px; max-width:640px;">
+        <td align="center" style="padding:28px 12px;">
+          <table role="presentation" width="640" cellpadding="0" cellspacing="0" border="0" class="container">
             <tr>
-              <td class="px" bgcolor="#0b0b0c" style="padding-left:24px; padding-right:24px; background:#0b0b0c;">
+              <td class="mobile-px" style="padding-left:24px; padding-right:24px;">
 
-                {# Header #}
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                   <tr>
-                    <td align="left" style="padding: 10px 0 16px 0;">
-                      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;">
-                        <div style="letter-spacing: 0.10em; font-weight: 800; font-size: 14px; color:#f5f7fb;">
-                          KAME.COL
-                        </div>
-                        <div style="margin-top: 6px; color:#a9b1bd; font-size:12px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;">
-                          Urban essentials · Hecho en Colombia
-                        </div>
-                      </div>
+                    <td style="padding:8px 0 22px 0;">
+                      <div class="brand-main">KAME.COL</div>
+                      <div class="brand-sub">Hecho en Colombia</div>
                     </td>
                   </tr>
                 </table>
 
-                {# Card principal #}
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#141414" class="card" style="background:#141414; border:1px solid #262626; border-radius:14px;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="card" style="width:100%; background:#ffffff; border:1px solid rgba(24,24,27,0.08); border-radius:18px;">
                   <tr>
-                    <td class="px py" style="padding:24px;">
-                      <div style="font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; color:#f5f7fb;">
-                        {% block content %}
-                        <!-- contenido del correo -->
-                        {% endblock %}
-                      </div>
+                    <td style="padding:24px;">
+                      {% block content %}{% endblock %}
                     </td>
                   </tr>
                 </table>
 
-                {# Footer #}
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                   <tr>
-                    <td style="padding: 16px 0 0 0;">
-                      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; color:#a9b1bd;">
-                        {% block footer %}
-                          <p class="p" style="margin:0; font-size:14px; line-height:22px; color:#a9b1bd;">
-                            ¿Necesitas ayuda? Responde a este correo o escríbenos por WhatsApp.
-                          </p>
-                          <div style="height: 12px; line-height: 12px; font-size: 12px;">&nbsp;</div>
-                          <p class="small" style="margin:0; font-size:12px; line-height:18px; color:#a9b1bd;">
-                            © {% now "Y" %} KAME.COL · Todos los derechos reservados.
-                          </p>
-                        {% endblock %}
-                      </div>
+                    <td style="padding:18px 2px 0 2px;">
+                      {% block footer %}
+                        <p class="label" style="margin:0; font-size:11px; line-height:16px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:rgba(82,82,91,0.72);">
+                          Soporte
+                        </p>
+                        <div style="height:8px; line-height:8px; font-size:8px;">&nbsp;</div>
+                        <p class="body" style="margin:0; font-size:14px; line-height:22px; color:rgba(82,82,91,0.84);">
+                          ¿Necesitas ayuda? Responde a este correo o escríbenos por WhatsApp.
+                        </p>
+                        <div style="height:14px; line-height:14px; font-size:14px;">&nbsp;</div>
+                        <p class="footer" style="margin:0;">
+                          © {% now "Y" %} KAME.COL · Todos los derechos reservados.
+                        </p>
+                      {% endblock %}
                     </td>
                   </tr>
                 </table>
 
-                {# Bottom padding #}
-                <div style="height: 10px; line-height: 10px; font-size: 10px;">&nbsp;</div>
               </td>
             </tr>
           </table>

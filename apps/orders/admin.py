@@ -1,94 +1,9 @@
 from django.contrib import admin, messages
 from django.core.exceptions import ValidationError
-from django.db import transaction
-from django.conf import settings
-from django.core.mail import EmailMultiAlternatives
-from django.template.loader import render_to_string
-from urllib.parse import quote
-from apps.notifications.email_context import build_payment_confirmed_context
 import logging
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
-def send_order_paid_email(order) -> None:
-    """Envía el correo de "Pago confirmado" (HTML + TXT) de forma compatible.
-
-    Nota: esta función se dispara desde la acción del admin y debe ser idempotente
-    a nivel de llamada (la idempotencia real se controla con `is_first_confirmation`).
-    """
-
-    recipient = (getattr(order, "email", "") or "").strip()
-    if not recipient:
-        return
-
-    # Contexto limpio para templates (sin lógica rara en el HTML)
-    ctx = build_payment_confirmed_context(order)
-
-    support_digits = str(ctx.get("support_whatsapp") or "").strip()
-    support_digits = "".join([c for c in support_digits if c.isdigit()])
-
-    # URLs opcionales para CTA
-    order_url = ctx.get("order_public_url")
-    whatsapp_url = None
-    if support_digits:
-        wa_message = f"Hola 👋 Mi pedido es #{order.pk}. ¿Me ayudas por favor?"
-        whatsapp_url = f"https://wa.me/{support_digits}?text={quote(wa_message)}"
-
-    template_ctx = {
-        **ctx,
-        "order_url": order_url,
-        "whatsapp_url": whatsapp_url,
-    }
-
-    subject = f"Pago confirmado - Pedido #{order.pk}"
-    # From/Reply-To robustos (evita None y mejora entregabilidad)
-    from_email = (
-        (getattr(settings, "DEFAULT_FROM_EMAIL", "") or "").strip()
-        or (getattr(settings, "SERVER_EMAIL", "") or "").strip()
-        or "no-reply@kame.col"
-    )
-
-    # Render TXT (obligatorio). Si falla, abortamos.
-    try:
-        text_body = render_to_string("emails/orders/paid.txt", template_ctx)
-    except Exception:
-        logger.exception(
-            "[email] Failed to render paid TXT template for order_id=%s",
-            getattr(order, "pk", None),
-        )
-        raise
-
-    # Render HTML (opcional). Si falla, igual enviamos TXT.
-    html_body = None
-    try:
-        html_body = render_to_string("emails/orders/paid.html", template_ctx)
-    except Exception:
-        logger.exception(
-            "[email] Failed to render paid HTML template for order_id=%s (sending TXT only)",
-            getattr(order, "pk", None),
-        )
-        html_body = None
-
-    msg = EmailMultiAlternatives(
-        subject=subject,
-        body=text_body,
-        from_email=from_email,
-        to=[recipient],
-        reply_to=[from_email],
-        headers={
-            "X-Kame-Order-Id": str(getattr(order, "pk", "")),
-        },
-    )
-    if html_body:
-        msg.attach_alternative(html_body, "text/html")
-    if not (text_body or "").strip():
-        logger.error(
-            "[email] Empty paid TXT body for order_id=%s; aborting send",
-            getattr(order, "pk", None),
-        )
-        return
-
-    msg.send(fail_silently=False)
 
 from django import forms
 from apps.orders.constants import CITY_CHOICES
@@ -202,9 +117,9 @@ class OrderAdmin(admin.ModelAdmin):
                             order.payment_reference,
                         )
 
-                    # Email: DEPRECADO en Admin.
+                    # Email: NO se compone ni se envía desde Admin.
                     # El correo "Pago confirmado" se dispara únicamente desde el service layer
-                    # (apps.orders.services.payments.confirm_order_payment) para evitar dobles envíos.
+                    # para mantener un solo pipeline de envío y evitar dobles correos.
                     self.message_user(
                         request,
                         f"Pedido #{order.pk}: ✅ Pago confirmado.",
@@ -277,8 +192,8 @@ class OrderAdmin(admin.ModelAdmin):
         """
         super().save_related(request, form, formsets, change)
 
-        # Deprecado: La confirmación de pago se hace SOLO por la acción del admin (confirm_payment_action).
-        # Evitamos confirmación “silenciosa” por edición manual del status.
+        # La confirmación de pago se hace SOLO por la acción del admin (confirm_payment_action).
+        # El admin no confirma ni envía correos de forma silenciosa al editar el status.
         return
 
     class Media:

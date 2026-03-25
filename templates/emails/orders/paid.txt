@@ -1,68 +1,35 @@
-Pago confirmado ✅
+Pago confirmado
 
-{% if first_name %}
-Hey {{ first_name }},
-{% else %}
-Hola,
-{% endif %}
+{% if first_name %}Hola {{ first_name }},{% elif full_name %}Hola {{ full_name }},{% else %}Hola,{% endif %}
 
-Gracias por confiar en Kame.col.
-Tu pago ya quedó confirmado y arrancamos producción.
+Gracias por confiar en KAME.COL.
+Tu pago fue confirmado y ya estamos preparando tu pedido.
 
---------------------------------------------------
-RESUMEN DEL PEDIDO
---------------------------------------------------
-Pedido: #{{ order.id }}
 Método: {% if payment_method %}{{ payment_method }}{% else %}Transferencia Bre-B{% endif %}
-Total: {{ order.total }}
-Referencia: {{ reference|default:order.payment_reference|default:"—" }}
+Total: {{ total_fmt }}
+{% if reference %}Referencia: {{ reference }}{% endif %}
+
+{% if email_items %}
+Productos:
+{% for item in email_items %}
+{{ forloop.counter }}. {{ item.name }}{% if item.variant_label %} · {{ item.variant_label }}{% endif %}
+Cantidad: {{ item.quantity }}
+Precio: {{ item.unit_price_fmt }}
+{% endfor %}
+{% endif %}
 
 {% if order_public_url %}
 Ver mi pedido:
 {{ order_public_url }}
-
 {% elif order_url %}
 Ver mi pedido:
 {{ order_url }}
-
 {% elif whatsapp_url %}
 Hablar por WhatsApp:
 {{ whatsapp_url }}
-
-{% endif %}
-Si tienes cualquier duda, puedes responder directamente a este correo.
-
-Gracias por apoyar una marca independiente. 🖤
-
-—
-KAME.COL
-Urban essentials · Hecho en Colombia
-© {% now "Y" %} KAME.COL
-Pago confirmado ✅
-
-{% if first_name %}Hey {{ first_name }},{% else %}Hola,{% endif %}
-
-Gracias por confiar en Kame.col.
-Tu pago ya quedó confirmado y arrancamos producción.
-
-------------------------------
-RESUMEN DEL PEDIDO
-------------------------------
-Pedido: #{{ order_number }}
-Método: {% if payment_method %}{{ payment_method }}{% else %}Transferencia Bre-B{% endif %}
-Total: {{ total_fmt }}
-Referencia: {% if reference %}{{ reference }}{% else %}—{% endif %}
-
-{% if whatsapp_url %}
-Hablar por WhatsApp:
-{{ whatsapp_url }}
 {% endif %}
 
-Si tienes cualquier duda, puedes responder directamente a este correo.
+Si necesitas ayuda, responde a este correo y te ayudamos.
 
-Gracias por apoyar una marca independiente. 🖤
-
-—
 KAME.COL
-Urban essentials · Hecho en Colombia
-© {% now "Y" %} KAME.COL
+Hecho en Colombia
