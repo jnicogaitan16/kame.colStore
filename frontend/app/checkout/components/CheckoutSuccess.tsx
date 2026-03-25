@@ -207,12 +207,13 @@ export default function CheckoutSuccess({
           ) : null}
 
           <Link href="/" className="inline-flex w-full">
-            <button
+            <Button
               type="button"
-              className="type-action inline-flex w-full items-center justify-center rounded-full border border-black/10 bg-white px-4 py-3 text-black/82 transition hover:bg-black/[0.02]"
+              variant="secondary"
+              fullWidth
             >
               Volver al inicio
-            </button>
+            </Button>
           </Link>
         </div>
       </div>
