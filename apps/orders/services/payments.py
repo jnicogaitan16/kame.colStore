@@ -163,12 +163,27 @@ def confirm_order_payment(order: Order) -> None:
 
         # ✅ Enviar SOLO el correo de pago confirmado, una vez, tras commit
         order_id = locked_order.pk
+        logger.info(
+            "Agendando email de pago confirmado post-commit para order_id=%s email=%s",
+            order_id,
+            getattr(order, "email", None),
+        )
 
         def _send_paid_email() -> None:
+            logger.info(
+                "Ejecutando callback post-commit de pago confirmado para order_id=%s",
+                order_id,
+            )
             try:
                 from apps.notifications.emails import send_payment_confirmed_email
 
                 fresh_order = Order.objects.get(pk=order_id)
+                logger.info(
+                    "Invocando send_payment_confirmed_email para order_id=%s email=%s status=%s",
+                    fresh_order.id,
+                    getattr(fresh_order, "email", None),
+                    fresh_order.status,
+                )
                 send_payment_confirmed_email(fresh_order)
             except Exception:
                 logger.exception("Fallo enviando email de pago confirmado")
