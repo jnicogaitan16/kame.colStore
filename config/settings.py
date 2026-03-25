@@ -387,6 +387,11 @@ LOGGING = {
             'level': 'INFO',
             'propagate': False,
         },
+        'apps.notifications': {
+            'handlers': ['file', 'console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
         'django': {
             'handlers': ['file', 'console'],
             'level': 'INFO',

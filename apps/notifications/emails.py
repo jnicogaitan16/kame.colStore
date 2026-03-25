@@ -37,7 +37,7 @@ def _safe_send_multipart(
 ) -> None:
     """Best-effort multipart email send; falls back to logging if not configured."""
     if not to_email:
-        logger.info("[emails] Skip send (missing to_email). subject=%s", subject)
+        logger.error("[emails] Abort send (missing to_email). subject=%s", subject)
         return
 
     if not _should_send_real_email():
@@ -58,8 +58,22 @@ def _safe_send_multipart(
     )
     if html_body:
         msg.attach_alternative(html_body, "text/html")
+
+    backend = getattr(settings, "EMAIL_BACKEND", "")
+    logger.info(
+        "[emails] Sending email backend=%s to=%s subject=%s html=%s",
+        backend,
+        to_email,
+        subject,
+        bool(html_body),
+    )
     # Fail loudly in dev; in prod, configure backend behavior.
     msg.send(fail_silently=False)
+    logger.info(
+        "[emails] Email sent successfully to=%s subject=%s",
+        to_email,
+        subject,
+    )
 
 
 def send_order_created_email(order) -> None:
@@ -83,6 +97,16 @@ def send_order_created_email(order) -> None:
 def send_order_paid_email(order) -> None:
     """Email: pago confirmado (HTML + TXT)."""
     to_email = (getattr(order, "email", None) or "").strip() or None
+    logger.info(
+        "[emails] Enter send_order_paid_email order_id=%s to=%s",
+        getattr(order, "id", None),
+        to_email,
+    )
+    if not to_email:
+        logger.error(
+            "[emails] order_paid received empty to_email. order_id=%s",
+            getattr(order, "id", None),
+        )
 
     # Contexto limpio
     ctx = build_payment_confirmed_context(order)
@@ -122,5 +146,9 @@ def send_order_paid_email(order) -> None:
 
 
 def send_payment_confirmed_email(order) -> None:
+    logger.info(
+        "[emails] Enter send_payment_confirmed_email alias order_id=%s",
+        getattr(order, "id", None),
+    )
     # Backward compatible alias
     send_order_paid_email(order)
