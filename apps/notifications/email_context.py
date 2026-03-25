@@ -102,9 +102,16 @@ def build_payment_confirmed_context(order) -> dict:
     reference = (getattr(order, "payment_reference", "") or "").strip() or None
     payment_method = "Transferencia Bre-B"
 
+    raw_subtotal = getattr(order, "subtotal", None)
+    raw_shipping_cost = getattr(order, "shipping_cost", None)
+
     raw_total = getattr(order, "total", None)
     if raw_total is None:
         raw_total = getattr(order, "total_amount", None)
+
+    subtotal_fmt = format_cop(raw_subtotal)
+    shipping_cost_fmt = format_cop(raw_shipping_cost)
+    shipping_is_free = int(raw_shipping_cost or 0) <= 0
     total_fmt = format_cop(raw_total)
 
     subject = "Pago confirmado"
@@ -135,6 +142,9 @@ def build_payment_confirmed_context(order) -> dict:
         "to_email": to_email,
         "items_count": items_count,
         "has_multiple_items": has_multiple_items,
+        "subtotal_fmt": subtotal_fmt,
+        "shipping_cost_fmt": shipping_cost_fmt,
+        "shipping_is_free": shipping_is_free,
         "total_fmt": total_fmt,
         "email_items": email_items,
     }
