@@ -45,9 +45,7 @@ export function ProductGallery({ images, productName, soldOut = false, variant =
     return images
       .map((img) => {
         const url = img?.url ? normalizeProductMediaUrl(img.url) : "";
-        const rawThumb = img?.thumb_url ?? img?.url ?? "";
-        const normalizedThumb = rawThumb ? normalizeProductMediaUrl(rawThumb) : "";
-        const thumb = normalizedThumb || url;
+        const thumb = img?.thumb_url ? normalizeProductMediaUrl(img.thumb_url) : "";
 
         return {
           ...img,
@@ -352,11 +350,13 @@ export function ProductGallery({ images, productName, soldOut = false, variant =
           className={`k-gallery-swiper relative z-[1] ${isPdp ? "k-gallery-swiper--pdp overflow-visible" : "h-full w-full"}`}
         >
           {slides.map((img, index) => {
-            const src = img.thumb_url || img.url || null;
+            const src = img.url || img.thumb_url || null;
             if (!src) return null;
 
             const alt = img.alt_text ?? productName ?? "Producto";
             const zoom = getZoomState(index);
+            const imageSizes = isPdp ? "100vw" : "(max-width: 768px) 100vw, 50vw";
+            const unoptimizedImage = isPdp;
 
             return (
               <SwiperSlide key={`${img.url}-${index}`}>
@@ -400,7 +400,9 @@ export function ProductGallery({ images, productName, soldOut = false, variant =
                         src={src}
                         alt={alt}
                         fill
-                        sizes="(max-width: 768px) 100vw, 50vw"
+                        sizes={imageSizes}
+                        quality={95}
+                        unoptimized={unoptimizedImage}
                         priority={index === 0}
                         {...(index === 0 ? {} : { loading: "lazy" as const })}
                         className={imageClass}

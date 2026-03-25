@@ -42,6 +42,12 @@ export type ImageSourceLike = {
   image?: string | null;
   image_url?: string | null;
   imageUrl?: string | null;
+  image_large_url?: string | null;
+  imageLargeUrl?: string | null;
+  image_medium_url?: string | null;
+  imageMediumUrl?: string | null;
+  image_thumb_url?: string | null;
+  imageThumbUrl?: string | null;
   primary_image?: string | null;
   primary_thumb_url?: string | null;
   primary_medium_url?: string | null;
@@ -56,12 +62,16 @@ function getExplicitPrimaryImage(source: ImageSourceLike | null | undefined): st
   if (!source) return null;
 
   return (
+    normalizeProductMediaUrl(source.image_large_url ?? "") ||
+    normalizeProductMediaUrl(source.imageLargeUrl ?? "") ||
+    normalizeProductMediaUrl(source.image_medium_url ?? "") ||
+    normalizeProductMediaUrl(source.imageMediumUrl ?? "") ||
     normalizeProductMediaUrl(source.primary_image ?? "") ||
+    normalizeProductMediaUrl(source.image ?? "") ||
     normalizeProductMediaUrl(source.image_url ?? "") ||
     normalizeProductMediaUrl(source.imageUrl ?? "") ||
-    normalizeProductMediaUrl(source.image ?? "") ||
-    normalizeProductMediaUrl(source.src ?? "") ||
     normalizeProductMediaUrl(source.url ?? "") ||
+    normalizeProductMediaUrl(source.src ?? "") ||
     null
   );
 }
@@ -71,8 +81,12 @@ function getExplicitPrimaryThumb(source: ImageSourceLike | null | undefined): st
 
   return (
     normalizeProductMediaUrl(source.primary_thumb_url ?? "") ||
+    normalizeProductMediaUrl(source.image_thumb_url ?? "") ||
+    normalizeProductMediaUrl(source.imageThumbUrl ?? "") ||
     normalizeProductMediaUrl(source.primary_medium_url ?? "") ||
-    getExplicitPrimaryImage(source)
+    normalizeProductMediaUrl(source.image_medium_url ?? "") ||
+    normalizeProductMediaUrl(source.imageMediumUrl ?? "") ||
+    null
   );
 }
 
@@ -169,7 +183,7 @@ export function normalizeGalleryImages(input: unknown): NormalizedProductGallery
 
         return {
           url,
-          thumb_url: url,
+          thumb_url: null,
           alt_text: null,
         } satisfies NormalizedProductGalleryImage;
       }
@@ -178,7 +192,15 @@ export function normalizeGalleryImages(input: unknown): NormalizedProductGallery
 
       const record = image as Record<string, unknown>;
       const rawUrl = normalizeOption(
-        record.url ?? record.image ?? record.src ?? record.image_url ?? ""
+        record.url ??
+          record.image_large_url ??
+          record.imageLargeUrl ??
+          record.image_medium_url ??
+          record.imageMediumUrl ??
+          record.image ??
+          record.src ??
+          record.image_url ??
+          ""
       );
 
       if (!rawUrl) return null;
@@ -188,14 +210,18 @@ export function normalizeGalleryImages(input: unknown): NormalizedProductGallery
 
       const rawThumb = normalizeOption(
         record.thumb_url ??
-          record.image_thumb ??
+          record.image_thumb_url ??
+          record.imageThumbUrl ??
+          record.thumbnail_url ??
+          record.thumbnailUrl ??
           record.thumbnail ??
           record.thumb ??
           record.thumbUrl ??
-          rawUrl
+          record.small ??
+          ""
       );
 
-      const thumb_url = normalizeProductMediaUrl(rawThumb || rawUrl) || url;
+      const thumb_url = rawThumb ? normalizeProductMediaUrl(rawThumb) : null;
       const alt_text =
         normalizeOption(record.alt_text ?? record.altText ?? record.alt ?? "") ||
         null;
@@ -677,24 +703,24 @@ export function buildProductDetailViewModel(
   const variantPrimaryImage = resolveVariantPrimaryImage(displayVariant ?? null);
   const variantGallery = resolveVariantGalleryImages(displayVariant ?? null);
   const productGallery = resolveProductGalleryImages(product);
+  const galleryImages = variantGallery.length > 0 ? variantGallery : productGallery;
+  const galleryPrimaryImage = galleryImages[0]?.url ?? null;
+  const galleryPrimaryThumb = galleryImages[0]?.thumb_url ?? null;
 
   const explicitPrimaryThumb = getExplicitPrimaryThumb(product);
   const explicitPrimaryMedium = getExplicitPrimaryMedium(product);
 
   return {
     product,
-    primaryImage: variantPrimaryImage || canonicalProductImage,
-    primaryThumb:
-      explicitPrimaryThumb ||
-      productGallery[0]?.thumb_url ||
-      explicitPrimaryMedium ||
-      canonicalProductImage,
+    primaryImage: variantPrimaryImage || galleryPrimaryImage || canonicalProductImage,
+    primaryThumb: explicitPrimaryThumb || galleryPrimaryThumb || null,
     primaryMedium:
       explicitPrimaryMedium ||
-      productGallery[0]?.url ||
+      galleryPrimaryImage ||
+      variantPrimaryImage ||
       canonicalProductImage,
     canonicalProductImage,
-    galleryImages: variantGallery.length > 0 ? variantGallery : productGallery,
+    galleryImages,
   };
 }
 
