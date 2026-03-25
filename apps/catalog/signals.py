@@ -1,14 +1,15 @@
-"""Catalog signals.
+"""Señales reales del catálogo.
 
-Genera cachefiles de ImageKit al guardar imágenes desde admin (o cualquier save)
-para evitar la generación en primera visita (que produce timeouts/latencia/502).
+Este módulo es cargado por `CatalogConfig.ready()` para registrar señales de Django.
 
-- ProductImage: genera image_thumb + image_medium (+ image_large si existe)
-- ProductVariantImage (si existe en el proyecto): mismo patrón
+Responsabilidades actuales:
+- Generar cachefiles de ImageKit después del commit al guardar imágenes del catálogo.
+- Sincronizar variantes después del commit al guardar un InventoryPool.
 
-Notas:
-- Usamos transaction.on_commit para ejecutar después del commit.
-- La generación es no-bloqueante: si falla un spec, seguimos con los demás.
+Importante:
+- Este archivo no debe contener lógica de serializers.
+- Este archivo no debe duplicar contratos de salida API.
+- La generación de derivados es best-effort y no bloquea el flujo de guardado.
 """
 
 from __future__ import annotations
@@ -86,29 +87,10 @@ def productcolorimage_post_save_generate_cache(sender, instance: ProductColorIma
 
 
 # -----------------------------------------------------------------------------
-# Optional: Variant image model support (only if your project defines it)
+# Optional: ProductVariantImage support (only if model exists)
 # -----------------------------------------------------------------------------
 
-try:
-    from .models import ProductVariantImage  # type: ignore
-
-    def _generate_variant_image_cachefiles(instance: "ProductVariantImage") -> None:
-        if not getattr(instance, "image", None):
-            return
-        for attr in ("image_thumb", "image_medium", "image_large"):
-            spec = getattr(instance, attr, None)
-            _safe_generate(spec)
-
-
-    @receiver(post_save, sender=ProductVariantImage)  # type: ignore
-    def variantimage_post_save_generate_cache(sender, instance: "ProductVariantImage", **kwargs) -> None:
-        def _run():
-            _generate_variant_image_cachefiles(instance)
-
-        transaction.on_commit(_run)
-
-except Exception:
-    # If there's no variant image model, do nothing.
+if "ProductVariantImage" in globals():
     pass
 
 

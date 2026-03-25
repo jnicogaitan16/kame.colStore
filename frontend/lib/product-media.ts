@@ -232,6 +232,68 @@ function getObjectThumbUrl(input: Record<string, unknown>): string | null {
   return null;
 }
 
+function getGalleryImageUrl(input: Record<string, unknown>): string | null {
+  const candidates = [
+    input.image_large_url,
+    input.imageLargeUrl,
+    input.image_medium_url,
+    input.imageMediumUrl,
+    input.primary_image,
+    input.primaryImage,
+    input.image,
+    input.image_url,
+    input.imageUrl,
+    input.url,
+    input.src,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.trim()) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+function getCardImageUrl(input: Record<string, unknown>): string | null {
+  const candidates = [
+    input.image_thumb_url,
+    input.imageThumbUrl,
+    input.thumbnail_url,
+    input.thumbnailUrl,
+    input.thumbnail,
+    input.thumb_url,
+    input.thumb,
+    input.small,
+    input.image_medium_url,
+    input.imageMediumUrl,
+    input.primary_image,
+    input.primaryImage,
+    input.image,
+    input.image_url,
+    input.imageUrl,
+    input.url,
+    input.src,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.trim()) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+function firstValidNormalizedGalleryImage(candidates: Array<string | null | undefined>): string | null {
+  for (const candidate of candidates) {
+    const normalized = normalizeProductMediaUrl(candidate);
+    if (normalized) return normalized;
+  }
+  return null;
+}
+
 function firstValidNormalizedImage(candidates: Array<string | null | undefined>): string | null {
   for (const candidate of candidates) {
     const normalized = normalizeProductMediaUrl(candidate);
@@ -262,10 +324,7 @@ function appendGalleryCandidates(
   if (typeof input !== "object") return;
 
   const record = input as Record<string, unknown>;
-  const rawCandidates: Array<string | null | undefined> = [];
-  collectProductImageCandidates(record, rawCandidates);
-
-  const primary = firstValidNormalizedImage(rawCandidates);
+  const primary = firstValidNormalizedGalleryImage([getGalleryImageUrl(record)]);
   if (!primary) return;
 
   pushNormalizedCandidate(primary, bucket, seen, {
@@ -333,34 +392,32 @@ export function collectProductImageCandidates(
 
   const record = input as Record<string, unknown>;
   bucket.push(
+    typeof record.image_thumb_url === "string" ? record.image_thumb_url : undefined,
+    typeof record.imageThumbUrl === "string" ? record.imageThumbUrl : undefined,
+    typeof record.thumbnail_url === "string" ? record.thumbnail_url : undefined,
+    typeof record.thumbnailUrl === "string" ? record.thumbnailUrl : undefined,
+    typeof record.thumbnail === "string" ? record.thumbnail : undefined,
+    typeof record.thumb_url === "string" ? record.thumb_url : undefined,
+    typeof record.thumb === "string" ? record.thumb : undefined,
+    typeof record.small === "string" ? record.small : undefined,
+    typeof record.image_medium_url === "string" ? record.image_medium_url : undefined,
+    typeof record.imageMediumUrl === "string" ? record.imageMediumUrl : undefined,
     typeof record.url === "string" ? record.url : undefined,
     typeof record.src === "string" ? record.src : undefined,
     typeof record.image === "string" ? record.image : undefined,
     typeof record.image_url === "string" ? record.image_url : undefined,
     typeof record.imageUrl === "string" ? record.imageUrl : undefined,
-    typeof record.image_thumb_url === "string" ? record.image_thumb_url : undefined,
-    typeof record.imageThumbUrl === "string" ? record.imageThumbUrl : undefined,
-    typeof record.image_medium_url === "string" ? record.image_medium_url : undefined,
-    typeof record.imageMediumUrl === "string" ? record.imageMediumUrl : undefined,
-    typeof record.image_large_url === "string" ? record.image_large_url : undefined,
-    typeof record.imageLargeUrl === "string" ? record.imageLargeUrl : undefined,
     typeof record.secure_url === "string" ? record.secure_url : undefined,
     typeof record.public_url === "string" ? record.public_url : undefined,
     typeof record.publicUrl === "string" ? record.publicUrl : undefined,
     typeof record.main_image === "string" ? record.main_image : undefined,
     typeof record.primary_image === "string" ? record.primary_image : undefined,
     typeof record.primaryImage === "string" ? record.primaryImage : undefined,
-    typeof record.thumbnail === "string" ? record.thumbnail : undefined,
-    typeof record.thumbnail_url === "string" ? record.thumbnail_url : undefined,
-    typeof record.thumbnailUrl === "string" ? record.thumbnailUrl : undefined,
-    typeof record.thumb === "string" ? record.thumb : undefined,
-    typeof record.thumb_url === "string" ? record.thumb_url : undefined,
     typeof record.file === "string" ? record.file : undefined,
     typeof record.path === "string" ? record.path : undefined,
     typeof record.original === "string" ? record.original : undefined,
-    typeof record.large === "string" ? record.large : undefined,
     typeof record.medium === "string" ? record.medium : undefined,
-    typeof record.small === "string" ? record.small : undefined,
+    typeof record.large === "string" ? record.large : undefined,
     typeof record.cover === "string" ? record.cover : undefined,
     typeof record.cover_image === "string" ? record.cover_image : undefined,
     typeof record.coverImage === "string" ? record.coverImage : undefined
@@ -443,23 +500,23 @@ export function getProductPrimaryImage(product: unknown): string | null {
   const record = typeof product === "object" && product !== null ? (product as Record<string, unknown>) : null;
   if (!record) return null;
 
-  const explicitCandidates: Array<string | null | undefined> = [];
+  const explicitCandidates: Array<string | null | undefined> = [
+    typeof record.image_large_url === "string" ? record.image_large_url : undefined,
+    typeof record.imageLargeUrl === "string" ? record.imageLargeUrl : undefined,
+    typeof record.image_medium_url === "string" ? record.image_medium_url : undefined,
+    typeof record.imageMediumUrl === "string" ? record.imageMediumUrl : undefined,
+    typeof record.primary_image === "string" ? record.primary_image : undefined,
+    typeof record.primaryImage === "string" ? record.primaryImage : undefined,
+    typeof record.image === "string" ? record.image : undefined,
+    typeof record.image_url === "string" ? record.image_url : undefined,
+    typeof record.imageUrl === "string" ? record.imageUrl : undefined,
+    typeof record.url === "string" ? record.url : undefined,
+    typeof record.src === "string" ? record.src : undefined,
+  ];
+
   const productCandidates: Array<string | null | undefined> = [];
   const galleryCandidates: Array<string | null | undefined> = [];
   const variantCandidates: Array<string | null | undefined> = [];
-
-  collectProductImageCandidates(record.primary_image, explicitCandidates);
-  collectProductImageCandidates(record.primaryImage, explicitCandidates);
-  collectProductImageCandidates(record.main_image, explicitCandidates);
-  collectProductImageCandidates(record.image_large_url, explicitCandidates);
-  collectProductImageCandidates(record.imageLargeUrl, explicitCandidates);
-  collectProductImageCandidates(record.image_medium_url, explicitCandidates);
-  collectProductImageCandidates(record.imageMediumUrl, explicitCandidates);
-  collectProductImageCandidates(record.image_thumb_url, explicitCandidates);
-  collectProductImageCandidates(record.imageThumbUrl, explicitCandidates);
-  collectProductImageCandidates(record.image, explicitCandidates);
-  collectProductImageCandidates(record.image_url, explicitCandidates);
-  collectProductImageCandidates(record.imageUrl, explicitCandidates);
 
   collectProductImageCandidates(record.images, productCandidates);
   collectProductImageCandidates(record.product_images, productCandidates);
@@ -479,7 +536,7 @@ export function getProductPrimaryImage(product: unknown): string | null {
   collectProductImageCandidates(record.variants, variantCandidates);
 
   return (
-    firstValidNormalizedImage(explicitCandidates) ||
+    firstValidNormalizedGalleryImage(explicitCandidates) ||
     firstValidNormalizedImage(productCandidates) ||
     firstValidNormalizedImage(galleryCandidates) ||
     firstValidNormalizedImage(variantCandidates) ||
@@ -554,4 +611,12 @@ export function toAbsoluteProductMediaUrl(
   }
 
   return sanitizeAbsoluteUrl(`${PUBLIC_SITE_URL}/og/default.jpg`) || "https://kamecol.com/og/default.jpg";
+}
+export function getProductViewerImages(
+  product: unknown
+): Array<{ url: string; alt_text?: string | null }> {
+  return getProductGalleryImages(product).map((image) => ({
+    url: image.url,
+    alt_text: image.alt_text ?? null,
+  }));
 }

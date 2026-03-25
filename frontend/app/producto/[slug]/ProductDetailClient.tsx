@@ -779,25 +779,13 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
   function getCartImageUrlForVariant(variantId: number | null | undefined): string | null {
     if (variantId != null) {
       const variantGallery = product.variantGalleryImagesById?.[String(variantId)] ?? [];
-      const variantThumb = variantGallery[0]?.thumb_url ?? null;
       const variantGalleryUrl = variantGallery[0]?.url ?? null;
       const variantPrimary = product.variantPrimaryImageById?.[String(variantId)] ?? null;
 
-      return (
-        variantThumb ??
-        variantGalleryUrl ??
-        variantPrimary ??
-        product.primaryThumb ??
-        product.primaryMedium ??
-        resolvedPrimaryImage
-      );
+      return variantPrimary ?? variantGalleryUrl ?? product.primaryImage ?? resolvedPrimaryImage;
     }
 
-    return (
-      product.primaryThumb ??
-      product.primaryMedium ??
-      resolvedPrimaryImage
-    );
+    return product.primaryImage ?? resolvedPrimaryImage;
   }
 
   const triggerCartFlyAnimation = (imageUrl: string | null) => {

@@ -5,7 +5,6 @@ Incluyen imágenes con URL absoluta y orden primary + gallery.
 
 import logging
 from rest_framework import serializers
-from imagekit.cachefiles import ImageCacheFile
 
 from django.conf import settings
 from django.db.models import Exists, OuterRef
@@ -78,7 +77,7 @@ def _spec_url(obj, spec_attr: str):
 
     Política:
     - No verificar `storage.exists()` en serialización.
-    - Asumir que los derivados críticos ya fueron calentados al guardar la imagen.
+    - No reenvolver specs con ImageCacheFile dentro del serializer.
     - Memoizar por objeto/spec para evitar trabajo repetido dentro del mismo ciclo.
     - Si algo falla, retornar None para fallback limpio.
     """
@@ -97,8 +96,7 @@ def _spec_url(obj, spec_attr: str):
             return None
 
         try:
-            cachefile = ImageCacheFile(spec)
-            url = getattr(cachefile, "url", None) or getattr(spec, "url", None)
+            url = getattr(spec, "url", None)
             cache[spec_attr] = url or None
             return cache[spec_attr]
         except Exception as exc:
@@ -135,20 +133,17 @@ def _resolve_public_image_urls(obj, request=None, primary_specs=None):
         }
 
     spec_priority = tuple(primary_specs or ("image_large", "image_medium", "image_thumb"))
-    resolved_priority = [_spec_url(obj, spec_attr) for spec_attr in spec_priority]
+    needed_specs = tuple(dict.fromkeys((*spec_priority, "image_thumb", "image_medium", "image_large")))
+    resolved_specs = {spec_attr: _spec_url(obj, spec_attr) for spec_attr in needed_specs}
 
-    thumb = _spec_url(obj, "image_thumb")
-    medium = _spec_url(obj, "image_medium")
-    large = _spec_url(obj, "image_large")
-
-    primary_public = next((url for url in resolved_priority if url), None)
+    primary_public = next((resolved_specs.get(spec_attr) for spec_attr in spec_priority if resolved_specs.get(spec_attr)), None)
     original_public = public_media_url(obj.image.url, request=request)
 
     return {
         "image": public_media_url(primary_public, request=request) or original_public,
-        "image_thumb_url": public_media_url(thumb, request=request),
-        "image_medium_url": public_media_url(medium, request=request),
-        "image_large_url": public_media_url(large, request=request),
+        "image_thumb_url": public_media_url(resolved_specs.get("image_thumb"), request=request),
+        "image_medium_url": public_media_url(resolved_specs.get("image_medium"), request=request),
+        "image_large_url": public_media_url(resolved_specs.get("image_large"), request=request),
     }
 
 

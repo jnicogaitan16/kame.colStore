@@ -42,13 +42,16 @@ function sanitizeViewerImages(images: Array<{ url: string; alt?: string }>) {
   const seen = new Set<string>();
 
   return images.reduce<Array<{ url: string; alt?: string }>>((acc, img) => {
-    const url = normalizeProductMediaUrl(String(img?.url ?? "").trim());
-    if (!url) return acc;
-    if (seen.has(url)) return acc;
+    const rawUrl = String(img?.url ?? "").trim();
+    if (!rawUrl) return acc;
 
-    seen.add(url);
+    const normalizedKey = normalizeProductMediaUrl(rawUrl);
+    if (!normalizedKey) return acc;
+    if (seen.has(normalizedKey)) return acc;
+
+    seen.add(normalizedKey);
     acc.push({
-      url,
+      url: rawUrl,
       alt: img?.alt,
     });
 
