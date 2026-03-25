@@ -1,22 +1,10 @@
-"""Centralización de contexto para emails.
-
-Responsabilidad:
-- Preparar datos limpios y listos para presentación (ej: first_name, total_fmt, reference).
-- Evitar que los templates dependan de filtros/custom tags para formateo.
-
-Los templates NO deben tener lógica compleja.
-"""
-
 from django.conf import settings
+from urllib.parse import quote
+
+from apps.notifications.email_product_media import get_email_variant_image_url
 
 
 def format_cop(amount) -> str:
-    """Formatea un monto como COP con separador de miles por puntos.
-
-    Ejemplos:
-        145000 -> $145.000
-        None -> $0
-    """
     if amount is None:
         return "$0"
 
@@ -28,19 +16,7 @@ def format_cop(amount) -> str:
     return "$" + f"{n:,}".replace(",", ".")
 
 
-# =========================
-# Helpers internos
-# =========================
-
 def _get_first_name(order) -> str | None:
-    """Deriva el primer nombre para personalizar el email.
-
-    Prioridad:
-    1) order.full_name
-    2) order.customer_name
-
-    Fallback final: None (el template mostrará un saludo genérico).
-    """
     full_name = getattr(order, "full_name", None) or getattr(order, "customer_name", None)
 
     if full_name:
@@ -51,7 +27,6 @@ def _get_first_name(order) -> str | None:
 
 
 def _get_support_whatsapp() -> str:
-    """Obtiene el WhatsApp de soporte (solo dígitos) desde settings o fallback seguro."""
     raw = getattr(
         settings,
         "SUPPORT_WHATSAPP",
@@ -67,18 +42,59 @@ def _get_brand_name() -> str:
 
 
 def _get_order_public_url(order) -> str | None:
-    """
-    Si el modelo expone public_url, la retorna.
-    """
     return getattr(order, "public_url", None)
 
 
-# =========================
-# Context builders públicos
-# =========================
+def _build_variant_label(variant) -> str | None:
+    if variant is None:
+        return None
+
+    value = str(getattr(variant, "value", "") or "").strip()
+    color = str(getattr(variant, "color", "") or "").strip().upper()
+
+    if value and color:
+        return f"{value} / {color}"
+    if value:
+        return value
+    if color:
+        return color
+    return None
+
+
+def _build_email_items(order) -> list[dict]:
+    items_payload: list[dict] = []
+
+    try:
+        items = order.items.select_related(
+            "product_variant",
+            "product_variant__product",
+            "product_variant__product__category",
+        ).all()
+    except Exception:
+        return items_payload
+
+    for item in items:
+        variant = getattr(item, "product_variant", None)
+        product = getattr(variant, "product", None)
+
+        product_name = ""
+        if product is not None:
+            product_name = str(getattr(product, "name", "") or "").strip()
+
+        items_payload.append(
+            {
+                "name": product_name.upper() if product_name else "PRODUCTO",
+                "variant_label": _build_variant_label(variant),
+                "quantity": int(getattr(item, "quantity", 0) or 0),
+                "unit_price_fmt": format_cop(getattr(item, "unit_price", 0)),
+                "image_url": get_email_variant_image_url(variant),
+            }
+        )
+
+    return items_payload
+
 
 def build_payment_confirmed_context(order) -> dict:
-    """Contexto para email: Pago confirmado."""
     first_name = _get_first_name(order)
 
     order_number = getattr(order, "id", None)
@@ -91,16 +107,18 @@ def build_payment_confirmed_context(order) -> dict:
         raw_total = getattr(order, "total_amount", None)
     total_fmt = format_cop(raw_total)
 
-    subject = f"Pago confirmado - Pedido #{order_number}"
-    preheader = f"Pago confirmado para tu pedido #{order_number}"
+    subject = "Pago confirmado"
+    preheader = "Tu pago fue confirmado y ya estamos preparando tu pedido."
 
     support_whatsapp = _get_support_whatsapp()
     whatsapp_url = None
     if support_whatsapp:
-        msg = f"Hola 👋 Necesito ayuda con mi pedido #{order_number}."
-        # wa.me requires urlencoded text
-        from urllib.parse import quote
+        msg = f"Hola 👋 Necesito ayuda con mi compra en Kame.col."
         whatsapp_url = f"https://wa.me/{support_whatsapp}?text={quote(msg)}"
+
+    email_items = _build_email_items(order)
+    items_count = sum(int(item.get("quantity") or 0) for item in email_items)
+    has_multiple_items = len(email_items) > 1
 
     return {
         "first_name": first_name,
@@ -115,10 +133,8 @@ def build_payment_confirmed_context(order) -> dict:
         "whatsapp_url": whatsapp_url,
         "payment_method": payment_method,
         "to_email": to_email,
+        "items_count": items_count,
+        "has_multiple_items": has_multiple_items,
         "total_fmt": total_fmt,
+        "email_items": email_items,
     }
-
-
-# Futuro: otros contextos
-# def build_order_created_context(order) -> dict:
-#     ...

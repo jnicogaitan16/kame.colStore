@@ -7,7 +7,6 @@ from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 from django.template.exceptions import TemplateDoesNotExist
 from django.template.loader import render_to_string
-from urllib.parse import quote
 
 from apps.notifications.email_context import build_payment_confirmed_context
 
@@ -89,14 +88,8 @@ def send_order_paid_email(order) -> None:
     ctx = build_payment_confirmed_context(order)
 
     # CTA URLs (opcional)
-    support_digits = str(ctx.get("support_whatsapp") or "").strip()
-    support_digits = "".join([c for c in support_digits if c.isdigit()])
-
-    order_url = ctx.get("order_public_url")
-    whatsapp_url = None
-    if support_digits:
-        wa_message = f"Hola 👋 Mi pedido es #{order.id}. ¿Me ayudas por favor?"
-        whatsapp_url = f"https://wa.me/{support_digits}?text={quote(wa_message)}"
+    order_url = ctx.get("order_public_url") or ctx.get("order_url")
+    whatsapp_url = ctx.get("whatsapp_url")
 
     template_ctx = {
         **ctx,
@@ -104,7 +97,7 @@ def send_order_paid_email(order) -> None:
         "whatsapp_url": whatsapp_url,
     }
 
-    subject = str(ctx.get("subject") or f"Pago confirmado - Pedido #{order.id}")
+    subject = str(ctx.get("subject") or "Pago confirmado")
 
     # TXT es crítico: si falla, levantamos error (no hay body alternativo)
     text_body = render_to_string("emails/orders/paid.txt", template_ctx)
