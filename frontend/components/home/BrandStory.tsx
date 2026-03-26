@@ -49,9 +49,9 @@ export function BrandStory({ story }: { story: HomepageStory | null }) {
       },
       {
         root: null,
-        // Trigger slightly before fully visible for a smoother reveal
-        rootMargin: "0px 0px -15% 0px",
-        threshold: 0.15,
+        // Trigger a bit earlier than the default timing, while still leaving room to perceive the reveal animation.
+        rootMargin: "0px 0px -10% 0px",
+        threshold: 0,
       }
     );
 
@@ -85,7 +85,7 @@ export function BrandStory({ story }: { story: HomepageStory | null }) {
     <section
       ref={sectionRef}
       className={[
-        "relative mx-auto w-full max-w-5xl px-6 py-16 md:px-8 md:py-24 lg:py-28",
+        "relative mx-auto w-full max-w-5xl px-6 pt-8 pb-16 md:px-8 md:pt-12 md:pb-24 lg:pb-28",
         "brand-story-reveal",
         isVisible ? "is-visible" : "",
       ].join(" ")}

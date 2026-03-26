@@ -13,7 +13,7 @@ export default function Footer() {
 
   return (
     <footer className="footer-surface">
-      <div className="mx-auto max-w-6xl px-4 py-12 md:py-14">
+      <div className="mx-auto max-w-6xl px-4 py-10 md:py-12">
         <div className="grid items-start gap-10 md:grid-cols-4 md:gap-x-10 md:gap-y-8">
           {/* Brand */}
           <div className="text-center md:col-span-2 md:text-left">
@@ -87,7 +87,7 @@ export default function Footer() {
         </div>
 
         {/* Legal */}
-        <div className="mt-12 border-t border-zinc-900/8 pt-6 md:mt-14 md:pt-7">
+        <div className="mt-10 border-t border-zinc-900/8 pt-6 md:mt-12 md:pt-7">
           <div className="type-body flex flex-col items-center justify-between gap-4 md:flex-row md:items-end">
             <div className="footer-meta flex flex-col items-center gap-1 md:items-start">
               <span>
