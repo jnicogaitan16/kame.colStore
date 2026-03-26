@@ -32,10 +32,57 @@ type PointerState = {
   dragDistance: number;
 };
 
+type DragLockSnapshot = {
+  overflow: string;
+  overscrollBehavior: string;
+  touchAction: string;
+};
+
 const AUTO_SPEED_PX_PER_SECOND = 22;
 const INERTIA_DAMPING = 0.92;
 const MAX_INERTIA_SPEED = 480;
 const CLICK_CANCEL_THRESHOLD = 8;
+
+function lockDocumentScroll(): DragLockSnapshot | null {
+  if (typeof document === "undefined") return null;
+
+  const body = document.body;
+  const docEl = document.documentElement;
+
+  const snapshot: DragLockSnapshot = {
+    overflow: body.style.overflow,
+    overscrollBehavior: docEl.style.overscrollBehavior,
+    touchAction: body.style.touchAction,
+  };
+
+  body.style.overflow = "hidden";
+  body.style.touchAction = "none";
+  docEl.style.overscrollBehavior = "none";
+
+  return snapshot;
+}
+
+function unlockDocumentScroll(snapshot: DragLockSnapshot | null) {
+  if (typeof document === "undefined" || !snapshot) return;
+
+  document.body.style.overflow = snapshot.overflow;
+  document.body.style.touchAction = snapshot.touchAction;
+  document.documentElement.style.overscrollBehavior = snapshot.overscrollBehavior;
+}
+
+function preventTouchScroll(event: TouchEvent) {
+  event.preventDefault();
+}
+
+function enableDragScrollLock() {
+  if (typeof document === "undefined") return;
+  document.addEventListener("touchmove", preventTouchScroll, { passive: false });
+}
+
+function disableDragScrollLock() {
+  if (typeof document === "undefined") return;
+  document.removeEventListener("touchmove", preventTouchScroll);
+}
 
 function formatPrice(price: number | string | null | undefined): string | null {
   if (price === null || price === undefined || price === "") return null;
@@ -56,7 +103,18 @@ function clampVelocity(value: number): number {
   return value;
 }
 
-export default function HomeProductMarquee({ products }: Props) {
+function normalizePosition(positionRef: { current: number }, cycleWidth: number) {
+  if (!cycleWidth) return;
+
+  while (positionRef.current <= -2 * cycleWidth) {
+    positionRef.current += cycleWidth;
+  }
+  while (positionRef.current >= 0) {
+    positionRef.current -= cycleWidth;
+  }
+}
+
+export default function ProductDiscoveryRail({ products }: Props) {
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const trackRef = useRef<HTMLDivElement | null>(null);
   const middleSegmentRef = useRef<HTMLDivElement | null>(null);
@@ -78,6 +136,7 @@ export default function HomeProductMarquee({ products }: Props) {
     lastTime: 0,
     dragDistance: 0,
   });
+  const dragLockSnapshotRef = useRef<DragLockSnapshot | null>(null);
 
   const safeProducts = useMemo<SafeMarqueeProduct[]>(() => {
     if (!Array.isArray(products)) return [];
@@ -107,24 +166,6 @@ export default function HomeProductMarquee({ products }: Props) {
     return [safeProducts, safeProducts, safeProducts] as const;
   }, [safeProducts]);
 
-  const applyTransform = (x: number) => {
-    if (trackRef.current) {
-      trackRef.current.style.transform = `translate3d(${x}px, 0, 0)`;
-    }
-  };
-
-  const normalizePosition = () => {
-    const { cycleWidth } = measurementsRef.current;
-    if (!cycleWidth) return;
-
-    while (positionRef.current <= -2 * cycleWidth) {
-      positionRef.current += cycleWidth;
-    }
-    while (positionRef.current >= 0) {
-      positionRef.current -= cycleWidth;
-    }
-  };
-
   useEffect(() => {
     if (safeProducts.length === 0) return;
 
@@ -140,10 +181,14 @@ export default function HomeProductMarquee({ products }: Props) {
       if (cycleWidth > 0 && !hasInitializedPositionRef.current) {
         positionRef.current = -cycleWidth;
         hasInitializedPositionRef.current = true;
-        applyTransform(positionRef.current);
+        if (trackRef.current) {
+          trackRef.current.style.transform = `translate3d(${positionRef.current}px, 0, 0)`;
+        }
       } else if (cycleWidth > 0) {
-        normalizePosition();
-        applyTransform(positionRef.current);
+        normalizePosition(positionRef, cycleWidth);
+        if (trackRef.current) {
+          trackRef.current.style.transform = `translate3d(${positionRef.current}px, 0, 0)`;
+        }
       }
     };
 
@@ -186,8 +231,10 @@ export default function HomeProductMarquee({ products }: Props) {
         }
       }
 
-      normalizePosition();
-      applyTransform(positionRef.current);
+      normalizePosition(positionRef, measurementsRef.current.cycleWidth);
+      if (trackRef.current) {
+        trackRef.current.style.transform = `translate3d(${positionRef.current}px, 0, 0)`;
+      }
       rafLoopRef.current = requestAnimationFrame(tick);
     };
 
@@ -214,12 +261,15 @@ export default function HomeProductMarquee({ products }: Props) {
 
     velocityRef.current = 0;
     suppressClickRef.current = false;
+    dragLockSnapshotRef.current = lockDocumentScroll();
+    enableDragScrollLock();
     viewportRef.current?.setPointerCapture?.(event.pointerId);
   };
 
   const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
     const pointer = pointerStateRef.current;
     if (!pointer.isDragging) return;
+    event.preventDefault();
 
     const now = performance.now();
     const deltaX = event.clientX - pointer.lastX;
@@ -237,8 +287,10 @@ export default function HomeProductMarquee({ products }: Props) {
       suppressClickRef.current = true;
     }
 
-    normalizePosition();
-    applyTransform(positionRef.current);
+    normalizePosition(positionRef, measurementsRef.current.cycleWidth);
+    if (trackRef.current) {
+      trackRef.current.style.transform = `translate3d(${positionRef.current}px, 0, 0)`;
+    }
   };
 
   const handlePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -246,6 +298,9 @@ export default function HomeProductMarquee({ products }: Props) {
     pointerStateRef.current.pointerId = null;
     viewportRef.current?.releasePointerCapture?.(event.pointerId);
     velocityRef.current = clampVelocity(velocityRef.current);
+    disableDragScrollLock();
+    unlockDocumentScroll(dragLockSnapshotRef.current);
+    dragLockSnapshotRef.current = null;
   };
 
   const handleCardClickCapture = (event: React.MouseEvent<HTMLAnchorElement>) => {
@@ -254,6 +309,14 @@ export default function HomeProductMarquee({ products }: Props) {
     event.stopPropagation();
     suppressClickRef.current = false;
   };
+
+  useEffect(() => {
+    return () => {
+      disableDragScrollLock();
+      unlockDocumentScroll(dragLockSnapshotRef.current);
+      dragLockSnapshotRef.current = null;
+    };
+  }, []);
 
   if (safeProducts.length === 0) {
     return null;
