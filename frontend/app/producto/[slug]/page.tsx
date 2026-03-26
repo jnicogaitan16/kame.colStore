@@ -1,7 +1,11 @@
 import { cache } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getProductBySlug } from "@/lib/api";
+import {
+  getCatalogo,
+  getProductBySlug,
+} from "@/lib/api";
+import type { HomepageMarqueeProduct } from "@/lib/api";
 import {
   getProductGalleryImages,
   getProductPrimaryImage,
@@ -16,13 +20,28 @@ interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
+type DiscoveryProduct = HomepageMarqueeProduct & {
+  categorySlug?: string | null;
+  departmentSlug?: string | null;
+  compareAtPrice?: number | string | null;
+  imageUrl?: string | null;
+};
+
 const OG_DEFAULT_PATH = "/og/default.jpg";
+const MIN_DISCOVERY_PRODUCTS_FOR_MARQUEE = 4;
 
 const getCachedProductBySlug = cache(
   async (slug: string, options?: { next?: { revalidate?: number } }) => {
     return getProductBySlug(slug, options);
   }
 );
+
+const getCachedCatalogo = cache(async () => {
+  return getCatalogo(
+    { page: 1, page_size: 40 },
+    { next: { revalidate: 300 } }
+  );
+});
 
 function truncate(text: string, max = 180): string {
   const t = String(text || "").replace(/\s+/g, " ").trim();
@@ -33,6 +52,172 @@ function truncate(text: string, max = 180): string {
 
 function isNotFoundProduct(product: any): boolean {
   return !product || product?.detail === "Not found" || product?.detail === "Not found.";
+}
+
+function getCategorySlug(product: any): string | null {
+  const candidate =
+    product?.category?.slug ||
+    product?.category_slug ||
+    product?.categorySlug ||
+    null;
+
+  const value = String(candidate || "").trim();
+  return value || null;
+}
+
+function getDepartmentSlug(product: any): string | null {
+  const candidate =
+    product?.category?.department?.slug ||
+    product?.department?.slug ||
+    product?.department_slug ||
+    product?.departmentSlug ||
+    null;
+
+  const value = String(candidate || "").trim();
+  return value || null;
+}
+
+function getCatalogItems(payload: any): any[] {
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+
+  if (Array.isArray(payload?.results)) {
+    return payload.results;
+  }
+
+  if (Array.isArray(payload?.items)) {
+    return payload.items;
+  }
+
+  return [];
+}
+
+function normalizeDiscoveryProduct(product: any): DiscoveryProduct | null {
+  const id = product?.id;
+  const slug = String(product?.slug || "").trim();
+  const name = String(product?.name || product?.title || "").trim();
+  const isActive = product?.is_active === true;
+
+  if (id === null || id === undefined) return null;
+  if (!slug) return null;
+  if (!name) return null;
+  if (!isActive) return null;
+
+  const primaryImage = getProductPrimaryImage(product);
+
+  return {
+    id,
+    slug,
+    name,
+    price: product?.price ?? null,
+    compareAtPrice:
+      product?.compare_at_price ??
+      product?.compareAtPrice ??
+      product?.original_price ??
+      null,
+    imageUrl: primaryImage || null,
+    categorySlug: getCategorySlug(product),
+    departmentSlug: getDepartmentSlug(product),
+  };
+}
+
+function interleaveDiscoveryBuckets(
+  sameCategory: DiscoveryProduct[],
+  sameDepartment: DiscoveryProduct[],
+  others: DiscoveryProduct[],
+  maxItems = 8
+): DiscoveryProduct[] {
+  const result: DiscoveryProduct[] = [];
+  const buckets = {
+    sameCategory: [...sameCategory],
+    sameDepartment: [...sameDepartment],
+    others: [...others],
+  };
+
+  while (result.length < maxItems) {
+    let appendedInRound = false;
+
+    for (const key of ["sameCategory", "sameDepartment", "others"] as const) {
+      const bucket = buckets[key];
+      if (!bucket.length || result.length >= maxItems) continue;
+
+      const lastCategory = result[result.length - 1]?.categorySlug || null;
+      let nextIndex = bucket.findIndex((item) => item.categorySlug !== lastCategory);
+
+      if (nextIndex < 0) {
+        nextIndex = 0;
+      }
+
+      const [nextItem] = bucket.splice(nextIndex, 1);
+      if (!nextItem) continue;
+
+      result.push(nextItem);
+      appendedInRound = true;
+    }
+
+    if (!appendedInRound) {
+      break;
+    }
+  }
+
+  return result.slice(0, maxItems);
+}
+
+function buildMoreFromKameProducts(
+  currentProduct: any,
+  catalogPayload: any
+): DiscoveryProduct[] {
+  const currentId = currentProduct?.id;
+  const currentCategorySlug = getCategorySlug(currentProduct);
+  const currentDepartmentSlug = getDepartmentSlug(currentProduct);
+  const catalogItems = getCatalogItems(catalogPayload);
+  const dedupe = new Set<string>();
+
+  const sameCategory: DiscoveryProduct[] = [];
+  const sameDepartment: DiscoveryProduct[] = [];
+  const others: DiscoveryProduct[] = [];
+
+  for (const rawProduct of catalogItems) {
+    const normalized = normalizeDiscoveryProduct(rawProduct);
+    if (!normalized) continue;
+    if (normalized.id === currentId) continue;
+
+    const dedupeKey = String(normalized.id);
+    if (dedupe.has(dedupeKey)) continue;
+    dedupe.add(dedupeKey);
+
+    if (
+      currentCategorySlug &&
+      normalized.categorySlug &&
+      normalized.categorySlug === currentCategorySlug
+    ) {
+      sameCategory.push(normalized);
+      continue;
+    }
+
+    if (
+      currentDepartmentSlug &&
+      normalized.departmentSlug &&
+      normalized.departmentSlug === currentDepartmentSlug
+    ) {
+      sameDepartment.push(normalized);
+      continue;
+    }
+
+    others.push(normalized);
+  }
+
+  const curatedProducts = interleaveDiscoveryBuckets(
+    sameCategory,
+    sameDepartment,
+    others,
+    8
+  );
+
+  return curatedProducts.length >= MIN_DISCOVERY_PRODUCTS_FOR_MARQUEE
+    ? curatedProducts
+    : [];
 }
 
 function normalizeProductForClient(product: any) {
@@ -244,8 +429,22 @@ export default async function ProductPage({ params }: PageProps) {
     return renderTemporaryApiFailure();
   }
 
+  let moreFromKame: DiscoveryProduct[] = [];
   try {
-    return <ProductDetailClient product={productViewModel as any} />;
+    const catalogPayload = await getCachedCatalogo();
+    moreFromKame = buildMoreFromKameProducts(normalizedProduct, catalogPayload);
+  } catch (e: any) {
+    logPdpStageError("more-from-kame build failed", slug, e);
+    moreFromKame = [];
+  }
+
+  try {
+    return (
+      <ProductDetailClient
+        product={productViewModel as any}
+        moreFromKame={moreFromKame}
+      />
+    );
   } catch (e: any) {
     logPdpStageError("render failed", slug, e);
     return renderTemporaryApiFailure();

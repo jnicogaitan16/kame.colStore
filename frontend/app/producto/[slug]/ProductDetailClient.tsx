@@ -3,11 +3,13 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
+import type { HomepageMarqueeProduct } from "@/lib/api";
 
 import { useCartStore } from "@/store/cart";
 import { ProductGallery } from "@/components/product/ProductGallery";
 import { Button } from "@/components/ui/Button";
 import ShareButton from "@/components/ui/ShareButton";
+import { ProductDiscoveryRail } from "@/components/product/ProductDiscoveryRail";
 
 import type { ProductVariant } from "@/types/catalog";
 
@@ -63,6 +65,7 @@ type PDPViewModel = {
 
 interface ProductDetailClientProps {
   product: PDPViewModel;
+  moreFromKame: HomepageMarqueeProduct[];
 }
 
 type SelectionState = {
@@ -734,7 +737,10 @@ function ProductDescription({
   );
 }
 
-export function ProductDetailClient({ product }: ProductDetailClientProps) {
+export function ProductDetailClient({
+  product,
+  moreFromKame,
+}: ProductDetailClientProps) {
   const addItem = useCartStore((state) => state.addItem);
 
   const [detailsExpanded, setDetailsExpanded] = useState(false);
@@ -910,6 +916,12 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
           />
         </div>
       </div>
+
+      {/* Keep discovery rail mounted directly in PDP flow without extra wrappers,
+          so marquee drag, inertia, click capture, and effective width remain intact. */}
+      {Array.isArray(moreFromKame) && moreFromKame.length > 0 ? (
+        <ProductDiscoveryRail products={moreFromKame} />
+      ) : null}
 
       {sizeGuideKey && (
         <SizeGuideDrawer
