@@ -19,4 +19,5 @@ urlpatterns = [
     path("homepage-banners/", views_api.HomepageBannerListAPIView.as_view(), name="homepage-banners"),
     path("homepage-promos/", views_api.HomepagePromoListAPIView.as_view(), name="homepage-promos"),
     path("homepage-story/", views_api.HomepageStoryListAPIView.as_view(), name="homepage-story"),
+    path("homepage-marquee-products/", views_api.HomepageMarqueeProductListAPIView.as_view(), name="homepage-marquee-products",),
 ]

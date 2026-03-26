@@ -162,6 +162,15 @@ class Product(models.Model):
     price = models.DecimalField(max_digits=10, decimal_places=2)
 
     is_active = models.BooleanField(default=True)
+    show_in_home_marquee = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text="Si está activo, el producto aparecerá en el marquee del Home.",
+    )
+    home_marquee_order = models.PositiveIntegerField(
+        default=0,
+        help_text="Orden manual en el marquee del Home (menor = primero).",
+    )
 
     # LEGACY / SOLO LECTURA: mantenido para no romper admin/serializers.
     # En el modelo nuevo, la verdad de stock vive en InventoryPool (pool global por base).

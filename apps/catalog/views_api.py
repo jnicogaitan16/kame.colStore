@@ -38,6 +38,7 @@ from .serializers import (
     HomepageBannerSerializer,
     HomepagePromoSerializer,
     HomepageStorySerializer,
+    HomeMarqueeProductSerializer,
     ProductDetailSerializer,
     ProductListSerializer,
 )
@@ -197,6 +198,50 @@ class ProductListAPIView(generics.ListAPIView):
         if page is not None:
             return self.get_paginated_response(serializer.data)
         return Response(serializer.data)
+
+
+# New API view for homepage marquee products
+class HomepageMarqueeProductListAPIView(generics.ListAPIView):
+    """Homepage marquee products.
+
+    Performance:
+    - Prefetch active variants + their images.
+    - Prefetch active color images using the same media strategy as listing.
+    - No pagination: frontend marquee consumes the full curated set.
+    """
+
+    serializer_class = HomeMarqueeProductSerializer
+    pagination_class = None
+
+    def get_queryset(self):
+        active_variants = ProductVariant.objects.filter(is_active=True).prefetch_related(
+            Prefetch(
+                "images",
+                queryset=ProductImage.objects.order_by(
+                    "-is_primary", "sort_order", "created_at", "id"
+                ),
+            )
+        )
+
+        color_images_queryset = ProductColorImage.objects.order_by(
+            "sort_order", "id"
+        )
+        if hasattr(ProductColorImage, "is_active"):
+            color_images_queryset = color_images_queryset.filter(is_active=True)
+
+        return (
+            Product.objects.filter(is_active=True, show_in_home_marquee=True)
+            .select_related("category", "category__department")
+            .prefetch_related(
+                Prefetch("variants", queryset=active_variants),
+                Prefetch(
+                    "color_images",
+                    queryset=color_images_queryset,
+                    to_attr="prefetched_color_images",
+                ),
+            )
+            .order_by("home_marquee_order", "id")
+        )
 
 
 class ProductDetailAPIView(generics.RetrieveAPIView):

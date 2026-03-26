@@ -534,16 +534,50 @@ class ProductAdmin(admin.ModelAdmin):
         "category",
         "price",
         "variants_stock_total",
+        "show_in_home_marquee",
+        "home_marquee_order",
         "is_active",
         "created_at",
     )
 
     list_select_related = ("category",)
     search_fields = ("name", "slug")
-    list_filter = ("is_active", "category")
+    list_filter = ("is_active", "show_in_home_marquee", "category")
     prepopulated_fields = {"slug": ("name",)}
     inlines = [ProductVariantInline, ProductColorImageInline]
     actions = ["generate_variants_from_pool_action"]
+
+    fieldsets = (
+        (
+            "Información principal",
+            {
+                "fields": (
+                    "category",
+                    "name",
+                    "slug",
+                    "description",
+                    "price",
+                )
+            },
+        ),
+        (
+            "Estado / publicación",
+            {
+                "fields": (
+                    "is_active",
+                )
+            },
+        ),
+        (
+            "Home / Marquee",
+            {
+                "fields": (
+                    "show_in_home_marquee",
+                    "home_marquee_order",
+                )
+            },
+        ),
+    )
 
     @admin.action(description="Generar variantes desde pool")
     def generate_variants_from_pool_action(self, request, queryset):
