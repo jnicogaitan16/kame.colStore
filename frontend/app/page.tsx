@@ -1,7 +1,13 @@
 import { Suspense } from "react";
-import { getHomepageBanners, getHomepagePromos, getHomepageStory } from "@/lib/api";
+import {
+  getHomepageBanners,
+  getHomepageMarqueeProducts,
+  getHomepagePromos,
+  getHomepageStory,
+} from "@/lib/api";
 import { HeroCarousel } from "@/components/home/HeroCarousel";
 import { BrandStory } from "@/components/home/BrandStory";
+import HomeProductMarquee from "@/components/home/HomeProductMarquee";
 import HomepagePromos from "@/components/home/HomepagePromos";
 
 export const revalidate = 300;
@@ -46,13 +52,15 @@ async function HomePromosProbe({ placement }: { placement: "TOP" | "MID" }) {
 }
 
 export default async function HomePage() {
-  const [bannersRes, storyRes] = await Promise.allSettled([
+  const [bannersRes, storyRes, marqueeRes] = await Promise.allSettled([
     getHomepageBanners(),
     getHomepageStory(),
+    getHomepageMarqueeProducts(),
   ]);
 
   const banners = bannersRes.status === "fulfilled" ? bannersRes.value : [];
   const story = storyRes.status === "fulfilled" ? storyRes.value : null;
+  const marqueeProducts = marqueeRes.status === "fulfilled" ? marqueeRes.value : [];
 
   if (isDevEnvironment()) {
     if (bannersRes.status === "rejected") {
@@ -67,6 +75,12 @@ export default async function HomePage() {
       });
     }
 
+    if (marqueeRes.status === "rejected") {
+      logHomeDiagnostic("homepage marquee products request failed", {
+        reason: marqueeRes.reason,
+      });
+    }
+
     if (bannersRes.status === "fulfilled" && (!Array.isArray(banners) || banners.length === 0)) {
       logHomeDiagnostic("homepage banners resolved with empty result");
     }
@@ -75,8 +89,13 @@ export default async function HomePage() {
       logHomeDiagnostic("homepage story resolved empty or unusable");
     }
 
+    if (marqueeRes.status === "fulfilled" && (!Array.isArray(marqueeProducts) || marqueeProducts.length === 0)) {
+      logHomeDiagnostic("homepage marquee products resolved with empty result");
+    }
+
     const failedBlocks: string[] = [];
     if (bannersRes.status === "rejected") failedBlocks.push("hero:banners");
+    if (marqueeRes.status === "rejected") failedBlocks.push("home:marquee");
     if (storyRes.status === "rejected") failedBlocks.push("brand-story");
 
     if (failedBlocks.length > 0) {
@@ -115,6 +134,7 @@ export default async function HomePage() {
 
       <main className="home-editorial-shell mx-auto max-w-6xl px-4 md:px-6">
         <div className="home-editorial-flow">
+          {marqueeProducts.length > 0 ? <HomeProductMarquee products={marqueeProducts} /> : null}
           <HomepagePromos placement="MID" />
 
           {story ? (

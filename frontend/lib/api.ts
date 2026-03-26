@@ -33,6 +33,18 @@ export type HomepageStory = {
   active?: boolean | null;
 };
 
+export type HomepageMarqueeProduct = {
+  id: number;
+  name: string;
+  slug: string;
+  price: number | string;
+  primary_card_url?: string | null;
+  primary_image?: string | null;
+  primary_thumb_url?: string | null;
+  primary_medium_url?: string | null;
+  sold_out?: boolean;
+};
+
 export type CategoryNav = {
   id: number;
   name: string;
@@ -515,6 +527,21 @@ export async function getHomepagePromos(
   });
 }
 
+/**
+ * Homepage marquee products.
+ *
+ * Cache policy:
+ * - Public home read endpoint.
+ * - Cacheable with ISR-style revalidation.
+ */
+export async function getHomepageMarqueeProducts(): Promise<HomepageMarqueeProduct[]> {
+  const data = await apiFetch<any>("/homepage-marquee-products/", {
+    next: { revalidate: 300 },
+  });
+
+  return extractHomepageMarqueeProducts(data);
+}
+
 function extractArray<T>(res: any): T[] {
   if (Array.isArray(res)) return res as T[];
   if (Array.isArray(res?.results)) return res.results as T[];
@@ -522,6 +549,12 @@ function extractArray<T>(res: any): T[] {
   if (Array.isArray(res?.sections)) return res.sections as T[];
   if (Array.isArray(res?.items)) return res.items as T[];
   if (Array.isArray(res?.story)) return res.story as T[];
+  return [];
+}
+
+function extractHomepageMarqueeProducts(res: any): HomepageMarqueeProduct[] {
+  if (Array.isArray(res)) return res as HomepageMarqueeProduct[];
+  if (Array.isArray(res?.results)) return res.results as HomepageMarqueeProduct[];
   return [];
 }
 
