@@ -713,6 +713,24 @@ class ProductListSerializer(serializers.ModelSerializer):
         return bool(sold_out)
 
 
+# ---------------------------------------------------------------------------
+# Product detail (producto + variantes + imágenes)
+
+class HomeMarqueeProductSerializer(ProductListSerializer):
+    class Meta(ProductListSerializer.Meta):
+        model = Product
+        fields = [
+            "id",
+            "name",
+            "slug",
+            "price",
+            "primary_card_url",
+            "primary_image",
+            "primary_thumb_url",
+            "primary_medium_url",
+            "sold_out",
+        ]
+
  # ---------------------------------------------------------------------------
 # Product detail (producto + variantes + imágenes)
 #
