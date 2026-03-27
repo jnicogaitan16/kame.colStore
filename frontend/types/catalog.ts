@@ -54,6 +54,8 @@ export interface Category {
 
   sort_order?: number;
   variant_schema: string; // size_color | jean_size | no_variant | dimension
+  size_guide?: SizeGuide | null;
+  size_guide_id?: number | null;
 
   is_active: boolean;
 }
@@ -140,6 +142,18 @@ export interface ProductDetail extends Product {
   created_at: string;
   updated_at: string;
   variants: ProductVariant[];
+}
+
+export interface SizeGuideRow {
+  size: string;
+  values: Array<string | number>;
+}
+
+export interface SizeGuide {
+  title: string;
+  subtitle?: string | null;
+  columns: string[];
+  rows: SizeGuideRow[];
 }
 
 // =============================

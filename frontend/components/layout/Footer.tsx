@@ -19,7 +19,7 @@ export default function Footer() {
           <div className="text-center md:col-span-2 md:text-left">
             <h3 className="type-brand mb-3 text-zinc-950">Kame.col</h3>
             <p className="type-body mx-auto max-w-md text-zinc-700/90 md:mx-0">
-            Marca de ropa urbana.
+              Diseño con intención, calidad que se siente y piezas pensadas para permanecer.
             </p>
           </div>
 

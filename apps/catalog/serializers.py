@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 from .models import (
     Category,
+    CategorySizeGuide,
     Department,
     HomepageBanner,
     HomepageSection,
@@ -249,14 +250,45 @@ class DepartmentSerializer(serializers.ModelSerializer):
 
 
 # ---------------------------------------------------------------------------
+# CategorySizeGuide
+class CategorySizeGuideSerializer(serializers.ModelSerializer):
+    columns = serializers.SerializerMethodField()
+    rows = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CategorySizeGuide
+        fields = [
+            "title",
+            "subtitle",
+            "columns",
+            "rows",
+        ]
+
+    def get_columns(self, obj):
+        columns = getattr(obj, "columns_json", None)
+        return columns if isinstance(columns, list) else []
+
+    def get_rows(self, obj):
+        rows = getattr(obj, "rows_json", None)
+        return rows if isinstance(rows, list) else []
+
+
+# ---------------------------------------------------------------------------
 # Category
 # ---------------------------------------------------------------------------
 class CategorySerializer(serializers.ModelSerializer):
     department = DepartmentSerializer(read_only=True)
+    size_guide = serializers.SerializerMethodField()
 
     class Meta:
         model = Category
-        fields = ["id", "name", "slug", "sort_order", "is_active", "variant_schema", "department"]
+        fields = ["id", "name", "slug", "sort_order", "is_active", "variant_schema", "department", "size_guide"]
+
+    def get_size_guide(self, obj):
+        guide = getattr(obj, "size_guide", None)
+        if not guide or not getattr(guide, "is_active", False):
+            return None
+        return CategorySizeGuideSerializer(guide, context=self.context).data
 
 
 # Lightweight serializer for menu categories (no nested department)

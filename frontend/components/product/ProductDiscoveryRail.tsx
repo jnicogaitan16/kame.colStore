@@ -7,7 +7,6 @@ import {
   useMemo,
   useRef,
   type MouseEvent as ReactMouseEvent,
-  type PointerEvent as ReactPointerEvent,
 } from "react";
 
 import type { HomepageMarqueeProduct } from "@/lib/api";
@@ -180,7 +179,7 @@ function normalizePosition(position: number, cycleWidth: number): number {
 }
 
 export function ProductDiscoveryRail({
-  title = "Más de articulos",
+  title = "Descubre más diseños",
   products,
 }: ProductDiscoveryRailProps) {
   const viewportRef = useRef<HTMLDivElement | null>(null);
@@ -345,7 +344,7 @@ export function ProductDiscoveryRail({
     };
   }, []);
 
-  const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+  const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     const viewport = viewportRef.current;
     if (!viewport) {
       return;
@@ -367,7 +366,7 @@ export function ProductDiscoveryRail({
     viewport.setPointerCapture(event.pointerId);
   };
 
-  const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+  const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
     const state = pointerStateRef.current;
     const { cycleWidth } = measurementsRef.current;
 
@@ -397,7 +396,7 @@ export function ProductDiscoveryRail({
     }
   };
 
-  const finishPointer = (event: ReactPointerEvent<HTMLDivElement>) => {
+  const finishPointer = () => {
     const viewport = viewportRef.current;
     const state = pointerStateRef.current;
 
@@ -449,7 +448,7 @@ export function ProductDiscoveryRail({
   return (
     <div className="pdp-discovery-block">
       <div className="pdp-discovery-title-row">
-        <h2 id="pdp-discovery-title" className="home-marquee-title">
+        <h2 id="pdp-discovery-title" className="pdp-label-refined text-zinc-500">
           {title}
         </h2>
       </div>

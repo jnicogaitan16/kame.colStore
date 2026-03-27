@@ -151,6 +151,85 @@ class Category(models.Model):
 
 
 
+class CategorySizeGuide(models.Model):
+    """Guía de medidas asociada a una categoría (fuente de verdad backend).
+
+    Cada categoría puede tener una única guía de medidas editable desde admin.
+    """
+
+    category = models.OneToOneField(
+        Category,
+        on_delete=models.CASCADE,
+        related_name="size_guide",
+    )
+
+    title = models.CharField(max_length=180)
+    subtitle = models.TextField(blank=True, default="")
+
+    columns_json = models.JSONField(default=list, blank=True)
+    rows_json = models.JSONField(default=list, blank=True)
+
+    is_active = models.BooleanField(default=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def clean(self):
+        super().clean()
+
+        # Validar columns_json
+        if self.is_active:
+            if not isinstance(self.columns_json, list) or not self.columns_json:
+                raise ValidationError({
+                    "columns_json": "Debe ser una lista no vacía de columnas."
+                })
+
+            for col in self.columns_json:
+                if not isinstance(col, str) or not col.strip():
+                    raise ValidationError({
+                        "columns_json": "Todas las columnas deben ser strings no vacíos."
+                    })
+
+        # Validar rows_json
+        if self.rows_json:
+            if not isinstance(self.rows_json, list):
+                raise ValidationError({
+                    "rows_json": "Debe ser una lista de filas."
+                })
+
+            for row in self.rows_json:
+                if not isinstance(row, dict):
+                    raise ValidationError({
+                        "rows_json": "Cada fila debe ser un objeto con 'size' y 'values'."
+                    })
+
+                size = row.get("size")
+                values = row.get("values")
+
+                if not isinstance(size, str) or not size.strip():
+                    raise ValidationError({
+                        "rows_json": "Cada fila debe tener un campo 'size' válido."
+                    })
+
+                if not isinstance(values, list):
+                    raise ValidationError({
+                        "rows_json": "Cada fila debe tener un campo 'values' tipo lista."
+                    })
+
+                # Validar longitud de values vs columnas (excepto la columna de talla)
+                if self.columns_json and len(values) != max(len(self.columns_json) - 1, 0):
+                    raise ValidationError({
+                        "rows_json": "La cantidad de valores debe coincidir con las columnas definidas (excepto la columna de talla)."
+                    })
+
+    class Meta:
+        verbose_name = "Guía de medidas por categoría"
+        verbose_name_plural = "Guías de medidas por categoría"
+
+    def __str__(self) -> str:
+        return f"{self.category.name} - Guía de medidas"
+
+
 class Product(models.Model):
     category = models.ForeignKey(Category, on_delete=models.PROTECT, related_name="products")  # debe ser leaf
 

@@ -151,7 +151,7 @@ class ProductListAPIView(generics.ListAPIView):
 
         qs = (
             Product.objects.filter(is_active=True)
-            .select_related("category", "category__department")
+            .select_related("category", "category__department", "category__size_guide")
             .prefetch_related(
                 Prefetch("variants", queryset=active_variants),
                 Prefetch(
@@ -276,7 +276,7 @@ class ProductDetailAPIView(generics.RetrieveAPIView):
 
         return (
             Product.objects.filter(is_active=True)
-            .select_related("category", "category__department")
+            .select_related("category", "category__department", "category__size_guide")
             .prefetch_related(
                 Prefetch("variants", queryset=active_variants),
                 Prefetch(

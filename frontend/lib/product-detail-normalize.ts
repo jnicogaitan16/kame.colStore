@@ -9,6 +9,7 @@ import type {
   NormalizedProductGalleryImage,
   ProductDetail,
   ProductDetailViewModel,
+  SizeGuide,
   ProductVariant,
   ProductVariantMatrix,
 } from "@/types/catalog";
@@ -120,6 +121,7 @@ export type PDPViewModel = ProductDetailViewModel &
     variantPrimaryImageById: PDPVariantPrimaryImageRecord;
     requiresValue: boolean;
     requiresColor: boolean;
+    sizeGuide: SizeGuide | null;
     flags: PDPSelectionFlags;
   };
 
@@ -249,6 +251,63 @@ export function dedupeGalleryImages(
   }
 
   return result;
+}
+
+export function normalizeSizeGuide(raw: unknown): SizeGuide | null {
+  if (!raw || typeof raw !== "object") return null;
+
+  const record = raw as Record<string, unknown>;
+
+  const title = typeof record.title === "string" ? record.title.trim() : "";
+  if (!title) return null;
+
+  const subtitle =
+    typeof record.subtitle === "string" && record.subtitle.trim()
+      ? record.subtitle.trim()
+      : undefined;
+
+  const rawColumns = Array.isArray(record.columns) ? record.columns : null;
+  if (!rawColumns) return null;
+
+  const columns = rawColumns
+    .map((col) => (typeof col === "string" ? col.trim() : ""))
+    .filter(Boolean);
+
+  if (columns.length === 0) return null;
+
+  const rawRows = Array.isArray(record.rows) ? record.rows : null;
+  if (!rawRows) return null;
+
+  const rows = rawRows
+    .map((row) => {
+      if (!row || typeof row !== "object") return null;
+
+      const rowRecord = row as Record<string, unknown>;
+      const size = typeof rowRecord.size === "string" ? rowRecord.size.trim() : "";
+      const rawValues = Array.isArray(rowRecord.values) ? rowRecord.values : null;
+
+      if (!size || !rawValues) return null;
+
+      const values = rawValues.filter(
+        (value): value is string | number =>
+          typeof value === "string" || typeof value === "number"
+      );
+
+      if (values.length !== rawValues.length) return null;
+
+      return {
+        size,
+        values,
+      };
+    })
+    .filter(Boolean) as SizeGuide["rows"];
+
+  return {
+    title,
+    subtitle,
+    columns,
+    rows,
+  };
 }
 
 
@@ -762,6 +821,7 @@ export function buildProductDetailPDPViewModel(
     variantPrimaryImageById,
     requiresValue,
     requiresColor,
+    sizeGuide: normalizeSizeGuide(product.category?.size_guide),
     flags: buildPDPFlags({
       variants,
       valueOptions,
