@@ -1,0 +1,14 @@
+name: Keep Alive Front
+
+on:
+  schedule:
+    - cron: "*/10 * * * *" # cada 10 minutos
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Ping frontend health
+        run: curl -s https://kame-colstore.onrender.com/health > /dev/null
