@@ -1,7 +1,7 @@
 from django import forms
 from django.core.exceptions import ValidationError
 
-from apps.catalog.models import Category, InventoryPool, Product, ProductVariant, ProductColorImage
+from apps.catalog.models import Category, CategorySizeGuide, InventoryPool, Product, ProductVariant, ProductColorImage
 from apps.catalog.variant_rules import (
     get_variant_rule,
     normalize_variant_color,
@@ -326,6 +326,97 @@ class ProductColorImageAdminForm(CatalogAdminRuleAwareForm):
 
         return color
 
+
+# CategorySizeGuide admin form
+class CategorySizeGuideAdminForm(forms.ModelForm):
+    class Meta:
+        model = CategorySizeGuide
+        fields = "__all__"
+
+    def clean_columns_json(self):
+        columns = self.cleaned_data.get("columns_json")
+
+        if not isinstance(columns, list):
+            raise ValidationError("columns_json debe ser una lista JSON.")
+
+        if len(columns) < 2:
+            raise ValidationError(
+                "columns_json debe tener al menos 2 columnas: la primera para talla/formato y al menos una columna de medida."
+            )
+
+        for index, column in enumerate(columns, start=1):
+            if not isinstance(column, str) or not column.strip():
+                raise ValidationError(
+                    f"La columna #{index} debe ser un string no vacío."
+                )
+
+        return columns
+
+    def clean_rows_json(self):
+        rows = self.cleaned_data.get("rows_json")
+
+        if not isinstance(rows, list):
+            raise ValidationError("rows_json debe ser una lista JSON.")
+
+        for index, row in enumerate(rows, start=1):
+            if not isinstance(row, dict):
+                raise ValidationError(
+                    f"La fila #{index} debe ser un objeto con 'size' y 'values'."
+                )
+
+            if "size" not in row:
+                raise ValidationError(
+                    f"La fila #{index} debe incluir el campo 'size'."
+                )
+
+            if "values" not in row:
+                raise ValidationError(
+                    f"La fila #{index} debe incluir el campo 'values'."
+                )
+
+            size = row.get("size")
+            values = row.get("values")
+
+            if not isinstance(size, str) or not size.strip():
+                raise ValidationError(
+                    f"La fila #{index} debe tener un 'size' válido y no vacío."
+                )
+
+            if not isinstance(values, list):
+                raise ValidationError(
+                    f"La fila #{index} debe tener 'values' como lista."
+                )
+
+        return rows
+
+    def clean(self):
+        cleaned_data = super().clean()
+        columns = cleaned_data.get("columns_json")
+        rows = cleaned_data.get("rows_json")
+
+        if not isinstance(columns, list) or not isinstance(rows, list):
+            return cleaned_data
+
+        expected_values_length = len(columns) - 1
+
+        for index, row in enumerate(rows, start=1):
+            if not isinstance(row, dict):
+                continue
+
+            values = row.get("values")
+            if not isinstance(values, list):
+                continue
+
+            if len(values) != expected_values_length:
+                raise ValidationError(
+                    {
+                        "rows_json": (
+                            f"La fila #{index} tiene {len(values)} valores, pero se esperaban {expected_values_length} según columns_json."
+                        )
+                    }
+                )
+
+        return cleaned_data
 
 # Bulk load form for inventory pools
 class InventoryPoolBulkLoadForm(forms.Form):

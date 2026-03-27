@@ -92,7 +92,7 @@ export function ProductCard({
       data-product-group-index={groupIndex}
       data-product-group-position={groupPosition}
     >
-      <div className="relative card-premium-ratio overflow-hidden bg-transparent">
+      <div className="relative aspect-square overflow-hidden bg-transparent">
         <div className="pointer-events-none absolute inset-0 z-[2]" aria-hidden="true">
           <div className="absolute top-2 left-2">
             <div className="inline-flex w-[84px] justify-start">
@@ -108,7 +108,7 @@ export function ProductCard({
             fill
             priority={loadPolicy.priority}
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-            className="card-premium-img transition-transform duration-500 ease-out group-hover:scale-[1.012]"
+            className="h-full w-full object-contain object-center transition-transform duration-500 ease-out group-hover:scale-[1.012]"
             loading={loadPolicy.loading}
             fetchPriority={loadPolicy.fetchPriority}
             onError={() => {

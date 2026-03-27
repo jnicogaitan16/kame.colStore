@@ -8,6 +8,7 @@ from django.urls import path
 from .models import (
     Department,
     Category,
+    CategorySizeGuide,
     InventoryPool,
     Product,
     ProductVariant,
@@ -20,6 +21,7 @@ from .models import (
 
 from .variant_rules import get_variant_rule, resolve_variant_rule
 from .forms import (
+    CategorySizeGuideAdminForm,
     InventoryPoolAdminForm,
     InventoryPoolBulkLoadForm,
     ProductVariantAdminForm,
@@ -78,6 +80,116 @@ class DepartmentAdmin(admin.ModelAdmin):
     prepopulated_fields = {"slug": ("name",)}
     ordering = ("sort_order", "name")
 
+class CategorySizeGuideInline(admin.StackedInline):
+    model = CategorySizeGuide
+    form = CategorySizeGuideAdminForm
+    extra = 0
+    max_num = 1
+    can_delete = True
+
+    fieldsets = (
+        (
+            "Guía de medidas",
+            {
+                "fields": (
+                    "is_active",
+                    "title",
+                    "subtitle",
+                    "columns_json",
+                    "rows_json",
+                ),
+            },
+        ),
+    )
+
+    def get_extra(self, request, obj=None, **kwargs):
+        try:
+            has_guide = bool(obj and obj.size_guide)
+        except CategorySizeGuide.DoesNotExist:
+            has_guide = False
+
+        return 0 if has_guide else 1
+
+    def get_formset(self, request, obj=None, **kwargs):
+        formset = super().get_formset(request, obj, **kwargs)
+
+        schema = getattr(obj, "variant_schema", "") if obj else ""
+
+        examples = {
+            "size_color": {
+                "title": "Guía de tallas — Oversize",
+                "subtitle": "Medidas reales en centímetros (cm). Corte amplio, caída relajada y fit urbano. Puede variar ±1–2 cm según el lote.",
+                "columns_json": ["Talla", "Largo (cm)", "Ancho (cm)", "Manga (cm)"],
+                "rows_json": [
+                    {"size": "S", "values": [71, 50, 21]},
+                    {"size": "M", "values": [74, 55, 22]},
+                    {"size": "L", "values": [77, 60, 23]},
+                    {"size": "XL", "values": [80, 65, 24]},
+                    {"size": "2XL", "values": [83, 70, 25]},
+                ],
+            },
+            "jean_size": {
+                "title": "Guía de tallas — Jean",
+                "subtitle": "Medidas reales en centímetros (cm). Puede variar ±1–2 cm según el lote.",
+                "columns_json": ["Talla", "Cintura (cm)", "Cadera (cm)", "Largo (cm)"],
+                "rows_json": [
+                    {"size": "28", "values": [36, 48, 100]},
+                    {"size": "30", "values": [38, 50, 102]},
+                    {"size": "32", "values": [40, 52, 104]},
+                    {"size": "34", "values": [42, 54, 106]},
+                    {"size": "36", "values": [44, 56, 108]},
+                ],
+            },
+            "shoe_size": {
+                "title": "Guía de tallas — Zapatillas",
+                "subtitle": "Referencia aproximada en centímetros (cm).",
+                "columns_json": ["Talla", "Largo pie (cm)"],
+                "rows_json": [
+                    {"size": "36", "values": [23]},
+                    {"size": "37", "values": [23.5]},
+                    {"size": "38", "values": [24]},
+                    {"size": "39", "values": [24.5]},
+                    {"size": "40", "values": [25]},
+                    {"size": "41", "values": [25.5]},
+                    {"size": "42", "values": [26]},
+                ],
+            },
+            "no_variant": {
+                "title": "Medidas del producto",
+                "subtitle": "Formato y dimensiones reales en centímetros (cm).",
+                "columns_json": ["Formato", "Ancho (cm)", "Alto (cm)"],
+                "rows_json": [
+                    {"size": "Único", "values": [20, 30]},
+                ],
+            },
+        }
+
+        selected_example = examples.get(schema)
+        form = formset.form
+
+        form.base_fields["title"].help_text = ""
+        form.base_fields["subtitle"].help_text = ""
+        form.base_fields["columns_json"].help_text = ""
+        form.base_fields["rows_json"].help_text = ""
+        form.base_fields["is_active"].help_text = ""
+
+        form.base_fields["subtitle"].widget = forms.Textarea(attrs={"rows": 3})
+        form.base_fields["columns_json"].widget = forms.Textarea(attrs={"rows": 6})
+        form.base_fields["rows_json"].widget = forms.Textarea(attrs={"rows": 12})
+
+        try:
+            has_guide = bool(obj and obj.size_guide)
+        except CategorySizeGuide.DoesNotExist:
+            has_guide = False
+
+        if selected_example and obj and not has_guide:
+            form.base_fields["title"].initial = selected_example["title"]
+            form.base_fields["subtitle"].initial = selected_example["subtitle"]
+            form.base_fields["columns_json"].initial = selected_example["columns_json"]
+            form.base_fields["rows_json"].initial = selected_example["rows_json"]
+            form.base_fields["is_active"].initial = True
+
+        return formset
 
 # ======================
 # Category
@@ -98,6 +210,23 @@ class CategoryAdmin(admin.ModelAdmin):
     search_fields = ("name", "slug")
     list_filter = ("department", "is_active")
     prepopulated_fields = {"slug": ("name",)}
+    inlines = [CategorySizeGuideInline]
+    fieldsets = (
+        (
+            "Información principal",
+            {
+                "fields": (
+                    "department",
+                    "parent",
+                    "name",
+                    "slug",
+                    "sort_order",
+                    "variant_schema",
+                    "is_active",
+                )
+            },
+        ),
+    )
     list_select_related = ("department", "parent")
     ordering = (
         "department__sort_order",

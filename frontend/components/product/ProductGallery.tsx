@@ -298,19 +298,19 @@ export function ProductGallery({ images, productName, soldOut = false, variant =
 
   const wrapperClass = isPdp
     ? "relative w-full pb-10"
-    : "relative aspect-square w-full overflow-hidden rounded-2xl border border-zinc-900/8 bg-white/80 shadow-[0_12px_30px_rgba(24,24,27,0.06)]";
+    : "relative aspect-square w-full overflow-hidden bg-transparent";
 
   const mediaFrameClass = isPdp
     ? "relative aspect-square w-full overflow-visible rounded-none border-0 bg-transparent shadow-none isolate pb-0"
-    : "h-full w-full";
+    : "relative aspect-square h-full w-full overflow-hidden bg-transparent";
 
   const emptyClass = isPdp
     ? "aspect-square w-full overflow-hidden rounded-none bg-transparent border-0 shadow-none"
-    : "aspect-square w-full overflow-hidden rounded-2xl border border-zinc-900/8 bg-white/80 shadow-[0_12px_30px_rgba(24,24,27,0.06)]";
+    : "aspect-square w-full overflow-hidden bg-transparent";
 
   const imageClass = isPdp
     ? "object-contain cursor-zoom-in bg-transparent transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
-    : "object-contain cursor-zoom-in bg-transparent";
+    : "object-contain object-center cursor-zoom-in bg-transparent";
 
   const allowSwiperTouch = !isPdp || Object.values(pdpZoom).every((zoom) => (zoom?.scale ?? 1) <= 1.01);
 
@@ -360,13 +360,13 @@ export function ProductGallery({ images, productName, soldOut = false, variant =
 
             return (
               <SwiperSlide key={`${img.url}-${index}`}>
-                <div className="relative w-full aspect-square bg-transparent">
+                <div className="relative flex w-full aspect-square items-center justify-center bg-transparent">
                   <button
                     ref={(node) => {
                       surfaceRefs.current[index] = node;
                     }}
                     type="button"
-                    className={`group relative block h-full w-full overflow-hidden bg-transparent text-left ${isPdp ? "k-gallery-pdp-surface gallery-zoomable-surface" : ""}`}
+                    className={`group relative flex h-full w-full items-center justify-center overflow-hidden bg-transparent text-left ${isPdp ? "k-gallery-pdp-surface gallery-zoomable-surface" : ""}`}
                     aria-label={`Ampliar imagen ${index + 1} de ${slides.length}`}
                     data-pressed={isPdp && zoom.scale > 1 ? "true" : "false"}
                     onPointerDown={(e) => handlePointerDown(index, e.clientX, e.clientY)}

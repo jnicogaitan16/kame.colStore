@@ -1,21 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { motion, useMotionValue, animate } from "framer-motion";
-import type { SizeGuide, SizeGuideKey } from "@/components/product/sizeGuideData";
-import { sizeGuides } from "@/components/product/sizeGuideData";
+import type { SizeGuide } from "@/components/product/sizeGuideData";
 
 type Props = {
   open: boolean;
   onClose: () => void;
-  guideKey?: string;
+  guide?: SizeGuide | null;
 };
 
-function isSizeGuideKey(k: string): k is SizeGuideKey {
-  return k in sizeGuides;
-}
-
-export default function SizeGuideDrawer({ open, onClose, guideKey = "oversize" }: Props) {
+export default function SizeGuideDrawer({ open, onClose, guide }: Props) {
   const panelRef = useRef<HTMLDivElement | null>(null);
 
   const y = useMotionValue(0);
@@ -23,13 +18,6 @@ export default function SizeGuideDrawer({ open, onClose, guideKey = "oversize" }
   const resetY = useCallback(() => {
     animate(y, 0, { type: "spring", stiffness: 420, damping: 38 });
   }, [y]);
-
-  const resolvedKey = useMemo<SizeGuideKey>(() => {
-    if (isSizeGuideKey(guideKey)) return guideKey;
-    return "oversize";
-  }, [guideKey]);
-
-  const guide = useMemo<SizeGuide>(() => sizeGuides[resolvedKey], [resolvedKey]);
 
   useEffect(() => {
     if (!open) {
@@ -70,6 +58,7 @@ export default function SizeGuideDrawer({ open, onClose, guideKey = "oversize" }
     : "translate-y-6 opacity-0";
 
   const dragThreshold = 120;
+  const hasGuide = Boolean(guide);
 
   return (
     <div
@@ -115,7 +104,7 @@ export default function SizeGuideDrawer({ open, onClose, guideKey = "oversize" }
               <p className="text-sm font-semibold tracking-[0.08em] text-zinc-950">
                 Guía de medidas
               </p>
-              {guide.subtitle ? (
+              {guide?.subtitle ? (
                 <p className="mt-1 text-sm text-zinc-500">{guide.subtitle}</p>
               ) : null}
             </div>
@@ -124,7 +113,9 @@ export default function SizeGuideDrawer({ open, onClose, guideKey = "oversize" }
           {/* Content */}
           <div className="px-5 pb-5 pt-4 md:px-6 md:pb-6">
             <div className="mb-4">
-              <p className="text-sm font-semibold text-zinc-950">{guide.title}</p>
+              <p className="text-sm font-semibold text-zinc-950">
+                {guide?.title ?? "Guía de medidas"}
+              </p>
             </div>
 
             {/* Table */}
@@ -132,7 +123,7 @@ export default function SizeGuideDrawer({ open, onClose, guideKey = "oversize" }
               <table className="min-w-full border-separate border-spacing-0">
                 <thead>
                   <tr>
-                    {guide.columns.map((col) => (
+                    {guide?.columns?.map((col) => (
                       <th
                         key={col}
                         scope="col"
@@ -144,8 +135,8 @@ export default function SizeGuideDrawer({ open, onClose, guideKey = "oversize" }
                   </tr>
                 </thead>
                 <tbody>
-                  {guide.rows.length > 0 ? (
-                    guide.rows.map((row) => (
+                  {hasGuide && (guide?.rows?.length ?? 0) > 0 ? (
+                    guide!.rows.map((row) => (
                       <tr key={row.size} className="sheet-premium-light-table-row">
                         <td className="px-4 py-3 text-sm font-semibold text-zinc-950">
                           {row.size}
@@ -160,10 +151,12 @@ export default function SizeGuideDrawer({ open, onClose, guideKey = "oversize" }
                   ) : (
                     <tr>
                       <td
-                        colSpan={guide.columns.length}
+                        colSpan={guide?.columns?.length ?? 1}
                         className="px-4 py-6 text-sm text-zinc-500"
                       >
-                        Aún no hay datos para esta guía.
+                        {hasGuide
+                          ? "Aún no hay datos para esta guía."
+                          : "Esta categoría no tiene guía de medidas disponible."}
                       </td>
                     </tr>
                   )}

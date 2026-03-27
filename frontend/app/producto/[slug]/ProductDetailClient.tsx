@@ -42,6 +42,7 @@ type PDPViewModel = {
   category?: {
     slug?: string | null;
     variant_schema?: string | null;
+    size_guide?: import("@/components/product/sizeGuideData").SizeGuide | null;
   } | null;
   variants?: ProductVariant[];
   variantSchema?: VariantSchema;
@@ -128,13 +129,6 @@ function buildVariantLabel(v: ProductVariant, variantSchema?: string): string {
   return `Variante #${v.id}`;
 }
 
-function resolveSizeGuideKey(slug?: string | null) {
-  if (!slug) return null;
-  if (slug === "camisetas") return "oversize" as const;
-  if (slug === "hoodies") return "hoodie" as const;
-  if (slug === "cuadros") return "frame_20x30" as const;
-  return null;
-}
 
 function getVariantForColorValue(
   product: PDPViewModel,
@@ -749,7 +743,7 @@ export function ProductDetailClient({
   const addToCartButtonRef = useRef<HTMLDivElement>(null);
 
   const selection = useProductSelection(product);
-  const sizeGuideKey = resolveSizeGuideKey(product.category?.slug);
+  const sizeGuide = product.category?.size_guide ?? null;
 
   const resolvedGalleryImages = useMemo(() => {
     const variantId = selection.displayVariant?.id;
@@ -771,7 +765,7 @@ export function ProductDetailClient({
     );
   }, [product, selection.displayVariant]);
 
-  const sizeGuideTrigger = sizeGuideKey ? (
+  const sizeGuideTrigger = sizeGuide ? (
     <button
       type="button"
       onClick={() => setSizeGuideOpen(true)}
@@ -923,11 +917,11 @@ export function ProductDetailClient({
         <ProductDiscoveryRail products={moreFromKame} />
       ) : null}
 
-      {sizeGuideKey && (
+      {sizeGuide && (
         <SizeGuideDrawer
           open={sizeGuideOpen}
           onClose={() => setSizeGuideOpen(false)}
-          guideKey={sizeGuideKey}
+          guide={sizeGuide}
         />
       )}
     </section>
