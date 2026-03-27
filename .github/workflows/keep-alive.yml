@@ -11,4 +11,4 @@ jobs:
 
     steps:
       - name: Ping frontend health
-        run: curl -s https://kame-colstore.onrender.com/health > /dev/null
+        run: curl -s https://www.kamecol.com//health > /dev/null
