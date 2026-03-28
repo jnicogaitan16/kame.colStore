@@ -95,7 +95,7 @@ function ProductGridGroup({
     rootMargin: loadPolicy.revealRootMargin,
   });
   const groupVisible = isFirstGroup ? true : observedVisible;
-  const cardRevealDeferred = revealEnabled && !groupVisible;
+  const cardRevealDeferred = revealEnabled;
 
   return (
     <>
