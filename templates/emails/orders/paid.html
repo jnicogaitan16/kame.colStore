@@ -7,15 +7,15 @@ Tu pago fue confirmado y ya estamos preparando tu pedido.
 {% endblock %}
 
 {% block content %}
-  <p class="label" style="margin:0 0 8px 0;">Confirmación de pago</p>
+  <p class="label" style="margin:0 0 10px 0;">Confirmación de pago</p>
 
   <h1 class="h1" style="margin:0;">
     Pago confirmado ✅
   </h1>
 
-  <div style="height:14px; line-height:14px; font-size:14px;">&nbsp;</div>
+  <div style="height:16px; line-height:16px; font-size:16px;">&nbsp;</div>
 
-  <p class="body" style="margin:0;">
+  <p class="body" style="margin:0; font-size:15px; line-height:24px; color:rgba(24,24,27,0.88);">
     {% if first_name %}
       Hola {{ first_name }},
     {% else %}
@@ -23,54 +23,54 @@ Tu pago fue confirmado y ya estamos preparando tu pedido.
     {% endif %}
   </p>
 
-  <div style="height:10px; line-height:10px; font-size:10px;">&nbsp;</div>
+  <div style="height:12px; line-height:12px; font-size:12px;">&nbsp;</div>
 
-  <p class="body" style="margin:0;">
+  <p class="body" style="margin:0; font-size:15px; line-height:24px; color:rgba(63,63,70,0.84);">
     Gracias por confiar en <span class="strong">Kame.col</span>. Tu pago fue confirmado y ya estamos preparando tu pedido.
   </p>
 
-  <div style="height:20px; line-height:20px; font-size:20px;">&nbsp;</div>
+  <div style="height:24px; line-height:24px; font-size:24px;">&nbsp;</div>
 
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="subcard" style="width:100%; background:#ffffff; border:1px solid rgba(24,24,27,0.08); border-radius:14px;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="subcard" style="width:100%; background:#ffffff; border:1px solid rgba(24,24,27,0.05); border-radius:14px;">
     <tr>
-      <td style="padding:18px;">
+      <td style="padding:22px;">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
           <tr class="stack-col">
-            <td style="vertical-align:top; padding:0 18px 0 0;">
+            <td style="vertical-align:top; padding:0 24px 0 0;">
               <p class="meta-title" style="margin:0;">Método</p>
               <p class="meta-value" style="margin:4px 0 0 0;">
                 {% if payment_method %}{{ payment_method }}{% else %}Transferencia Bre-B{% endif %}
               </p>
             </td>
-            <td style="width:220px; min-width:220px; vertical-align:top; padding:0;">
+            <td style="width:228px; min-width:228px; vertical-align:top; padding:0;">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                 <tr class="summary-row">
-                  <td style="padding:0 0 4px 0;">
+                  <td style="padding:0 0 6px 0;">
                     <p class="summary-label">Subtotal</p>
                   </td>
-                  <td style="padding:0 0 4px 12px;">
+                  <td style="padding:0 0 6px 12px;">
                     <p class="summary-value">{{ subtotal_fmt }}</p>
                   </td>
                 </tr>
                 <tr class="summary-row">
-                  <td style="padding:0;">
+                  <td style="padding:0 0 6px 0;">
                     <p class="summary-label">Envío</p>
                   </td>
-                  <td style="padding:0 0 0 12px;">
+                  <td style="padding:0 0 6px 12px;">
                     <p class="summary-value">{% if shipping_is_free %}Gratis{% else %}{{ shipping_cost_fmt }}{% endif %}</p>
                   </td>
                 </tr>
                 <tr>
-                  <td colspan="2" style="padding:12px 0;">
+                  <td colspan="2" style="padding:14px 0 12px 0;">
                     <div class="summary-divider">&nbsp;</div>
                   </td>
                 </tr>
                 <tr class="summary-row summary-total">
                   <td style="padding:0;">
-                    <p class="summary-label">Total</p>
+                    <p class="summary-label" style="color:rgba(24,24,27,0.92); font-weight:600;">Total</p>
                   </td>
                   <td style="padding:0 0 0 12px;">
-                    <p class="summary-value">{{ total_fmt }}</p>
+                    <p class="summary-value" style="font-size:18px; line-height:24px; font-weight:700; color:#111111;">{{ total_fmt }}</p>
                   </td>
                 </tr>
               </table>
@@ -82,60 +82,53 @@ Tu pago fue confirmado y ya estamos preparando tu pedido.
   </table>
 
   {% if email_items %}
-    <div style="height:18px; line-height:18px; font-size:18px;">&nbsp;</div>
+    <div style="height:22px; line-height:22px; font-size:22px;">&nbsp;</div>
 
-    <p class="label" style="margin:0 0 10px 0;">Productos</p>
+    <p class="label" style="margin:0 0 12px 0;">Productos</p>
 
     {% for item in email_items %}
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="subcard" style="width:100%; background:#ffffff; border:1px solid rgba(24,24,27,0.08); border-radius:14px; margin-bottom:10px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="subcard" style="width:100%; background:#ffffff; border:1px solid rgba(24,24,27,0.04); border-radius:14px; margin-bottom:12px;">
         <tr>
-          <td style="padding:14px;">
+          <td style="padding:16px;">
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
               <tr>
-                <td width="96" style="width:96px; vertical-align:top; padding-right:14px;">
+                <td width="96" style="width:96px; vertical-align:top; padding-right:16px;">
                   {% if item.image_url %}
                     <img
                       src="{{ item.image_url }}"
                       alt="{{ item.name }}"
                       width="96"
-                      height="120"
+                      height="96"
                       class="item-thumb"
-                      style="
-                        width:96px;
-                        height:120px;
-                        object-fit:cover;
-                        border-radius:12px;
-                        background:linear-gradient(180deg,#ffffff 0%,#f4f4f5 100%);
-                        border:1px solid rgba(24,24,27,0.06);
-                      "
+                      style="display:block; width:96px; height:96px; object-fit:cover; object-position:center; border:0; outline:none; text-decoration:none; background:transparent; border-radius:0;"
                     />
                   {% else %}
                     <div
                       class="item-thumb"
-                      style="width:96px; height:120px; border-radius:12px; background:linear-gradient(180deg,#ffffff 0%,#f4f4f5 100%); border:1px solid rgba(24,24,27,0.06);"
+                      style="width:96px; height:96px; background:#f4f4f5; border-radius:0; border:0;"
                     >&nbsp;</div>
                   {% endif %}
                 </td>
 
                 <td style="vertical-align:top;">
-                  <p style="margin:0; font-size:15px; line-height:20px; font-weight:500; letter-spacing:0.015em; text-transform:uppercase; color:rgba(24,24,27,0.94);">
+                  <p class="email-product-name" style="margin:0; font-size:15px; line-height:22px; font-weight:600; letter-spacing:0.015em; text-transform:uppercase; color:rgba(24,24,27,0.94);">
                     {{ item.name }}
                   </p>
 
                   {% if item.variant_label %}
-                    <div style="height:6px; line-height:6px; font-size:6px;">&nbsp;</div>
-                    <p style="margin:0; font-size:11px; line-height:16px; font-weight:500; letter-spacing:0.06em; text-transform:uppercase; color:rgba(113,113,122,0.92);">
+                    <div style="height:5px; line-height:5px; font-size:5px;">&nbsp;</div>
+                    <p class="email-product-meta" style="margin:0; font-size:11px; line-height:16px; font-weight:500; letter-spacing:0.06em; text-transform:uppercase; color:rgba(113,113,122,0.82);">
                       {{ item.variant_label }}
                     </p>
                   {% endif %}
 
-                  <div style="height:10px; line-height:10px; font-size:10px;">&nbsp;</div>
+                  <div style="height:12px; line-height:12px; font-size:12px;">&nbsp;</div>
 
-                  <p style="margin:0; font-size:14px; line-height:22px; color:rgba(63,63,70,0.82);">
-                    Cantidad: <span class="strong">{{ item.quantity }}</span>
+                  <p class="email-product-qty" style="margin:0; font-size:13px; line-height:20px; color:rgba(82,82,91,0.72);">
+                    Cantidad: <span class="strong" style="color:rgba(24,24,27,0.86);">{{ item.quantity }}</span>
                   </p>
 
-                  <p style="margin:2px 0 0 0; font-size:13px; line-height:18px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:rgba(82,82,91,0.82);">
+                  <p class="email-product-price" style="margin:6px 0 0 0; font-size:13px; line-height:18px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:rgba(24,24,27,0.9);">
                     {{ item.unit_price_fmt }}
                   </p>
                 </td>
@@ -153,11 +146,11 @@ Tu pago fue confirmado y ya estamos preparando tu pedido.
     <tr>
       <td align="left">
         {% if order_public_url %}
-          <a href="{{ order_public_url }}" style="display:inline-block; min-height:48px; padding:14px 22px; border-radius:12px; background:#111111; color:#ffffff; border:1px solid rgba(24,24,27,0.1); font-size:13px; line-height:20px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase;">
+          <a href="{{ order_public_url }}" style="display:inline-block; min-height:48px; padding:12px 18px; border-radius:10px; background:#111111; color:#ffffff; border:1px solid rgba(24,24,27,0.1); font-size:12px; line-height:18px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase;">
             Ver mi pedido
           </a>
         {% elif order_url %}
-          <a href="{{ order_url }}" style="display:inline-block; min-height:48px; padding:14px 22px; border-radius:12px; background:#111111; color:#ffffff; border:1px solid rgba(24,24,27,0.1); font-size:13px; line-height:20px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase;">
+          <a href="{{ order_url }}" style="display:inline-block; min-height:48px; padding:12px 18px; border-radius:10px; background:#111111; color:#ffffff; border:1px solid rgba(24,24,27,0.1); font-size:12px; line-height:18px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase;">
             Ver mi pedido
           </a>
         {% elif whatsapp_url %}
@@ -166,13 +159,13 @@ Tu pago fue confirmado y ya estamos preparando tu pedido.
     class="compact-email-cta"
     style="
       display:inline-block;
-      padding:10px 16px;
+      padding:12px 18px;
       border-radius:10px;
       background:#111111;
       color:#ffffff;
       border:1px solid rgba(24,24,27,0.1);
-      font-size:11px;
-      line-height:14px;
+      font-size:12px;
+      line-height:18px;
       font-weight:600;
       letter-spacing:0.05em;
       text-transform:uppercase;
@@ -187,9 +180,9 @@ Tu pago fue confirmado y ya estamos preparando tu pedido.
     </tr>
   </table>
 
-  <div style="height:18px; line-height:18px; font-size:18px;">&nbsp;</div>
+  <div style="height:22px; line-height:22px; font-size:22px;">&nbsp;</div>
 
-  <p class="body" style="margin:0; font-size:14px; line-height:22px; color:rgba(82,82,91,0.84);">
+  <p class="body" style="margin:0; font-size:14px; line-height:24px; color:rgba(82,82,91,0.76);">
     Gracias por apoyar una marca independiente.
   </p>
 {% endblock %}

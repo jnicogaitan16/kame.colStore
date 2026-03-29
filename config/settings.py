@@ -14,6 +14,7 @@ from pathlib import Path
 import os
 
 from urllib.parse import urlparse
+from email.utils import parseaddr
 
 import dj_database_url
 from dotenv import load_dotenv
@@ -316,27 +317,60 @@ REST_FRAMEWORK = {
 }
 
 
-# Email configuration (SMTP / console fallback)
+# Email configuration
 #
-# Priority:
-# 1) Use environment variables from .env if provided (SMTP or any backend).
-# 2) If not provided, default to console in DEBUG, SMTP in non-DEBUG.
-EMAIL_BACKEND = os.getenv("EMAIL_BACKEND") or (
-    "django.core.mail.backends.console.EmailBackend"
-    if DEBUG
-    else "django.core.mail.backends.smtp.EmailBackend"
+# Contrato transaccional:
+# - DEFAULT_FROM_EMAIL es la fuente de verdad base del remitente.
+# - La entrega real de correos transaccionales debe resolverse desde una capa
+#   explícita de aplicación usando Resend (no desde SMTP Gmail implícito).
+# - Este archivo centraliza configuración y evita un fallback híbrido ambiguo.
+
+
+def _extract_email_address(value: str) -> str:
+    """Return the plain email address portion from a raw from-email string."""
+    _, email_address = parseaddr((value or "").strip())
+    return (email_address or "").strip().lower()
+
+
+def _email_domain(value: str) -> str:
+    email_address = _extract_email_address(value)
+    if "@" not in email_address:
+        return ""
+    return email_address.split("@", 1)[1].strip().lower()
+
+
+# Proveedor transaccional esperado por la app/servicio de notificaciones.
+# En desarrollo se permite `console` para inspección local.
+EMAIL_TRANSACTIONAL_PROVIDER = os.getenv("EMAIL_TRANSACTIONAL_PROVIDER") or (
+    "console" if DEBUG else "resend"
 )
 
-EMAIL_HOST = os.getenv("EMAIL_HOST", "")
-EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
-EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True").lower() in ("1", "true", "yes", "on")
-EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
-EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+# Clave/API base para integración explícita con Resend.
+RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
+RESEND_API_BASE_URL = os.getenv("RESEND_API_BASE_URL", "https://api.resend.com")
 
-# If DEFAULT_FROM_EMAIL is set in .env, we respect it. Otherwise, use a safe default.
-DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL") or (
-    "Kame.col <no-reply@kamecol.local>" if DEBUG else "no-reply@kamecol.local"
+# Backend de Django solo para desarrollo local o uso explícito vía env.
+# Importante: no caer automáticamente a SMTP en producción.
+EMAIL_BACKEND = os.getenv("EMAIL_BACKEND") or "django.core.mail.backends.console.EmailBackend"
+
+# Fuente de verdad base del remitente.
+_raw_default_from_email = os.getenv("DEFAULT_FROM_EMAIL") or (
+    "Kame.col <soporte@kamecol.local>" if DEBUG else "Kame.col <soporte@kamecol.com>"
 )
+
+# Remitente transaccional explícito para Resend.
+# Si el DEFAULT_FROM_EMAIL viene contaminado con Gmail u otro dominio no verificado,
+# forzamos el dominio operativo de la marca para evitar errores 403 al enviar.
+TRANSACTIONAL_FROM_EMAIL = os.getenv("TRANSACTIONAL_FROM_EMAIL", "").strip()
+if not TRANSACTIONAL_FROM_EMAIL:
+    default_from_domain = _email_domain(_raw_default_from_email)
+    if EMAIL_TRANSACTIONAL_PROVIDER == "resend" and default_from_domain != "kamecol.com":
+        TRANSACTIONAL_FROM_EMAIL = "Kame.col <soporte@kamecol.com>"
+    else:
+        TRANSACTIONAL_FROM_EMAIL = _raw_default_from_email
+
+DEFAULT_FROM_EMAIL = TRANSACTIONAL_FROM_EMAIL
+SERVER_EMAIL = DEFAULT_FROM_EMAIL
 
 # Logging configuration
 # https://docs.djangoproject.com/en/6.0/topics/logging/

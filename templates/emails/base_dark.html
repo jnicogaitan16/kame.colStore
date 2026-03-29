@@ -57,19 +57,58 @@
 
       .card {
         background: #ffffff;
-        border: 1px solid rgba(24, 24, 27, 0.08);
+        border: 1px solid rgba(24, 24, 27, 0.05);
         border-radius: 18px;
       }
 
       .subcard {
         background: #ffffff;
-        border: 1px solid rgba(24, 24, 27, 0.08);
+        border: 1px solid rgba(24, 24, 27, 0.05);
         border-radius: 14px;
       }
 
+      .item-thumb-shell {
+        width: 96px;
+        height: 96px;
+        min-width: 96px;
+        min-height: 96px;
+        overflow: hidden;
+        border-radius: 0;
+        background: transparent;
+        border: 0;
+      }
+
+      .item-thumb-image {
+        width: 96px;
+        height: 96px;
+        display: block;
+        object-fit: contain;
+        object-position: center center;
+        background: transparent;
+      }
+
+      .item-thumb-fallback {
+        width: 96px;
+        height: 96px;
+        display: table;
+        background: #f4f4f5;
+        color: rgba(82, 82, 91, 0.78);
+        text-align: center;
+        font-size: 11px;
+        line-height: 14px;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .item-thumb-fallback-inner {
+        display: table-cell;
+        vertical-align: middle;
+        padding: 10px;
+      }
 
       .brand-main {
-        margin-top: 10px;
+        margin-top: 18px;
         font-size: 24px;
         line-height: 1;
         font-weight: 600;
@@ -79,10 +118,10 @@
       }
 
       .brand-sub {
-        margin-top: 8px;
+        margin-top: 6px;
         font-size: 12px;
         line-height: 18px;
-        color: rgba(82, 82, 91, 0.72);
+        color: rgba(82, 82, 91, 0.6);
       }
 
       .h1 {
@@ -132,6 +171,32 @@
         margin: 4px 0 0 0;
         font-size: 15px;
         line-height: 22px;
+        font-weight: 600;
+        color: rgba(24, 24, 27, 0.94);
+      }
+
+      .email-product-name {
+        margin: 0;
+        font-size: 14px;
+        line-height: 20px;
+        font-weight: 600;
+        color: rgba(24, 24, 27, 0.94);
+      }
+
+      .email-product-meta {
+        margin: 2px 0 0 0;
+        font-size: 12px;
+        line-height: 18px;
+        color: rgba(82, 82, 91, 0.7);
+      }
+
+      .email-product-qty {
+        font-size: 12px;
+        color: rgba(82, 82, 91, 0.7);
+      }
+
+      .email-product-price {
+        font-size: 14px;
         font-weight: 600;
         color: rgba(24, 24, 27, 0.94);
       }
@@ -187,8 +252,8 @@
       .btn-primary {
         display: inline-block;
         min-height: 48px;
-        padding: 14px 22px;
-        border-radius: 12px;
+        padding: 12px 18px;
+        border-radius: 10px;
         background: #111111;
         color: #ffffff !important;
         border: 1px solid rgba(24, 24, 27, 0.1);
@@ -273,9 +338,14 @@
           text-align: right !important;
         }
 
-        .item-thumb {
+        .item-thumb,
+        .item-thumb-shell,
+        .item-thumb-image,
+        .item-thumb-fallback {
           width: 88px !important;
-          height: 110px !important;
+          height: 88px !important;
+          min-width: 88px !important;
+          min-height: 88px !important;
         }
       }
     </style>
