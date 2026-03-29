@@ -391,9 +391,9 @@ export default function PoliticaDePrivacidadPage() {
             garantías, escríbenos a{" "}
             <a
               className="type-action text-black/88 hover:text-black hover:underline"
-              href="mailto:kame.col.023@gmail.com"
+              href="mailto:soporte@kamecol.com"
             >
-              kame.col.023@gmail.com
+              soporte@kamecol.com
             </a>
             . La atención se realiza únicamente por canales digitales.
           </p>

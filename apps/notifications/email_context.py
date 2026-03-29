@@ -61,6 +61,45 @@ def _build_variant_label(variant) -> str | None:
     return None
 
 
+def _normalize_email_item_name(product) -> str:
+    raw_name = ""
+    if product is not None:
+        raw_name = str(getattr(product, "name", "") or "").strip()
+    return raw_name.upper() if raw_name else "PRODUCTO"
+
+
+
+def _normalize_email_item_variant_label(variant) -> str | None:
+    label = _build_variant_label(variant)
+    if not label:
+        return None
+    normalized = str(label).strip()
+    return normalized or None
+
+
+
+def _normalize_email_item_quantity(item) -> int:
+    try:
+        quantity = int(getattr(item, "quantity", 0) or 0)
+    except Exception:
+        return 0
+    return max(quantity, 0)
+
+
+
+def _normalize_email_item_unit_price_fmt(item) -> str:
+    return format_cop(getattr(item, "unit_price", 0))
+
+
+
+def _normalize_email_item_image_url(variant) -> str | None:
+    url = get_email_variant_image_url(variant)
+    if not url:
+        return None
+    normalized = str(url).strip()
+    return normalized or None
+
+
 def _build_email_items(order) -> list[dict]:
     items_payload: list[dict] = []
 
@@ -77,17 +116,13 @@ def _build_email_items(order) -> list[dict]:
         variant = getattr(item, "product_variant", None)
         product = getattr(variant, "product", None)
 
-        product_name = ""
-        if product is not None:
-            product_name = str(getattr(product, "name", "") or "").strip()
-
         items_payload.append(
             {
-                "name": product_name.upper() if product_name else "PRODUCTO",
-                "variant_label": _build_variant_label(variant),
-                "quantity": int(getattr(item, "quantity", 0) or 0),
-                "unit_price_fmt": format_cop(getattr(item, "unit_price", 0)),
-                "image_url": get_email_variant_image_url(variant),
+                "name": _normalize_email_item_name(product),
+                "variant_label": _normalize_email_item_variant_label(variant),
+                "quantity": _normalize_email_item_quantity(item),
+                "unit_price_fmt": _normalize_email_item_unit_price_fmt(item),
+                "image_url": _normalize_email_item_image_url(variant),
             }
         )
 

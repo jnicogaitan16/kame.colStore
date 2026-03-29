@@ -5,6 +5,9 @@ Pago confirmado
 Gracias por confiar en KAME.COL.
 Tu pago fue confirmado y ya estamos preparando tu pedido.
 
+—
+Resumen
+
 Método: {% if payment_method %}{{ payment_method }}{% else %}Transferencia Bre-B{% endif %}
 Subtotal: {{ subtotal_fmt }}
 Envío: {% if shipping_is_free %}Gratis{% else %}{{ shipping_cost_fmt }}{% endif %}
@@ -12,14 +15,18 @@ Total: {{ total_fmt }}
 {% if reference %}Referencia: {{ reference }}{% endif %}
 
 {% if email_items %}
-Productos:
+—
+Productos
+
 {% for item in email_items %}
 {{ forloop.counter }}. {{ item.name }}{% if item.variant_label %} · {{ item.variant_label }}{% endif %}
 Cantidad: {{ item.quantity }}
 Precio: {{ item.unit_price_fmt }}
+
 {% endfor %}
 {% endif %}
 
+—
 {% if order_public_url %}
 Ver mi pedido:
 {{ order_public_url }}
@@ -32,6 +39,8 @@ Hablar por WhatsApp:
 {% endif %}
 
 Si necesitas ayuda, responde a este correo y te ayudamos.
+
+Gracias por apoyar una marca independiente.
 
 KAME.COL
 Hecho en Colombia
