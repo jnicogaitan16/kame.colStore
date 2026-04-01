@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/Button";
 import ShareButton from "@/components/ui/ShareButton";
 import { ProductDiscoveryRail } from "@/components/product/ProductDiscoveryRail";
 
-import type { ProductVariant } from "@/types/catalog";
+import type { ProductVariant, SizeGuide } from "@/types/catalog";
 
 const SizeGuideDrawer = dynamic(
   () => import("@/components/product/SizeGuideDrawer"),
@@ -42,7 +42,7 @@ type PDPViewModel = {
   category?: {
     slug?: string | null;
     variant_schema?: string | null;
-    size_guide?: import("@/components/product/sizeGuideData").SizeGuide | null;
+    size_guide?: SizeGuide | null;
   } | null;
   variants?: ProductVariant[];
   variantSchema?: VariantSchema;

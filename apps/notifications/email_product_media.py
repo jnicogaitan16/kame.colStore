@@ -2,59 +2,33 @@ from __future__ import annotations
 
 from typing import Any
 
-from django.conf import settings
 from django.db.models import QuerySet
 
-try:
-    from apps.catalog.serializers import public_media_url, _spec_url
-except Exception:
-    def _spec_url(spec: Any) -> str | None:
-        if not spec:
+from apps.catalog.serializers import public_media_url
+from apps.notifications.email_utils import format_cop, _build_variant_label
+
+
+def _spec_url(spec: Any) -> str | None:
+    """Resolve a spec/ImageSpec field to a URL string for email media."""
+    if not spec:
+        return None
+
+    cachefile = getattr(spec, "cachefile_name", None)
+    if cachefile:
+        return str(cachefile)
+
+    name = getattr(spec, "name", None)
+    if name:
+        return str(name)
+
+    url = getattr(spec, "url", None)
+    if callable(url):
+        try:
+            return str(url())
+        except Exception:
             return None
 
-        cachefile = getattr(spec, "cachefile_name", None)
-        if cachefile:
-            return str(cachefile)
-
-        name = getattr(spec, "name", None)
-        if name:
-            return str(name)
-
-        url = getattr(spec, "url", None)
-        if callable(url):
-            try:
-                return str(url())
-            except Exception:
-                return None
-
-        return str(url).strip() if url else None
-
-    def public_media_url(value: Any, request=None) -> str | None:
-        raw = str(value or "").strip()
-        if not raw:
-            return None
-
-        if raw.startswith("http://") or raw.startswith("https://"):
-            return raw
-
-        if raw.startswith("//"):
-            return f"https:{raw}"
-
-        base = (
-            getattr(settings, "PUBLIC_SITE_URL", None)
-            or getattr(settings, "NEXT_PUBLIC_SITE_URL", None)
-            or "https://kamecol.com"
-        )
-        base = str(base).rstrip("/")
-        return f"{base}/{raw.lstrip('/')}"
-
-
-def format_cop(amount) -> str:
-    try:
-        n = int(amount or 0)
-    except Exception:
-        n = 0
-    return "$" + f"{n:,}".replace(",", ".")
+    return str(url).strip() if url else None
 
 
 def _first_public_candidate(*values: Any, request=None) -> str | None:
@@ -95,22 +69,6 @@ def _first_public_candidate(*values: Any, request=None) -> str | None:
 
 def _ordered(queryset: QuerySet) -> QuerySet:
     return queryset.order_by("-is_primary", "sort_order", "created_at")
-
-
-def _build_variant_label(variant) -> str | None:
-    if variant is None:
-        return None
-
-    value = str(getattr(variant, "value", "") or "").strip()
-    color = str(getattr(variant, "color", "") or "").strip()
-
-    parts: list[str] = []
-    if value:
-        parts.append(value)
-    if color:
-        parts.append(color.upper())
-
-    return " / ".join(parts).strip() or None
 
 
 def _get_variant_schema(product) -> str:

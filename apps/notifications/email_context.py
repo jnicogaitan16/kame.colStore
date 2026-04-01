@@ -2,18 +2,7 @@ from django.conf import settings
 from urllib.parse import quote
 
 from apps.notifications.email_product_media import get_email_variant_image_url
-
-
-def format_cop(amount) -> str:
-    if amount is None:
-        return "$0"
-
-    try:
-        n = int(amount)
-    except Exception:
-        return "$0"
-
-    return "$" + f"{n:,}".replace(",", ".")
+from apps.notifications.email_utils import format_cop, _build_variant_label
 
 
 def _get_first_name(order) -> str | None:
@@ -43,22 +32,6 @@ def _get_brand_name() -> str:
 
 def _get_order_public_url(order) -> str | None:
     return getattr(order, "public_url", None)
-
-
-def _build_variant_label(variant) -> str | None:
-    if variant is None:
-        return None
-
-    value = str(getattr(variant, "value", "") or "").strip()
-    color = str(getattr(variant, "color", "") or "").strip().upper()
-
-    if value and color:
-        return f"{value} / {color}"
-    if value:
-        return value
-    if color:
-        return color
-    return None
 
 
 def _normalize_email_item_name(product) -> str:

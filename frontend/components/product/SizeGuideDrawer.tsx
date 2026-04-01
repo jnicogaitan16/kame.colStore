@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import { motion, useMotionValue, animate } from "framer-motion";
-import type { SizeGuide } from "@/components/product/sizeGuideData";
+import type { SizeGuide } from "@/types/catalog";
 
 type Props = {
   open: boolean;
