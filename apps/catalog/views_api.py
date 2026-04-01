@@ -17,7 +17,6 @@ from __future__ import annotations
 from django.db.models import Prefetch, Q
 from rest_framework import generics
 from rest_framework.response import Response
-from rest_framework.views import APIView
 
 from .models import (
     Category,
@@ -33,7 +32,6 @@ from .models import (
 )
 from .serializers import (
     CategorySerializer,
-    DepartmentWithCategoriesSerializer,
     NavDepartmentSerializer,
     HomepageBannerSerializer,
     HomepagePromoSerializer,
@@ -76,30 +74,7 @@ class CategoryListAPIView(generics.ListAPIView):
         )
 
 
-class NavigationAPIView(APIView):
-    """Single endpoint to build the full navigation menu (departments + active categories)."""
-
-    def get(self, request, *args, **kwargs):
-        qs = (
-            Department.objects.filter(is_active=True)
-            .prefetch_related(
-                Prefetch(
-                    "categories",
-                    queryset=Category.objects.filter(is_active=True).order_by(
-                        "sort_order", "name"
-                    ),
-                )
-            )
-            .order_by("sort_order", "name")
-        )
-
-        data = DepartmentWithCategoriesSerializer(
-            qs, many=True, context={"request": request}
-        ).data
-        return Response({"departments": data})
-
-
-# New API view for navigation (optimized for active categories, no pagination).
+# Navigation view for active categories (no pagination).
 class NavigationListAPIView(generics.ListAPIView):
     """GET /api/navigation/ -> departments with active categories (no pagination)."""
 
@@ -336,8 +311,5 @@ class HomepageStoryListAPIView(generics.ListAPIView):
         )
 
 
-# Backwards-compatible alias: legacy URLConf expects this name
+# Backwards-compatible alias used in urls_api.py
 CatalogoListAPIView = ProductListAPIView
-
-# Backwards-compatible alias: some URLConf expects this name
-HomepageStoryAPIView = HomepageStoryListAPIView

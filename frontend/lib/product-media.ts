@@ -256,36 +256,6 @@ function getGalleryImageUrl(input: Record<string, unknown>): string | null {
   return null;
 }
 
-function getCardImageUrl(input: Record<string, unknown>): string | null {
-  const candidates = [
-    input.image_thumb_url,
-    input.imageThumbUrl,
-    input.thumbnail_url,
-    input.thumbnailUrl,
-    input.thumbnail,
-    input.thumb_url,
-    input.thumb,
-    input.small,
-    input.image_medium_url,
-    input.imageMediumUrl,
-    input.primary_image,
-    input.primaryImage,
-    input.image,
-    input.image_url,
-    input.imageUrl,
-    input.url,
-    input.src,
-  ];
-
-  for (const candidate of candidates) {
-    if (typeof candidate === "string" && candidate.trim()) {
-      return candidate;
-    }
-  }
-
-  return null;
-}
-
 function firstValidNormalizedGalleryImage(candidates: Array<string | null | undefined>): string | null {
   for (const candidate of candidates) {
     const normalized = normalizeProductMediaUrl(candidate);
@@ -611,12 +581,4 @@ export function toAbsoluteProductMediaUrl(
   }
 
   return sanitizeAbsoluteUrl(`${PUBLIC_SITE_URL}/og/default.jpg`) || "https://kamecol.com/og/default.jpg";
-}
-export function getProductViewerImages(
-  product: unknown
-): Array<{ url: string; alt_text?: string | null }> {
-  return getProductGalleryImages(product).map((image) => ({
-    url: image.url,
-    alt_text: image.alt_text ?? null,
-  }));
 }

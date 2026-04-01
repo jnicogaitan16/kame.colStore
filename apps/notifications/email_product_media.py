@@ -5,8 +5,6 @@ from typing import Any
 from django.conf import settings
 from django.db.models import QuerySet
 
-from apps.orders.models import Order
-
 try:
     from apps.catalog.serializers import public_media_url, _spec_url
 except Exception:
@@ -257,31 +255,3 @@ def get_email_variant_image_url(variant, request=None) -> str | None:
     return _resolve_from_public_original(variant, product, request=request)
 
 
-def build_email_order_items(order: Order, request=None) -> list[dict]:
-    items_payload: list[dict] = []
-
-    try:
-        items = order.items.select_related(
-            "product_variant",
-            "product_variant__product",
-            "product_variant__product__category",
-        ).all()
-    except Exception:
-        return items_payload
-
-    for item in items:
-        variant = getattr(item, "product_variant", None)
-        product = getattr(variant, "product", None)
-        product_name = str(getattr(product, "name", "") or "").strip() if product is not None else ""
-
-        items_payload.append(
-            {
-                "name": product_name.upper() if product_name else "PRODUCTO",
-                "variant_label": _build_variant_label(variant),
-                "quantity": int(getattr(item, "quantity", 0) or 0),
-                "unit_price_fmt": format_cop(getattr(item, "unit_price", 0)),
-                "image_url": get_email_variant_image_url(variant, request=request),
-            }
-        )
-
-    return items_payload

@@ -7,17 +7,13 @@ Prefijo: /api/orders/
 from __future__ import annotations
 
 import logging
-import json
-
 from urllib.parse import quote
 from django.conf import settings
 
 from django.db import IntegrityError, transaction
-from django.http import JsonResponse
-from django.views.decorators.http import require_POST
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import never_cache
-from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -114,103 +110,6 @@ def _normalize_stock_result(result: dict) -> tuple[dict, dict]:
     return warnings_by_variant_id, hints_by_variant_id
 
 
-@require_POST
-def stock_validate_view(request):
-    """POST /api/stock-validate/
-
-    Lightweight endpoint for Next.js proxying.
-    Uses InventoryPool as source of truth via validate_cart_stock().
-
-    Expected payload (minimum):
-      {"items": [{"variant_id": 123, "qty": 2}, ...]}
-
-    Also accepts:
-      - items with keys: product_variant_id / quantity
-      - cart_items as alias of items
-    """
-    try:
-        payload = json.loads(request.body.decode("utf-8") or "{}")
-    except Exception:
-        return JsonResponse({"ok": False, "error": "JSON inválido."}, status=400)
-
-    items = payload.get("items") or payload.get("cart_items") or []
-    if not isinstance(items, list):
-        return JsonResponse({"ok": False, "error": "items debe ser una lista."}, status=400)
-
-    # Allow empty calls (frontend can validate even when cart is empty)
-    if items == []:
-        return JsonResponse({"ok": True, "warningsByVariantId": {}, "hintsByVariantId": {}}, status=200)
-
-    # Normalize to the shared service contract
-    normalized = []
-    for it in items:
-        if not isinstance(it, dict):
-            continue
-
-        # Accept both naming styles
-        vid = it.get("product_variant_id")
-        if vid is None:
-            vid = it.get("variant_id")
-
-        qty = it.get("quantity")
-        if qty is None:
-            qty = it.get("qty")
-
-        try:
-            vid_int = int(vid)
-        except (TypeError, ValueError):
-            vid_int = 0
-
-        try:
-            qty_int = int(qty)
-        except (TypeError, ValueError):
-            qty_int = 0
-
-        if vid_int > 0 and qty_int > 0:
-            normalized.append({"product_variant_id": vid_int, "quantity": qty_int})
-
-    if not normalized:
-        return JsonResponse({"ok": False, "error": "items debe incluir variantes válidas."}, status=400)
-
-    try:
-        result = validate_cart_stock(normalized)
-        warnings_by_variant_id, hints_by_variant_id = _normalize_stock_result(result)
-
-        # Always return the map contract.
-        # IMPORTANT: return 200 so the frontend can read the body and show the warning UI.
-        if not bool(warnings_by_variant_id):
-            # No warnings, return consistent shape
-            return JsonResponse(
-                {
-                    "ok": True,
-                    "warningsByVariantId": {},
-                    "hintsByVariantId": {},
-                },
-                status=200,
-            )
-        return JsonResponse(
-            {
-                "ok": False,
-                "warningsByVariantId": warnings_by_variant_id,
-                "hintsByVariantId": hints_by_variant_id,
-            },
-            status=200,
-        )
-
-    except ValidationError as e:
-        # DRF ValidationError (already JSON-serializable-ish)
-        return JsonResponse({"ok": False, "error": "Error de validación.", "detail": str(e)}, status=400)
-
-    except DjangoValidationError as e:
-        return JsonResponse({"ok": False, "error": "Error de validación.", "detail": str(e)}, status=400)
-
-    except Exception as e:
-        logger.exception("stock-validate-view: unexpected error")
-        payload = {"ok": False, "error": "Error inesperado al validar stock."}
-        if settings.DEBUG:
-            payload["debug_error"] = str(e)
-        return JsonResponse(payload, status=500)
-
 
 class CitiesAPIView(APIView):
     """
@@ -223,23 +122,6 @@ class CitiesAPIView(APIView):
     def get(self, request, *args, **kwargs):
         cities = [{"code": code, "label": label} for code, label in CITY_CHOICES]
         return Response({"cities": cities})
-
-
-# CSRF cookie setter endpoint
-class CsrfCookieAPIView(APIView):
-    """GET /api/orders/csrf/
-
-    Fuerza el seteo de la cookie `csrftoken` para el dominio actual.
-    Útil si en el futuro quieres enviar X-CSRFToken desde el frontend.
-    """
-
-    permission_classes = [AllowAny]
-    authentication_classes = []
-
-    @method_decorator(never_cache)
-    @method_decorator(ensure_csrf_cookie)
-    def get(self, request, *args, **kwargs):
-        return Response({"ok": True})
 
 
 @method_decorator(csrf_exempt, name="dispatch")
