@@ -23,7 +23,7 @@ export type BuildWhatsAppUrlArgs = {
  * - "+57 310 555 6480" -> "573105556480"
  * - "(1) 234-567" -> "1234567"
  */
-export function normalizePhoneDigits(phone: string): string {
+function normalizePhoneDigits(phone: string): string {
   return String(phone || "").replace(/\D+/g, "");
 }
 

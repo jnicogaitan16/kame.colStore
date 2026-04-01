@@ -51,8 +51,9 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function CatalogoPage() {
-  const res = await getCatalogo({ page_size: 48 });
+  const [catalogoResult] = await Promise.allSettled([getCatalogo({ page_size: 48 })]);
 
+  const res = catalogoResult.status === "fulfilled" ? catalogoResult.value : null;
   const products = Array.isArray(res?.results) ? res.results : [];
 
   return (

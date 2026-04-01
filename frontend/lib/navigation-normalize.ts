@@ -38,7 +38,7 @@ function isRecord(value: unknown): value is UnknownRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-export function normalizeText(value: unknown): string {
+function normalizeText(value: unknown): string {
   if (typeof value === "string") return value.trim();
   if (typeof value === "number" || typeof value === "boolean") {
     return String(value).trim();
@@ -46,7 +46,7 @@ export function normalizeText(value: unknown): string {
   return "";
 }
 
-export function normalizeSlug(value: unknown): string {
+function normalizeSlug(value: unknown): string {
   return normalizeText(value)
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -55,7 +55,7 @@ export function normalizeSlug(value: unknown): string {
     .replace(/^-+|-+$/g, "");
 }
 
-export function normalizeSortOrder(value: unknown): number {
+function normalizeSortOrder(value: unknown): number {
   if (typeof value === "number" && Number.isFinite(value)) return value;
 
   if (typeof value === "string") {
