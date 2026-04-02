@@ -36,36 +36,48 @@ const NAVIGATION = {
   ],
 };
 
-const PRODUCT_LIST = {
-  count: 2,
-  next: null,
-  previous: null,
-  results: [
-    {
-      id: 1,
-      name: "Camiseta Kame Logo",
-      slug: "camiseta-kame-logo",
-      price: "89000.00",
-      primary_card_url: null,
-      primary_thumb_url: null,
-      primary_image: null,
-      category: { id: 1, name: "Camisetas", slug: "camisetas", variant_schema: "size_color" },
-      sold_out: false,
+// Product 88 — jean_size schema (size only, no color) used by product.spec.ts + cart.spec.ts
+// Defined before PRODUCT_LIST so it can be referenced directly.
+const PRODUCT_88 = {
+  id: 88,
+  name: "88",
+  slug: "88",
+  price: "88888.00",
+  description: "Camiseta 100% algodón con diseño exclusivo. Corte oversize.",
+  primary_image: "https://kamecol.com/media/products/p88.jpg",
+  primary_thumb_url: "https://kamecol.com/media/products/p88-thumb.jpg",
+  primary_card_url: "https://kamecol.com/media/products/p88.jpg",
+  category: {
+    id: 1,
+    name: "Camisetas",
+    slug: "camisetas",
+    variant_schema: "jean_size",
+    size_guide: {
+      title: "Guía de tallas",
+      columns: ["Talla", "Pecho (cm)", "Largo (cm)"],
+      rows: [
+        { size: "S", values: [88, 68] },
+        { size: "M", values: [92, 70] },
+        { size: "L", values: [96, 72] },
+      ],
     },
-    {
-      id: 2,
-      name: "Hoodie Oversize",
-      slug: "hoodie-oversize",
-      price: "149000.00",
-      primary_card_url: null,
-      primary_thumb_url: null,
-      primary_image: null,
-      category: { id: 2, name: "Hoodies", slug: "hoodies", variant_schema: "size_color" },
-      sold_out: false,
-    },
+  },
+  variants: [
+    { id: 881, value: "S", color: "", is_active: true, stock: 5, price: "88888.00" },
+    { id: 882, value: "M", color: "", is_active: true, stock: 3, price: "88888.00" },
+    { id: 883, value: "L", color: "", is_active: true, stock: 0, price: "88888.00" },
   ],
+  sold_out: false,
 };
 
+const PRODUCT_LIST = {
+  count: 1,
+  next: null,
+  previous: null,
+  results: [PRODUCT_88],
+};
+
+// Generic product detail fallback — served for any slug not matched by a specific fixture.
 const PRODUCT_DETAIL = {
   id: 1,
   name: "Camiseta Kame Logo",
@@ -110,22 +122,26 @@ const CITIES = {
 
 const SHIPPING_QUOTE = { amount: 10000, label: "Envío estándar" };
 
-const PRODUCT_DETAIL_SOLD_OUT = {
+// Product 99 — no_variant schema with stock_total:0, shows "Agotado" text automatically
+const PRODUCT_99_SOLD_OUT = {
   id: 99,
   name: "Producto Agotado",
-  slug: "producto-agotado",
+  slug: "99",
   price: "89000.00",
   description: "Producto de prueba agotado.",
   primary_image: null,
   primary_thumb_url: null,
+  stock_total: 0,
   category: {
     id: 1,
     name: "Camisetas",
     slug: "camisetas",
-    variant_schema: "size_color",
+    variant_schema: "no_variant",
     size_guide: null,
   },
-  variants: [],
+  variants: [
+    { id: 991, value: "", color: "", is_active: false, stock: 0, price: "89000.00" },
+  ],
   sold_out: true,
 };
 
@@ -202,10 +218,11 @@ const server = createServer(async (req, res) => {
     return json(res, EMPTY_LIST);
   }
 
-  // Product detail: sold-out fixture must come before generic regex
-  if (pathname === "/api/products/producto-agotado") return json(res, PRODUCT_DETAIL_SOLD_OUT);
+  // Product detail: specific fixtures must come before generic regex
+  if (pathname === `/api/products/${PRODUCT_88.id}`) return json(res, PRODUCT_88);
+  if (pathname === `/api/products/${PRODUCT_99_SOLD_OUT.id}`) return json(res, PRODUCT_99_SOLD_OUT);
 
-  // Product detail: /api/products/:slug
+  // Product detail: /api/products/:slug (generic fallback)
   if (/^\/api\/products\/[^/]+$/.test(pathname)) return json(res, PRODUCT_DETAIL);
 
   // Cities

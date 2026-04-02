@@ -4,9 +4,9 @@
  */
 import { test, expect } from "@playwright/test";
 import { mockAllAPIs } from "./fixtures/api-mocks";
-import { PRODUCT_DETAIL_MOCK } from "./fixtures/catalog-data";
+import { TEST_PRODUCT } from "./fixtures/catalog-data";
 
-const PDP_URL = "/producto/88";
+const PDP_URL = TEST_PRODUCT.pdpUrl;
 
 /** Helper: navega al PDP y agrega una variante al carrito */
 async function addToCart(page: Parameters<typeof test.use>[0] extends { viewport: any } ? never : any) {
@@ -20,7 +20,7 @@ async function addToCart(page: Parameters<typeof test.use>[0] extends { viewport
     .first()
     .click();
 
-  // Seleccionar color NEGRO si aplica
+  // Seleccionar color NEGRO si aplica (size_color schema only)
   const negroBtn = page
     .getByRole("button", { name: /NEGRO/i })
     .or(page.locator("[data-color='NEGRO']"))
@@ -44,31 +44,31 @@ test.describe("Carrito — add to cart", () => {
 
   test("al agregar un producto se actualiza el indicador del carrito", async ({ page }) => {
     await addToCart(page);
-  
+
     const cartCount = page.locator(
       "[data-testid='cart-count'], [aria-label*='carrito'] span"
     ).first();
-  
+
     await expect(cartCount).toBeVisible({ timeout: 3000 });
   });
 
   test("el producto agregado aparece en el MiniCart", async ({ page }) => {
     await addToCart(page);
-  
+
     // Abrir explícitamente el carrito desde el icono superior derecho
     const cartToggle = page.locator("header").locator("button, a").filter({
       has: page.locator("[data-testid='cart-count'], span"),
     }).last();
-  
+
     await expect(cartToggle).toBeVisible({ timeout: 3000 });
     await cartToggle.click();
-  
+
     const miniCart = page.getByRole("dialog").first();
     await expect(miniCart).toBeVisible({ timeout: 3000 });
-  
-    // Validar el nombre del producto dentro del drawer sin asumir heading
+
+    // Validar el nombre del producto dentro del drawer
     await expect(
-      miniCart.getByText(/^88$/).first()
+      miniCart.getByText(TEST_PRODUCT.namePattern).first()
     ).toBeVisible({ timeout: 3000 });
   });
 });
@@ -80,8 +80,6 @@ test.describe("Carrito — gestión de items", () => {
 
   test("puede eliminar un item del carrito", async ({ page }) => {
     // Abrir explícitamente el carrito desde el ícono superior derecho.
-    // Evitamos capturar el menú hamburguesa izquierdo usando el botón
-    // que contiene el contador del carrito visible en la esquina superior derecha.
     const cartToggle = page
       .locator("header")
       .locator("button, a")
@@ -101,7 +99,7 @@ test.describe("Carrito — gestión de items", () => {
     await removeBtn.click();
 
     // Validar que el producto desaparece del carrito
-    await expect(dialog.getByText(PRODUCT_DETAIL_MOCK.name, { exact: false })).not.toBeVisible({
+    await expect(dialog.getByText(TEST_PRODUCT.name, { exact: false })).not.toBeVisible({
       timeout: 3000,
     });
   });

@@ -5,6 +5,7 @@
  */
 import { test, expect } from "@playwright/test";
 import { mockAllAPIs } from "./fixtures/api-mocks";
+import { TEST_PRODUCT } from "./fixtures/catalog-data";
 
 test.describe("Smoke", () => {
   test("homepage responde 200", async ({ page }) => {
@@ -26,7 +27,7 @@ test.describe("Smoke", () => {
 
   test("página de producto responde 200", async ({ page }) => {
     await mockAllAPIs(page);
-    const response = await page.goto("/producto/kk");
+    const response = await page.goto(TEST_PRODUCT.pdpUrl);
     expect(response?.status()).toBe(200);
   });
 

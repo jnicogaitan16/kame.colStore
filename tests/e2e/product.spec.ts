@@ -4,9 +4,9 @@
  */
 import { test, expect } from "@playwright/test";
 import { mockAllAPIs } from "./fixtures/api-mocks";
-import { PRODUCT_DETAIL_MOCK } from "./fixtures/catalog-data";
+import { TEST_PRODUCT, TEST_PRODUCT_SOLD_OUT } from "./fixtures/catalog-data";
 
-const PDP_URL = "/producto/88";
+const PDP_URL = TEST_PRODUCT.pdpUrl;
 
 test.describe("PDP — contenido", () => {
   test.beforeEach(async ({ page }) => {
@@ -16,18 +16,18 @@ test.describe("PDP — contenido", () => {
 
   test("muestra el nombre del producto", async ({ page }) => {
     await expect(
-      page.getByRole("heading", { name: /^88$/ })
+      page.getByRole("heading", { name: TEST_PRODUCT.namePattern })
     ).toBeVisible({ timeout: 5000 });
   });
 
   test("muestra el precio formateado", async ({ page }) => {
     await expect(
-      page.getByText(/\$88\.888|\$88,888/)
+      page.getByText(TEST_PRODUCT.pricePattern)
     ).toBeVisible({ timeout: 5000 });
   });
 
   test("muestra la descripción del producto", async ({ page }) => {
-    await expect(page.getByText(/algodón|oversize/i)).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText(TEST_PRODUCT.descriptionPattern)).toBeVisible({ timeout: 5000 });
   });
 
   test("imagen principal es visible", async ({ page }) => {
@@ -105,18 +105,16 @@ test.describe("PDP — guía de tallas", () => {
 });
 
 test.describe("PDP — producto agotado", () => {
-  test.describe("PDP — producto agotado", () => {
-    test("CTA muestra agotado cuando sold_out=true", async ({ page }) => {
-      await mockAllAPIs(page);
-      await page.goto("/producto/99");
-  
-      const soldOutBtn = page.getByRole("button", { name: /sin stock/i });
-  
-      await expect(soldOutBtn).toBeVisible({ timeout: 5000 });
-      await expect(soldOutBtn).toBeDisabled();
-  
-      await expect(page.getByText(/^Agotado$/)).toBeVisible({ timeout: 5000 });
-    });
+  test("CTA muestra agotado cuando sold_out=true", async ({ page }) => {
+    await mockAllAPIs(page);
+    await page.goto(TEST_PRODUCT_SOLD_OUT.pdpUrl);
+
+    const soldOutBtn = page.getByRole("button", { name: /sin stock/i });
+
+    await expect(soldOutBtn).toBeVisible({ timeout: 5000 });
+    await expect(soldOutBtn).toBeDisabled();
+
+    await expect(page.getByText(/^Agotado$/)).toBeVisible({ timeout: 5000 });
   });
 });
 
@@ -128,7 +126,7 @@ test.describe("PDP — mobile", () => {
     await page.goto(PDP_URL);
 
     await expect(
-      page.getByRole("heading", { name: /^88$/ })
+      page.getByRole("heading", { name: TEST_PRODUCT.namePattern })
     ).toBeVisible({ timeout: 5000 });
   });
 });
