@@ -10,38 +10,20 @@ import {
   mockShippingQuote,
   mockStockValidate,
 } from "./fixtures/api-mocks";
-import { SHIPPING_QUOTE_BOG_MOCK, STOCK_VALIDATE_WARNING_MOCK } from "./fixtures/catalog-data";
+import {
+  STOCK_VALIDATE_WARNING_MOCK,
+  TEST_CHECKOUT_CART_STATE,
+  TEST_SHIPPING,
+} from "./fixtures/catalog-data";
 
 /** Carga el checkout con el carrito pre-cargado vía localStorage */
 async function goToCheckoutWithCart(page: any) {
   await mockAllAPIs(page);
 
   await page.goto("/");
-  await page.evaluate(() => {
-    // Zustand persist key is "kame-cart", item shape matches CartItem interface
-    const cartItem = {
-      state: {
-        items: [
-          {
-            variantId: 101,
-            productId: 1,
-            productName: "Camiseta Kame Logo",
-            productSlug: "camiseta-kame-logo",
-            variantLabel: "S / NEGRO",
-            price: "89000.00",
-            quantity: 1,
-            imageUrl: null,
-          },
-        ],
-        stockWarningsByVariantId: {},
-        stockHintsByVariantId: {},
-        lastStockValidateRequestId: null,
-        stockValidateStatus: "idle",
-      },
-      version: 0,
-    };
-    localStorage.setItem("kame-cart", JSON.stringify(cartItem));
-  });
+  await page.evaluate((cartState: string) => {
+    localStorage.setItem("kame-cart", cartState);
+  }, JSON.stringify(TEST_CHECKOUT_CART_STATE));
 
   await page.goto("/checkout");
   // Esperar a que el formulario esté visible (CartHydration es async)
@@ -86,15 +68,15 @@ test.describe("Checkout — validación de formulario", () => {
 
   test("email inválido muestra error", async ({ page }) => {
     const emailInput = page.locator("#email");
-  
+
     await emailInput.fill("no-es-un-email");
     await page.getByRole("button", { name: /pagar|confirmar|realizar pedido|submit/i }).click();
-  
+
     const isValid = await emailInput.evaluate(
       (el: HTMLInputElement) => el.checkValidity()
     );
     expect(isValid).toBe(false);
-  
+
     const validationMessage = await emailInput.evaluate(
       (el: HTMLInputElement) => el.validationMessage
     );
@@ -118,14 +100,13 @@ test.describe("Checkout — cotización de envío", () => {
   });
 
   test("seleccionar ciudad actualiza el costo de envío", async ({ page }) => {
-    // Labels don't have htmlFor — use id selector
     const citySelect = page.locator("#city_code");
 
-    await citySelect.selectOption("BOG");
+    await citySelect.selectOption(VALID_FORM.city);
 
-    // El shipping cost debe aparecer ($10.000)
+    // El shipping cost debe aparecer
     await expect(
-      page.getByText(/\$10\.000|\$10,000|10000/)
+      page.getByText(TEST_SHIPPING.amountPattern)
     ).toBeVisible({ timeout: 4000 });
   });
 
@@ -133,10 +114,10 @@ test.describe("Checkout — cotización de envío", () => {
     await mockShippingQuote(page, { amount: 0, label: "Envío gratis" });
 
     const citySelect = page.locator("#city_code");
-    await citySelect.selectOption("BOG");
+    await citySelect.selectOption(VALID_FORM.city);
 
     await expect(
-      page.getByText(/gratis|free|envío.*gratis/i)
+      page.getByText(TEST_SHIPPING.freePattern)
     ).toBeVisible({ timeout: 4000 });
   });
 });
@@ -170,23 +151,22 @@ test.describe("Checkout — submit", () => {
 
   test("error de API muestra mensaje al usuario", async ({ page }) => {
     await mockCheckoutError(page);
-  
+
     await page.locator("#full_name").fill(VALID_FORM.fullName);
     await page.locator("#phone").fill(VALID_FORM.phone);
     await page.locator("#email").fill(VALID_FORM.email);
     await page.locator("#cedula").fill(VALID_FORM.cedula);
     await page.locator("#address").fill(VALID_FORM.address);
     await page.locator("#city_code").selectOption(VALID_FORM.city);
-  
+
     const submitBtn = page.getByRole("button", { name: /confirmar pedido/i });
     await expect(submitBtn).toBeEnabled({ timeout: 6000 });
     await submitBtn.click();
-  
+
     await expect(
       page.getByText(/corrige los campos marcados|revisa los datos|stock insuficiente|error|no se pudo/i)
     ).toBeVisible({ timeout: 5000 });
   });
-
 });
 
 test.describe("Checkout — stock warnings", () => {
@@ -196,18 +176,10 @@ test.describe("Checkout — stock warnings", () => {
     await mockStockValidate(page, STOCK_VALIDATE_WARNING_MOCK);
 
     await page.goto("/");
-    await page.evaluate(() => {
-      localStorage.setItem("kame-cart", JSON.stringify({
-        state: {
-          items: [{ variantId: 101, productId: 1, productName: "Camiseta Kame Logo",
-            productSlug: "camiseta-kame-logo", variantLabel: "S / NEGRO",
-            price: "89000.00", quantity: 1, imageUrl: null }],
-          stockWarningsByVariantId: {}, stockHintsByVariantId: {},
-          lastStockValidateRequestId: null, stockValidateStatus: "idle",
-        },
-        version: 0,
-      }));
-    });
+    await page.evaluate((cartState: string) => {
+      localStorage.setItem("kame-cart", cartState);
+    }, JSON.stringify(TEST_CHECKOUT_CART_STATE));
+
     await page.goto("/checkout");
     await page.waitForSelector("form", { timeout: 5000 }).catch(() => {});
 

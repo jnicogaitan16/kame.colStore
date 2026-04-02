@@ -4,7 +4,7 @@
  */
 import { test, expect } from "@playwright/test";
 import { mockAllAPIs } from "./fixtures/api-mocks";
-import { PRODUCT_LIST_MOCK } from "./fixtures/catalog-data";
+import { TEST_PRODUCT } from "./fixtures/catalog-data";
 
 test.describe("Catálogo", () => {
   test.beforeEach(async ({ page }) => {
@@ -20,15 +20,15 @@ test.describe("Catálogo", () => {
   test("muestra el nombre del producto", async ({ page }) => {
     const grid = page.locator("[data-product-group-index]");
     await expect(grid.first()).toBeVisible({ timeout: 5000 });
-  
+
     await expect(
-      page.locator("[data-product-group-index]").getByText(/^88$/).first()
+      page.locator("[data-product-group-index]").getByText(TEST_PRODUCT.namePattern).first()
     ).toBeVisible({ timeout: 5000 });
   });
 
   test("muestra el precio del producto", async ({ page }) => {
     await expect(
-      page.getByText(/\$88\.888|\$88,888/)
+      page.getByText(TEST_PRODUCT.pricePattern)
     ).toBeVisible({ timeout: 5000 });
   });
 

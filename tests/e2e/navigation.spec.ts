@@ -3,7 +3,8 @@
  * Menú desktop/mobile, routing por departamento/categoría.
  */
 import { test, expect } from "@playwright/test";
-import { mockAllAPIs, mockNavigation } from "./fixtures/api-mocks";
+import { mockAllAPIs } from "./fixtures/api-mocks";
+import { TEST_NAVIGATION } from "./fixtures/catalog-data";
 
 test.describe("Navegación — header", () => {
   test.beforeEach(async ({ page }) => {
@@ -41,21 +42,21 @@ test.describe("Navegación — mobile", () => {
     // Abre el menú hamburguesa
     const menuButton = page.getByRole("button", { name: /menú|menu|abrir/i }).first();
     await menuButton.click();
-  
+
     // Drawer visible
     const mobileMenu = page.locator("[data-testid='mobile-menu'], [role='dialog']").first();
     await expect(mobileMenu).toBeVisible({ timeout: 3000 });
-  
-    // Primer nivel: departamentos
-    await expect(mobileMenu.getByText(/mujer/i)).toBeVisible({ timeout: 3000 });
-    await expect(mobileMenu.getByText(/hombre/i)).toBeVisible({ timeout: 3000 });
-  
+
+    // Primer nivel: departamentos (from TEST_NAVIGATION)
+    await expect(mobileMenu.getByText(new RegExp(TEST_NAVIGATION.department1, "i"))).toBeVisible({ timeout: 3000 });
+    await expect(mobileMenu.getByText(new RegExp(TEST_NAVIGATION.department2, "i"))).toBeVisible({ timeout: 3000 });
+
     // Accesorios puede existir según datos de dev/admin
     const accesorios = mobileMenu.getByText(/accesorios/i);
     if (await accesorios.count()) {
       await expect(accesorios).toBeVisible({ timeout: 3000 });
     }
-  
+
     // Cierra con Escape
     await page.keyboard.press("Escape");
   });
@@ -69,11 +70,12 @@ test.describe("Navegación — mobile", () => {
 test.describe("Routing", () => {
   test("navegar a una categoría abre la página de categoría", async ({ page }) => {
     await mockAllAPIs(page);
+    const categoryUrl = `/categoria/${TEST_NAVIGATION.firstCategorySlug}`;
     // Navigate directly to a category URL — tests routing without UI dependency
-    await page.goto("/categoria/camisetas");
-    await expect(page).toHaveURL(/\/categoria\/camisetas/);
+    await page.goto(categoryUrl);
+    await expect(page).toHaveURL(new RegExp(`/categoria/${TEST_NAVIGATION.firstCategorySlug}`));
     // Page should load (not 404 or error)
-    const res = await page.goto("/categoria/camisetas");
+    const res = await page.goto(categoryUrl);
     expect(res?.status()).toBe(200);
   });
 });
