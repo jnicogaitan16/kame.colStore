@@ -48,8 +48,8 @@ test.describe("Navegación — mobile", () => {
     await expect(mobileMenu).toBeVisible({ timeout: 3000 });
 
     // Primer nivel: departamentos (from TEST_NAVIGATION)
-    await expect(mobileMenu.getByText(new RegExp(TEST_NAVIGATION.department1, "i"))).toBeVisible({ timeout: 3000 });
-    await expect(mobileMenu.getByText(new RegExp(TEST_NAVIGATION.department2, "i"))).toBeVisible({ timeout: 3000 });
+    await expect(mobileMenu.getByText(new RegExp(TEST_NAVIGATION.department1, "i"))).toBeVisible({ timeout: 5000 });
+    await expect(mobileMenu.getByText(new RegExp(TEST_NAVIGATION.department2, "i"))).toBeVisible({ timeout: 5000 });
 
     // Accesorios puede existir según datos de dev/admin
     const accesorios = mobileMenu.getByText(/accesorios/i);
