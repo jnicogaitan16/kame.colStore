@@ -17,3 +17,7 @@ frontend/.next/
 frontend/.env.local
 # deps
 node_modules/
+node_modules/
+playwright-report/
+test-results/
+.playwright/
