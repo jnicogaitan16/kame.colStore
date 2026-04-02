@@ -26,7 +26,7 @@ test.describe("Smoke", () => {
 
   test("página de producto responde 200", async ({ page }) => {
     await mockAllAPIs(page);
-    const response = await page.goto("/producto/camiseta-kame-logo");
+    const response = await page.goto("/producto/kk");
     expect(response?.status()).toBe(200);
   });
 

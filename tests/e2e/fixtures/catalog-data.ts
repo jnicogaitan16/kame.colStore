@@ -34,8 +34,8 @@ export const PRODUCT_LIST_MOCK = {
   results: [
     {
       id: 1,
-      name: "Camiseta Kame Logo",
-      slug: "camiseta-kame-logo",
+      name: "88",
+      slug: "88",
       price: "89000.00",
       primary_card_url: "https://kamecol.com/media/products/camiseta-logo-thumb.jpg",
       primary_thumb_url: "https://kamecol.com/media/products/camiseta-logo-thumb.jpg",
@@ -59,8 +59,8 @@ export const PRODUCT_LIST_MOCK = {
 
 export const PRODUCT_DETAIL_MOCK = {
   id: 1,
-  name: "Camiseta Kame Logo",
-  slug: "camiseta-kame-logo",
+  name: "88",
+  slug: "88",
   price: "89000.00",
   description: "Camiseta 100% algodón con logo bordado. Corte oversize.",
   primary_image: "https://kamecol.com/media/products/camiseta-logo.jpg",
@@ -128,17 +128,13 @@ export const CITIES_MOCK = {
 };
 
 export const SHIPPING_QUOTE_BOG_MOCK = {
-  city_code: "BOG",
-  subtotal: 89000,
-  shipping_cost: 10000,
-  total: 99000,
+  amount: 10000,
+  label: "Envío estándar",
 };
 
 export const SHIPPING_QUOTE_FREE_MOCK = {
-  city_code: "BOG",
-  subtotal: 178000,
-  shipping_cost: 0,
-  total: 178000,
+  amount: 0,
+  label: "Envío gratis",
 };
 
 export const STOCK_VALIDATE_OK_MOCK = {
@@ -150,7 +146,7 @@ export const STOCK_VALIDATE_OK_MOCK = {
 export const STOCK_VALIDATE_WARNING_MOCK = {
   ok: false,
   warningsByVariantId: {
-    "101": { requested: 3, available: 1, message: "Solo quedan 1 unidades" },
+    "101": { status: "low_stock", requested: 1, available: 3, message: "Últimas unidades disponibles" },
   },
   hintsByVariantId: {},
 };

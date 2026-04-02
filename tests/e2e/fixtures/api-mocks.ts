@@ -30,12 +30,9 @@ export async function mockNavigation(page: Page) {
 }
 
 export async function mockProductList(page: Page, overrides = {}) {
-  await page.route("**/api/products/**", (route) => {
-    const url = route.request().url();
-    // detail endpoint tiene slug, no pagina
-    if (url.match(/\/api\/products\/[^?]+\/$/)) return route.continue();
-    route.fulfill({ json: { ...PRODUCT_LIST_MOCK, ...overrides } });
-  });
+  await page.route("**/api/catalogo/**", (route) =>
+    route.fulfill({ json: { ...PRODUCT_LIST_MOCK, ...overrides } })
+  );
 }
 
 export async function mockProductDetail(page: Page, overrides = {}) {
@@ -45,31 +42,31 @@ export async function mockProductDetail(page: Page, overrides = {}) {
 }
 
 export async function mockCities(page: Page) {
-  await page.route("**/api/orders/cities/**", (route) =>
+  await page.route("**/api/cities/**", (route) =>
     route.fulfill({ json: CITIES_MOCK })
   );
 }
 
 export async function mockShippingQuote(page: Page, overrides = {}) {
-  await page.route("**/api/orders/shipping-quote/**", (route) =>
+  await page.route("**/api/shipping-quote/**", (route) =>
     route.fulfill({ json: { ...SHIPPING_QUOTE_BOG_MOCK, ...overrides } })
   );
 }
 
 export async function mockStockValidate(page: Page, overrides = {}) {
-  await page.route("**/api/orders/stock-validate/**", (route) =>
+  await page.route("**/api/stock-validate/**", (route) =>
     route.fulfill({ json: { ...STOCK_VALIDATE_OK_MOCK, ...overrides } })
   );
 }
 
 export async function mockCheckout(page: Page, overrides = {}) {
-  await page.route("**/api/orders/checkout/**", (route) =>
+  await page.route("**/api/checkout/**", (route) =>
     route.fulfill({ status: 201, json: { ...CHECKOUT_SUCCESS_MOCK, ...overrides } })
   );
 }
 
 export async function mockCheckoutError(page: Page) {
-  await page.route("**/api/orders/checkout/**", (route) =>
+  await page.route("**/api/checkout/**", (route) =>
     route.fulfill({
       status: 400,
       json: { ok: false, error: "Stock insuficiente para uno o más productos." },

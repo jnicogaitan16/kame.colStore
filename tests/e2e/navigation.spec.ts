@@ -5,14 +5,15 @@
 import { test, expect } from "@playwright/test";
 import { mockAllAPIs, mockNavigation } from "./fixtures/api-mocks";
 
-test.describe("Navegación — desktop", () => {
+test.describe("Navegación — header", () => {
   test.beforeEach(async ({ page }) => {
     await mockAllAPIs(page);
     await page.goto("/");
   });
 
   test("header es visible", async ({ page }) => {
-    await expect(page.locator("header")).toBeVisible();
+    // The site header has role="banner" — avoids strict mode with content <header> elements
+    await expect(page.getByRole("banner")).toBeVisible();
   });
 
   test("logo navega al home", async ({ page }) => {
@@ -20,8 +21,11 @@ test.describe("Navegación — desktop", () => {
     await expect(page).toHaveURL("/");
   });
 
-  test("link al catálogo es visible", async ({ page }) => {
-    await expect(page.getByRole("link", { name: /catálogo/i }).first()).toBeVisible();
+  test("botón de menú es visible", async ({ page }) => {
+    // Desktop nav is hidden (showDesktopTabs=false); navigation via mobile menu button
+    await expect(
+      page.locator("[data-testid='mobile-menu-button'], [aria-label='Abrir menú']").first()
+    ).toBeVisible({ timeout: 3000 });
   });
 });
 
@@ -33,17 +37,25 @@ test.describe("Navegación — mobile", () => {
     await page.goto("/");
   });
 
-  test("menú mobile se abre y cierra", async ({ page }) => {
-    // Abre el menú (botón de hamburguesa)
+  test("menú mobile se abre con departamentos", async ({ page }) => {
+    // Abre el menú hamburguesa
     const menuButton = page.getByRole("button", { name: /menú|menu|abrir/i }).first();
     await menuButton.click();
-
-    // El drawer/panel del menú es visible
-    const mobileMenu = page.locator("[data-testid='mobile-menu'], [role='dialog'], nav[aria-label*='mobile' i]").first();
-    await expect(mobileMenu).toBeVisible({ timeout: 3000 }).catch(() => {
-      // Fallback: verificar que algo cambió visualmente
-    });
-
+  
+    // Drawer visible
+    const mobileMenu = page.locator("[data-testid='mobile-menu'], [role='dialog']").first();
+    await expect(mobileMenu).toBeVisible({ timeout: 3000 });
+  
+    // Primer nivel: departamentos
+    await expect(mobileMenu.getByText(/mujer/i)).toBeVisible({ timeout: 3000 });
+    await expect(mobileMenu.getByText(/hombre/i)).toBeVisible({ timeout: 3000 });
+  
+    // Accesorios puede existir según datos de dev/admin
+    const accesorios = mobileMenu.getByText(/accesorios/i);
+    if (await accesorios.count()) {
+      await expect(accesorios).toBeVisible({ timeout: 3000 });
+    }
+  
     // Cierra con Escape
     await page.keyboard.press("Escape");
   });
@@ -55,10 +67,13 @@ test.describe("Navegación — mobile", () => {
 });
 
 test.describe("Routing", () => {
-  test("navegar al catálogo desde home", async ({ page }) => {
+  test("navegar a una categoría abre la página de categoría", async ({ page }) => {
     await mockAllAPIs(page);
-    await page.goto("/");
-    await page.getByRole("link", { name: /catálogo/i }).first().click();
-    await expect(page).toHaveURL(/\/catalogo/);
+    // Navigate directly to a category URL — tests routing without UI dependency
+    await page.goto("/categoria/camisetas");
+    await expect(page).toHaveURL(/\/categoria\/camisetas/);
+    // Page should load (not 404 or error)
+    const res = await page.goto("/categoria/camisetas");
+    expect(res?.status()).toBe(200);
   });
 });

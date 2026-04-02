@@ -40,17 +40,28 @@ export default defineConfig({
     },
   ],
 
-  // Levanta Next.js automáticamente antes de correr los tests
-  webServer: {
-    command: "npm run start",
-    cwd: "../frontend",
-    url: BASE_URL,
-    reuseExistingServer: !CI,
-    timeout: 120_000,
-    env: {
-      PORT: "3000",
-      // Mock backend URL para que Next.js no intente conectar a Django real
-      NEXT_PUBLIC_BACKEND_URL: "http://localhost:3000",
+  // Levanta el mock backend primero, luego Next.js
+  webServer: [
+    {
+      // Mock Django API — sirve fixtures JSON para los fetches server-side de Next.js
+      command: "node e2e/fixtures/mock-backend.mjs",
+      url: "http://localhost:3001/health",
+      reuseExistingServer: !CI,
+      timeout: 15_000,
     },
-  },
+    {
+      command: "npm run start",
+      cwd: "../frontend",
+      url: BASE_URL,
+      reuseExistingServer: !CI,
+      timeout: 120_000,
+      env: {
+        PORT: "3000",
+        // Apunta al mock backend para que los server components de Next.js
+        // puedan hacer fetch server-side sin Django real
+        DJANGO_API_BASE: "http://localhost:3001",
+        NEXT_PUBLIC_API_URL: "/api",
+      },
+    },
+  ],
 });

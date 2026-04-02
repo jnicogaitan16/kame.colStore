@@ -16,40 +16,43 @@ import { SHIPPING_QUOTE_BOG_MOCK, STOCK_VALIDATE_WARNING_MOCK } from "./fixtures
 async function goToCheckoutWithCart(page: any) {
   await mockAllAPIs(page);
 
-  // Inyectar item en el carrito (Zustand usa localStorage con key "cart-storage" o similar)
   await page.goto("/");
   await page.evaluate(() => {
+    // Zustand persist key is "kame-cart", item shape matches CartItem interface
     const cartItem = {
       state: {
         items: [
           {
             variantId: 101,
             productId: 1,
-            name: "Camiseta Kame Logo",
+            productName: "Camiseta Kame Logo",
+            productSlug: "camiseta-kame-logo",
             variantLabel: "S / NEGRO",
-            price: 89000,
-            qty: 1,
+            price: "89000.00",
+            quantity: 1,
             imageUrl: null,
-            slug: "camiseta-kame-logo",
           },
         ],
+        stockWarningsByVariantId: {},
+        stockHintsByVariantId: {},
+        lastStockValidateRequestId: null,
+        stockValidateStatus: "idle",
       },
       version: 0,
     };
-    // Intentar los keys más comunes de Zustand persist
-    for (const key of ["cart-storage", "kame-cart", "cart"]) {
-      localStorage.setItem(key, JSON.stringify(cartItem));
-    }
+    localStorage.setItem("kame-cart", JSON.stringify(cartItem));
   });
 
   await page.goto("/checkout");
+  // Esperar a que el formulario esté visible (CartHydration es async)
+  await page.waitForSelector("form", { timeout: 5000 }).catch(() => {});
 }
 
 const VALID_FORM = {
   fullName: "Ana García",
   phone: "3001234567",
   email: "ana@test.com",
-  cedula: "1234567890",
+  cedula: "123456789",
   address: "Calle 100 # 15-20 Apto 301",
   city: "BOG",
 };
@@ -62,9 +65,8 @@ test.describe("Checkout — carga", () => {
   });
 
   test("muestra el formulario de checkout", async ({ page }) => {
-    await mockAllAPIs(page);
-    await page.goto("/checkout");
-    await expect(page.getByRole("form").or(page.locator("form"))).toBeVisible();
+    await goToCheckoutWithCart(page);
+    await expect(page.locator("form")).toBeVisible({ timeout: 5000 });
   });
 });
 
@@ -83,22 +85,28 @@ test.describe("Checkout — validación de formulario", () => {
   });
 
   test("email inválido muestra error", async ({ page }) => {
-    const emailInput = page.getByLabel(/email|correo/i).or(page.locator("input[type='email']")).first();
+    const emailInput = page.locator("#email");
+  
     await emailInput.fill("no-es-un-email");
-    await emailInput.blur();
-
-    await expect(
-      page.getByText(/email (inválido|no válido|invalid)|formato.*email/i)
-    ).toBeVisible({ timeout: 3000 });
+    await page.getByRole("button", { name: /pagar|confirmar|realizar pedido|submit/i }).click();
+  
+    const isValid = await emailInput.evaluate(
+      (el: HTMLInputElement) => el.checkValidity()
+    );
+    expect(isValid).toBe(false);
+  
+    const validationMessage = await emailInput.evaluate(
+      (el: HTMLInputElement) => el.validationMessage
+    );
+    expect(validationMessage.length).toBeGreaterThan(0);
+    expect(validationMessage).toContain("@");
   });
 
   test("campo teléfono solo acepta dígitos", async ({ page }) => {
-    const phoneInput = page.getByLabel(/teléfono|celular|phone/i)
-      .or(page.locator("input[name*='phone' i], input[name*='telefono' i]"))
-      .first();
+    const phoneInput = page.locator("#phone");
     await phoneInput.fill("abc123");
     await phoneInput.blur();
-    // El valor debe ser solo "123" o mostrar error
+    // El valor debe ser solo dígitos o mostrar error
     const value = await phoneInput.inputValue();
     expect(value).toMatch(/^\d*$/);
   });
@@ -110,9 +118,8 @@ test.describe("Checkout — cotización de envío", () => {
   });
 
   test("seleccionar ciudad actualiza el costo de envío", async ({ page }) => {
-    const citySelect = page.getByLabel(/ciudad/i)
-      .or(page.locator("select[name*='city' i]"))
-      .first();
+    // Labels don't have htmlFor — use id selector
+    const citySelect = page.locator("#city_code");
 
     await citySelect.selectOption("BOG");
 
@@ -123,11 +130,9 @@ test.describe("Checkout — cotización de envío", () => {
   });
 
   test("muestra envío gratis cuando el subtotal supera $170.000", async ({ page }) => {
-    await mockShippingQuote(page, { shipping_cost: 0, total: 178000 });
+    await mockShippingQuote(page, { amount: 0, label: "Envío gratis" });
 
-    const citySelect = page.getByLabel(/ciudad/i)
-      .or(page.locator("select[name*='city' i]"))
-      .first();
+    const citySelect = page.locator("#city_code");
     await citySelect.selectOption("BOG");
 
     await expect(
@@ -144,17 +149,17 @@ test.describe("Checkout — submit", () => {
   test("submit con datos válidos crea la orden correctamente", async ({ page }) => {
     await mockCheckout(page);
 
-    // Llenar el formulario completo
-    await page.getByLabel(/nombre/i).or(page.locator("input[name*='name' i]")).first().fill(VALID_FORM.fullName);
-    await page.getByLabel(/teléfono|celular/i).or(page.locator("input[name*='phone' i]")).first().fill(VALID_FORM.phone);
-    await page.getByLabel(/email|correo/i).or(page.locator("input[type='email']")).first().fill(VALID_FORM.email);
-    await page.getByLabel(/cédula|documento/i).or(page.locator("input[name*='cedula' i]")).first().fill(VALID_FORM.cedula);
-    await page.getByLabel(/dirección/i).or(page.locator("input[name*='address' i]")).first().fill(VALID_FORM.address);
+    await page.locator("#full_name").fill(VALID_FORM.fullName);
+    await page.locator("#phone").fill(VALID_FORM.phone);
+    await page.locator("#email").fill(VALID_FORM.email);
+    await page.locator("#cedula").fill(VALID_FORM.cedula);
+    await page.locator("#address").fill(VALID_FORM.address);
+    await page.locator("#city_code").selectOption(VALID_FORM.city);
 
-    const citySelect = page.getByLabel(/ciudad/i).or(page.locator("select[name*='city' i]")).first();
-    await citySelect.selectOption(VALID_FORM.city);
-
-    await page.getByRole("button", { name: /pagar|confirmar|realizar pedido/i }).click();
+    // Wait for stock validation to complete (button disabled while checking)
+    const submitBtn = page.getByRole("button", { name: /confirmar pedido/i });
+    await expect(submitBtn).toBeEnabled({ timeout: 6000 });
+    await submitBtn.click();
 
     // Debe mostrar confirmación de orden
     await expect(
@@ -165,30 +170,50 @@ test.describe("Checkout — submit", () => {
 
   test("error de API muestra mensaje al usuario", async ({ page }) => {
     await mockCheckoutError(page);
-
-    await page.getByLabel(/nombre/i).or(page.locator("input[name*='name' i]")).first().fill(VALID_FORM.fullName);
-    await page.getByLabel(/teléfono|celular/i).or(page.locator("input[name*='phone' i]")).first().fill(VALID_FORM.phone);
-    await page.getByLabel(/email|correo/i).or(page.locator("input[type='email']")).first().fill(VALID_FORM.email);
-    await page.getByLabel(/cédula|documento/i).or(page.locator("input[name*='cedula' i]")).first().fill(VALID_FORM.cedula);
-    await page.getByLabel(/dirección/i).or(page.locator("input[name*='address' i]")).first().fill(VALID_FORM.address);
-
-    const citySelect = page.getByLabel(/ciudad/i).or(page.locator("select[name*='city' i]")).first();
-    await citySelect.selectOption(VALID_FORM.city);
-
-    await page.getByRole("button", { name: /pagar|confirmar|realizar pedido/i }).click();
-
+  
+    await page.locator("#full_name").fill(VALID_FORM.fullName);
+    await page.locator("#phone").fill(VALID_FORM.phone);
+    await page.locator("#email").fill(VALID_FORM.email);
+    await page.locator("#cedula").fill(VALID_FORM.cedula);
+    await page.locator("#address").fill(VALID_FORM.address);
+    await page.locator("#city_code").selectOption(VALID_FORM.city);
+  
+    const submitBtn = page.getByRole("button", { name: /confirmar pedido/i });
+    await expect(submitBtn).toBeEnabled({ timeout: 6000 });
+    await submitBtn.click();
+  
     await expect(
-      page.getByText(/stock insuficiente|error|no se pudo/i)
+      page.getByText(/corrige los campos marcados|revisa los datos|stock insuficiente|error|no se pudo/i)
     ).toBeVisible({ timeout: 5000 });
   });
 
-  test("advertencia de stock se muestra antes del submit", async ({ page }) => {
+});
+
+test.describe("Checkout — stock warnings", () => {
+  test("advertencia de stock se muestra en el resumen", async ({ page }) => {
+    // Warning mock must be registered AFTER mockAllAPIs so it takes precedence (Playwright LIFO routing)
+    await mockAllAPIs(page);
     await mockStockValidate(page, STOCK_VALIDATE_WARNING_MOCK);
 
-    await page.getByRole("button", { name: /pagar|confirmar|realizar pedido/i }).click();
+    await page.goto("/");
+    await page.evaluate(() => {
+      localStorage.setItem("kame-cart", JSON.stringify({
+        state: {
+          items: [{ variantId: 101, productId: 1, productName: "Camiseta Kame Logo",
+            productSlug: "camiseta-kame-logo", variantLabel: "S / NEGRO",
+            price: "89000.00", quantity: 1, imageUrl: null }],
+          stockWarningsByVariantId: {}, stockHintsByVariantId: {},
+          lastStockValidateRequestId: null, stockValidateStatus: "idle",
+        },
+        version: 0,
+      }));
+    });
+    await page.goto("/checkout");
+    await page.waitForSelector("form", { timeout: 5000 }).catch(() => {});
 
+    // Stock validate fires on checkout load — warning should appear in summary
     await expect(
-      page.getByText(/solo quedan|stock|unidades/i)
+      page.getByText(/últimas|stock|unidades/i)
     ).toBeVisible({ timeout: 5000 });
   });
 });

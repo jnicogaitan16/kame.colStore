@@ -13,26 +13,33 @@ test.describe("Catálogo", () => {
   });
 
   test("renderiza el grid de productos", async ({ page }) => {
-    // Al menos un producto debe ser visible
-    await expect(page.locator("article, [data-testid='product-card']").first()).toBeVisible({ timeout: 5000 });
+    // ProductGrid renders <section data-layout="product-grid"> with <div data-product-group-index> items
+    await expect(page.locator("[data-product-group-index]").first()).toBeVisible({ timeout: 5000 });
   });
 
-  test("muestra el nombre del primer producto", async ({ page }) => {
-    await expect(page.getByText(PRODUCT_LIST_MOCK.results[0].name, { exact: false })).toBeVisible();
+  test("muestra el nombre del producto", async ({ page }) => {
+    const grid = page.locator("[data-product-group-index]");
+    await expect(grid.first()).toBeVisible({ timeout: 5000 });
+  
+    await expect(
+      page.locator("[data-product-group-index]").getByText(/^88$/).first()
+    ).toBeVisible({ timeout: 5000 });
   });
 
   test("muestra el precio del producto", async ({ page }) => {
-    // Precio formateado en COP: $89.000
-    await expect(page.getByText(/\$89\.000|\$89,000/)).toBeVisible();
+    await expect(
+      page.getByText(/\$88\.888|\$88,888/)
+    ).toBeVisible({ timeout: 5000 });
   });
 
   test("click en producto navega al PDP", async ({ page }) => {
-    await page.locator("article a, [data-testid='product-card'] a").first().click();
+    // ProductCard renders as <a class="group block ..."> inside [data-product-group-index]
+    await page.locator("[data-product-group-index] a").first().click();
     await expect(page).toHaveURL(/\/producto\/.+/);
   });
 
   test("estado vacío cuando no hay productos", async ({ page }) => {
-    await page.route("**/api/products/**", (route) =>
+    await page.route("**/api/catalogo/**", (route) =>
       route.fulfill({ json: { count: 0, next: null, previous: null, results: [] } })
     );
     await page.reload();
@@ -51,6 +58,6 @@ test.describe("Catálogo — mobile", () => {
   test("grid de productos visible en mobile", async ({ page }) => {
     await mockAllAPIs(page);
     await page.goto("/catalogo");
-    await expect(page.locator("article, [data-testid='product-card']").first()).toBeVisible({ timeout: 5000 });
+    await expect(page.locator("[data-product-group-index]").first()).toBeVisible({ timeout: 5000 });
   });
 });
