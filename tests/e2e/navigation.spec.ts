@@ -39,6 +39,14 @@ test.describe("Navegación — mobile", () => {
   });
 
   test("menú mobile se abre con departamentos", async ({ page }) => {
+    // Esperar a que la API de navegación haya respondido antes de interactuar
+    await page.waitForResponse(
+      (resp) => /\/api\/navigation/.test(resp.url()) && resp.status() === 200,
+      { timeout: 5000 }
+    ).catch(() => {
+      // Si ya respondió antes de llegar aquí, continuar sin error
+    });
+
     // Abre el menú hamburguesa
     const menuButton = page.getByRole("button", { name: /menú|menu|abrir/i }).first();
     await menuButton.click();
