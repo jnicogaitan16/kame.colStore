@@ -1,39 +1,45 @@
 # Kame.colStore
 
-Sistema de gestión de tienda virtual desarrollado con Django y Next.js para la venta de prendas streetwear y productos personalizados (camisetas, hoodies, mugs, cuadros, etc.). El proyecto separa backend (Django) y storefront público (Next.js).
+Tienda virtual de ropa streetwear (Kame.col) — backend Django 5.2 + storefront público Next.js 14. El backend expone una API REST consumida exclusivamente por el frontend; no hay UI Django para clientes.
 
-## 🚀 Características
+---
 
-- **Gestión de Catálogo**: Productos con variantes (tallas, colores, tipos)
-- **Sistema de Pedidos**: Checkout completo con validación de stock
-- **Pagos por Transferencia**: Confirmación manual de pagos mientras se integra una pasarela de pago
-- **Gestión de Clientes**: Registro y seguimiento de clientes
-- **Envíos Nacionales**: Integración operativa con Servientrega
-- **Admin Django**: Interfaz administrativa completa y personalizada
-- **Validación de Stock**: Control de inventario por variante de producto
+## Stack
 
-## ⚡ Comandos rápidos (TL;DR)
+| Capa | Tecnología |
+|---|---|
+| Backend API | Django 5.2 + Django REST Framework 3.15 |
+| Frontend | Next.js 14.2 (App Router) |
+| Carrito cliente | Zustand + localStorage |
+| Estilos | Tailwind CSS |
+| Animaciones | Framer Motion |
+| DB desarrollo | SQLite |
+| DB producción | PostgreSQL |
 
-### Backend (Django)
+---
+
+## Inicio rápido
+
+### Backend
+
 ```bash
-# Activar entorno virtual
+# Instalar dependencias
+python -m venv .venv
 source .venv/bin/activate
+pip install -r requirements/base.txt
 
-# Levantar backend
+# Configurar entorno (ver sección Variables de entorno)
+cp .env.example .env  # o crear manualmente
+
+# Migraciones y servidor
+python manage.py migrate
+python manage.py createsuperuser
 python manage.py runserver
 ```
 
-### Migraciones
-```bash
-python manage.py makemigrations
-python manage.py migrate
-```
+### Frontend
 
-### Frontend (Next.js)
-
-⚠️ **Importante**: Este proyecto usa **Next.js 14**, que requiere **Node.js 18 o superior**.  
-Si usas Node 16, `npm install` mostrará warnings de engine y `next` no se instalará correctamente
-(lo que provoca el error `sh: next: command not found`).
+Requiere **Node.js 18+ (recomendado Node 20)**.
 
 ```bash
 cd frontend
@@ -41,272 +47,185 @@ npm install
 npm run dev
 ```
 
-### Detener servidores
-```bash
-Ctrl + C
-```
+Levantar ambos servidores en paralelo: Django en `:8000`, Next.js en `:3000`.
 
-## 📋 Requisitos
+---
 
-- Python 3.10+
-- Django 6.0+
-- Node.js **18+ (recomendado Node 20)**
-- npm 9+
-- SQLite (desarrollo) / PostgreSQL (producción recomendado)
+## Variables de entorno
 
-## 🔧 Instalación
-
-### 1. Clonar el repositorio
-
-```bash
-git clone <repository-url>
-cd kame.colStore
-```
-
-### 2. Crear entorno virtual
-
-```bash
-python -m venv .venv
-source .venv/bin/activate  # En Windows: .venv\Scripts\activate
-```
-
-### 3. Instalar dependencias
-
-```bash
-pip install -r requirements/base.txt
-```
-
-### 4. Configurar variables de entorno
-
-Crear archivo `.env` en la raíz del proyecto:
+### Backend (`.env` en raíz)
 
 ```env
-DJANGO_SECRET_KEY=tu-clave-secreta-aqui-genera-una-nueva
+DJANGO_SECRET_KEY=genera-una-clave-segura
 DJANGO_DEBUG=True
 DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1
+DATABASE_URL=sqlite:///db.sqlite3
+
+# Media y URLs públicas
+PUBLIC_SITE_URL=http://localhost:3000
+
+# Email (Resend)
+RESEND_API_KEY=
+RESEND_FROM_EMAIL=
+
+# WhatsApp soporte
+SUPPORT_WHATSAPP=57XXXXXXXXXX
 ```
 
-**⚠️ Importante**: Genera una nueva `SECRET_KEY` para producción. Puedes usar:
+### Frontend (`.env.local` en `frontend/`)
 
-```python
-from django.core.management.utils import get_random_secret_key
-print(get_random_secret_key())
+```env
+NEXT_PUBLIC_BACKEND_URL=http://localhost:8000
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
+NEXT_PUBLIC_WHATSAPP_PHONE=57XXXXXXXXXX
 ```
 
-### 5. Aplicar migraciones
+---
 
-```bash
-python manage.py migrate
-```
-
-### 6. Crear superusuario (opcional)
-
-```bash
-python manage.py createsuperuser
-```
-
-### 7. Ejecutar servidor de desarrollo
-
-```bash
-python manage.py runserver
-```
-
-El sitio estará disponible en `http://127.0.0.1:8000/`
-
-## 🟢 Node.js Version
-
-Este proyecto ha sido probado con:
-
-- Node.js 20.x ✅ (recomendado)
-- Node.js 18.x ✅ (compatible)
-
-Se recomienda usar **nvm** para manejar versiones de Node:
-
-```bash
-nvm install 20
-nvm use 20
-nvm alias default 20
-```
-
-## 📁 Estructura del Proyecto
+## Estructura del proyecto
 
 ```
 kame.colStore/
 ├── apps/
-│   ├── catalog/             # Gestión de productos y categorías (API /api/)
-│   ├── customers/           # Gestión de clientes
-│   └── orders/              # Sistema de pedidos y checkout
-│       ├── services/        # Lógica de negocio (cart, shipping, órdenes)
-│       ├── views_api.py     # API REST de checkout (/api/orders/*)
-│       ├── views_cart.py    # LEGACY carrito por sesión (Django templates)
-│       ├── static/          # JS del admin (cálculo de envío)
-│       └── templates/       # Plantillas HTML antiguas
-├── config/                  # Configuración del proyecto Django
-├── frontend/                # Frontend público en Next.js 14 (App Router)
-│   ├── app/                 # Páginas (home, producto, checkout, etc.)
-│   ├── components/          # UI y carrito (MiniCart, Header, etc.)
-│   └── store/cart.ts        # Carrito cliente con Zustand + persist
-├── templates/               # Plantillas globales Django
-├── requirements/            # Dependencias Python
+│   ├── catalog/                 # Productos, categorías, departamentos, InventoryPool
+│   │   ├── models.py            # Product, ProductVariant, Category, InventoryPool, ...
+│   │   ├── serializers.py       # Serializers con stock desde InventoryPool
+│   │   └── views_api.py         # API pública del catálogo (/api/*)
+│   ├── orders/                  # Checkout y pedidos
+│   │   ├── services/            # Lógica de negocio desacoplada
+│   │   │   ├── cart_validation.py
+│   │   │   ├── create_order_from_cart.py
+│   │   │   ├── shipping.py
+│   │   │   ├── payments.py
+│   │   │   └── stock.py
+│   │   ├── views.py             # Vistas utilitarias del admin (customer_snapshot, variant_price)
+│   │   ├── views_api.py         # API REST del checkout (/api/orders/*)
+│   │   └── static/orders/js/    # JS del admin (cálculo de envío y precios)
+│   ├── customers/               # Modelo Cliente
+│   ├── notifications/           # Emails transaccionales (Resend)
+│   │   ├── emails.py            # Envío de emails
+│   │   ├── email_context.py     # Contexto para emails de pedido
+│   │   ├── email_product_media.py  # Resolución de imágenes para emails
+│   │   └── email_utils.py       # Utilidades compartidas (format_cop, _build_variant_label)
+│   └── common/                  # Utilidades compartidas entre apps
+├── config/                      # Configuración Django (settings, urls, wsgi)
+├── templates/
+│   ├── admin/                   # Overrides del admin Django
+│   └── emails/                  # Templates HTML de emails transaccionales
+├── frontend/
+│   ├── app/                     # Páginas Next.js (App Router)
+│   │   ├── page.tsx             # Home
+│   │   ├── catalogo/            # Listado de productos
+│   │   ├── producto/[slug]/     # Detalle de producto
+│   │   ├── checkout/            # Flujo de compra
+│   │   └── legal/               # Páginas legales
+│   ├── components/              # Componentes React
+│   │   ├── product/             # ProductCard, ProductGallery, SizeGuideDrawer, ...
+│   │   ├── cart/                # MiniCart, CartAddFlyout
+│   │   └── ui/                  # Button, Notice, PremiumLoader, ...
+│   ├── lib/                     # Utilidades y cliente API
+│   │   ├── api.ts               # apiFetch + funciones tipadas por endpoint
+│   │   ├── product-media.ts     # Normalización de URLs de imagen (fuente única)
+│   │   ├── navigation-normalize.ts  # Normalización de datos de navegación
+│   │   └── whatsapp.ts          # Builder de links wa.me
+│   ├── store/cart.ts            # Estado del carrito (Zustand + persist)
+│   └── types/catalog.ts         # Tipos TypeScript canónicos del catálogo
+├── requirements/
+│   ├── base.txt                 # Dependencias comunes
+│   └── ...
 └── manage.py
 ```
 
-## 🏗️ Arquitectura
+---
 
-### Separación de Responsabilidades (Backend)
+## Arquitectura
 
-- **Modelos** (`models.py`): Definición de datos y métodos básicos.
-- **Servicios** (`apps/orders/services/`): Lógica de negocio centralizada
-  (validación de carrito, creación de órdenes, confirmación de pago, envío).
-- **Vistas Django** (`views.py`, `views_cart.py`): Coordinación de requests/responses.
-  - `views_cart.py` es **legacy** (carrito por sesión para plantillas Django).
-- **API REST** (`views_api.py`): Endpoints del checkout consumidos por Next.js.
-- **Admin** (`admin.py`): Interfaz administrativa personalizada.
+### API Backend → Frontend
 
-### Frontend (Next.js 14)
+El frontend Next.js **nunca renderiza vistas Django**. Toda la comunicación es via API REST:
 
-- **Carrito**:
-  - Implementado con Zustand en `frontend/store/cart.ts` (persistencia en `localStorage`).
-  - `CartHydration` rehidrata el carrito en cliente.
-  - `MiniCart` muestra el drawer lateral y permite modificar cantidades.
-- **Checkout**:
-  - Página `frontend/app/checkout/CheckoutClient.tsx` con React Hook Form + Zod.
-  - La UI NO calcula precios ni envío; solo muestra estimados a partir de:
-    - `GET /api/orders/cities/`
-    - `GET /api/orders/shipping-quote/?city_code=...&subtotal=...`
-    - `POST /api/orders/checkout/`
-  - El backend recalcula subtotal, envío y total, valida stock y crea la orden.
-- **Pagos**:
-  - `confirm_order_payment()`: Confirmación manual de pago (transferencia) y descuento de stock
+| Prefijo | Descripción |
+|---|---|
+| `GET /api/navigation/` | Departamentos y categorías activas |
+| `GET /api/products/` | Listado de productos paginado |
+| `GET /api/products/<slug>/` | Detalle de producto con variantes y stock |
+| `GET /api/orders/cities/` | Catálogo de ciudades para envío |
+| `GET /api/orders/shipping-quote/` | Cotización de envío por ciudad y subtotal |
+| `POST /api/orders/stock-validate/` | Validación de stock antes de checkout |
+| `POST /api/orders/checkout/` | Creación de orden (recalcula precios en backend) |
 
-### Servicios Principales
+### Stock — fuente única: `InventoryPool`
 
-- `validate_cart()`: Valida carrito y calcula subtotal
-- `get_or_create_customer_from_form_data()`: Gestión de clientes
-- `create_order_from_cart()`: Creación de órdenes
-- `confirm_order_payment()`: Confirmación manual de pago (transferencia) y descuento de stock
-- `validate_and_prepare_order_item()`: Validación de items de orden
+El stock no se lee de `ProductVariant.stock`. `InventoryPool` es el modelo canónico:
 
-## 🔐 Seguridad
+- Cada entrada define `(category, value, color) → quantity`
+- Los serializers y la validación de checkout consultan exclusivamente `InventoryPool`
+- El admin permite carga masiva de inventario por categoría
 
-- Variables de entorno para configuración sensible
-- Validación de stock antes de crear órdenes
-- Transacciones atómicas para operaciones críticas
-- Manejo robusto de errores de integridad (cédulas/emails duplicados)
-- CSRF protection en endpoints sensibles
+### Carrito
 
-## 📊 Modelos Principales
+El carrito vive **100% en el cliente** (Zustand + `localStorage`). Django no tiene estado de carrito. El frontend envía el snapshot del carrito al crear la orden; el backend revalida stock y recalcula todos los precios.
 
-### Product
-- Categoría, nombre, descripción, precio
-- Stock global (para productos sin variantes)
-- Stock por variante (ProductVariant)
+### Emails transaccionales
 
-### ProductVariant
-- Tipo de variante (talla, medida, tipo de mug)
-- Valor y color (para productos de vestimenta)
-- Stock individual por variante
+Los emails de confirmación de pago se envían vía **Resend**. El módulo `apps/notifications/` construye el contexto (`email_context.py`), resuelve imágenes de producto (`email_product_media.py`) y envía con `emails.py`.
 
-### Order
-- Estado: PENDING_PAYMENT, CREATED, PAID, CANCELLED
-- Información de cliente y envío (snapshot)
-- Totales calculados automáticamente
+---
 
-### Customer
-- Información de contacto
-- Cédula única (validación de formato)
-- Email único
+## Flujo de compra
 
-## 🛠️ Comandos Útiles
-
-### Desarrollo
-
-```bash
-# Crear migraciones
-python manage.py makemigrations
-
-# Aplicar migraciones
-python manage.py migrate
-
-# Ejecutar servidor
-python manage.py runserver
-
-# Shell de Django
-python manage.py shell
+```
+1. Cliente agrega productos → carrito Zustand (localStorage)
+2. Checkout → POST /api/orders/stock-validate/ (validación previa)
+3. Submit → POST /api/orders/checkout/ (backend crea orden, descuenta nada aún)
+4. Orden queda en PENDING_PAYMENT
+5. Cliente realiza transferencia bancaria
+6. Admin confirma pago desde Django Admin
+7. confirm_order_payment() → descuenta stock + envía email de confirmación
+8. Orden pasa a PAID
 ```
 
-### Producción
+---
+
+## Envíos
+
+Operador principal: **Servientrega** (nacional).
+
+| Destino | Costo |
+|---|---|
+| Bogotá D.C. | $10.000 COP |
+| Nacional | $20.000 COP |
+| Desde $170.000 COP | Gratis |
+
+Configuración en `apps/orders/services/shipping.py`.
+
+---
+
+## Comandos útiles
 
 ```bash
-# Recolectar archivos estáticos
-python manage.py collectstatic --noinput
-
 # Verificar configuración
 python manage.py check --deploy
+
+# Shell Django
+python manage.py shell
+
+# Recolectar estáticos (producción)
+python manage.py collectstatic --noinput
+
+# Build Next.js
+cd frontend && npm run build
 ```
 
-## 📝 Notas de Desarrollo
+---
 
-### Variantes de Productos
+## Troubleshooting
 
-El sistema soporta diferentes tipos de variantes según la categoría:
+**`sh: next: command not found`**
+Node.js < 18. Instalar Node 20 con nvm: `nvm install 20 && nvm use 20`.
 
-- **Camisetas/Hoodies**: Requieren talla (S/M/L/XL/2XL) y color
-- **Cuadros**: Requieren medida (ej: "30x40")
-- **Mugs**: Requieren tipo (ej: "MAGICO")
-- **Otros**: Texto libre
+**`ECONNREFUSED 127.0.0.1:8000`** en Next.js
+Django no está corriendo. El frontend muestra estado vacío sin crashear — comportamiento esperado.
 
-### Envíos
-
-Los envíos se realizan a nivel nacional principalmente mediante **Servientrega**.
-
-Reglas actuales del sistema:
-
-- Envío gratis a partir de $170,000 COP
-- Bogotá D.C.: $10,000 COP
-- Nacional: $20,000 COP
-
-Los valores pueden ajustarse desde la lógica de servicios en `apps/orders/services/shipping.py`.
-
-### Flujo de pago actual
-
-Actualmente el sistema trabaja con **pagos por transferencia bancaria**.
-
-Flujo general:
-
-1. El cliente crea la orden desde el checkout.
-2. La orden queda en estado `PENDING_PAYMENT`.
-3. El cliente realiza una transferencia.
-4. El administrador confirma el pago desde el panel administrativo.
-5. Al confirmarse el pago se descuenta el stock y la orden pasa a `PAID`.
-
-Este flujo se diseñó para permitir una transición futura hacia pasarelas de pago (Stripe, Wompi, MercadoPago, etc.).
-
-## 🐛 Troubleshooting
-
-### Error: "cannot import name 'validate_cart'"
-
-Asegúrate de que el archivo `apps/orders/services/__init__.py` existe y contiene todas las funciones de servicio.
-
-### Error: "SECRET_KEY not found"
-
-Crea el archivo `.env` en la raíz del proyecto con las variables de entorno necesarias.
-
-### Error de migraciones
-
-```bash
-python manage.py makemigrations
-python manage.py migrate
-```
-
-## 📄 Licencia
-
-[Especificar licencia si aplica]
-
-## 👥 Contribuidores
-
-[Agregar información de contribuidores]
-
-## 📞 Soporte
-
-La tienda Kame.col opera como una **tienda virtual**. La atención se realiza únicamente por canales digitales. Para soporte técnico del proyecto o dudas sobre el sistema, contactar al equipo de desarrollo.
+**`SECRET_KEY not found`**
+Crear `.env` en la raíz del proyecto con `DJANGO_SECRET_KEY`.
