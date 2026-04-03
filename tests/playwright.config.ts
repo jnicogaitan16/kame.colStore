@@ -3,6 +3,29 @@ import { defineConfig, devices } from "@playwright/test";
 const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
 const CI = !!process.env.CI;
 
+const projects: Parameters<typeof defineConfig>[0]["projects"] = [
+  // --- Desktop ---
+  {
+    name: "chromium",
+    use: { ...devices["Desktop Chrome"] },
+  },
+
+  // --- Mobile (viewport principal de kame.col) ---
+  {
+    name: "mobile-chrome",
+    use: { ...devices["Pixel 5"] },
+  },
+];
+
+// WebKit requires ~170 MB extra and system deps not available on the CI runner.
+// mobile-chrome (Pixel 5) already covers mobile viewports with Chromium.
+if (!CI) {
+  projects.push({
+    name: "iphone-12",
+    use: { ...devices["iPhone 12"] },
+  });
+}
+
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
@@ -22,23 +45,7 @@ export default defineConfig({
     },
   },
 
-  projects: [
-    // --- Desktop ---
-    {
-      name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
-    },
-
-    // --- Mobile (viewport principal de kame.col) ---
-    {
-      name: "mobile-chrome",
-      use: { ...devices["Pixel 5"] },
-    },
-    {
-      name: "iphone-12",
-      use: { ...devices["iPhone 12"] },
-    },
-  ],
+  projects,
 
   // Levanta el mock backend primero, luego Next.js
   webServer: [

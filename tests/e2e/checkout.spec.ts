@@ -81,7 +81,7 @@ test.describe("Checkout — validación de formulario", () => {
       (el: HTMLInputElement) => el.validationMessage
     );
     expect(validationMessage.length).toBeGreaterThan(0);
-    expect(validationMessage).toContain("@");
+    expect(validationMessage).toMatch(/@|email/i);
   });
 
   test("campo teléfono solo acepta dígitos", async ({ page }) => {

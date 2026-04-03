@@ -30,20 +30,38 @@ jobs:
         working-directory: frontend
         run: npm ci
 
-      - name: Build Next.js
-        working-directory: frontend
-        run: npm run build
-        env:
-          # Sin backend real — las APIs se mockean en los tests
-          NEXT_PUBLIC_BACKEND_URL: http://localhost:8000
-          NEXT_PUBLIC_SITE_URL: http://localhost:3000
-          NEXT_PUBLIC_WHATSAPP_PHONE: "573137000000"
-
-      # Playwright
       - name: Install test deps
         working-directory: tests
         run: npm ci
 
+      - name: Start mock backend for build
+        working-directory: tests
+        run: |
+          node e2e/fixtures/mock-backend.mjs &
+          echo $! > /tmp/mock-backend.pid
+          sleep 2
+          curl -sf http://localhost:3001/health || (echo "Mock backend failed to start" && exit 1)
+          echo "Mock backend ready on :3001"
+
+      - name: Build Next.js
+        working-directory: frontend
+        run: npm run build
+        env:
+          NEXT_PUBLIC_BACKEND_URL: http://localhost:8000
+          NEXT_PUBLIC_SITE_URL: http://localhost:3000
+          NEXT_PUBLIC_WHATSAPP_PHONE: "573137000000"
+          NEXT_PUBLIC_API_URL: http://localhost:3000/api
+          DJANGO_API_BASE: http://localhost:3001
+
+      - name: Stop mock backend
+        if: always()
+        run: |
+          if [ -f /tmp/mock-backend.pid ]; then
+            kill $(cat /tmp/mock-backend.pid) 2>/dev/null || true
+            rm /tmp/mock-backend.pid
+          fi
+
+      # Playwright
       - name: Install Playwright browsers
         working-directory: tests
         run: npx playwright install --with-deps chromium
@@ -54,6 +72,7 @@ jobs:
         env:
           BASE_URL: http://localhost:3000
           CI: true
+          NEXT_PUBLIC_API_URL: http://localhost:3000/api
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4
