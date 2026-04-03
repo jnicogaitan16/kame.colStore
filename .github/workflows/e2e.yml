@@ -38,6 +38,10 @@ jobs:
           NEXT_PUBLIC_BACKEND_URL: http://localhost:8000
           NEXT_PUBLIC_SITE_URL: http://localhost:3000
           NEXT_PUBLIC_WHATSAPP_PHONE: "573137000000"
+          # Absolute URL so SSR fetches don't produce ERR_INVALID_URL.
+          # The server isn't running at build time so fetches fail, but ISR
+          # marks pages as stale and re-fetches at request time via DJANGO_API_BASE.
+          NEXT_PUBLIC_API_URL: http://localhost:3000/api
 
       # Playwright
       - name: Install test deps
@@ -54,6 +58,7 @@ jobs:
         env:
           BASE_URL: http://localhost:3000
           CI: true
+          NEXT_PUBLIC_API_URL: http://localhost:3000/api
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4
