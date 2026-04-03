@@ -42,6 +42,7 @@ jobs:
           # The server isn't running at build time so fetches fail, but ISR
           # marks pages as stale and re-fetches at request time via DJANGO_API_BASE.
           NEXT_PUBLIC_API_URL: http://localhost:3000/api
+          DJANGO_API_BASE: http://localhost:3001
 
       # Playwright
       - name: Install test deps
