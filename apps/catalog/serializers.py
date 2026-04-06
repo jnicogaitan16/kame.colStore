@@ -810,13 +810,26 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         schema = getattr(getattr(obj, "category", None), "variant_schema", "")
 
         if schema == Category.VariantSchema.SIZE_COLOR:
-            color_img = (
-                ProductColorImage.objects.filter(product=obj)
-                .order_by("-is_primary", "sort_order", "created_at")
-                .first()
-            )
-            if color_img and color_img.image:
-                return color_img
+            prefetched = getattr(obj, "prefetched_color_images", None)
+            if prefetched is not None:
+                candidates = sorted(
+                    [img for img in prefetched if getattr(img, "image", None)],
+                    key=lambda img: (
+                        0 if getattr(img, "is_primary", False) else 1,
+                        int(getattr(img, "sort_order", 0) or 0),
+                        getattr(img, "created_at", None),
+                    ),
+                )
+                if candidates:
+                    return candidates[0]
+            else:
+                color_img = (
+                    ProductColorImage.objects.filter(product=obj)
+                    .order_by("-is_primary", "sort_order", "created_at")
+                    .first()
+                )
+                if color_img and color_img.image:
+                    return color_img
 
         img = (
             ProductImage.objects.filter(variant__product=obj)

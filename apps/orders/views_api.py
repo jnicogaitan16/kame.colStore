@@ -20,6 +20,15 @@ from rest_framework.views import APIView
 from rest_framework.exceptions import ValidationError
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework.permissions import AllowAny
+from rest_framework.throttling import AnonRateThrottle
+
+
+class CheckoutThrottle(AnonRateThrottle):
+    scope = "checkout"
+
+
+class StockValidateThrottle(AnonRateThrottle):
+    scope = "stock_validate"
 
 from apps.catalog.models import ProductVariant
 
@@ -132,6 +141,7 @@ class StockValidateAPIView(APIView):
     """
     permission_classes = [AllowAny]
     authentication_classes = []
+    throttle_classes = [StockValidateThrottle]
 
     @method_decorator(never_cache)
     def post(self, request, *args, **kwargs):
@@ -310,6 +320,7 @@ class CheckoutAPIView(APIView):
     """
     permission_classes = [AllowAny]
     authentication_classes = []
+    throttle_classes = [CheckoutThrottle]
 
     @method_decorator(never_cache)
     def post(self, request, *args, **kwargs):
@@ -388,7 +399,7 @@ class CheckoutAPIView(APIView):
                 {"items": ["items debe incluir al menos un product_variant_id válido."]}
             )
 
-        variants = ProductVariant.objects.filter(id__in=variant_ids)
+        variants = ProductVariant.objects.select_related("product").filter(id__in=variant_ids)
         variants_by_id = {v.id: v for v in variants}
 
         missing_variant_ids = [vid for vid in variant_ids if vid not in variants_by_id]
@@ -411,10 +422,8 @@ class CheckoutAPIView(APIView):
                     {"items": ["quantity debe ser mayor a 0 para todos los items."]}
                 )
 
-            # Precio: preferir unit_price enviado; fallback a precio del variant si existe
-            price = row.get("unit_price")
-            if price is None:
-                price = int(getattr(variant, "price", 0) or 0)
+            # Precio siempre desde el backend — ignorar unit_price del frontend (S6)
+            price = int(getattr(getattr(variant, "product", None), "price", 0) or 0)
 
             cart_items.append(
                 {

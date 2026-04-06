@@ -216,8 +216,8 @@ tests/e2e/                # Playwright E2E
 
 | Destino | Costo |
 |---|---|
-| Bogotá D.C. | $10.000 COP |
-| Nacional | $20.000 COP |
+| Bogotá D.C. | $14.900 COP |
+| Nacional | $24.900 COP |
 | Subtotal ≥ $170.000 COP | Gratis |
 
 Lógica en `apps/orders/services/shipping.py`.

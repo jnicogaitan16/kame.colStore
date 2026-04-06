@@ -937,6 +937,11 @@ class HomepageBanner(models.Model):
             return
 
         lowered = raw.lower()
+        # Block javascript: protocol (XSS vector)
+        if lowered.startswith("javascript:"):
+            raise ValidationError({
+                "cta_url": "La URL del CTA no puede usar el protocolo javascript:."
+            })
         # Block absolute URLs or host-based URLs.
         if lowered.startswith("http://") or lowered.startswith("https://"):
             raise ValidationError({
@@ -1062,6 +1067,30 @@ class HomepagePromo(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def clean(self):
+        super().clean()
+        raw = (self.cta_url or "").strip()
+        if not raw:
+            self.cta_url = ""
+            return
+        lowered = raw.lower()
+        if lowered.startswith("javascript:"):
+            raise ValidationError({
+                "cta_url": "La URL del CTA no puede usar el protocolo javascript:."
+            })
+        if lowered.startswith("http://") or lowered.startswith("https://"):
+            raise ValidationError({
+                "cta_url": "La URL del CTA debe ser relativa (ej: /catalogo). No uses http(s)://."
+            })
+        forbidden_markers = ["localhost", "127.0.0.1", "0.0.0.0", ".trycloudflare.com", "192.168."]
+        if any(m in lowered for m in forbidden_markers):
+            raise ValidationError({
+                "cta_url": "La URL del CTA debe ser relativa (ej: /catalogo). No uses hosts/IPs."
+            })
+        if not raw.startswith("/"):
+            raw = "/" + raw.lstrip()
+        self.cta_url = raw
 
     class Meta:
         ordering = ["sort_order", "id"]

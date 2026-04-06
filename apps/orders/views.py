@@ -1,5 +1,6 @@
 import logging
 
+from django.contrib.admin.views.decorators import staff_member_required
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_GET
@@ -10,6 +11,7 @@ from apps.catalog.models import ProductVariant
 logger = logging.getLogger(__name__)
 
 
+@staff_member_required
 @require_GET
 def customer_snapshot_view(request):
     """Return customer snapshot data without saving the order.
@@ -55,6 +57,7 @@ def customer_snapshot_view(request):
     )
 
 
+@staff_member_required
 @require_GET
 def variant_price_view(request):
     variant_id = request.GET.get("variant_id")
