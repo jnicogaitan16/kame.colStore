@@ -18,8 +18,14 @@ from django.contrib import admin
 from django.urls import include, path
 from django.conf import settings
 from django.conf.urls.static import static
+from two_factor.admin import AdminSiteOTPRequired
+from two_factor.urls import urlpatterns as tf_urls
+
+# Force the admin site to require 2FA for every staff user.
+admin.site.__class__ = AdminSiteOTPRequired
 
 urlpatterns = [
+    path("", include(tf_urls)),
     path("admin/", admin.site.urls),
     path("orders/", include("apps.orders.urls")),
     # Catálogo bajo /api/
