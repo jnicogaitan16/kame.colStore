@@ -42,7 +42,7 @@ DEBUG = os.getenv("DJANGO_DEBUG", "True").lower() in ("1", "true", "yes", "on")
 ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
-    "192.168.20.128",  # LAN IP
+    *([os.getenv("DJANGO_LAN_IP")] if os.getenv("DJANGO_LAN_IP") else []),
     "0.0.0.0",
 ]
 
@@ -97,6 +97,12 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
+    # 2FA
+    'django_otp',
+    'django_otp.plugins.otp_totp',
+    'django_otp.plugins.otp_static',
+    'two_factor',
+
     'rest_framework',
     'imagekit',
     'storages',
@@ -109,12 +115,14 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'config.middleware.AdminIPRestrictionMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django_otp.middleware.OTPMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -437,3 +445,11 @@ LOGGING = {
         'level': 'WARNING',
     },
 }
+
+# Two-factor auth
+LOGIN_URL = 'two_factor:login'
+
+# Admin IP allowlist — comma-separated IPs in ADMIN_ALLOWED_IPS env var.
+# Leave empty to disable the restriction (e.g. local dev without the var set).
+_raw_admin_ips = os.getenv("ADMIN_ALLOWED_IPS", "")
+ADMIN_ALLOWED_IPS = {ip.strip() for ip in _raw_admin_ips.split(",") if ip.strip()}
