@@ -29,14 +29,15 @@ load_dotenv(BASE_DIR / ".env")
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv(
-    "DJANGO_SECRET_KEY",
-    "django-insecure-change-me",  # fallback sólo para desarrollo
-)
-
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv("DJANGO_DEBUG", "True").lower() in ("1", "true", "yes", "on")
+DEBUG = os.getenv("DJANGO_DEBUG", "False").lower() in ("1", "true", "yes", "on")
+
+# SECURITY WARNING: keep the secret key used in production secret!
+# En producción (DEBUG=False) la app falla hard si DJANGO_SECRET_KEY no está configurado.
+if not DEBUG:
+    SECRET_KEY = os.environ["DJANGO_SECRET_KEY"]
+else:
+    SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "django-insecure-change-me")
 
  # Explicit allowed hosts for local dev + LAN access
 ALLOWED_HOSTS = [
@@ -81,6 +82,12 @@ SECURE_SSL_REDIRECT = os.getenv("DJANGO_SECURE_SSL_REDIRECT", "False").lower() i
 if DEBUG:
     # Default to False in DEBUG unless explicitly enabled via env.
     SECURE_SSL_REDIRECT = os.getenv("DJANGO_SECURE_SSL_REDIRECT", "False").lower() in ("1", "true", "yes", "on")
+
+# Cookie security flags
+SESSION_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_HTTPONLY = True
+CSRF_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_SAMESITE = "Lax"
 
 # For APIs behind proxies/rewrites (Next.js / Cloudflare Tunnel),
 # disable Django's automatic slash-append redirects to avoid 301 loops.
@@ -322,6 +329,14 @@ REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": [
         "rest_framework.renderers.JSONRenderer",
     ],
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "60/minute",
+        "checkout": "5/minute",
+        "stock_validate": "30/minute",
+    },
 }
 
 
