@@ -4,12 +4,15 @@
 [![Next.js](https://img.shields.io/badge/frontend-Next.js%2014-black)]()
 [![PostgreSQL](https://img.shields.io/badge/database-PostgreSQL-blue)]()
 [![Status](https://img.shields.io/badge/status-MVP%20Ready-success)]()
-[![License](https://img.shields.io/badge/license-MIT-lightgrey)]()
+[![License](https://img.shields.io/badge/license-Restricted-orange)]()
+
+## 🌐 Live Product
+
+👕 **https://www.kamecol.com/**
 
 Tienda virtual de ropa streetwear (**Kame.col**) con arquitectura moderna:  
 **Backend Django + API REST + Frontend Next.js + Admin interno + Analytics + Tracking propio**
 
----
 
 ## ✨ Features
 
@@ -23,7 +26,6 @@ Tienda virtual de ropa streetwear (**Kame.col**) con arquitectura moderna:
 - 📧 Emails transaccionales (Resend)
 - 🧪 Tests E2E con Playwright
 
----
 
 ## 🧱 Tech Stack
 
@@ -38,7 +40,6 @@ Tienda virtual de ropa streetwear (**Kame.col**) con arquitectura moderna:
 | Emails | Resend |
 | Testing | Playwright |
 
----
 
 ## 📸 Screenshots
 
@@ -54,7 +55,6 @@ Tienda virtual de ropa streetwear (**Kame.col**) con arquitectura moderna:
 ### 📦 Orders Management
 ![Orders](./docs/screenshots/orders.png)
 
----
 
 ## ⚡ Quick Start
 
