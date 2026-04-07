@@ -37,10 +37,14 @@ Tu pago fue confirmado y ya estamos preparando tu pedido.
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
           <tr class="stack-col">
             <td style="vertical-align:top; padding:0 24px 0 0;">
-              <p class="meta-title" style="margin:0;">Pagado desde</p>
-              <p class="meta-value" style="margin:4px 0 0 0;">
-                Wompi
-              </p>
+              {% if payment_method %}
+                <p class="meta-title" style="margin:0;">Pagado desde</p>
+                <p class="meta-value" style="margin:4px 0 0 0;">{{ payment_method }}</p>
+              {% endif %}
+              {% if reference %}
+                <p class="meta-title" style="margin:14px 0 0 0;">Referencia</p>
+                <p class="meta-value" style="margin:4px 0 0 0;">{{ reference }}</p>
+              {% endif %}
             </td>
             <td style="width:228px; min-width:228px; vertical-align:top; padding:0;">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
