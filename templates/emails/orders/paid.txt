@@ -8,8 +8,8 @@ Tu pago fue confirmado y ya estamos preparando tu pedido.
 —
 Resumen
 
-Pagado desde: Wompi
-Subtotal: {{ subtotal_fmt }}
+{% if payment_method %}Pagado desde: {{ payment_method }}
+{% endif %}Subtotal: {{ subtotal_fmt }}
 Envío: {% if shipping_is_free %}Gratis{% else %}{{ shipping_cost_fmt }}{% endif %}
 Total: {{ total_fmt }}
 {% if reference %}Referencia: {{ reference }}{% endif %}
