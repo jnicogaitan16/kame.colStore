@@ -144,6 +144,24 @@ export type CheckoutResponse = {
   total?: number;
 };
 
+export type WompiSignatureResponse = {
+  reference: string;
+  amount_in_cents: number;
+  currency: string;
+  integrity: string;
+  public_key: string;
+};
+
+export type TransactionStatusResponse = {
+  order_id: number;
+  payment_reference: string;
+  status: string;
+  wompi_transaction_id?: string | null;
+  total?: number;
+  subtotal?: number;
+  shipping_cost?: number;
+};
+
 export type ProductFetchOptions = {
   cache?: RequestCache;
   next?: {
@@ -692,6 +710,33 @@ export async function validateCartStock(
     hintsByVariantId,
     items: rows.length ? rows : undefined,
   };
+}
+
+/**
+ * Wompi — firma de integridad para el Widget.
+ *
+ * Cache policy: sin caché (mutable, sensible).
+ */
+export async function getWompiSignature(
+  reference: string
+): Promise<WompiSignatureResponse> {
+  return apiFetch<WompiSignatureResponse>(
+    `/wompi-signature/?reference=${encodeURIComponent(reference)}`
+  );
+}
+
+/**
+ * Estado de una transacción Wompi por payment_reference.
+ * Usado por la página /checkout/resultado.
+ *
+ * Cache policy: sin caché.
+ */
+export async function getTransactionStatus(
+  reference: string
+): Promise<TransactionStatusResponse> {
+  return apiFetch<TransactionStatusResponse>(
+    `/transaction-status/${encodeURIComponent(reference)}/`
+  );
 }
 
 /**

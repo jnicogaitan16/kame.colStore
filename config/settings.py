@@ -461,6 +461,19 @@ LOGGING = {
     },
 }
 
+# =========================
+# Wompi — Pasarela de pagos
+# =========================
+# Dashboard: https://dashboard.wompi.co/app/en/developers
+# WOMPI_PUBLIC_KEY    → frontend (Next.js)
+# WOMPI_PRIVATE_KEY   → backend únicamente, NUNCA exponer al frontend
+# WOMPI_EVENTS_SECRET → validar checksum del webhook entrante
+# WOMPI_INTEGRITY_SECRET → generar firma para el Widget
+WOMPI_PUBLIC_KEY = os.getenv("WOMPI_PUBLIC_KEY", "")
+WOMPI_PRIVATE_KEY = os.getenv("WOMPI_PRIVATE_KEY", "")
+WOMPI_EVENTS_SECRET = os.getenv("WOMPI_EVENTS_SECRET", "")
+WOMPI_INTEGRITY_SECRET = os.getenv("WOMPI_INTEGRITY_SECRET", "")
+
 # Two-factor auth
 LOGIN_URL = 'two_factor:login'
 

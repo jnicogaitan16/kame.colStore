@@ -31,6 +31,7 @@ class StockValidateThrottle(AnonRateThrottle):
     scope = "stock_validate"
 
 from apps.catalog.models import ProductVariant
+from apps.orders.models import Order
 
 from apps.orders.constants import CITY_CHOICES
 from apps.orders.serializers import CheckoutSerializer
@@ -38,6 +39,11 @@ from apps.orders.services.create_order_from_cart import create_order_from_cart, 
 from apps.orders.services.shipping import calculate_shipping_cost
 
 from apps.orders.services.cart_validation import validate_cart_stock
+from apps.orders.services.wompi import (
+    cop_to_wompi_cents,
+    generate_integrity_signature,
+    validate_webhook_signature,
+)
 
 
 
@@ -530,3 +536,183 @@ class CheckoutAPIView(APIView):
             },
             status=status.HTTP_201_CREATED,
         )
+
+
+# ---------------------------------------------------------------------------
+# Wompi — Pasarela de pagos
+# ---------------------------------------------------------------------------
+
+class WompiSignatureAPIView(APIView):
+    """GET /api/wompi-signature/?reference=<ref>
+
+    Genera la firma de integridad para el Widget de Wompi.
+    La referencia de pago actúa como token de acceso — no requiere auth adicional.
+    """
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    @method_decorator(never_cache)
+    def get(self, request, *args, **kwargs):
+        reference = request.query_params.get("reference", "").strip()
+        if not reference:
+            return Response(
+                {"detail": "reference es requerido."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            order = Order.objects.get(payment_reference=reference)
+        except Order.DoesNotExist:
+            return Response(
+                {"detail": "Orden no encontrada."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        if order.status not in (Order.Status.PENDING_PAYMENT, Order.Status.CREATED):
+            return Response(
+                {"detail": "La orden no está pendiente de pago."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        amount_in_cents = cop_to_wompi_cents(int(order.total or 0))
+        currency = "COP"
+        integrity = generate_integrity_signature(reference, amount_in_cents, currency)
+
+        return Response({
+            "reference": reference,
+            "amount_in_cents": amount_in_cents,
+            "currency": currency,
+            "integrity": integrity,
+            "public_key": settings.WOMPI_PUBLIC_KEY,
+        })
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class WompiWebhookAPIView(APIView):
+    """POST /api/orders/wompi-webhook/
+
+    Recibe eventos de Wompi (transaction.updated).
+    Valida la firma antes de procesar.
+    Idempotente: Wompi puede reenviar el mismo evento múltiples veces.
+    """
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    throttle_classes = []  # Los servidores de Wompi no deben ser throttleados
+
+    @method_decorator(never_cache)
+    def post(self, request, *args, **kwargs):
+        data = request.data
+        if not isinstance(data, dict):
+            return Response({"detail": "Payload inválido."}, status=status.HTTP_400_BAD_REQUEST)
+
+        event = data.get("event", "")
+        signature_obj = data.get("signature") or {}
+        timestamp_raw = data.get("timestamp")
+        checksum = signature_obj.get("checksum", "")
+        properties = signature_obj.get("properties") or []
+
+        try:
+            timestamp = int(timestamp_raw or 0)
+        except (TypeError, ValueError):
+            timestamp = 0
+
+        logger.warning("WOMPI WEBHOOK raw event=%s timestamp=%s checksum=%s properties=%s",
+                       event, timestamp, checksum, properties)
+
+        if not validate_webhook_signature(data, properties, checksum, timestamp):
+            return Response({"detail": "Firma inválida."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        # Solo procesamos transaction.updated
+        if event != "transaction.updated":
+            return Response({"ok": True})
+
+        transaction_data = data.get("data", {}).get("transaction", {})
+        transaction_id = str(transaction_data.get("id", "") or "")
+        tx_status = str(transaction_data.get("status", "") or "")
+        reference = str(transaction_data.get("reference", "") or "")
+        amount_in_cents = int(transaction_data.get("amount_in_cents", 0) or 0)
+
+        if not reference:
+            return Response({"ok": True})
+
+        try:
+            order = Order.objects.get(payment_reference=reference)
+        except Order.DoesNotExist:
+            logger.warning("Wompi webhook: orden no encontrada para reference=%s", reference)
+            return Response({"ok": True})
+
+        # Verificar que el monto coincide con el total de la orden
+        expected_cents = cop_to_wompi_cents(int(order.total or 0))
+        if amount_in_cents != expected_cents:
+            logger.warning(
+                "Wompi webhook: monto inválido para orden #%s esperado=%s recibido=%s",
+                order.id,
+                expected_cents,
+                amount_in_cents,
+            )
+            return Response({"detail": "Monto inválido."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Guardar transaction_id (siempre, para trazabilidad)
+        if transaction_id:
+            Order.objects.filter(pk=order.pk).update(wompi_transaction_id=transaction_id)
+
+        if tx_status == "APPROVED":
+            try:
+                order.confirm_payment()
+                logger.info("Wompi webhook: pago confirmado para orden #%s", order.id)
+            except Exception:
+                logger.exception("Wompi webhook: error al confirmar pago de orden #%s", order.id)
+                return Response(
+                    {"detail": "Error al confirmar pago."},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+        elif tx_status in ("DECLINED", "ERROR"):
+            if order.status == Order.Status.PENDING_PAYMENT:
+                Order.objects.filter(pk=order.pk).update(status=Order.Status.CANCELLED)
+                logger.info(
+                    "Wompi webhook: orden #%s cancelada (status Wompi=%s)",
+                    order.id,
+                    tx_status,
+                )
+
+        return Response({"ok": True})
+
+
+class TransactionStatusAPIView(APIView):
+    """GET /api/transaction-status/<reference>/
+
+    Devuelve el estado de una orden por su payment_reference.
+    Usado por la página de resultado post-pago.
+    """
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    @method_decorator(never_cache)
+    def get(self, request, reference, *args, **kwargs):
+        reference = str(reference or "").strip()
+        if not reference:
+            return Response(
+                {"detail": "reference es requerido."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            order = Order.objects.get(payment_reference=reference)
+        except Order.DoesNotExist:
+            return Response(
+                {"detail": "Orden no encontrada."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        return Response({
+            "order_id": order.id,
+            "payment_reference": order.payment_reference,
+            "status": order.status,
+            "wompi_transaction_id": getattr(order, "wompi_transaction_id", "") or "",
+            "total": int(order.total or 0),
+            "subtotal": int(order.subtotal or 0),
+            "shipping_cost": int(order.shipping_cost or 0),
+        })

@@ -9,6 +9,6 @@ app_name = "orders"
 
 urlpatterns = [
     # Admin utilities — used by order_admin_shipping.js
-    path("api/customer-snapshot/", customer_snapshot_view, name="customer_snapshot"),
-    path("api/variant-price/", variant_price_view, name="variant_price"),
+    path("customer-snapshot/", customer_snapshot_view, name="customer_snapshot"),
+    path("variant-price/", variant_price_view, name="variant_price"),
 ]

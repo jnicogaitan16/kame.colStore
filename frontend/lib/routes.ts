@@ -18,3 +18,9 @@ export function productPath(slug: string) {
   const s = encodeURIComponent(String(slug || "").trim());
   return `/producto/${s}`;
 }
+
+export function checkoutResultPath(reference: string, widgetStatus?: string) {
+  const ref = encodeURIComponent(String(reference || "").trim());
+  const base = `/checkout/resultado?ref=${ref}`;
+  return widgetStatus ? `${base}&ws=${encodeURIComponent(widgetStatus)}` : base;
+}

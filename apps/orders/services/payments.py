@@ -3,7 +3,6 @@ from __future__ import annotations
 import base64
 import logging
 import secrets
-from datetime import date
 from typing import Dict
 
 from django.core.exceptions import ValidationError
@@ -17,25 +16,24 @@ from apps.orders.services.stock import assert_items_stock, decrement_items_stock
 logger = logging.getLogger(__name__)
 
 
-def generate_payment_reference(prefix: str = "KME", max_attempts: int = 5) -> str:
+def generate_payment_reference(order_id: int, max_attempts: int = 5) -> str:
     """
-    Genera una referencia de pago corta y única.
+    Genera una referencia de pago única para una orden ya creada.
 
-    Formato: KME-YYYYMMDD-XXXXXX
-    Donde XXXXXX es un código random en Base32 (A-Z2-7), sin padding.
+    Formato: KAME-{order_id}-{XXXXXX}
+    Donde XXXXXX es un código alfanumérico random en Base32 (A-Z2-7), sin padding.
 
+    Requiere que la Order ya exista (para incluir su pk en la referencia).
     Valida unicidad contra Order.payment_reference con hasta `max_attempts` intentos.
     """
-    today = date.today().strftime("%Y%m%d")
-
-    def _random_base32_code(length: int = 6) -> str:
+    def _random_code(length: int = 6) -> str:
         raw = secrets.token_bytes(5)
         code = base64.b32encode(raw).decode("ascii").rstrip("=")
         return code[:length].upper()
 
     for _ in range(max_attempts):
-        code = _random_base32_code(6)
-        ref = f"{prefix}-{today}-{code}"
+        code = _random_code(6)
+        ref = f"KAME-{order_id}-{code}"
         if not Order.objects.filter(payment_reference=ref).exists():
             return ref
 
@@ -127,7 +125,7 @@ def confirm_order_payment(order: Order) -> None:
             payment_reference = None
         else:
             if not payment_reference:
-                payment_reference = generate_payment_reference()
+                payment_reference = generate_payment_reference(locked_order.id)
                 locked_order.payment_reference = payment_reference
 
         # Recalcular montos (asumimos que NO guarda; solo setea campos)
