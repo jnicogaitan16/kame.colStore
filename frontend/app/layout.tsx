@@ -7,6 +7,7 @@ import { MiniCart } from "@/components/cart/MiniCart";
 import { CartHydration } from "@/components/cart/CartHydration";
 import CartAddFlyout from "@/components/cart/CartAddFlyout";
 import Footer from "@/components/layout/Footer";
+import TrackerInit from "@/components/analytics/TrackerInit";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -70,6 +71,7 @@ export default function RootLayout({
       >
         <div className="site-shell min-h-screen bg-stone-50 text-zinc-950">
           <CartHydration />
+          <TrackerInit />
           <HeaderServer />
           <CartAddFlyout />
           {/*

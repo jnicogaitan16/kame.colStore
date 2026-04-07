@@ -1,164 +1,216 @@
-```markdown
-# Kame.colStore
+🚀 Kame.col
 
-Tienda virtual de ropa streetwear (Kame.col) — backend Django 5.2 + storefront público Next.js 14. El backend expone una API REST consumida exclusivamente por el frontend; no hay UI Django para clientes.
+[![Django](https://img.shields.io/badge/backend-Django%205.2-green)]()
+[![Next.js](https://img.shields.io/badge/frontend-Next.js%2014-black)]()
+[![PostgreSQL](https://img.shields.io/badge/database-PostgreSQL-blue)]()
+[![Status](https://img.shields.io/badge/status-MVP%20Ready-success)]()
+[![License](https://img.shields.io/badge/license-MIT-lightgrey)]()
 
----
-
-## Stack
-
-| Capa | Tecnología |
-|---|---|
-| Backend API | Django 5.2 + Django REST Framework 3.15 |
-| Frontend | Next.js 14.2 (App Router) |
-| Carrito cliente | Zustand + localStorage |
-| Estilos | Tailwind CSS |
-| Pasarela de pagos | Wompi (Widget + Webhooks) |
-| Emails transaccionales | Resend |
-| 2FA Admin | django-otp + django-two-factor-auth |
-| DB desarrollo | SQLite |
-| DB producción | PostgreSQL |
+Tienda virtual de ropa streetwear (**Kame.col**) con arquitectura moderna:  
+**Backend Django + API REST + Frontend Next.js + Admin interno + Analytics + Tracking propio**
 
 ---
 
-## Inicio rápido
+## ✨ Features
 
-### Backend
+- 🛒 E-commerce completo (catálogo, carrito, checkout)
+- 💳 Integración con **Wompi** (pagos + webhooks)
+- 📦 Gestión de órdenes (PENDING → PAID → SHIPPED)
+- 📊 Panel admin interno (dashboard, órdenes, inventario, clientes)
+- 📈 Analytics + tracking de comportamiento (eventos reales)
+- 🧠 Sistema de inventario robusto (`InventoryPool`)
+- 🔐 Autenticación segura + soporte 2FA
+- 📧 Emails transaccionales (Resend)
+- 🧪 Tests E2E con Playwright
+
+---
+
+## 🧱 Tech Stack
+
+| Layer | Tech |
+|------|------|
+| Backend | Django 5.2 + DRF |
+| Frontend | Next.js 14 (App Router) |
+| Database | PostgreSQL |
+| State | Zustand |
+| Styling | Tailwind CSS |
+| Payments | Wompi |
+| Emails | Resend |
+| Testing | Playwright |
+
+---
+
+## 📸 Screenshots
+
+> Agrega aquí imágenes reales del proyecto
+
+### 🏠 Storefront
+![Storefront](./docs/screenshots/storefront.png)
+
+### 🛒 Checkout
+![Checkout](./docs/screenshots/checkout.png)
+
+### 📊 Admin Dashboard
+![Dashboard](./docs/screenshots/admin-dashboard.png)
+
+### 📦 Orders Management
+![Orders](./docs/screenshots/orders.png)
+
+---
+
+## ⚡ Quick Start
+
+### 1. Backend
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements/base.txt
-python manage.py migrate
-python manage.py createsuperuser
-python manage.py runserver
-```
 
-### Frontend
+Crear .env:
 
-Requiere **Node.js 18+**.
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Django en `:8000`, Next.js en `:3000`.
-
----
-
-## Variables de entorno
-
-### Backend (`.env` en raíz)
-
-```env
 DJANGO_SECRET_KEY=
 DJANGO_DEBUG=True
 DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1
-DATABASE_URL=sqlite:///db.sqlite3
 
-# Wompi
+DB_NAME=kamecol_dev
+DB_USER=tu_usuario
+DB_PASSWORD=tu_password
+DB_HOST=localhost
+DB_PORT=5432
+
 WOMPI_PUBLIC_KEY=pub_test_...
 WOMPI_PRIVATE_KEY=prv_test_...
-WOMPI_EVENTS_SECRET=test_events_...
-WOMPI_INTEGRITY_SECRET=test_integrity_...
+WOMPI_EVENTS_SECRET=...
+WOMPI_INTEGRITY_SECRET=...
 
-# Email
 RESEND_API_KEY=
-```
 
-### Frontend (`frontend/.env.local`)
+Configurar DB:
 
-```env
-NEXT_PUBLIC_BACKEND_URL=http://localhost:8000
-NEXT_PUBLIC_SITE_URL=http://localhost:3000
-NEXT_PUBLIC_WOMPI_PUBLIC_KEY=pub_test_...
-NEXT_PUBLIC_WHATSAPP_PHONE=57XXXXXXXXXX
-```
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.getenv("DB_NAME"),
+        "USER": os.getenv("DB_USER"),
+        "PASSWORD": os.getenv("DB_PASSWORD"),
+        "HOST": os.getenv("DB_HOST", "localhost"),
+        "PORT": os.getenv("DB_PORT", "5432"),
+    }
+}
 
----
+Run:
 
-## Estructura
+python manage.py migrate
+python manage.py createsuperuser
+python manage.py runserver
 
-```
+
+⸻
+
+2. Frontend
+
+cd frontend
+npm install
+npm run dev
+
+	•	Backend → http://localhost:8000
+	•	Frontend → http://localhost:3000
+
+⸻
+
+🧠 Arquitectura
+
+🔹 Inventory System
+	•	InventoryPool es la única fuente de verdad
+	•	Evita inconsistencias entre variantes
+
+🔹 Cart System
+	•	100% frontend (Zustand + localStorage)
+	•	Backend revalida stock y precios
+
+🔹 Checkout Flow
+
+User → Checkout → Order (PENDING_PAYMENT)
+     → Wompi Widget
+     → Webhook
+         → PAID → stock ↓ + email
+         → FAILED → cancel
+
+🔹 Tracking System
+
+Eventos capturados:
+	•	product_view
+	•	add_to_cart
+	•	checkout_start
+	•	purchase_complete
+
+Batch + sendBeacon para performance óptima
+
+⸻
+
+🧪 Testing
+
+cd tests
+npx playwright test
+
+Incluye:
+	•	Checkout flow
+	•	Carrito
+	•	Navegación
+	•	Validaciones críticas
+
+⸻
+
+📦 Estructura
+
 kame.colStore/
 ├── apps/
-│   ├── catalog/          # Productos, variantes, categorías, InventoryPool
-│   ├── orders/           # Checkout, órdenes, integración Wompi
-│   │   └── services/     # Lógica de negocio (cart, stock, shipping, wompi)
-│   ├── customers/        # Modelo de cliente
-│   └── notifications/    # Emails transaccionales (Resend)
-├── config/               # settings.py, urls.py
-├── templates/
-│   ├── admin/            # Overrides del admin Django
-│   └── emails/           # Templates HTML de emails
+│   ├── catalog/
+│   ├── orders/
+│   ├── customers/
+│   └── notifications/
+├── config/
 ├── frontend/
-│   ├── app/
-│   │   ├── catalogo/     # Listado de productos
-│   │   ├── producto/     # Detalle de producto (PDP)
-│   │   └── checkout/     # Flujo de compra + página de resultado
-│   ├── components/       # Componentes React (product, cart, ui)
-│   ├── lib/              # Cliente API, helpers de Wompi, normalización
-│   ├── store/            # Estado global (Zustand)
-│   └── types/            # Tipos TypeScript canónicos
+├── templates/
 └── tests/
-    └── e2e/              # Tests Playwright (checkout, cart, product, navigation)
-```
 
----
 
-## Arquitectura
+⸻
 
-### Stock — `InventoryPool`
+🚚 Shipping Rules
 
-El stock no se lee de `ProductVariant.stock`. `InventoryPool` es la fuente única — los serializers y la validación de checkout lo consultan exclusivamente.
+Región	Costo
+Bogotá	$14.900 COP
+Nacional	$24.900 COP
++$170.000	Gratis
 
-### Carrito
 
-100% cliente (Zustand + `localStorage`). Django no tiene estado de carrito. El frontend envía el snapshot al crear la orden; el backend revalida stock y recalcula precios.
+⸻
 
-### Flujo de compra
+⚠️ Troubleshooting
+	•	ECONNREFUSED :8000 → Backend no corriendo
+	•	SECRET_KEY not found → Revisar .env
+	•	Webhooks Wompi → usar ngrok http 8000
 
-```
-Cliente → checkout → orden PENDING_PAYMENT
-       → Widget Wompi (firma de integridad desde backend)
-       → Pago aprobado → webhook → PAID + stock descontado + email
-                       → Pago rechazado → CANCELLED
-```
+⸻
 
-### Admin
+📌 Roadmap
+	•	Integración con couriers (API real)
+	•	Panel de promociones
+	•	Recomendaciones de productos
+	•	CI/CD pipeline
+	•	Observabilidad (logs + metrics)
 
-Requiere **2FA** para todos los usuarios staff. Configurar en `/account/two-factor/setup/` tras crear el superusuario. Compatible con Google Authenticator, Authy y similares.
+⸻
 
----
+👨‍💻 Author
 
-## Tests E2E
+Nicolás Gaitán
+QA Engineer | Backend | E-commerce Builder
 
-```bash
-# Local (requiere Django en :8000 y Next.js en :3000)
-cd tests && npx playwright test
+⸻
 
-# Simular CI
-cd frontend && npm run build
-cd ../tests && CI=true npx playwright test
-```
+⭐ Contribuciones
 
----
-
-## Envíos (Servientrega)
-
-| Destino | Costo |
-|---|---|
-| Bogotá D.C. | $10.000 COP |
-| Nacional | $20.000 COP |
-| Pedidos desde $170.000 | Gratis |
-
----
-
-## Troubleshooting
-
-**`ECONNREFUSED :8000`** — Django no está corriendo.  
-**`SECRET_KEY not found`** — Crear `.env` con `DJANGO_SECRET_KEY`.  
-**Webhook Wompi 404 en local** — Exponer con `ngrok http 8000` y agregar el dominio a `DJANGO_ALLOWED_HOSTS`.
-```
+PRs y feedback son bienvenidos.

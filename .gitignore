@@ -23,3 +23,4 @@ test-results/
 .playwright/
 *.tsbuildinfo
 .claude/
+CLAUDE.md

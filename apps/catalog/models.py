@@ -377,6 +377,34 @@ class InventoryPool(models.Model):
 
 
 
+class InventoryAdjustmentLog(models.Model):
+    """Historial de ajustes manuales de inventario desde el panel admin."""
+
+    inventory_pool = models.ForeignKey(
+        InventoryPool,
+        on_delete=models.CASCADE,
+        related_name="adjustment_logs",
+    )
+    previous_stock = models.IntegerField()
+    new_stock = models.IntegerField()
+    reason = models.TextField(blank=True, default="")
+    adjusted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        diff = self.new_stock - self.previous_stock
+        sign = "+" if diff >= 0 else ""
+        return f"{self.inventory_pool} {sign}{diff}"
+
+
 def product_image_upload_path(instance, filename):
     """Generate upload path for product variant images with unique filenames."""
     ext = os.path.splitext(filename)[1].lower()
