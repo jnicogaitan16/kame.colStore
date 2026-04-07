@@ -1,4 +1,4 @@
-🚀 Kame.col
+## 🚀 Kame.col
 
 [![Django](https://img.shields.io/badge/backend-Django%205.2-green)]()
 [![Next.js](https://img.shields.io/badge/frontend-Next.js%2014-black)]()
@@ -41,8 +41,6 @@ Tienda virtual de ropa streetwear (**Kame.col**) con arquitectura moderna:
 ---
 
 ## 📸 Screenshots
-
-> Agrega aquí imágenes reales del proyecto
 
 ### 🏠 Storefront
 ![Storefront](./docs/screenshots/storefront.png)
