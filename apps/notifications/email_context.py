@@ -108,7 +108,7 @@ def build_payment_confirmed_context(order) -> dict:
     order_number = getattr(order, "id", None)
     to_email = (getattr(order, "email", "") or "").strip() or None
     reference = (getattr(order, "payment_reference", "") or "").strip() or None
-    payment_method = "Transferencia Bre-B"
+    payment_method = getattr(order, "payment_method", "").strip()
 
     raw_subtotal = getattr(order, "subtotal", None)
     raw_shipping_cost = getattr(order, "shipping_cost", None)

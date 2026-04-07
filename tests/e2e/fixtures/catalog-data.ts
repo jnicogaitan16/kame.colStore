@@ -189,5 +189,17 @@ export const CHECKOUT_SUCCESS_MOCK = {
   ok: true,
   order_id: 999,
   order_number: "ORD-999",
-  total: "99000.00",
+  payment_reference: "KAME-999-TESTXX",
+  status: "pending_payment",
+  subtotal: 85000,
+  shipping_cost: 14900,
+  total: 99900,
+};
+
+export const WOMPI_SIGNATURE_MOCK = {
+  reference: "KAME-999-TESTXX",
+  amount_in_cents: 9990000,
+  currency: "COP",
+  integrity: "aabbccdd1122334455667788aabbccdd1122334455667788aabbccdd11223344",
+  public_key: "pub_test_fake_e2e",
 };

@@ -52,6 +52,7 @@ jobs:
           NEXT_PUBLIC_WHATSAPP_PHONE: "573137000000"
           NEXT_PUBLIC_API_URL: http://localhost:3000/api
           DJANGO_API_BASE: http://localhost:3001
+          NEXT_PUBLIC_WOMPI_PUBLIC_KEY: pub_test_e2e_placeholder
 
       - name: Stop mock backend
         if: always()

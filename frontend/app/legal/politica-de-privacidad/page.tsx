@@ -64,49 +64,29 @@ export default function PoliticaDePrivacidadPage() {
             Salta directo a la sección que necesitas.
           </p>
           <div className="mt-3.5 flex flex-wrap gap-3">
-            <Link
-              className="type-action rounded-full border border-black/10 bg-[#fafaf7] px-4 py-2 text-black/74 transition hover:border-black/16 hover:bg-black/[0.03] hover:text-black"
-              href="#terminos"
-            >
-              Términos
-            </Link>
-            <Link
-              className="type-action rounded-full border border-black/10 bg-[#fafaf7] px-4 py-2 text-black/74 transition hover:border-black/16 hover:bg-black/[0.03] hover:text-black"
-              href="#pagos"
-            >
-              Pagos
-            </Link>
-            <Link
-              className="type-action rounded-full border border-black/10 bg-[#fafaf7] px-4 py-2 text-black/74 transition hover:border-black/16 hover:bg-black/[0.03] hover:text-black"
-              href="#envios"
-            >
-              Envíos
-            </Link>
-            <Link
-              className="type-action rounded-full border border-black/10 bg-[#fafaf7] px-4 py-2 text-black/74 transition hover:border-black/16 hover:bg-black/[0.03] hover:text-black"
-              href="#garantias"
-            >
-              Garantías
-            </Link>
-            <Link
-              className="type-action rounded-full border border-black/10 bg-[#fafaf7] px-4 py-2 text-black/74 transition hover:border-black/16 hover:bg-black/[0.03] hover:text-black"
-              href="#privacidad"
-            >
-              Privacidad
-            </Link>
-            <Link
-              className="type-action rounded-full border border-black/10 bg-[#fafaf7] px-4 py-2 text-black/74 transition hover:border-black/16 hover:bg-black/[0.03] hover:text-black"
-              href="#cookies"
-            >
-              Cookies
-            </Link>
+            {[
+              { href: "#terminos", label: "Términos" },
+              { href: "#pagos", label: "Pagos" },
+              { href: "#envios", label: "Envíos" },
+              { href: "#garantias", label: "Garantías" },
+              { href: "#privacidad", label: "Privacidad" },
+              { href: "#cookies", label: "Cookies" },
+            ].map(({ href, label }) => (
+              <Link
+                key={href}
+                className="type-action rounded-full border border-black/10 bg-[#fafaf7] px-4 py-2 text-black/74 transition hover:border-black/16 hover:bg-black/[0.03] hover:text-black"
+                href={href}
+              >
+                {label}
+              </Link>
+            ))}
           </div>
         </div>
 
         <div className="space-y-14 md:space-y-15">
           <Section id="terminos" title="Términos de la tienda virtual">
             <p>
-              Al navegar o comprar en Kame.col (en adelante, “Kame.col”), aceptas
+              Al navegar o comprar en Kame.col (en adelante, Kame.col), aceptas
               estas condiciones. Kame.col opera como una{" "}
               <strong>tienda virtual</strong> de ropa y accesorios con piezas
               propias, prendas diseñadas por la marca y algunos productos
@@ -167,8 +147,7 @@ export default function PoliticaDePrivacidadPage() {
               <li>
                 <strong>Información correcta:</strong> es responsabilidad del
                 cliente ingresar datos reales y completos: nombre, teléfono,
-                correo, dirección, ciudad, referencias y datos del producto
-                solicitado.
+                correo, dirección, ciudad y referencias.
               </li>
               <li>
                 <strong>Impacto de errores:</strong> errores u omisiones en la
@@ -186,24 +165,40 @@ export default function PoliticaDePrivacidadPage() {
                 colombianos (COP).
               </li>
               <li>
-                <strong>Medio de pago actual:</strong> actualmente procesamos
-                pagos por <strong>transferencia</strong>. Por ahora no contamos
-                con integración a pasarelas de pago tradicionales dentro del
-                sitio.
+                <strong>Pasarela de pago:</strong> los pagos en línea se procesan
+                a través de <strong>Wompi</strong>, pasarela de pagos certificada{" "}
+                <strong>PCI DSS</strong> respaldada por el ecosistema Bancolombia.
+                Kame.col no almacena ni tiene acceso a los datos de tu tarjeta u
+                otro medio de pago.
               </li>
               <li>
-                <strong>Validación:</strong> el pedido solo se considera
-                confirmado cuando el pago sea verificado por Kame.col.
+                <strong>Medios de pago aceptados:</strong> tarjetas de crédito y
+                débito Visa, Mastercard y American Express, PSE, Nequi y Botón
+                Bancolombia, según disponibilidad al momento del pago.
               </li>
               <li>
-                <strong>Soporte del pago:</strong> podremos solicitar comprobante
-                de transferencia cuando sea necesario para validar el pedido.
+                <strong>Confirmación:</strong> el pedido se considera confirmado
+                una vez Wompi reporta el pago como aprobado. Recibirás un correo
+                de confirmación con la referencia de tu orden.
               </li>
               <li>
-                <strong>Novedades bancarias:</strong> si el cliente presenta
-                inconvenientes al momento de pagar, debe contactar primero a su
-                entidad financiera. La llave o datos habilitados para la
-                transferencia estarán disponibles durante el proceso de compra.
+                <strong>Pagos rechazados:</strong> si tu pago es declinado, te
+                recomendamos verificar los datos ingresados o contactar a tu
+                entidad financiera. Puedes intentar el pago nuevamente desde la
+                misma pantalla.
+              </li>
+              <li>
+                <strong>Términos Wompi:</strong> al realizar un pago aceptas
+                también los{" "}
+                <a
+                  href="https://wompi.co/terminos-y-condiciones-usuarios/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="type-action text-black/88 hover:text-black hover:underline"
+                >
+                  Términos y Condiciones de Wompi
+                </a>{" "}
+                aplicables al usuario.
               </li>
             </ul>
 
@@ -326,39 +321,64 @@ export default function PoliticaDePrivacidadPage() {
               <li>Datos de entrega: dirección y referencias para envío.</li>
               <li>
                 Datos del pedido: productos, variantes (talla/color), dirección de
-                envío, notas de personalización y soporte de pago cuando aplique.
+                envío y notas cuando aplique.
               </li>
               <li>
-                Datos técnicos básicos: IP, navegador, páginas visitadas (para
+                Datos técnicos básicos: IP, navegador y páginas visitadas (para
                 analítica y seguridad).
               </li>
             </ul>
             <h3>2) Para qué usamos tus datos</h3>
             <ul>
               <li>Gestionar pedidos, pagos, producción y entregas.</li>
-              <li>Responder mensajes y solicitudes (WhatsApp, correo o redes).</li>
               <li>
-                Mejorar la experiencia del sitio con métricas (por ejemplo,
-                rendimiento y navegación).
+                Responder mensajes y solicitudes por WhatsApp, correo o redes.
+              </li>
+              <li>
+                Mejorar la experiencia del sitio con métricas de rendimiento y
+                navegación.
               </li>
               <li>Cumplir obligaciones legales o prevenir fraude.</li>
             </ul>
-            <h3>3) Protección</h3>
+            <h3>3) Procesamiento de pagos</h3>
+            <p>
+              Los pagos son procesados por <strong>Wompi</strong> (Pasarela
+              Colombia S.A.S., NIT 830006973-1). Kame.col no almacena datos de
+              tarjetas ni medios de pago. El tratamiento de datos en el proceso de
+              pago está regido por la{" "}
+              <a
+                href="https://wompi.co/politica-de-privacidad/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="type-action text-black/88 hover:text-black hover:underline"
+              >
+                Política de Privacidad de Wompi
+              </a>
+              .
+            </p>
+            <h3>4) Protección</h3>
             <p>
               Aplicamos medidas razonables (técnicas y operativas) para evitar
               accesos no autorizados. Aun así, ningún sistema es 100% infalible.
             </p>
-            <h3>4) Compartir información</h3>
+            <h3>5) Compartir información</h3>
             <p>
               No vendemos tus datos. Solo podríamos compartirlos con proveedores
-              necesarios para operar, por ejemplo transportadoras o aliados
-              tecnológicos, y únicamente para gestionar tu pedido, comunicaciones
-              o soporte.
+              necesarios para operar — transportadoras, pasarela de pagos o
+              aliados tecnológicos — y únicamente para gestionar tu pedido o
+              soporte.
             </p>
-            <h3>5) Derechos</h3>
+            <h3>6) Derechos</h3>
             <p>
               Puedes solicitar acceso, corrección o eliminación de tus datos
-              escribiéndonos. Te responderemos en el menor tiempo posible.
+              escribiéndonos a{" "}
+              <a
+                href="mailto:soporte@kamecol.com"
+                className="type-action text-black/88 hover:text-black hover:underline"
+              >
+                soporte@kamecol.com
+              </a>
+              . Te responderemos en el menor tiempo posible.
             </p>
           </Section>
 
@@ -369,17 +389,18 @@ export default function PoliticaDePrivacidadPage() {
             </p>
             <ul>
               <li>
-                <strong>Esenciales:</strong> permiten funciones básicas (por
-                ejemplo, mantener el carrito).
+                <strong>Esenciales:</strong> permiten funciones básicas como
+                mantener el carrito de compras activo durante tu sesión.
               </li>
               <li>
-                <strong>Analítica:</strong> nos ayudan a mejorar (por ejemplo,
-                páginas más visitadas).
+                <strong>Analítica:</strong> nos ayudan a mejorar el sitio
+                midiendo páginas visitadas y comportamiento de navegación.
               </li>
             </ul>
             <p>
-              Puedes bloquear cookies desde tu navegador. Ten en cuenta que
-              algunas funciones podrían dejar de funcionar.
+              Puedes bloquear o eliminar cookies desde la configuración de tu
+              navegador. Ten en cuenta que algunas funciones podrían dejar de
+              funcionar correctamente.
             </p>
           </Section>
         </div>

@@ -265,8 +265,8 @@ export default function CheckoutSummary({
               </div>
 
               <p className="type-body mt-3 text-zinc-600">
-                El pedido se crea al confirmar y luego podrás realizar el pago por transferencia.
-                Actualmente es el único medio de pago disponible.
+                Una vez confirmado tu pedido, podrás pagar de forma segura usando cualquiera de los métodos disponibles. 
+                ¡Tu pago está protegido y todo listo para que disfrutes tu compra!
               </p>
 
               {!hasBlockingWarnings && stockValidateStatus === "error" ? (

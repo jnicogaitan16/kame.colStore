@@ -879,7 +879,7 @@ export default function CheckoutClient() {
           <p className="type-section-title mb-3 text-black/45">Finaliza tu pedido</p>
           <h1 className="type-page-title text-[#111111]">Checkout</h1>
           <p className="type-body mt-3 max-w-2xl text-black/62">
-            Completa tus datos de entrega y confirma tu pedido. Nos pondremos en contacto contigo para validar el pago y despacho.
+            Completa tus datos y disfruta tu compra sin complicaciones.
           </p>
         </div>
 

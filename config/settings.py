@@ -333,9 +333,9 @@ REST_FRAMEWORK = {
         "rest_framework.throttling.AnonRateThrottle",
     ],
     "DEFAULT_THROTTLE_RATES": {
-        "anon": "60/minute",
-        "checkout": "5/minute",
-        "stock_validate": "30/minute",
+        "anon": "1000/minute" if DEBUG else "60/minute",
+        "checkout": "100/minute" if DEBUG else "5/minute",
+        "stock_validate": "200/minute" if DEBUG else "30/minute",
     },
 }
 

@@ -9,6 +9,8 @@ import {
   mockCheckoutError,
   mockShippingQuote,
   mockStockValidate,
+  mockWompiSignature,
+  mockWompiWidget,
 } from "./fixtures/api-mocks";
 import {
   STOCK_VALIDATE_WARNING_MOCK,
@@ -127,37 +129,64 @@ test.describe("Checkout — submit", () => {
     await goToCheckoutWithCart(page);
   });
 
-  test("submit con datos válidos crea la orden correctamente", async ({ page }) => {
-    await mockCheckout(page);
-
+  async function fillValidForm(page: any) {
     await page.locator("#full_name").fill(VALID_FORM.fullName);
     await page.locator("#phone").fill(VALID_FORM.phone);
     await page.locator("#email").fill(VALID_FORM.email);
     await page.locator("#cedula").fill(VALID_FORM.cedula);
     await page.locator("#address").fill(VALID_FORM.address);
     await page.locator("#city_code").selectOption(VALID_FORM.city);
+  }
 
-    // Wait for stock validation to complete (button disabled while checking)
+  test("submit válido crea la orden y redirige a resultado con APPROVED", async ({ page }) => {
+    // Nuevo flujo: checkout → wompi-signature → widget → /checkout/resultado
+    await mockCheckout(page);
+    await mockWompiSignature(page);
+    await mockWompiWidget(page, "APPROVED");
+
+    await fillValidForm(page);
+
     const submitBtn = page.getByRole("button", { name: /confirmar pedido/i });
     await expect(submitBtn).toBeEnabled({ timeout: 6000 });
-    await submitBtn.click();
 
-    // Debe mostrar confirmación de orden
-    await expect(
-      page.getByText(/pedido (creado|confirmado|recibido)|order (created|confirmed)/i)
-        .or(page.locator("[data-testid='order-success'], [class*='success']"))
-    ).toBeVisible({ timeout: 8000 });
+    // Registrar el listener ANTES del click para no perder la respuesta
+    const checkoutResponsePromise = page.waitForResponse(
+      (resp) => /\/api\/checkout/.test(resp.url()) && resp.status() === 201,
+      { timeout: 8000 }
+    );
+
+    await submitBtn.click();
+    await checkoutResponsePromise;
+
+    // El widget stub llama al callback con APPROVED → router.push a /checkout/resultado
+    await expect(page).toHaveURL(/checkout\/resultado.*ws=APPROVED/, { timeout: 15000 });
+  });
+
+  test("submit válido con pago DECLINED redirige a resultado con DECLINED", async ({ page }) => {
+    await mockCheckout(page);
+    await mockWompiSignature(page);
+    await mockWompiWidget(page, "DECLINED");
+
+    await fillValidForm(page);
+
+    const submitBtn = page.getByRole("button", { name: /confirmar pedido/i });
+    await expect(submitBtn).toBeEnabled({ timeout: 6000 });
+
+    const checkoutResponsePromise = page.waitForResponse(
+      (resp) => /\/api\/checkout/.test(resp.url()) && resp.status() === 201,
+      { timeout: 8000 }
+    );
+
+    await submitBtn.click();
+    await checkoutResponsePromise;
+
+    await expect(page).toHaveURL(/checkout\/resultado.*ws=DECLINED/, { timeout: 15000 });
   });
 
   test("error de API muestra mensaje al usuario", async ({ page }) => {
     await mockCheckoutError(page);
 
-    await page.locator("#full_name").fill(VALID_FORM.fullName);
-    await page.locator("#phone").fill(VALID_FORM.phone);
-    await page.locator("#email").fill(VALID_FORM.email);
-    await page.locator("#cedula").fill(VALID_FORM.cedula);
-    await page.locator("#address").fill(VALID_FORM.address);
-    await page.locator("#city_code").selectOption(VALID_FORM.city);
+    await fillValidForm(page);
 
     const submitBtn = page.getByRole("button", { name: /confirmar pedido/i });
     await expect(submitBtn).toBeEnabled({ timeout: 6000 });

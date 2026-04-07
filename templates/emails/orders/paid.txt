@@ -8,7 +8,7 @@ Tu pago fue confirmado y ya estamos preparando tu pedido.
 —
 Resumen
 
-Método: {% if payment_method %}{{ payment_method }}{% else %}Transferencia Bre-B{% endif %}
+Pagado desde: Wompi
 Subtotal: {{ subtotal_fmt }}
 Envío: {% if shipping_is_free %}Gratis{% else %}{{ shipping_cost_fmt }}{% endif %}
 Total: {{ total_fmt }}
