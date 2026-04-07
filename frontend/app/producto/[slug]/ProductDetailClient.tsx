@@ -12,6 +12,7 @@ import ShareButton from "@/components/ui/ShareButton";
 import { ProductDiscoveryRail } from "@/components/product/ProductDiscoveryRail";
 
 import type { ProductVariant, SizeGuide } from "@/types/catalog";
+import { useTrackAddToCart, useTrackProductView } from "@/hooks/useTracking";
 
 const SizeGuideDrawer = dynamic(
   () => import("@/components/product/SizeGuideDrawer"),
@@ -736,6 +737,7 @@ export function ProductDetailClient({
   moreFromKame,
 }: ProductDetailClientProps) {
   const addItem = useCartStore((state) => state.addItem);
+  const trackAddToCartFn = useTrackAddToCart();
 
   const [detailsExpanded, setDetailsExpanded] = useState(false);
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
@@ -744,6 +746,9 @@ export function ProductDetailClient({
 
   const selection = useProductSelection(product);
   const sizeGuide = product.category?.size_guide ?? null;
+
+  // Tracking
+  useTrackProductView({ id: product.id, name: product.name, slug: product.slug });
 
   const resolvedGalleryImages = useMemo(() => {
     const variantId = selection.displayVariant?.id;
@@ -823,6 +828,7 @@ export function ProductDetailClient({
       const cartImageUrl = getCartImageUrlForVariant(variant.id);
 
       setIsSubmittingToCart(true);
+      trackAddToCartFn({ id: product.id, name: product.name, slug: product.slug, price: product.price }, { value: variant.value ?? undefined, color: variant.color ?? undefined });
 
       addItem(
         {
@@ -849,6 +855,7 @@ export function ProductDetailClient({
     const cartImageUrl = getCartImageUrlForVariant(variantToAdd.id);
 
     setIsSubmittingToCart(true);
+    trackAddToCartFn({ id: product.id, name: product.name, slug: product.slug, price: product.price }, { value: variantToAdd.value ?? undefined, color: variantToAdd.color ?? undefined });
 
     addItem(
       {

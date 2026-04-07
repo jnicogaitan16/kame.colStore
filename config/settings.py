@@ -119,6 +119,7 @@ INSTALLED_APPS = [
     'apps.orders.apps.OrdersConfig',
     'apps.customers.apps.CustomersConfig',
     'apps.common',
+    'apps.admin_api.apps.AdminApiConfig',
 ]
 
 MIDDLEWARE = [

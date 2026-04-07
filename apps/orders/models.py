@@ -18,6 +18,7 @@ class Order(models.Model):
         PAID = "paid", "Paid"
         CANCELLED = "cancelled", "Cancelled"
         REFUNDED = "refunded", "Refunded"
+        SHIPPED = "shipped", "Shipped"
 
     customer = models.ForeignKey(
         Customer,
@@ -81,6 +82,13 @@ class Order(models.Model):
         blank=True,
         default="",
         help_text="ID de transacción Wompi (asignado por webhook).",
+    )
+
+    tracking_number = models.CharField(
+        max_length=120,
+        blank=True,
+        default="",
+        help_text="Número de guía Servientrega (asignado al enviar el pedido).",
     )
 
     def _recalc_totals_in_memory(self) -> None:
@@ -259,3 +267,46 @@ class OrderItem(models.Model):
     @property
     def line_total(self):
         return self.quantity * (self.unit_price or 0)
+
+
+class OrderStatusLog(models.Model):
+    """Historial de cambios de estado de una orden."""
+
+    order = models.ForeignKey(
+        Order,
+        on_delete=models.CASCADE,
+        related_name="status_logs",
+    )
+    status = models.CharField(max_length=30)
+    note = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"Order #{self.order_id} → {self.status}"
+
+
+class AnalyticsEvent(models.Model):
+    """Evento de analítica del storefront (capturado por tracker.ts)."""
+
+    event = models.CharField(max_length=50, db_index=True)
+    session_id = models.CharField(max_length=64, db_index=True)
+    page = models.CharField(max_length=200, blank=True, default="")
+    product_id = models.CharField(max_length=50, blank=True, default="", db_index=True)
+    product_name = models.CharField(max_length=200, blank=True, default="")
+    variant = models.CharField(max_length=100, blank=True, default="")
+    quantity = models.IntegerField(null=True, blank=True)
+    price = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True
+    )
+    step = models.CharField(max_length=50, blank=True, default="")
+    raw = models.JSONField(default=dict)
+    timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-timestamp"]
+
+    def __str__(self) -> str:
+        return f"{self.event} / {self.session_id}"

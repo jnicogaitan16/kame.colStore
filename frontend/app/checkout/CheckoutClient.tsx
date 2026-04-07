@@ -8,6 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 
 import { apiFetch, checkout, getWompiSignature, type CheckoutResponse } from "@/lib/api";
+import { trackCheckoutStart } from "@/hooks/useTracking";
 import { useCartStore, type CartState } from "@/store/cart";
 import { normalizeApiError } from "@/lib/errors/normalizeApiError";
 import { loadWompiScript } from "@/lib/wompi";
@@ -528,6 +529,7 @@ export default function CheckoutClient() {
     fetchCities()
       .then(setCities)
       .catch(() => setCities([]));
+    trackCheckoutStart();
   }, []);
 
   useEffect(() => {

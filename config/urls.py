@@ -32,6 +32,8 @@ urlpatterns = [
     path("api/", include("apps.catalog.urls_api")),
     # Órdenes y checkout también bajo /api/
     path("api/", include("apps.orders.urls_api")),
+    # Admin API (auth, dashboard, CRM, analytics, catalog admin)
+    path("api/", include("apps.admin_api.urls")),
 ]
 
 # Servir archivos media en modo DEBUG
