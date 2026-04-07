@@ -251,6 +251,25 @@ export interface HomepagePromo {
 }
 
 // =============================
+// Wompi — Pasarela de pagos
+// =============================
+
+export type WompiTransactionStatus =
+  | "APPROVED"
+  | "DECLINED"
+  | "ERROR"
+  | "PENDING"
+  | (string & {});
+
+export interface WompiTransaction {
+  id: string;
+  status: WompiTransactionStatus;
+  amount_in_cents?: number;
+  reference?: string;
+  payment_method_type?: string;
+}
+
+// =============================
 // Paginación
 // =============================
 

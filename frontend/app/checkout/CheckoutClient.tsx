@@ -1,19 +1,20 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 
-import { apiFetch, checkout, type CheckoutResponse } from "@/lib/api";
+import { apiFetch, checkout, getWompiSignature, type CheckoutResponse } from "@/lib/api";
 import { useCartStore, type CartState } from "@/store/cart";
-import { buildWhatsAppUrl } from "@/lib/whatsapp";
 import { normalizeApiError } from "@/lib/errors/normalizeApiError";
+import { loadWompiScript } from "@/lib/wompi";
+import { checkoutResultPath } from "@/lib/routes";
 
 import CheckoutForm from "./components/CheckoutForm";
 import CheckoutSummary from "./components/CheckoutSummary";
-import CheckoutSuccess from "./components/CheckoutSuccess";
 
 /* ---------------------------------------------
  * Helpers (pure)
@@ -208,7 +209,19 @@ const ALLOWED_FIELDS: Array<keyof CheckoutFormValues> = [
  * Main Component
  * ------------------------------------------- */
 
+type PendingWompiOrder = {
+  order: CheckoutResponse;
+  customerData: {
+    email: string;
+    fullName: string;
+    phone: string;
+    legalId: string;
+    legalIdType: string;
+  };
+};
+
 export default function CheckoutClient() {
+  const router = useRouter();
   const items = useCartStore((state) => state.items);
   const clearCart = useCartStore((state) => state.clearCart);
   const updateQuantity = useCartStore((state) => state.updateQuantity);
@@ -298,8 +311,7 @@ export default function CheckoutClient() {
 
   const lastStockKeyRef = useRef<string>("");
 
-  const [orderSummary, setOrderSummary] =
-    useState<CheckoutResponse | null>(null);
+  const [pendingWompiOrder, setPendingWompiOrder] = useState<PendingWompiOrder | null>(null);
 
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [submitNotice, setSubmitNotice] = useState<{
@@ -541,6 +553,74 @@ export default function CheckoutClient() {
       .catch(() => setShipping(null));
   }, [watchedCity, subtotal]);
 
+  // Abre el Widget de Wompi cuando hay una orden pendiente
+  useEffect(() => {
+    if (!pendingWompiOrder) return;
+    let cancelled = false;
+
+    const { order, customerData } = pendingWompiOrder;
+
+    async function openWidget() {
+      try {
+        const publicKey = process.env.NEXT_PUBLIC_WOMPI_PUBLIC_KEY || "";
+        if (!publicKey) throw new Error("NEXT_PUBLIC_WOMPI_PUBLIC_KEY no configurado");
+
+        const [sigData] = await Promise.all([
+          getWompiSignature(order.payment_reference),
+          loadWompiScript(),
+        ]);
+
+        if (cancelled) return;
+
+        const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || window.location.origin).replace(/\/$/, "");
+
+        // redirectUrl solo se envía en entornos HTTPS (producción).
+        // En localhost (http://) Wompi puede rechazar la solicitud con 403.
+        // El callback de widget.open() maneja el resultado en todos los casos.
+        const isHttps = siteUrl.startsWith("https://");
+        const widget = new window.WidgetCheckout({
+          currency: "COP",
+          amountInCents: sigData.amount_in_cents,
+          reference: sigData.reference,
+          publicKey,
+          ...(isHttps && {
+            redirectUrl: `${siteUrl}${checkoutResultPath(sigData.reference)}`,
+          }),
+          signature: { integrity: sigData.integrity },
+          customerData: {
+            email: customerData.email,
+            fullName: customerData.fullName,
+            phoneNumber: customerData.phone,
+            phoneNumberPrefix: "+57",
+            legalId: customerData.legalId,
+            legalIdType: customerData.legalIdType,
+          },
+        });
+
+        widget.open((result) => {
+          if (cancelled) return;
+          const ws = result.transaction?.status || "PENDING";
+          router.push(checkoutResultPath(sigData.reference, ws));
+        });
+      } catch {
+        if (!cancelled) {
+          setSubmitNotice({
+            variant: "error",
+            tone: "strong",
+            title: "Error al abrir el pago",
+            message: "No pudimos abrir la pasarela de pago. Intenta de nuevo más tarde.",
+          });
+          setPendingWompiOrder(null);
+        }
+      }
+    }
+
+    openWidget();
+    return () => {
+      cancelled = true;
+    };
+  }, [pendingWompiOrder, router]);
+
   /* ---------------------------------------------
    * Handlers
    * ------------------------------------------- */
@@ -599,14 +679,23 @@ export default function CheckoutClient() {
         city_code: values.city_code,
         address: values.address,
         notes: values.notes || "",
-        payment_method: "transferencia",
+        payment_method: "wompi",
         items: checkoutItems,
       };
 
       const res = await checkout(payload);
 
-      setOrderSummary(res);
       clearCart();
+      setPendingWompiOrder({
+        order: res,
+        customerData: {
+          email: values.email,
+          fullName: values.full_name,
+          phone: phoneCheck.phone10,
+          legalId: values.cedula,
+          legalIdType: values.document_type,
+        },
+      });
     } catch (error: unknown) {
       const e = normalizeApiError(error);
 
@@ -764,42 +853,18 @@ export default function CheckoutClient() {
   };
 
   /* ---------------------------------------------
-   * “Pedido creado” view (transfer instructions)
+   * Pasarela Wompi — abriendo widget
    * ------------------------------------------- */
 
-  if (!items.length && orderSummary) {
-    const brebKey = process.env.NEXT_PUBLIC_BREB_KEY || "";
-    const waPhone = process.env.NEXT_PUBLIC_WHATSAPP_PHONE || "";
-
-    const totalNumber =
-      typeof orderSummary.total === "number"
-        ? orderSummary.total
-        : typeof orderSummary.subtotal === "number"
-        ? orderSummary.subtotal +
-          (typeof orderSummary.shipping_cost === "number"
-            ? orderSummary.shipping_cost
-            : 0)
-        : 0;
-
-    const totalText = totalNumber.toLocaleString("es-CO");
-
-    const waMessage = `Hola, ya realicé la transferencia del pedido #${orderSummary.order_id}.\nTotal: $${totalText}.\nAdjunto comprobante.${
-      orderSummary.payment_reference
-        ? `\nReferencia interna: ${orderSummary.payment_reference}`
-        : ""
-    }`;
-
-    const whatsapp = waPhone
-      ? buildWhatsAppUrl({ phone: waPhone, message: waMessage })
-      : orderSummary.whatsapp_link;
-
+  if (pendingWompiOrder) {
     return (
-      <CheckoutSuccess
-        orderSummary={orderSummary}
-        brebKey={brebKey}
-        whatsappUrl={whatsapp}
-        totalText={totalText}
-      />
+      <div className={"flex min-h-[50vh] items-center justify-center px-4"}>
+        <div className={"text-center"}>
+          <div className={"mx-auto mb-5 h-10 w-10 animate-spin rounded-full border-2 border-black/[0.12] border-t-black/70"} />
+          <p className={"type-section-title text-black/70"}>{"Cargando pasarela de pago..."}</p>
+          <p className={"type-body mt-2 text-black/45"}>{"Se abrira el widget de Wompi en un momento."}</p>
+        </div>
+      </div>
     );
   }
 
@@ -814,7 +879,7 @@ export default function CheckoutClient() {
           <p className="type-section-title mb-3 text-black/45">Finaliza tu pedido</p>
           <h1 className="type-page-title text-[#111111]">Checkout</h1>
           <p className="type-body mt-3 max-w-2xl text-black/62">
-            Completa tus datos de entrega y confirma tu pedido. Nos pondremos en contacto contigo para validar el pago y despacho.
+            Completa tus datos y disfruta tu compra sin complicaciones.
           </p>
         </div>
 

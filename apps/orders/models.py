@@ -76,6 +76,13 @@ class Order(models.Model):
         help_text="Fecha/hora en la que se descontó stock para este pedido (idempotencia).",
     )
 
+    wompi_transaction_id = models.CharField(
+        max_length=120,
+        blank=True,
+        default="",
+        help_text="ID de transacción Wompi (asignado por webhook).",
+    )
+
     def _recalc_totals_in_memory(self) -> None:
         """Recalculate totals on the instance without persisting.
 
@@ -90,15 +97,21 @@ class Order(models.Model):
                 return 0
             return int(value)
 
-        # Only recompute subtotal from items when the order already exists in DB.
+        # Only recompute subtotal from items when the order already exists in DB
+        # AND there are items with prices. If no priced items exist yet (e.g. during
+        # the two-step creation flow where payment_reference is assigned before items),
+        # we preserve the subtotal already set on the instance.
         if self.pk:
-            subtotal = 0
+            computed = 0
+            has_priced_items = False
             for item in self.items.all():
                 if item.unit_price is None:
                     continue
+                has_priced_items = True
                 line = item.quantity * item.unit_price
-                subtotal += _to_int_money(line)
-            self.subtotal = subtotal
+                computed += _to_int_money(line)
+            if has_priced_items:
+                self.subtotal = computed
 
         self.total = int((self.subtotal or 0) + (self.shipping_cost or 0))
 

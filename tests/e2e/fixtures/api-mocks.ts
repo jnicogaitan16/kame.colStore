@@ -7,6 +7,7 @@ import {
   SHIPPING_QUOTE_BOG_MOCK,
   STOCK_VALIDATE_OK_MOCK,
   CHECKOUT_SUCCESS_MOCK,
+  WOMPI_SIGNATURE_MOCK,
 } from "./catalog-data";
 
 /**
@@ -74,6 +75,43 @@ export async function mockCheckoutError(page: Page) {
     route.fulfill({
       status: 400,
       json: { ok: false, error: "Stock insuficiente para uno o más productos." },
+    })
+  );
+}
+
+export async function mockWompiSignature(page: Page, overrides = {}) {
+  await page.route(/\/api\/wompi-signature(\/.*)?$/, (route) =>
+    route.fulfill({ json: { ...WOMPI_SIGNATURE_MOCK, ...overrides } })
+  );
+}
+
+/**
+ * Intercepta el script del Widget de Wompi y lo reemplaza con un stub
+ * que llama al callback inmediatamente con el status indicado.
+ * Esto permite testear el flujo post-checkout sin depender del servidor externo.
+ */
+export async function mockWompiWidget(
+  page: Page,
+  status: "APPROVED" | "DECLINED" | "ERROR" | "PENDING" = "APPROVED"
+) {
+  await page.route(/checkout\.wompi\.co\/widget\.js/, (route) =>
+    route.fulfill({
+      contentType: "application/javascript",
+      body: `
+        window.WidgetCheckout = class {
+          constructor(config) { this._config = config; }
+          open(cb) {
+            setTimeout(() => cb({
+              transaction: {
+                id: "test-txn-e2e-001",
+                status: "${status}",
+                reference: this._config.reference,
+                amount_in_cents: this._config.amountInCents,
+              }
+            }), 80);
+          }
+        };
+      `,
     })
   );
 }

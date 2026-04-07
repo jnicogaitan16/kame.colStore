@@ -19,4 +19,11 @@ urlpatterns = [
     path("checkout", views_api.CheckoutAPIView.as_view(), name="checkout-no-slash"),
     path("stock-validate/", views_api.StockValidateAPIView.as_view(), name="stock-validate"),
     path("stock-validate", views_api.StockValidateAPIView.as_view(), name="stock-validate-no-slash"),
+    # Wompi
+    path("wompi-signature/", views_api.WompiSignatureAPIView.as_view(), name="wompi-signature"),
+    path("wompi-signature", views_api.WompiSignatureAPIView.as_view(), name="wompi-signature-no-slash"),
+    path("wompi-webhook/", views_api.WompiWebhookAPIView.as_view(), name="wompi-webhook"),
+    path("wompi-webhook", views_api.WompiWebhookAPIView.as_view(), name="wompi-webhook-no-slash"),
+    path("transaction-status/<str:reference>/", views_api.TransactionStatusAPIView.as_view(), name="transaction-status"),
+    path("transaction-status/<str:reference>", views_api.TransactionStatusAPIView.as_view(), name="transaction-status-no-slash"),
 ]

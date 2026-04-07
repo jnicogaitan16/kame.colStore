@@ -333,9 +333,9 @@ REST_FRAMEWORK = {
         "rest_framework.throttling.AnonRateThrottle",
     ],
     "DEFAULT_THROTTLE_RATES": {
-        "anon": "60/minute",
-        "checkout": "5/minute",
-        "stock_validate": "30/minute",
+        "anon": "1000/minute" if DEBUG else "60/minute",
+        "checkout": "100/minute" if DEBUG else "5/minute",
+        "stock_validate": "200/minute" if DEBUG else "30/minute",
     },
 }
 
@@ -460,6 +460,19 @@ LOGGING = {
         'level': 'WARNING',
     },
 }
+
+# =========================
+# Wompi — Pasarela de pagos
+# =========================
+# Dashboard: https://dashboard.wompi.co/app/en/developers
+# WOMPI_PUBLIC_KEY    → frontend (Next.js)
+# WOMPI_PRIVATE_KEY   → backend únicamente, NUNCA exponer al frontend
+# WOMPI_EVENTS_SECRET → validar checksum del webhook entrante
+# WOMPI_INTEGRITY_SECRET → generar firma para el Widget
+WOMPI_PUBLIC_KEY = os.getenv("WOMPI_PUBLIC_KEY", "")
+WOMPI_PRIVATE_KEY = os.getenv("WOMPI_PRIVATE_KEY", "")
+WOMPI_EVENTS_SECRET = os.getenv("WOMPI_EVENTS_SECRET", "")
+WOMPI_INTEGRITY_SECRET = os.getenv("WOMPI_INTEGRITY_SECRET", "")
 
 # Two-factor auth
 LOGIN_URL = 'two_factor:login'

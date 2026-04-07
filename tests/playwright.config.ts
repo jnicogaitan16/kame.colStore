@@ -1,29 +1,15 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
 const CI = !!process.env.CI;
+const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
 
 const projects: Parameters<typeof defineConfig>[0]["projects"] = [
-  // --- Desktop ---
-  {
-    name: "chromium",
-    use: { ...devices["Desktop Chrome"] },
-  },
-
-  // --- Mobile (viewport principal de kame.col) ---
-  {
-    name: "mobile-chrome",
-    use: { ...devices["Pixel 5"] },
-  },
+  { name: "chromium", use: { ...devices["Desktop Chrome"] } },
+  { name: "mobile-chrome", use: { ...devices["Pixel 5"] } },
 ];
 
-// WebKit requires ~170 MB extra and system deps not available on the CI runner.
-// mobile-chrome (Pixel 5) already covers mobile viewports with Chromium.
 if (!CI) {
-  projects.push({
-    name: "iphone-12",
-    use: { ...devices["iPhone 12"] },
-  });
+  projects.push({ name: "iphone-12", use: { ...devices["iPhone 12"] } });
 }
 
 export default defineConfig({
@@ -31,7 +17,7 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: CI,
   retries: CI ? 2 : 0,
-  workers: CI ? 2 : undefined,
+  workers: CI ? 2 : 1,
   reporter: CI ? [["github"], ["html", { open: "never" }]] : "list",
 
   use: {
@@ -39,34 +25,27 @@ export default defineConfig({
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     video: "on-first-retry",
-    // Simula backend caído por defecto — los tests mockan lo que necesiten
-    extraHTTPHeaders: {
-      "x-test-env": "playwright",
-    },
+    extraHTTPHeaders: { "x-test-env": "playwright" },
   },
 
   projects,
 
-  // Levanta el mock backend primero, luego Next.js
   webServer: [
     {
-      // Mock Django API — sirve fixtures JSON para los fetches server-side de Next.js
       command: "node e2e/fixtures/mock-backend.mjs",
       url: "http://localhost:3001/health",
-      reuseExistingServer: !CI,
+      reuseExistingServer: true,
       timeout: 15_000,
     },
     {
-      command: "npm run start",
+      command: CI ? "npm run start" : "echo 'reusing dev server'",
       cwd: "../frontend",
       url: BASE_URL,
-      reuseExistingServer: !CI,
-      timeout: 120_000,
+      reuseExistingServer: true,
+      timeout: 60_000,
       env: {
         PORT: "3000",
-        // Apunta al mock backend para que los server components de Next.js
-        // puedan hacer fetch server-side sin Django real
-        DJANGO_API_BASE: "http://localhost:3001",
+        DJANGO_API_BASE: CI ? "http://localhost:3001" : "http://localhost:8000",
         NEXT_PUBLIC_API_URL: "/api",
       },
     },

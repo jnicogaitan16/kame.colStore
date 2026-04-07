@@ -7,8 +7,8 @@ from apps.orders.models import Order, OrderItem
 
 from apps.orders.services.payments import generate_payment_reference
 
-from rest_framework.exceptions import ValidationError
 from django.db import IntegrityError, transaction
+from rest_framework.exceptions import ValidationError
 
 import logging
 logger = logging.getLogger(__name__)
@@ -29,24 +29,29 @@ def create_order_from_cart(
     shipping_cost = int(calculate_shipping_cost(subtotal=int(subtotal), city_code=city_code))
     total = int(subtotal) + int(shipping_cost)
 
-    order = Order.objects.create(
-        customer=customer,
-        status=Order.Status.PENDING_PAYMENT,
-        payment_method=(payment_method or "transferencia"),
-        # Snapshot
-        full_name=(form_data.get("full_name") or ""),
-        cedula=(form_data.get("cedula") or ""),
-        document_type=(form_data.get("document_type") or "CC"),
-        phone=(form_data.get("phone") or ""),
-        email=(form_data.get("email") or "") or "",
-        city_code=city_code,
-        address=(form_data.get("address") or ""),
-        notes=(form_data.get("notes") or "") or "",
-        # Totals
-        subtotal=int(subtotal),
-        shipping_cost=int(shipping_cost),
-        total=int(total),
-    )
+    with transaction.atomic():
+        order = Order.objects.create(
+            customer=customer,
+            status=Order.Status.PENDING_PAYMENT,
+            payment_method=(payment_method or "transferencia"),
+            payment_reference=None,  # se asigna tras conocer order.id
+            # Snapshot
+            full_name=(form_data.get("full_name") or ""),
+            cedula=(form_data.get("cedula") or ""),
+            document_type=(form_data.get("document_type") or "CC"),
+            phone=(form_data.get("phone") or ""),
+            email=(form_data.get("email") or "") or "",
+            city_code=city_code,
+            address=(form_data.get("address") or ""),
+            notes=(form_data.get("notes") or "") or "",
+            # Totals
+            subtotal=int(subtotal),
+            shipping_cost=int(shipping_cost),
+            total=int(total),
+        )
+        ref = generate_payment_reference(order.id)
+        Order.objects.filter(pk=order.pk).update(payment_reference=ref)
+        order.payment_reference = ref
 
     for item in cart_items:
         OrderItem.objects.create(
@@ -442,41 +447,34 @@ def create_order_from_checkout(payload: Dict[str, Any]) -> Order:
 
     # 3) Crear Order en PENDING_PAYMENT + snapshot datos
     #    - payment_reference debe ser única; si colisiona, reintentar.
-    last_err: Exception | None = None
-    for _attempt in range(5):
-        try:
-            with transaction.atomic():
-                order = Order.objects.create(
-                    customer=customer,
-                    status=Order.Status.PENDING_PAYMENT,
-                    payment_method=(payload.get("payment_method") or "transferencia"),
-                    payment_reference=generate_payment_reference(),
-                    # Snapshot (cliente)
-                    full_name=snapshot_full_name,
-                    cedula=snapshot_cedula,
-                    document_type=snapshot_document_type,
-                    phone=snapshot_phone,
-                    email=snapshot_email,
-                    # Snapshot (envío)
-                    city_code=city_code,
-                    address=address,
-                    notes=(notes or "") or "",
-                    # Totals
-                    subtotal=int(subtotal),
-                    shipping_cost=int(shipping_cost),
-                    total=int(total),
-                )
-            break
-        except IntegrityError as e:
-            # Puede ser colisión de payment_reference o carrera de constraints
-            last_err = e
-            continue
-        except Exception as e:
-            logger.exception("checkout: order creation failed")
-            raise ValidationError({"detail": ["No fue posible crear la orden."], "error": [str(e)]})
-    else:
-        logger.exception("checkout: order creation failed after retries")
-        raise ValidationError({"detail": ["No fue posible crear la orden (reintentos agotados)."], "error": [str(last_err) if last_err else "unknown"]})
+    try:
+        with transaction.atomic():
+            order = Order.objects.create(
+                customer=customer,
+                status=Order.Status.PENDING_PAYMENT,
+                payment_method=(payload.get("payment_method") or "transferencia"),
+                payment_reference=None,  # se asigna tras conocer order.id
+                # Snapshot (cliente)
+                full_name=snapshot_full_name,
+                cedula=snapshot_cedula,
+                document_type=snapshot_document_type,
+                phone=snapshot_phone,
+                email=snapshot_email,
+                # Snapshot (envío)
+                city_code=city_code,
+                address=address,
+                notes=(notes or "") or "",
+                # Totals
+                subtotal=int(subtotal),
+                shipping_cost=int(shipping_cost),
+                total=int(total),
+            )
+            ref = generate_payment_reference(order.id)
+            Order.objects.filter(pk=order.pk).update(payment_reference=ref)
+            order.payment_reference = ref
+    except Exception as e:
+        logger.exception("checkout: order creation failed")
+        raise ValidationError({"detail": ["No fue posible crear la orden."], "error": [str(e)]})
 
     # 4) Crear items
     for it in items:
