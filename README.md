@@ -212,3 +212,14 @@ QA Engineer | Backend | E-commerce Builder
 ⭐ Contribuciones
 
 PRs y feedback son bienvenidos.
+
+---
+
+## 🧪 Testing E2E (Playwright)
+
+Los comandos y el detalle (cobertura por spec, Wompi sandbox, `.env.test`) están en **`tests/README.md`**. Visión de producto, riesgos y plan de pagos/correos: **`TECH_DEBT_AND_ROADMAP.md`**.
+
+```bash
+cd tests && npm ci && npx playwright install chromium
+CI=true npx playwright test
+```
