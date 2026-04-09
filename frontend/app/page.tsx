@@ -9,6 +9,7 @@ import { HeroCarousel } from "@/components/home/HeroCarousel";
 import { BrandStory } from "@/components/home/BrandStory";
 import HomeProductMarquee from "@/components/home/HomeProductMarquee";
 import HomepagePromos from "@/components/home/HomepagePromos";
+import HomeVisitTracker from "@/components/analytics/HomeVisitTracker";
 
 export const revalidate = 300;
 
@@ -107,6 +108,7 @@ export default async function HomePage() {
 
   return (
     <div className="home-page" data-page-type="home">
+      <HomeVisitTracker />
       {isDevEnvironment() ? (
         <>
           <Suspense fallback={null}>

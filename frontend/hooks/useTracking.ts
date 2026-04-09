@@ -60,6 +60,11 @@ export function trackAddToCart(
   });
 }
 
+/** Cada carga de la página de inicio (/). */
+export function trackHomeVisit() {
+  tracker.track("home_visit");
+}
+
 export function trackCheckoutStart() {
   tracker.track("checkout_start");
 }

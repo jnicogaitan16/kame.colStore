@@ -6,7 +6,12 @@ POST /api/events/
 import logging
 
 from django.views.decorators.csrf import csrf_exempt
-from rest_framework.decorators import api_view, permission_classes, throttle_classes
+from rest_framework.decorators import (
+    api_view,
+    authentication_classes,
+    permission_classes,
+    throttle_classes,
+)
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.request import Request
@@ -24,6 +29,7 @@ class EventsThrottle(AnonRateThrottle):
 
 @csrf_exempt
 @api_view(["POST"])
+@authentication_classes([])  # evita SessionAuthentication → sin exigencia CSRF (tracker no manda token)
 @permission_classes([AllowAny])
 @throttle_classes([EventsThrottle])
 def ingest_events(request: Request):

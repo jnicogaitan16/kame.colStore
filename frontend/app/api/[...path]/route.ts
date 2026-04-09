@@ -1,109 +1,19 @@
 // frontend/app/api/[...path]/route.ts
-// Catch-all API proxy for /api/*
-// Forwards any request to `${DJANGO_API_BASE}/api/*`.
-// IMPORTANT: This proxy enforces trailing slashes to match DRF endpoints (APPEND_SLASH=False).
-// This file is transport-only: it must not define semantic cache policy for specific endpoints.
+// Catch-all API proxy para /api/* (excepto rutas más específicas como /api/events).
+// Reenvía a `${DJANGO_API_BASE}/api/*`.
 
-const buildTargetUrl = (req: Request, params: { path?: string[] }) => {
-  const base = (process.env.DJANGO_API_BASE || "").replace(/\/$/, "");
-  if (!base) throw new Error("DJANGO_API_BASE is not configured");
+import {
+  proxyDjangoApiRequest,
+  resolveApiPathSegments,
+} from "@/lib/django-api-proxy";
 
-  const pathSegments = params.path || [];
-  const path = pathSegments.join("/");
-
-  const incoming = new URL(req.url);
-
-  // DRF endpoints in this project expect a trailing slash (APPEND_SLASH=False).
-  // Force trailing slash so both /api/foo and /api/foo/ from the frontend work.
-  // Avoid double slashes when path is empty.
-  const targetPath = path ? `${base}/api/${path}` : `${base}/api`;
-  const target = new URL(`${targetPath}/`);
-
-  // Preserve querystring exactly
-  target.search = incoming.search;
-
-  return target.toString();
-};
-
-const forwardRequest = async (
+async function forwardRequest(
   req: Request,
   context: { params: { path?: string[] } }
-) => {
-  let target: string;
-
-  try {
-    target = buildTargetUrl(req, context.params);
-  } catch (err: any) {
-    return Response.json(
-      { error: err?.message || "Invalid configuration" },
-      { status: 500 }
-    );
-  }
-
-  const headers: Record<string, string> = {};
-
-  // Forward content-type if present
-  const contentType = req.headers.get("content-type");
-  if (contentType) headers["Content-Type"] = contentType;
-
-  // Minimal useful headers
-  const accept = req.headers.get("accept");
-  if (accept) headers["Accept"] = accept;
-
-  const authorization = req.headers.get("authorization");
-  if (authorization) headers["Authorization"] = authorization;
-
-  // Forward cookies
-  const cookie = req.headers.get("cookie");
-  if (cookie) headers["cookie"] = cookie;
-
-  // Forward CSRF if present
-  const csrf =
-    req.headers.get("x-csrftoken") || req.headers.get("x-csrf-token");
-  if (csrf) headers["X-CSRFToken"] = csrf;
-
-  // Only attach body for non-GET/HEAD
-  let body: BodyInit | undefined = undefined;
-  if (!['GET', 'HEAD'].includes(req.method)) {
-    body = await req.text();
-  }
-
-  let backendRes: Response;
-  try {
-    // Proxy transport stays uncached on purpose.
-    // Public cache strategy must be decided at the page / SDK / caller level,
-    // not by introducing endpoint-specific behavior in this catch-all proxy.
-    backendRes = await fetch(target, {
-      method: req.method,
-      headers,
-      body,
-      cache: "no-store",
-    });
-  } catch {
-    return Response.json({ error: "Failed to reach backend" }, { status: 502 });
-  }
-
-  // NOTE: When proxying through a Next Route Handler, forwarding a streaming body
-  // together with hop-by-hop / encoding headers can break clients (and DevTools).
-  // Buffer the response and sanitize headers.
-  const data = await backendRes.arrayBuffer();
-
-  const outHeaders = new Headers(backendRes.headers);
-
-  // Remove hop-by-hop and encoding headers that don't apply after buffering.
-  outHeaders.delete("content-encoding");
-  outHeaders.delete("content-length");
-  outHeaders.delete("transfer-encoding");
-  outHeaders.delete("connection");
-
-  // Preserve proxy-level no-store behavior without encoding endpoint-specific cache semantics here.
-  outHeaders.set("cache-control", "no-store");
-
-  return new Response(data, {
-    status: backendRes.status,
-    headers: outHeaders,
-  });
-};
+) {
+  const segments = resolveApiPathSegments(req, context.params);
+  return proxyDjangoApiRequest(req, segments);
+}
 
 export async function GET(req: Request, context: any) {
   return forwardRequest(req, context);

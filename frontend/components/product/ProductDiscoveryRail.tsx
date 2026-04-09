@@ -15,6 +15,7 @@ import {
   getProductPrimaryImage,
 } from "@/lib/product-media";
 import { productPath } from "@/lib/routes";
+import { trackProductClick } from "@/hooks/useTracking";
 
 type ProductDiscoveryRailProps = {
   title?: string;
@@ -499,6 +500,13 @@ export function ProductDiscoveryRail({
                           href={product.resolvedHref}
                           className="home-marquee-card"
                           aria-label={`Ver producto ${productName}`}
+                          onClick={() =>
+                            trackProductClick({
+                              id: product?.id ?? product.slug,
+                              name: productName,
+                              slug: String(product?.slug ?? "").trim(),
+                            })
+                          }
                         >
                           <div className="home-marquee-media">
                             {product.resolvedImage ? (

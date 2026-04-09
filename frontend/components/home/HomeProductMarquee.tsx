@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef } from "react";
 import type { HomepageMarqueeProduct } from "@/lib/api";
 import { getProductCardImageCandidates } from "@/lib/product-media";
 import { productPath } from "@/lib/routes";
+import { trackProductClick } from "@/hooks/useTracking";
 
 type Props = {
   products: HomepageMarqueeProduct[];
@@ -303,11 +304,21 @@ export default function ProductDiscoveryRail({ products }: Props) {
     dragLockSnapshotRef.current = null;
   };
 
-  const handleCardClickCapture = (event: React.MouseEvent<HTMLAnchorElement>) => {
-    if (!suppressClickRef.current) return;
-    event.preventDefault();
-    event.stopPropagation();
-    suppressClickRef.current = false;
+  const handleCardClickCapture = (
+    event: React.MouseEvent<HTMLAnchorElement>,
+    product: SafeMarqueeProduct
+  ) => {
+    if (suppressClickRef.current) {
+      event.preventDefault();
+      event.stopPropagation();
+      suppressClickRef.current = false;
+      return;
+    }
+    trackProductClick({
+      id: product.id,
+      name: product.name,
+      slug: product.slug,
+    });
   };
 
   useEffect(() => {
@@ -354,7 +365,7 @@ export default function ProductDiscoveryRail({ products }: Props) {
                       href={product.resolvedHref}
                       className="home-marquee-card"
                       aria-label={`Ver producto ${product.name}`}
-                      onClickCapture={handleCardClickCapture}
+                      onClickCapture={(e) => handleCardClickCapture(e, product)}
                       draggable={false}
                     >
                       <div className="home-marquee-media">

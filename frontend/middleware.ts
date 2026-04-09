@@ -4,14 +4,19 @@ import type { NextRequest } from "next/server";
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Only protect /admin routes (except /admin/login)
-  if (!pathname.startsWith("/admin")) return NextResponse.next();
-  if (pathname.startsWith("/admin/login")) return NextResponse.next();
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-pathname", pathname);
 
-  // Quick check: if no session cookie → redirect to login
+  const passThrough = NextResponse.next({
+    request: { headers: requestHeaders },
+  });
+
+  // Only protect /admin routes (except /admin/login)
+  if (!pathname.startsWith("/admin")) return passThrough;
+  if (pathname.startsWith("/admin/login")) return passThrough;
+
   const sessionCookie =
-    request.cookies.get("sessionid") ||
-    request.cookies.get("session");
+    request.cookies.get("sessionid") || request.cookies.get("session");
 
   if (!sessionCookie) {
     const loginUrl = new URL("/admin/login", request.url);
@@ -19,9 +24,15 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  return NextResponse.next();
+  return passThrough;
 }
 
 export const config = {
-  matcher: ["/admin/:path*"],
+  matcher: [
+    /*
+     * Inyecta x-pathname para el layout raíz (admin sin header de tienda).
+     * Excluye estáticos y API.
+     */
+    "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+  ],
 };

@@ -2,22 +2,17 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import dynamic from "next/dynamic";
 import type { HomepageMarqueeProduct } from "@/lib/api";
 
 import { useCartStore } from "@/store/cart";
 import { ProductGallery } from "@/components/product/ProductGallery";
+import SizeGuideDrawer from "@/components/product/SizeGuideDrawer";
 import { Button } from "@/components/ui/Button";
 import ShareButton from "@/components/ui/ShareButton";
 import { ProductDiscoveryRail } from "@/components/product/ProductDiscoveryRail";
 
 import type { ProductVariant, SizeGuide } from "@/types/catalog";
 import { useTrackAddToCart, useTrackProductView } from "@/hooks/useTracking";
-
-const SizeGuideDrawer = dynamic(
-  () => import("@/components/product/SizeGuideDrawer"),
-  { ssr: false }
-);
 
 type VariantSchema =
   | "size_color"

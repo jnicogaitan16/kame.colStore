@@ -313,10 +313,24 @@ class Product(models.Model):
         """Alias retrocompatible usado por el admin."""
         return self.total_stock
 
+    def _generate_unique_slug(self) -> str:
+        base = slugify(self.name or "").strip("-")
+        base = base or "product"
+        slug = base
+        i = 2
+        while type(self).objects.filter(slug=slug).exclude(pk=self.pk).exists():
+            slug = f"{base}-{i}"
+            i += 1
+        return slug
+
     def save(self, *args, **kwargs):
+        if not (self.slug or "").strip():
+            self.slug = self._generate_unique_slug()
         # Mantener campo legacy sincronizado con agregado del pool.
         self.stock = self.total_stock
         return super().save(*args, **kwargs)
+
+
 class InventoryPool(models.Model):
     """Fuente de verdad de inventario (pool global por base).
 
@@ -1133,12 +1147,16 @@ class HomepageSection(models.Model):
     """Secciones administrables del Home (ej: 'Así nació Kame.col').
 
     Permite manejar contenido editorial desde Django Admin sin hardcodear en el frontend.
+    El ``key`` es slug interno; no está en el fieldset del admin (solo título, subtítulo,
+    contenido, activo). Si queda vacío, se genera desde el título en ``clean()``.
     """
 
     key = models.SlugField(
         max_length=60,
         unique=True,
-        help_text="Identificador único (ej: 'brand-story', 'about', 'shipping-info').",
+        blank=True,
+        default="",
+        help_text="Slug interno (opcional; se genera desde el título si va vacío).",
     )
     title = models.CharField(max_length=150)
     subtitle = models.CharField(max_length=200, blank=True, default="")
@@ -1150,10 +1168,37 @@ class HomepageSection(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    def _ensure_key(self) -> None:
+        """Si ``key`` está vacío, genera uno único a partir del título (slugify)."""
+        raw = (self.key or "").strip()
+        if raw:
+            self.key = raw[:60]
+            return
+        base = (slugify(self.title or "")[:60]).strip("-") or "seccion"
+        candidate = base
+        i = 1
+        qs = type(self).objects.all()
+        if self.pk:
+            qs = qs.exclude(pk=self.pk)
+        while qs.filter(key=candidate).exists():
+            suffix = f"-{i}"
+            max_base = max(1, 60 - len(suffix))
+            trimmed = base[:max_base].rstrip("-")
+            candidate = f"{trimmed}{suffix}"[:60]
+            i += 1
+        self.key = candidate
+
+    def clean(self):
+        self._ensure_key()
+        super().clean()
+
     class Meta:
         ordering = ["sort_order", "-updated_at", "id"]
         verbose_name = "Sección de Home"
         verbose_name_plural = "Secciones de Home"
 
     def __str__(self) -> str:
-        return f"{self.key} - {self.title}"
+        k = (self.key or "").strip()
+        if k:
+            return f"{k} - {self.title}"
+        return self.title or f"Sección #{self.pk or 'nueva'}"

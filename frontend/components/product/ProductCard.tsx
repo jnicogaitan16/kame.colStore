@@ -8,6 +8,7 @@ import type { ProductCardSurface } from "@/lib/product-card-policy";
 import { getProductCardImageCandidates } from "@/lib/product-media";
 import { productPath } from "@/lib/routes";
 import SoldOutBadge from "@/components/badges/SoldOutBadge";
+import { trackProductClick } from "@/hooks/useTracking";
 
 interface ProductCardProps {
   product: any;
@@ -36,6 +37,7 @@ export function ProductCard({
   const name = (product as any)?.name ?? "";
   const price = (product as any)?.price ?? "0";
   const slug = (product as any)?.slug ?? "";
+  const productId = (product as any)?.id;
 
   const safeIndex =
     typeof index === "number" && Number.isFinite(index)
@@ -77,6 +79,13 @@ export function ProductCard({
   return (
     <Link
       href={productPath(slug)}
+      onClick={() =>
+        trackProductClick({
+          id: productId ?? slug,
+          name,
+          slug,
+        })
+      }
       className={[
         "group block",
         revealDeferred ? "card-reveal" : "",

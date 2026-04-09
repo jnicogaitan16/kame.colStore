@@ -8,7 +8,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 
 import { apiFetch, checkout, getWompiSignature, type CheckoutResponse } from "@/lib/api";
-import { trackCheckoutStart } from "@/hooks/useTracking";
+import { trackCheckoutStart, trackCheckoutStep } from "@/hooks/useTracking";
+import { tracker } from "@/lib/tracker";
 import { useCartStore, type CartState } from "@/store/cart";
 import { normalizeApiError } from "@/lib/errors/normalizeApiError";
 import { loadWompiScript } from "@/lib/wompi";
@@ -311,6 +312,8 @@ export default function CheckoutClient() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const lastStockKeyRef = useRef<string>("");
+  const checkoutStepFormLoggedRef = useRef(false);
+  const checkoutStepCityLoggedRef = useRef(false);
 
   const [pendingWompiOrder, setPendingWompiOrder] = useState<PendingWompiOrder | null>(null);
 
@@ -529,8 +532,24 @@ export default function CheckoutClient() {
     fetchCities()
       .then(setCities)
       .catch(() => setCities([]));
-    trackCheckoutStart();
+
+    // Un solo checkout_start / formulario_checkout por montaje real: en dev React 18
+    // (Strict Mode) monta → desmonta → vuelve a montar y repetiría el effect sin cleanup.
+    const t = window.setTimeout(() => {
+      trackCheckoutStart();
+      if (!checkoutStepFormLoggedRef.current) {
+        checkoutStepFormLoggedRef.current = true;
+        trackCheckoutStep("formulario_checkout");
+      }
+    }, 0);
+    return () => window.clearTimeout(t);
   }, []);
+
+  useEffect(() => {
+    if (!watchedCity || checkoutStepCityLoggedRef.current) return;
+    checkoutStepCityLoggedRef.current = true;
+    trackCheckoutStep("envio_ciudad");
+  }, [watchedCity]);
 
   useEffect(() => {
     if (!stockValidateItems.length) return;
@@ -598,6 +617,9 @@ export default function CheckoutClient() {
             legalIdType: customerData.legalIdType,
           },
         });
+
+        trackCheckoutStep("wompi_widget_abierto");
+        void tracker.flush();
 
         widget.open((result) => {
           if (cancelled) return;
@@ -686,6 +708,9 @@ export default function CheckoutClient() {
       };
 
       const res = await checkout(payload);
+
+      trackCheckoutStep("orden_lista_para_pago");
+      void tracker.flush();
 
       clearCart();
       setPendingWompiOrder({
