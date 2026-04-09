@@ -9,6 +9,7 @@ DELETE /api/admin/products/{id}/   → soft delete (is_active=False)
 POST   /api/admin/products/{id}/variants/
 """
 from django.core.exceptions import ValidationError
+from django.db import IntegrityError, transaction
 from rest_framework.decorators import api_view, permission_classes, parser_classes
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAdminUser
@@ -330,16 +331,39 @@ def product_add_variant(request: Request, product_id: int):
         defaults={"is_active": True},
     )
 
-    # Create or update InventoryPool entry
-    pool, pool_created = InventoryPool.objects.get_or_create(
-        category=p.category,
-        value=value,
-        color=color,
-        defaults={"quantity": initial_stock, "is_active": True},
-    )
-    if not pool_created and initial_stock > 0:
-        pool.quantity += initial_stock
-        pool.save(update_fields=["quantity"])
+    # Create or update InventoryPool entry (keys alineados con variant tras full_clean)
+    # CONCURRENCY: select_for_update prevents race condition on stock decrement
+    with transaction.atomic():
+        pool = (
+            InventoryPool.objects.select_for_update()
+            .filter(
+                category_id=p.category_id,
+                value=variant.value,
+                color=variant.color,
+            )
+            .first()
+        )
+        if pool is None:
+            try:
+                pool = InventoryPool.objects.create(
+                    category=p.category,
+                    value=variant.value,
+                    color=variant.color,
+                    quantity=max(0, initial_stock),
+                    is_active=True,
+                )
+            except IntegrityError:
+                pool = InventoryPool.objects.select_for_update().get(
+                    category_id=p.category_id,
+                    value=variant.value,
+                    color=variant.color,
+                )
+                if initial_stock > 0:
+                    pool.quantity += initial_stock
+                    pool.save(update_fields=["quantity"])
+        elif initial_stock > 0:
+            pool.quantity += initial_stock
+            pool.save(update_fields=["quantity"])
 
     return Response({
         "ok": True,

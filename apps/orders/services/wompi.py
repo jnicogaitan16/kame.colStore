@@ -41,11 +41,12 @@ def validate_webhook_signature(
     """
     events_secret = settings.WOMPI_EVENTS_SECRET
     if not events_secret:
-        logger.error("WOMPI_EVENTS_SECRET no está configurado")
+        logger.error("Wompi: secreto de firma de webhooks no configurado")
         return False
 
     transaction = event_data.get("data", {}).get("transaction", {})
 
+    # SECURITY: never log parts, checksum or events_secret
     parts: list[str] = []
     for prop in signature_properties:
         # "transaction.id" -> "id"
@@ -58,12 +59,11 @@ def validate_webhook_signature(
     concatenated = "".join(parts)
     expected = hashlib.sha256(concatenated.encode()).hexdigest()
 
-    logger.warning("WOMPI SIG parts=%s", parts)
-    logger.warning("WOMPI SIG concatenated=%r", concatenated)
-    logger.warning("WOMPI SIG expected=%s received=%s match=%s",
-                   expected, checksum, expected == checksum)
+    is_valid = expected == checksum
+    reference = str(transaction.get("reference", "") or "")
+    logger.debug("wompi_signature_valid=%s reference=%s", is_valid, reference or "(none)")
 
-    if expected != checksum:
+    if not is_valid:
         logger.warning(
             "Wompi webhook: firma inválida. transaction_id=%s",
             transaction.get("id", "?"),

@@ -313,6 +313,7 @@ def decrement_items_stock(items: Iterable[Any]) -> None:
     - single transaction for the whole order
     - row locks handled inside decrement_pool_stock() via select_for_update
     """
+    # CONCURRENCY: select_for_update prevents race condition on stock decrement
 
     # Normalize + aggregate per POOL KEY to avoid double-decrement
     aggregated: dict[Tuple[int, str, str], Tuple[Any, int]] = {}

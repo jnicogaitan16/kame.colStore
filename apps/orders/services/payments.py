@@ -115,6 +115,7 @@ def confirm_order_payment(order: Order) -> None:
         ]
         assert_items_stock(stock_items)
 
+        # CONCURRENCY: select_for_update prevents race condition on stock decrement
         # Descontar stock (fuente de verdad: InventoryPool)
         decrement_items_stock(stock_items)
 

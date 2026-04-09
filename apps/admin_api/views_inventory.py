@@ -8,6 +8,7 @@ PATCH  /api/admin/inventory/{pool_id}/
 DELETE /api/admin/inventory/{pool_id}/
 GET    /api/admin/inventory/{pool_id}/history/
 """
+from django.db import transaction
 from django.db.models import Q
 from django.core.exceptions import ValidationError
 from rest_framework.decorators import api_view, permission_classes
@@ -126,13 +127,14 @@ def inventory_bulk_load(request: Request):
 @api_view(["PATCH", "DELETE"])
 @permission_classes([IsAdminUser])
 def inventory_update(request: Request, pool_id: int):
-    try:
-        pool = InventoryPool.objects.get(pk=pool_id)
-    except InventoryPool.DoesNotExist:
-        return Response({"error": "Pool de inventario no encontrado."}, status=404)
-
+    # CONCURRENCY: select_for_update prevents race condition on stock decrement
     if request.method == "DELETE":
-        pool.delete()
+        with transaction.atomic():
+            try:
+                locked = InventoryPool.objects.select_for_update().get(pk=pool_id)
+            except InventoryPool.DoesNotExist:
+                return Response({"error": "Pool de inventario no encontrado."}, status=404)
+            locked.delete()
         return Response(status=204)
 
     new_stock = request.data.get("new_stock")
@@ -148,17 +150,22 @@ def inventory_update(request: Request, pool_id: int):
     except (ValueError, TypeError):
         return Response({"error": "new_stock debe ser un entero no negativo."}, status=400)
 
-    previous = pool.quantity
-    pool.quantity = new_stock
-    pool.save(update_fields=["quantity", "updated_at"])
+    with transaction.atomic():
+        try:
+            pool = InventoryPool.objects.select_for_update().get(pk=pool_id)
+        except InventoryPool.DoesNotExist:
+            return Response({"error": "Pool de inventario no encontrado."}, status=404)
+        previous = pool.quantity
+        pool.quantity = new_stock
+        pool.save(update_fields=["quantity", "updated_at"])
 
-    InventoryAdjustmentLog.objects.create(
-        inventory_pool=pool,
-        previous_stock=previous,
-        new_stock=new_stock,
-        reason=reason,
-        adjusted_by=request.user,
-    )
+        InventoryAdjustmentLog.objects.create(
+            inventory_pool=pool,
+            previous_stock=previous,
+            new_stock=new_stock,
+            reason=reason,
+            adjusted_by=request.user,
+        )
 
     return Response({
         "ok": True,
