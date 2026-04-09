@@ -84,6 +84,9 @@ urlpatterns = [
     path("admin/products/<int:product_id>/edit",      views_products.product_update,     name="admin-product-update-ns"),
     path("admin/products/<int:product_id>/delete/",   views_products.product_delete,     name="admin-product-delete"),
     path("admin/products/<int:product_id>/variants/", views_products.product_add_variant, name="admin-product-variants"),
+    path("admin/products/<int:product_id>/color-images/create/", views_products.product_color_image_create, name="admin-product-color-image-create"),
+    path("admin/products/<int:product_id>/color-images/<int:image_id>/", views_products.product_color_image_update, name="admin-product-color-image-update"),
+    path("admin/products/<int:product_id>/color-images/<int:image_id>/delete/", views_products.product_color_image_delete, name="admin-product-color-image-delete"),
     # Fixed-segment category paths must come before <int:category_id>
     path("admin/products/categories/create/",         views_products.category_create,    name="admin-category-create"),
     path("admin/products/categories/create",          views_products.category_create,    name="admin-category-create-ns"),

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { getAnalytics } from "@/lib/admin-api";
+import { ADMIN_DATE_INPUT_CLASS } from "@/lib/admin-ui";
 import type { AnalyticsData, ProductPerformanceRow } from "@/types/admin";
 
 const EVENT_LABELS: Record<string, string> = {
@@ -70,25 +71,88 @@ function sortValue(row: ProductPerformanceRow, key: SortKey): number {
 }
 
 function ActivityChart({ points }: { points: { date: string; events: number }[] }) {
+  // Interacción (mobile): tap/click para ver el conteo exacto por día.
+  const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
+
   if (!points.length) {
     return <p className="text-zinc-400 text-sm py-6 text-center">Sin actividad por día en este rango.</p>;
   }
+
   const max = Math.max(...points.map((p) => p.events), 1);
-  const W = 560;
-  const H = 112;
-  const padL = 36;
-  const padR = 8;
-  const padT = 8;
-  const padB = 28;
-  const barW = Math.max(2, (W - padL - padR) / points.length - 2);
+  const H = 136;
+  const padL = 34;
+  const padR = 10;
+  const padT = 10;
+  const padB = 52;
+
+  // Mobile-friendly: keep a stable bar width and allow horizontal scroll.
+  const barW = 14;
+  const gap = 8;
+  const innerW = points.length * (barW + gap) - gap;
+  const W = padL + padR + Math.max(innerW, 260);
+
+  const selected = selectedIdx != null ? points[selectedIdx] : null;
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-[7rem]" preserveAspectRatio="xMidYMid meet">
-      {points.map((p, i) => {
-        const x = padL + i * ((W - padL - padR) / Math.max(points.length - 1, 1));
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          {selected ? (
+            <div className="inline-flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-2.5 py-1">
+              <span className="text-[11px] text-zinc-600 truncate">
+                {fmtShortDate(selected.date)}
+              </span>
+              <span className="text-[11px] font-semibold text-zinc-900 tabular-nums">
+                {selected.events.toLocaleString()}
+              </span>
+              <span className="text-[11px] text-zinc-500">eventos</span>
+            </div>
+          ) : (
+            <p className="text-[11px] text-zinc-400">Toca una barra para ver el total del día.</p>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() => setSelectedIdx(null)}
+          className={`text-[11px] px-2 py-1 rounded-lg border transition-colors ${
+            selected
+              ? "border-zinc-200 text-zinc-600 hover:bg-zinc-50"
+              : "border-transparent text-zinc-300 cursor-default"
+          }`}
+          disabled={!selected}
+        >
+          Limpiar
+        </button>
+      </div>
+
+      <div className="overflow-x-auto overscroll-x-contain touch-pan-x -mx-4 px-4">
+        <svg
+          viewBox={`0 0 ${W} ${H}`}
+          className="h-32 w-[max(100%,_560px)]"
+          preserveAspectRatio="xMinYMid meet"
+        >
+        {/* baseline */}
+        <line
+          x1={padL}
+          x2={W - padR}
+          y1={H - padB + 0.5}
+          y2={H - padB + 0.5}
+          className="stroke-zinc-200"
+          strokeWidth={1}
+        />
+
+        {/* max label */}
+        <text x={4} y={padT + 10} className="fill-zinc-400" style={{ fontSize: "9px" }}>
+          {max} evt
+        </text>
+
+        {points.map((p, i) => {
+          const x = padL + i * (barW + gap) + barW / 2;
         const h = ((H - padT - padB) * p.events) / max;
         const y = padT + (H - padT - padB) - h;
-        const bx = points.length === 1 ? padL + (W - padL - padR) / 2 - barW / 2 : x - barW / 2;
+        const bx = x - barW / 2;
+          const isSelected = selectedIdx === i;
+          // En mobile, el eje X se depreca: la fecha vive en el badge superior al seleccionar una barra.
         return (
           <g key={p.date}>
             <rect
@@ -97,26 +161,23 @@ function ActivityChart({ points }: { points: { date: string; events: number }[] 
               width={barW}
               height={Math.max(h, 1)}
               rx={2}
-              className="fill-red-400/90"
+                className={isSelected ? "fill-red-500" : "fill-red-400/90"}
+                role="button"
+                tabIndex={0}
+                onClick={() => setSelectedIdx(i)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") setSelectedIdx(i);
+                }}
             />
-            {(i === 0 || i === points.length - 1 || Math.ceil(points.length / 2) === i) && (
-              <text
-                x={bx + barW / 2}
-                y={H - 6}
-                textAnchor="middle"
-                className="fill-zinc-500"
-                style={{ fontSize: "9px" }}
-              >
-                {fmtShortDate(p.date)}
-              </text>
-            )}
+            <title>
+              {fmtShortDate(p.date)}: {p.events.toLocaleString()} eventos
+            </title>
           </g>
         );
-      })}
-      <text x={4} y={padT + 10} className="fill-zinc-400" style={{ fontSize: "9px" }}>
-        {max} evt
-      </text>
-    </svg>
+        })}
+        </svg>
+      </div>
+    </div>
   );
 }
 
@@ -125,14 +186,63 @@ export default function AnalyticsPage() {
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [sortKey, setSortKey] = useState<SortKey>("add_to_cart");
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  async function loadAnalytics(opts: { silent?: boolean } = {}) {
+    const silent = Boolean(opts.silent);
+    if (silent) setRefreshing(true);
+    else setLoading(true);
+    try {
+      const next = await getAnalytics({ start: range.start, end: range.end });
+      setData(next);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      if (silent) setRefreshing(false);
+      else setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    setLoading(true);
-    getAnalytics({ start: range.start, end: range.end })
-      .then(setData)
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, [range]);
+    loadAnalytics();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [range.start, range.end]);
+
+  // Auto-refresh "barato": polling solo cuando la pestaña está visible.
+  useEffect(() => {
+    if (!autoRefresh) return;
+
+    // Si el rango NO incluye hoy, refrescar más lento (menos útil).
+    const isToday = range.end === todayISO();
+    const intervalMs = isToday ? 30_000 : 90_000;
+
+    let cancelled = false;
+    let inFlight = false;
+
+    const tick = async () => {
+      if (cancelled) return;
+      if (inFlight) return;
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+      if (typeof navigator !== "undefined" && navigator.onLine === false) return;
+      inFlight = true;
+      try {
+        await loadAnalytics({ silent: true });
+      } finally {
+        inFlight = false;
+      }
+    };
+
+    const id = window.setInterval(tick, intervalMs);
+    // Primer refresh rápido (sin esperar todo el intervalo)
+    window.setTimeout(tick, 2500);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoRefresh, range.start, range.end]);
 
   const sortedPerformance = useMemo(() => {
     if (!data?.product_performance?.length) return [];
@@ -172,7 +282,7 @@ export default function AnalyticsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <h1 className="text-lg font-semibold text-zinc-900">Analítica</h1>
           <p className="text-[11px] text-zinc-500 mt-0.5 max-w-xl">
@@ -180,23 +290,53 @@ export default function AnalyticsPage() {
             misma sesión (vieron el PDP y agregaron ese producto).
           </p>
         </div>
-        <div className="flex items-center gap-1.5 shrink-0 w-full sm:w-auto justify-stretch sm:justify-start">
-          <input
-            type="date"
-            value={range.start}
-            max={range.end}
-            onChange={(e) => setRange((r) => ({ ...r, start: e.target.value }))}
-            className="min-w-0 flex-1 sm:flex-none border border-red-400 bg-red-50 rounded-lg px-2 py-2 sm:py-1.5 text-sm sm:text-xs text-zinc-900 focus:outline-none focus:ring-1 focus:ring-red-400/30"
-          />
-          <span className="text-zinc-400 text-xs shrink-0">—</span>
-          <input
-            type="date"
-            value={range.end}
-            min={range.start}
-            max={todayISO()}
-            onChange={(e) => setRange((r) => ({ ...r, end: e.target.value }))}
-            className="min-w-0 flex-1 sm:flex-none border border-red-400 bg-red-50 rounded-lg px-2 py-2 sm:py-1.5 text-sm sm:text-xs text-zinc-900 focus:outline-none focus:ring-1 focus:ring-red-400/30"
-          />
+        <div className="flex w-full min-w-0 shrink-0 flex-col gap-2 sm:w-fit sm:max-w-full sm:items-end">
+          <div className="flex w-full flex-col gap-1 sm:w-fit sm:items-end">
+            <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-500 sm:text-right">
+              Período de consulta
+            </span>
+            <div className="flex w-full flex-col gap-2 sm:w-fit sm:flex-row sm:flex-nowrap sm:items-center sm:gap-2">
+              <input
+                type="date"
+                aria-label="Fecha inicial"
+                value={range.start}
+                max={range.end}
+                onChange={(e) => setRange((r) => ({ ...r, start: e.target.value }))}
+                className={ADMIN_DATE_INPUT_CLASS}
+              />
+              <span className="hidden text-zinc-300 text-xs shrink-0 select-none sm:inline" aria-hidden>
+                —
+              </span>
+              <input
+                type="date"
+                aria-label="Fecha final"
+                value={range.end}
+                min={range.start}
+                max={todayISO()}
+                onChange={(e) => setRange((r) => ({ ...r, end: e.target.value }))}
+                className={ADMIN_DATE_INPUT_CLASS}
+              />
+            </div>
+          </div>
+          <div className="flex w-full flex-wrap items-center justify-between gap-2 sm:w-auto sm:justify-end">
+            <label className="flex items-center gap-2 text-[11px] text-zinc-500 select-none">
+              <input
+                type="checkbox"
+                className="w-4 h-4 accent-red-500"
+                checked={autoRefresh}
+                onChange={(e) => setAutoRefresh(e.target.checked)}
+              />
+              Actualizar en vivo
+              {refreshing && <span className="text-zinc-400">· actualizando…</span>}
+            </label>
+            <button
+              type="button"
+              onClick={() => loadAnalytics({ silent: true })}
+              className="text-[11px] px-2.5 py-1 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-600"
+            >
+              Actualizar ahora
+            </button>
+          </div>
         </div>
       </div>
 

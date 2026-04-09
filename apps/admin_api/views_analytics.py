@@ -7,7 +7,6 @@ GET /api/admin/analytics/?start=YYYY-MM-DD&end=YYYY-MM-DD  (mismo criterio que d
 GET /api/admin/orders/pending-recovery/
 """
 from collections import defaultdict
-from datetime import timedelta
 
 from django.db.models import Count
 from django.db.models.functions import TruncDate
@@ -277,13 +276,10 @@ def analytics_view(request: Request):
 @api_view(["GET"])
 @permission_classes([IsAdminUser])
 def pending_recovery_list(request: Request):
-    """Orders stuck in PENDING_PAYMENT for more than 2 hours."""
-    cutoff = timezone.now() - timedelta(hours=2)
-
+    """Todas las órdenes en PENDING_PAYMENT (el envío de recordatorios es manual)."""
     orders = Order.objects.filter(
         status=Order.Status.PENDING_PAYMENT,
-        created_at__lte=cutoff,
-    ).order_by("created_at")
+    ).order_by("-created_at", "-pk")
 
     now = timezone.now()
     results = []

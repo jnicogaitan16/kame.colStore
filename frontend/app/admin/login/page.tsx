@@ -123,7 +123,7 @@ function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen bg-stone-50 flex items-center justify-center p-4">
+    <div className="admin-front min-h-screen bg-stone-50 flex items-center justify-center p-4 touch-manipulation">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <span className="font-bold text-2xl tracking-tight text-zinc-950">

@@ -7,8 +7,11 @@ POST /api/admin/orders/{reference}/ship/
 POST /api/admin/orders/{reference}/cancel/
 POST /api/admin/orders/{reference}/send-reminder/
 """
+import logging
 from datetime import timedelta
 
+from django.template.exceptions import TemplateDoesNotExist
+from django.template.loader import render_to_string
 from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAdminUser
@@ -17,7 +20,10 @@ from rest_framework.request import Request
 from rest_framework import status as http_status
 
 from apps.orders.models import Order, OrderStatusLog
+from apps.notifications.email_context import build_pending_payment_reminder_context
 from apps.notifications.emails import _safe_send_multipart
+
+logger = logging.getLogger(__name__)
 
 
 def _serialize_order_list(o: Order) -> dict:
@@ -215,7 +221,9 @@ def order_cancel(request: Request, reference: str):
 @permission_classes([IsAdminUser])
 def order_send_reminder(request: Request, reference: str):
     try:
-        o = Order.objects.get(payment_reference=reference)
+        o = Order.objects.prefetch_related(
+            "items__product_variant__product__category",
+        ).get(payment_reference=reference)
     except Order.DoesNotExist:
         return Response({"error": "Orden no encontrada."}, status=404)
 
@@ -242,22 +250,37 @@ def order_send_reminder(request: Request, reference: str):
     if not o.email:
         return Response({"error": "La orden no tiene email de contacto."}, status=400)
 
-    subject = f"Recordatorio: Tu pedido #{reference} está pendiente de pago"
-    text_body = (
-        f"Hola {o.full_name},\n\n"
-        f"Te recordamos que tu pedido #{reference} por ${o.total:,} COP "
-        f"está pendiente de pago.\n\n"
-        f"Referencia de pago: {o.payment_reference}\n\n"
-        f"Por favor realiza tu transferencia para que podamos procesar tu pedido.\n\n"
-        f"¿Tienes dudas? Contáctanos por WhatsApp.\n\n"
-        f"Equipo Kame.col"
-    )
+    ctx = build_pending_payment_reminder_context(o)
+    order_url = ctx.get("order_public_url") or ctx.get("order_url")
+    whatsapp_url = ctx.get("whatsapp_url")
+    template_ctx = {
+        **ctx,
+        "order_url": order_url,
+        "whatsapp_url": whatsapp_url,
+    }
+    subject = str(ctx.get("subject") or "Tu prenda sigue esperándote")
+
+    text_body = render_to_string("emails/orders/pending_reminder.txt", template_ctx)
+
+    html_body = None
+    try:
+        html_body = render_to_string("emails/orders/pending_reminder.html", template_ctx)
+    except TemplateDoesNotExist:
+        logger.exception(
+            "[admin_api] pending_reminder.html no encontrado; envío solo texto. order_id=%s",
+            o.pk,
+        )
+    except Exception:
+        logger.exception(
+            "[admin_api] Error al renderizar pending_reminder.html; envío solo texto. order_id=%s",
+            o.pk,
+        )
 
     try:
         _safe_send_multipart(
             subject=subject,
             text_body=text_body,
-            html_body=None,
+            html_body=html_body,
             to_email=o.email,
         )
     except Exception as exc:

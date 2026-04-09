@@ -260,6 +260,8 @@ export type AdminProduct = {
   price: number;
   category_id: number;
   category_name: string;
+  /** Mirrors Django Category.variant_schema (e.g. "size_color"). */
+  category_variant_schema: string;
   is_active: boolean;
   total_stock: number;
   variant_count: number;
@@ -267,7 +269,25 @@ export type AdminProduct = {
   created_at: string;
 };
 
+export type AdminVariantRule = {
+  label: string;
+  use_select: boolean;
+  allowed_values: string[] | null;
+  allowed_colors: string[] | null;
+  normalize_upper: boolean;
+};
+
+export type AdminProductColorImage = {
+  id: number;
+  color: string;
+  alt_text: string;
+  is_primary: boolean;
+  sort_order: number;
+  image_thumb_url: string | null;
+};
+
 export type AdminProductDetail = AdminProduct & {
+  variant_rule: AdminVariantRule;
   variants: Array<{
     id: number;
     value: string;
@@ -275,6 +295,8 @@ export type AdminProductDetail = AdminProduct & {
     is_active: boolean;
     stock: number;
   }>;
+  /** ProductColorImage list (only for SIZE_COLOR categories). */
+  color_images: AdminProductColorImage[];
 };
 
 export type AdminCategory = {

@@ -51,7 +51,7 @@ export default function RecuperacionPage() {
         <div className="min-w-0">
           <h1 className="text-lg font-semibold text-zinc-900">Recuperación de pagos</h1>
           <p className="text-xs text-zinc-500 mt-0.5 max-w-prose">
-            Órdenes pendientes con más de 2 horas sin cambio de estado.
+            Todas las órdenes con pago pendiente. El tiempo mostrado es desde la creación del pedido.
           </p>
         </div>
         {orders.length > 0 && (
