@@ -3,6 +3,7 @@ import {
   NAVIGATION_MOCK,
   PRODUCT_LIST_MOCK,
   PRODUCT_DETAIL_MOCK,
+  PRODUCT_99_SOLD_OUT_MOCK,
   CITIES_MOCK,
   SHIPPING_QUOTE_BOG_MOCK,
   STOCK_VALIDATE_OK_MOCK,
@@ -43,6 +44,11 @@ export async function mockProductList(page: Page, overrides = {}) {
 export async function mockProductDetail(page: Page, overrides = {}) {
   await page.route(/\/api\/products\/[^/]+(\/)?$/, (route) =>
     route.fulfill({ json: { ...PRODUCT_DETAIL_MOCK, ...overrides } })
+  );
+  // Registrado después: Playwright aplica la última ruta que coincida — evita que RSC/fetch
+  // del cliente reemplacen el PDP 99 con PRODUCT_DETAIL_MOCK (producto 88 en stock).
+  await page.route(/\/api\/products\/99(\/)?$/, (route) =>
+    route.fulfill({ json: { ...PRODUCT_99_SOLD_OUT_MOCK, ...overrides } })
   );
 }
 

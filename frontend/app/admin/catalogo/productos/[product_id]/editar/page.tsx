@@ -2,8 +2,15 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { getAdminProduct, updateProduct, addVariant, getAdminCategories } from "@/lib/admin-api";
-import type { AdminProductDetail, AdminCategory } from "@/types/admin";
+import {
+  addVariant,
+  createProductColorImage,
+  deleteProductColorImage,
+  getAdminCategories,
+  getAdminProduct,
+  updateProduct,
+} from "@/lib/admin-api";
+import type { AdminProductColorImage, AdminProductDetail, AdminCategory } from "@/types/admin";
 
 const INPUT =
   "w-full bg-white border border-zinc-300 rounded-lg px-3 py-2.5 text-sm text-zinc-900 placeholder-zinc-400 focus:outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400/20";
@@ -47,6 +54,14 @@ export default function EditarProductoPage({ params }: { params: { product_id: s
   });
   const [variantForm, setVariantForm] = useState({ value: "", color: "", initial_stock: "0" });
   const [addingVariant, setAddingVariant] = useState(false);
+  const [uploadingColorImage, setUploadingColorImage] = useState(false);
+  const [colorImageForm, setColorImageForm] = useState<{
+    color: string;
+    sort_order: string;
+    is_primary: boolean;
+    alt_text: string;
+    file: File | null;
+  }>({ color: "", sort_order: "0", is_primary: false, alt_text: "", file: null });
 
   useEffect(() => {
     Promise.all([getAdminProduct(Number(product_id)), getAdminCategories()]).then(([p, cats]) => {
@@ -95,6 +110,11 @@ export default function EditarProductoPage({ params }: { params: { product_id: s
   async function handleAddVariant(e: React.FormEvent) {
     e.preventDefault();
     if (!variantForm.value.trim()) return;
+    const isSizeColorSchema = (product?.category_variant_schema || "").toLowerCase() === "size_color";
+    if (isSizeColorSchema && !variantForm.color.trim()) {
+      showToast("El color es obligatorio para esta categoría.", false);
+      return;
+    }
     setAddingVariant(true);
     try {
       await addVariant(Number(product_id), {
@@ -110,10 +130,59 @@ export default function EditarProductoPage({ params }: { params: { product_id: s
     } finally { setAddingVariant(false); }
   }
 
+  async function handleAddColorImage(e: React.FormEvent) {
+    e.preventDefault();
+    if (!colorImageForm.file) {
+      showToast("Selecciona una imagen.", false);
+      return;
+    }
+    if (!colorImageForm.color.trim()) {
+      showToast("Selecciona un color.", false);
+      return;
+    }
+    setUploadingColorImage(true);
+    try {
+      const fd = new FormData();
+      fd.set("image", colorImageForm.file);
+      fd.set("color", colorImageForm.color.trim());
+      fd.set("sort_order", String(parseInt(colorImageForm.sort_order) || 0));
+      fd.set("is_primary", colorImageForm.is_primary ? "1" : "0");
+      if (colorImageForm.alt_text.trim()) fd.set("alt_text", colorImageForm.alt_text.trim());
+
+      await createProductColorImage(Number(product_id), fd);
+      const updated = await getAdminProduct(Number(product_id));
+      setProduct(updated);
+      setColorImageForm({ color: "", sort_order: "0", is_primary: false, alt_text: "", file: null });
+      showToast("Imagen por color agregada.");
+    } catch (e: any) {
+      showToast(formatApiError(e?.payload?.error ?? e?.message), false);
+    } finally {
+      setUploadingColorImage(false);
+    }
+  }
+
+  async function handleDeleteColorImage(img: AdminProductColorImage) {
+    if (!confirm("¿Eliminar esta imagen?")) return;
+    try {
+      await deleteProductColorImage(Number(product_id), img.id);
+      const updated = await getAdminProduct(Number(product_id));
+      setProduct(updated);
+      showToast("Imagen eliminada.");
+    } catch (e: any) {
+      showToast(formatApiError(e?.payload?.error ?? e?.message), false);
+    }
+  }
+
   if (loading) return <div className="text-zinc-400 text-sm">Cargando...</div>;
   if (!product) return <div className="text-red-500 text-sm">{error || "Producto no encontrado."}</div>;
 
   const leafCategories = categories.filter((c) => c.is_leaf);
+  const rule = product.variant_rule;
+  const allowedValues = rule?.allowed_values || [];
+  const allowedColors = rule?.allowed_colors || [];
+  const useSelectForValue = Boolean(rule?.use_select && allowedValues.length);
+  const useSelectForColor = Boolean(allowedColors.length);
+  const isSizeColor = (product.category_variant_schema || "").toLowerCase() === "size_color";
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -221,15 +290,57 @@ export default function EditarProductoPage({ params }: { params: { product_id: s
         <form onSubmit={handleAddVariant} className="border-t border-zinc-100 pt-4">
           <p className="text-xs text-zinc-500 font-medium mb-3">Agregar variante</p>
           <div className="grid grid-cols-3 gap-2">
-            <Field label="Talla *">
-              <input type="text" value={variantForm.value}
-                onChange={(e) => setVariantForm({ ...variantForm, value: e.target.value })}
-                className={INPUT} placeholder="S, M, L..." required />
+            <Field label={`${rule?.label || "Talla"} *`}>
+              {useSelectForValue ? (
+                <select
+                  value={variantForm.value}
+                  onChange={(e) => setVariantForm({ ...variantForm, value: e.target.value })}
+                  className={INPUT}
+                  required
+                >
+                  <option value="">Seleccionar...</option>
+                  {allowedValues.map((v) => (
+                    <option key={v} value={v}>
+                      {v}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={variantForm.value}
+                  onChange={(e) => setVariantForm({ ...variantForm, value: e.target.value })}
+                  className={INPUT}
+                  placeholder="S, M, L..."
+                  required
+                />
+              )}
             </Field>
             <Field label="Color">
-              <input type="text" value={variantForm.color}
-                onChange={(e) => setVariantForm({ ...variantForm, color: e.target.value })}
-                className={INPUT} placeholder="Negro..." />
+              {useSelectForColor ? (
+                <select
+                  value={variantForm.color}
+                  onChange={(e) => setVariantForm({ ...variantForm, color: e.target.value })}
+                  className={INPUT}
+                  disabled={!isSizeColor}
+                >
+                  <option value="">{isSizeColor ? "Seleccionar..." : "—"}</option>
+                  {allowedColors.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={variantForm.color}
+                  onChange={(e) => setVariantForm({ ...variantForm, color: e.target.value })}
+                  className={INPUT}
+                  placeholder="Negro..."
+                  disabled={!isSizeColor}
+                />
+              )}
             </Field>
             <Field label="Stock inicial">
               <input type="number" min={0} value={variantForm.initial_stock}
@@ -243,6 +354,134 @@ export default function EditarProductoPage({ params }: { params: { product_id: s
           </button>
         </form>
       </div>
+
+      {/* Images by color (Django Admin parity for SIZE_COLOR) */}
+      {isSizeColor && (
+        <div className="bg-white border border-zinc-200 rounded-2xl p-5">
+          <p className="text-xs text-zinc-500 font-semibold uppercase tracking-wide mb-4">
+            Imágenes por color ({product.color_images?.length || 0})
+          </p>
+
+          {(product.color_images?.length || 0) > 0 && (
+            <div className="grid sm:grid-cols-2 gap-3 mb-5">
+              {product.color_images.map((img) => (
+                <div key={img.id} className="border border-zinc-200 rounded-xl p-3 flex gap-3">
+                  <div className="w-16 h-16 bg-zinc-50 border border-zinc-200 rounded-lg overflow-hidden flex items-center justify-center">
+                    {img.image_thumb_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={img.image_thumb_url} alt={img.alt_text || img.color} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-[11px] text-zinc-400">Sin imagen</span>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="truncate">
+                        <p className="text-sm font-medium text-zinc-900 truncate">{img.color}</p>
+                        <p className="text-xs text-zinc-500 truncate">{img.alt_text || "—"}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {img.is_primary && (
+                          <span className="text-[11px] px-2 py-0.5 rounded-full border bg-green-50 text-green-700 border-green-200">
+                            Principal
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteColorImage(img)}
+                          className="text-xs px-2 py-1 rounded-lg border border-zinc-200 hover:bg-zinc-50 text-zinc-700"
+                        >
+                          Eliminar
+                        </button>
+                      </div>
+                    </div>
+                    <p className="mt-1 text-[11px] text-zinc-400">Orden: {img.sort_order}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <form onSubmit={handleAddColorImage} className="border-t border-zinc-100 pt-4 space-y-3">
+            <p className="text-xs text-zinc-500 font-medium">Agregar imagen por color</p>
+            <div className="grid md:grid-cols-2 gap-3">
+              <Field label="Color *">
+                {useSelectForColor ? (
+                  <select
+                    value={colorImageForm.color}
+                    onChange={(e) => setColorImageForm({ ...colorImageForm, color: e.target.value })}
+                    className={INPUT}
+                    required
+                  >
+                    <option value="">Seleccionar...</option>
+                    {allowedColors.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={colorImageForm.color}
+                    onChange={(e) => setColorImageForm({ ...colorImageForm, color: e.target.value })}
+                    className={INPUT}
+                    placeholder="Negro..."
+                    required
+                  />
+                )}
+              </Field>
+              <Field label="Orden">
+                <input
+                  type="number"
+                  min={0}
+                  value={colorImageForm.sort_order}
+                  onChange={(e) => setColorImageForm({ ...colorImageForm, sort_order: e.target.value })}
+                  className={INPUT}
+                />
+              </Field>
+            </div>
+
+            <Field label="Imagen *">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setColorImageForm({ ...colorImageForm, file: e.target.files?.[0] || null })}
+                className="block w-full text-sm text-zinc-700 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border file:border-zinc-200 file:bg-white file:text-zinc-700 hover:file:bg-zinc-50"
+                required
+              />
+            </Field>
+
+            <Field label="Alt text (opcional)">
+              <input
+                type="text"
+                value={colorImageForm.alt_text}
+                onChange={(e) => setColorImageForm({ ...colorImageForm, alt_text: e.target.value })}
+                className={INPUT}
+                placeholder="Ej: Camiseta negra"
+              />
+            </Field>
+
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={colorImageForm.is_primary}
+                onChange={(e) => setColorImageForm({ ...colorImageForm, is_primary: e.target.checked })}
+                className="w-4 h-4 accent-red-500"
+              />
+              <span className="text-sm text-zinc-700">Marcar como principal (para este color)</span>
+            </label>
+
+            <button
+              type="submit"
+              disabled={uploadingColorImage}
+              className="text-xs px-4 py-2 bg-zinc-100 hover:bg-zinc-200 disabled:opacity-40 text-zinc-700 rounded-lg transition-colors border border-zinc-200 font-medium"
+            >
+              {uploadingColorImage ? "Subiendo..." : "+ Agregar imagen"}
+            </button>
+          </form>
+        </div>
+      )}
 
       {toast && (
         <div className={`fixed bottom-5 right-5 border rounded-xl px-4 py-2.5 text-sm shadow-md ${

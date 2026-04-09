@@ -2,6 +2,12 @@ import Link from "next/link";
 
 const SECTIONS: { href: string; title: string; desc: string; icon: string }[] = [
   {
+    href: "/admin/inventario",
+    title: "Inventario",
+    desc: "Stock por categoría (pools): ajustes, carga masiva y sincronización con variantes.",
+    icon: "🗃",
+  },
+  {
     href: "/admin/catalogo/departamentos",
     title: "Departamentos",
     desc: "Hombre, Mujer, Accesorios y orden de navegación.",
@@ -45,7 +51,7 @@ export default function CatalogoHubPage() {
       <div>
         <h1 className="text-lg font-semibold text-zinc-900">Catálogo</h1>
         <p className="text-sm text-zinc-500 mt-1">
-          Departamentos, categorías, productos y contenido del home desde este panel.
+          Inventario, departamentos, categorías, productos y contenido del home desde este panel.
         </p>
       </div>
 

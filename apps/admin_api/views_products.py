@@ -9,27 +9,85 @@ DELETE /api/admin/products/{id}/   → soft delete (is_active=False)
 POST   /api/admin/products/{id}/variants/
 """
 from django.core.exceptions import ValidationError
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, parser_classes
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework.request import Request
 
-from apps.catalog.models import Category, InventoryPool, Product, ProductVariant
+from apps.catalog.models import (
+    Category,
+    InventoryPool,
+    Product,
+    ProductVariant,
+    ProductColorImage,
+)
 from apps.catalog.services.inventory import get_variant_available_stock
+from apps.catalog.variant_rules import resolve_variant_rule
+
+from .views_homepage import _rewind_upload
+
+
+def _abs_url(request: Request, relative: str | None) -> str | None:
+    if not relative:
+        return None
+    if relative.startswith("http://") or relative.startswith("https://"):
+        return relative
+    try:
+        return request.build_absolute_uri(relative)
+    except Exception:
+        return relative
+
+
+def _parse_bool(val) -> bool:
+    if isinstance(val, bool):
+        return val
+    s = str(val).strip().lower()
+    return s in ("1", "true", "yes", "on")
+
+
+def _serialize_color_image(request: Request, img: ProductColorImage) -> dict:
+    thumb = None
+    if getattr(img, "image", None):
+        try:
+            thumb = getattr(img.image_thumb, "url", None) or img.image.url
+        except Exception:
+            thumb = None
+    return {
+        "id": img.pk,
+        "color": img.color,
+        "alt_text": img.alt_text or "",
+        "is_primary": bool(img.is_primary),
+        "sort_order": int(img.sort_order or 0),
+        "image_thumb_url": _abs_url(request, thumb),
+    }
 
 
 def _serialize_product(p: Product) -> dict:
     variant_count = p.variants.filter(is_active=True).count() if hasattr(p, "variants") else 0
     # Get primary image URL
     primary_image = None
-    first_variant = p.variants.first() if hasattr(p, "variants") else None
-    if first_variant:
-        img = first_variant.images.first()
-        if img and img.image:
+    schema = getattr(getattr(p, "category", None), "variant_schema", "") or ""
+    if schema == Category.VariantSchema.SIZE_COLOR and hasattr(p, "color_images"):
+        img = p.color_images.order_by("-is_primary", "sort_order", "created_at", "id").first()
+        if img and getattr(img, "image", None):
             try:
-                primary_image = img.image.url
+                primary_image = getattr(img.image_thumb, "url", None) or img.image.url
             except Exception:
-                pass
+                try:
+                    primary_image = img.image.url
+                except Exception:
+                    primary_image = None
+
+    if not primary_image:
+        first_variant = p.variants.first() if hasattr(p, "variants") else None
+        if first_variant:
+            img = first_variant.images.first()
+            if img and img.image:
+                try:
+                    primary_image = img.image.url
+                except Exception:
+                    pass
 
     return {
         "id": p.pk,
@@ -39,6 +97,7 @@ def _serialize_product(p: Product) -> dict:
         "price": float(p.price),
         "category_id": p.category_id,
         "category_name": p.category.name if p.category_id else "",
+        "category_variant_schema": schema,
         "is_active": p.is_active,
         "total_stock": p.total_stock,
         "variant_count": variant_count,
@@ -49,6 +108,17 @@ def _serialize_product(p: Product) -> dict:
 
 def _serialize_product_detail(p: Product) -> dict:
     base = _serialize_product(p)
+    rule = resolve_variant_rule(
+        category_slug=getattr(getattr(p, "category", None), "slug", None),
+        variant_schema=base.get("category_variant_schema"),
+    )
+    base["variant_rule"] = {
+        "label": rule.get("label", "Value"),
+        "use_select": bool(rule.get("use_select")),
+        "allowed_values": rule.get("allowed_values"),
+        "allowed_colors": rule.get("allowed_colors"),
+        "normalize_upper": bool(rule.get("normalize_upper", True)),
+    }
     variants = []
     for v in p.variants.all():
         stock = get_variant_available_stock(v) if hasattr(v, "value") else 0
@@ -60,6 +130,17 @@ def _serialize_product_detail(p: Product) -> dict:
             "stock": stock,
         })
     base["variants"] = variants
+
+    request = getattr(p, "_request", None)
+    if (
+        request is not None
+        and base.get("category_variant_schema") == Category.VariantSchema.SIZE_COLOR
+        and hasattr(p, "color_images")
+    ):
+        imgs = list(p.color_images.all().order_by("-is_primary", "sort_order", "created_at", "id"))
+        base["color_images"] = [_serialize_color_image(request, img) for img in imgs]
+    else:
+        base["color_images"] = []
     return base
 
 
@@ -131,6 +212,12 @@ def products_create(request: Request):
     except Exception as e:
         return Response({"error": str(e)}, status=400)
 
+    product = (
+        Product.objects.select_related("category")
+        .prefetch_related("variants", "color_images")
+        .get(pk=product.pk)
+    )
+    setattr(product, "_request", request)
     return Response(_serialize_product_detail(product), status=201)
 
 
@@ -138,10 +225,15 @@ def products_create(request: Request):
 @permission_classes([IsAdminUser])
 def product_detail(request: Request, product_id: int):
     try:
-        p = Product.objects.select_related("category").prefetch_related("variants").get(pk=product_id)
+        p = (
+            Product.objects.select_related("category")
+            .prefetch_related("variants", "color_images")
+            .get(pk=product_id)
+        )
     except Product.DoesNotExist:
         return Response({"error": "Producto no encontrado."}, status=404)
 
+    setattr(p, "_request", request)
     return Response(_serialize_product_detail(p))
 
 
@@ -184,6 +276,12 @@ def product_update(request: Request, product_id: int):
     except Exception as e:
         return Response({"error": str(e)}, status=400)
 
+    p = (
+        Product.objects.select_related("category")
+        .prefetch_related("variants", "color_images")
+        .get(pk=product_id)
+    )
+    setattr(p, "_request", request)
     return Response(_serialize_product_detail(p))
 
 
@@ -216,10 +314,19 @@ def product_add_variant(request: Request, product_id: int):
     if not value:
         return Response({"error": "Se requiere value (talla)."}, status=400)
 
+    # Validate against canonical rules (same as Django admin forms/models).
+    variant = ProductVariant(product=p, value=value, color=color, is_active=True)
+    try:
+        variant.full_clean()
+    except ValidationError as e:
+        err = e.message_dict if getattr(e, "message_dict", None) else {"__all__": list(e.messages)}
+        return Response({"error": err}, status=400)
+
+    # Persist (idempotent)
     variant, created = ProductVariant.objects.get_or_create(
         product=p,
-        value=value,
-        color=color,
+        value=variant.value,
+        color=variant.color,
         defaults={"is_active": True},
     )
 
@@ -241,6 +348,105 @@ def product_add_variant(request: Request, product_id: int):
         "pool_id": pool.pk,
         "stock": pool.quantity,
     }, status=201 if created else 200)
+
+
+@api_view(["POST"])
+@permission_classes([IsAdminUser])
+@parser_classes([MultiPartParser, FormParser])
+def product_color_image_create(request: Request, product_id: int):
+    try:
+        p = Product.objects.select_related("category").get(pk=product_id)
+    except Product.DoesNotExist:
+        return Response({"error": "Producto no encontrado."}, status=404)
+
+    if getattr(getattr(p, "category", None), "variant_schema", "") != Category.VariantSchema.SIZE_COLOR:
+        return Response({"error": "Este producto no admite imágenes por color."}, status=400)
+
+    data = request.data
+    image = request.FILES.get("image")
+    if not image:
+        return Response({"error": {"image": ["Se requiere una imagen."]}}, status=400)
+
+    color = (data.get("color") or "").strip()
+    alt_text = (data.get("alt_text") or "").strip()
+    is_primary = _parse_bool(data.get("is_primary", False))
+    sort_order = int(data.get("sort_order", 0) or 0)
+
+    _rewind_upload(image)
+    obj = ProductColorImage(
+        product=p,
+        color=color,
+        alt_text=alt_text,
+        is_primary=is_primary,
+        sort_order=sort_order,
+        image=image,
+    )
+    try:
+        obj.full_clean()
+        _rewind_upload(image)
+        obj.save()
+    except ValidationError as e:
+        err = e.message_dict if getattr(e, "message_dict", None) else {"__all__": list(e.messages)}
+        return Response({"error": err}, status=400)
+    except Exception as e:
+        return Response({"error": str(e)}, status=400)
+
+    return Response(_serialize_color_image(request, obj), status=201)
+
+
+@api_view(["PATCH"])
+@permission_classes([IsAdminUser])
+@parser_classes([JSONParser, MultiPartParser, FormParser])
+def product_color_image_update(request: Request, product_id: int, image_id: int):
+    try:
+        obj = ProductColorImage.objects.select_related("product", "product__category").get(
+            pk=image_id, product_id=product_id
+        )
+    except ProductColorImage.DoesNotExist:
+        return Response({"error": "Imagen no encontrada."}, status=404)
+
+    if getattr(getattr(obj.product, "category", None), "variant_schema", "") != Category.VariantSchema.SIZE_COLOR:
+        return Response({"error": "Este producto no admite imágenes por color."}, status=400)
+
+    data = request.data
+    if "color" in data:
+        obj.color = (data.get("color") or "").strip()
+    if "alt_text" in data:
+        obj.alt_text = (data.get("alt_text") or "").strip()
+    if "is_primary" in data:
+        obj.is_primary = _parse_bool(data.get("is_primary"))
+    if "sort_order" in data:
+        obj.sort_order = int(data.get("sort_order") or 0)
+
+    img = request.FILES.get("image")
+    if img:
+        _rewind_upload(img)
+        obj.image = img
+
+    try:
+        obj.full_clean()
+        if img:
+            _rewind_upload(img)
+        obj.save()
+    except ValidationError as e:
+        err = e.message_dict if getattr(e, "message_dict", None) else {"__all__": list(e.messages)}
+        return Response({"error": err}, status=400)
+    except Exception as e:
+        return Response({"error": str(e)}, status=400)
+
+    return Response(_serialize_color_image(request, obj))
+
+
+@api_view(["DELETE"])
+@permission_classes([IsAdminUser])
+def product_color_image_delete(request: Request, product_id: int, image_id: int):
+    try:
+        obj = ProductColorImage.objects.get(pk=image_id, product_id=product_id)
+    except ProductColorImage.DoesNotExist:
+        return Response({"error": "Imagen no encontrada."}, status=404)
+
+    obj.delete()
+    return Response(status=204)
 
 
 def _serialize_category(c: Category) -> dict:

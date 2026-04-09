@@ -133,7 +133,7 @@ function SuccessView({ orderData }: { orderData: TransactionStatusResponse | nul
       )}
 
       <Link href="/" className="inline-flex">
-        <button className="rounded-2xl bg-[#111111] px-6 py-3.5 text-sm font-medium text-white hover:bg-black/85">
+        <button className="rounded-2xl bg-[#111111] px-5 py-2 text-sm font-medium leading-snug text-white hover:bg-black/85">
           Volver al inicio
         </button>
       </Link>
@@ -154,12 +154,12 @@ function FailedView() {
 
       <div className="flex gap-3">
         <Link href="/checkout" className="inline-flex">
-          <button className="rounded-2xl bg-[#111111] px-6 py-3.5 text-sm font-medium text-white hover:bg-black/85">
+          <button className="rounded-2xl bg-[#111111] px-5 py-2 text-sm font-medium leading-snug text-white hover:bg-black/85">
             Intentar de nuevo
           </button>
         </Link>
         <Link href="/" className="inline-flex">
-          <button className="rounded-2xl border border-black/12 px-6 py-3.5 text-sm font-medium text-black/80 hover:bg-black/[0.03]">
+          <button className="rounded-2xl border border-black/12 px-5 py-2 text-sm font-medium leading-snug text-black/80 hover:bg-black/[0.03]">
             Volver al inicio
           </button>
         </Link>
@@ -186,7 +186,7 @@ function PendingView({ orderData }: { orderData: TransactionStatusResponse | nul
       )}
 
       <Link href="/" className="inline-flex">
-        <button className="rounded-2xl border border-black/12 px-6 py-3.5 text-sm font-medium text-black/80 hover:bg-black/[0.03]">
+        <button className="rounded-2xl border border-black/12 px-5 py-2 text-sm font-medium leading-snug text-black/80 hover:bg-black/[0.03]">
           Volver al inicio
         </button>
       </Link>

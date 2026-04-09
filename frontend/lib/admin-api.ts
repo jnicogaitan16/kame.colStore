@@ -23,6 +23,7 @@ import type {
   AdminHomepageBanner,
   AdminHomepagePromo,
   AdminHomepageSection,
+  AdminProductColorImage,
 } from "@/types/admin";
 
 async function adminFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -407,6 +408,28 @@ export async function addVariant(
     method: "POST",
     body: JSON.stringify(data),
   });
+}
+
+export async function createProductColorImage(productId: number, formData: FormData): Promise<AdminProductColorImage> {
+  return adminFetchMultipart<AdminProductColorImage>(`/admin/products/${productId}/color-images/create/`, {
+    method: "POST",
+    body: formData,
+  });
+}
+
+export async function updateProductColorImage(
+  productId: number,
+  imageId: number,
+  formData: FormData
+): Promise<AdminProductColorImage> {
+  return adminFetchMultipart<AdminProductColorImage>(`/admin/products/${productId}/color-images/${imageId}/`, {
+    method: "PATCH",
+    body: formData,
+  });
+}
+
+export async function deleteProductColorImage(productId: number, imageId: number): Promise<void> {
+  await adminFetch<void>(`/admin/products/${productId}/color-images/${imageId}/delete/`, { method: "DELETE" });
 }
 
 export async function getAdminCategories(params: { include_inactive?: boolean } = {}): Promise<AdminCategory[]> {

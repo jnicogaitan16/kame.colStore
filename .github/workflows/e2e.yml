@@ -34,6 +34,15 @@ jobs:
         working-directory: tests
         run: npm ci
 
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('tests/package-lock.json') }}
+          restore-keys: |
+            playwright-${{ runner.os }}-
+
       - name: Start mock backend for build
         working-directory: tests
         run: |
@@ -62,10 +71,15 @@ jobs:
             rm /tmp/mock-backend.pid
           fi
 
-      # Playwright
+      # Playwright: con caché de ~/.cache/ms-playwright solo basta install chromium (evita apt en cada run).
       - name: Install Playwright browsers
         working-directory: tests
-        run: npx playwright install --with-deps chromium
+        run: |
+          if [ "${{ steps.playwright-cache.outputs.cache-hit }}" = "true" ]; then
+            npx playwright install chromium
+          else
+            npx playwright install --with-deps chromium
+          fi
 
       - name: Run E2E tests
         working-directory: tests

@@ -9,11 +9,11 @@ import type { AdminUser } from "@/types/admin";
 const NAV: { href: string; label: string; icon: string; indent?: boolean }[] = [
   { href: "/admin/dashboard", label: "Dashboard", icon: "▦" },
   { href: "/admin/ordenes", label: "Órdenes", icon: "📦" },
-  { href: "/admin/inventario", label: "Inventario", icon: "🗃" },
   { href: "/admin/clientes", label: "Clientes", icon: "👥" },
   { href: "/admin/analytics", label: "Analítica", icon: "📈" },
   { href: "/admin/recuperacion", label: "Recuperación", icon: "⏳" },
   { href: "/admin/catalogo", label: "Catálogo", icon: "🛍" },
+  { href: "/admin/inventario", label: "Inventario", icon: "🗃", indent: true },
   { href: "/admin/catalogo/departamentos", label: "Departamentos", icon: "⌂", indent: true },
   { href: "/admin/catalogo/categorias", label: "Categorías", icon: "🏷", indent: true },
   { href: "/admin/catalogo/productos", label: "Productos", icon: "📦", indent: true },
@@ -73,7 +73,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div className="min-h-screen bg-stone-50 text-zinc-900 flex">
+    <div className="admin-front min-h-screen bg-stone-50 text-zinc-900 flex touch-manipulation">
       {sidebarOpen && (
         <div
           className="fixed inset-0 bg-zinc-950/30 z-20 md:hidden"

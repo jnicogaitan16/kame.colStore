@@ -2954,3 +2954,22 @@ html[data-page-loading="1"] body {
     }
   }
 }
+
+/* -----------------------------------------------------------------------------
+   Admin front — iOS Safari / Chrome: evitar zoom automático al enfocar inputs.
+   Apple hace zoom si font-size computado < 16px en inputs/select/textarea.
+   ----------------------------------------------------------------------------- */
+@media screen and (max-width: 1023px) {
+  .admin-front input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="hidden"]):not([type="file"]),
+  .admin-front select,
+  .admin-front textarea {
+    font-size: 16px !important;
+    line-height: 1.35;
+  }
+
+  /* OTP u otros campos ya ≥16px: mantener tamaño visual (sigue sin disparar zoom en iOS). */
+  .admin-front input.text-2xl {
+    font-size: 1.5rem !important;
+    line-height: 1.25;
+  }
+}

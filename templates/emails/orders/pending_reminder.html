@@ -1,0 +1,195 @@
+{% extends "emails/base_dark.html" %}
+
+{% block title %}Tu prenda sigue esperándote · KAME.COL{% endblock %}
+
+{% block preheader %}
+{{ preheader }}
+{% endblock %}
+
+{% block content %}
+  <p class="label" style="margin:0 0 10px 0;">Recordatorio</p>
+
+  <h1 class="h1" style="margin:0;">
+    Tu prenda sigue esperándote
+  </h1>
+
+  <div style="height:16px; line-height:16px; font-size:16px;">&nbsp;</div>
+
+  <p class="body" style="margin:0; font-size:15px; line-height:24px; color:rgba(24,24,27,0.88);">
+    {% if first_name %}
+      Hola {{ first_name }},
+    {% else %}
+      Hola,
+    {% endif %}
+  </p>
+
+  <div style="height:12px; line-height:12px; font-size:12px;">&nbsp;</div>
+
+  <p class="body" style="margin:0; font-size:15px; line-height:24px; color:rgba(63,63,70,0.84);">
+    Vimos que dejaste un pedido sin completar en <span class="strong">Kame.col</span>. Las piezas que elegiste siguen apartadas por un tiempo limitado: si quieres asegurarlas, te recomendamos finalizar el pago pronto.
+  </p>
+
+  <div style="height:24px; line-height:24px; font-size:24px;">&nbsp;</div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="subcard" style="width:100%; background:#ffffff; border:1px solid rgba(24,24,27,0.05); border-radius:14px;">
+    <tr>
+      <td style="padding:22px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr class="stack-col">
+            <td style="vertical-align:top; padding:0 24px 0 0;">
+              {% if payment_method %}
+                <p class="meta-title" style="margin:0;">Método elegido</p>
+                <p class="meta-value" style="margin:4px 0 0 0;">{{ payment_method }}</p>
+              {% endif %}
+            </td>
+            <td style="width:228px; min-width:228px; vertical-align:top; padding:0;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr class="summary-row">
+                  <td style="padding:0 0 6px 0;">
+                    <p class="summary-label">Subtotal</p>
+                  </td>
+                  <td style="padding:0 0 6px 12px;">
+                    <p class="summary-value">{{ subtotal_fmt }}</p>
+                  </td>
+                </tr>
+                <tr class="summary-row">
+                  <td style="padding:0 0 6px 0;">
+                    <p class="summary-label">Envío</p>
+                  </td>
+                  <td style="padding:0 0 6px 12px;">
+                    <p class="summary-value">{% if shipping_is_free %}Gratis{% else %}{{ shipping_cost_fmt }}{% endif %}</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td colspan="2" style="padding:14px 0 12px 0;">
+                    <div class="summary-divider">&nbsp;</div>
+                  </td>
+                </tr>
+                <tr class="summary-row summary-total">
+                  <td style="padding:0;">
+                    <p class="summary-label" style="color:rgba(24,24,27,0.92); font-weight:600;">Total</p>
+                  </td>
+                  <td style="padding:0 0 0 12px;">
+                    <p class="summary-value" style="font-size:18px; line-height:24px; font-weight:700; color:#111111;">{{ total_fmt }}</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+
+  {% if email_items %}
+    <div style="height:22px; line-height:22px; font-size:22px;">&nbsp;</div>
+
+    <p class="label" style="margin:0 0 12px 0;">Productos</p>
+
+    {% for item in email_items %}
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="subcard" style="width:100%; background:#ffffff; border:1px solid rgba(24,24,27,0.04); border-radius:14px; margin-bottom:12px;">
+        <tr>
+          <td style="padding:16px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td width="96" style="width:96px; vertical-align:top; padding-right:16px;">
+                  {% if item.image_url %}
+                    <img
+                      src="{{ item.image_url }}"
+                      alt="{{ item.name }}"
+                      width="96"
+                      height="96"
+                      class="item-thumb"
+                      style="display:block; width:96px; height:96px; object-fit:cover; object-position:center; border:0; outline:none; text-decoration:none; background:transparent; border-radius:0;"
+                    />
+                  {% else %}
+                    <div
+                      class="item-thumb"
+                      style="width:96px; height:96px; background:#f4f4f5; border-radius:0; border:0;"
+                    >&nbsp;</div>
+                  {% endif %}
+                </td>
+
+                <td style="vertical-align:top;">
+                  <p class="email-product-name" style="margin:0; font-size:15px; line-height:22px; font-weight:600; letter-spacing:0.015em; text-transform:uppercase; color:rgba(24,24,27,0.94);">
+                    {{ item.name }}
+                  </p>
+
+                  {% if item.variant_label %}
+                    <div style="height:5px; line-height:5px; font-size:5px;">&nbsp;</div>
+                    <p class="email-product-meta" style="margin:0; font-size:11px; line-height:16px; font-weight:500; letter-spacing:0.06em; text-transform:uppercase; color:rgba(113,113,122,0.82);">
+                      {{ item.variant_label }}
+                    </p>
+                  {% endif %}
+
+                  <div style="height:12px; line-height:12px; font-size:12px;">&nbsp;</div>
+
+                  <p class="email-product-qty" style="margin:0; font-size:13px; line-height:20px; color:rgba(82,82,91,0.72);">
+                    Cantidad: <span class="strong" style="color:rgba(24,24,27,0.86);">{{ item.quantity }}</span>
+                  </p>
+
+                  <p class="email-product-price" style="margin:6px 0 0 0; font-size:13px; line-height:18px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:rgba(24,24,27,0.9);">
+                    {{ item.unit_price_fmt }}
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    {% endfor %}
+  {% endif %}
+
+  <div style="height:16px; line-height:16px; font-size:16px;">&nbsp;</div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+    <tr>
+      <td align="left">
+        {% if order_public_url %}
+          <a href="{{ order_public_url }}" style="display:inline-block; padding:9px 16px; border-radius:10px; background:#111111; color:#ffffff; border:1px solid rgba(24,24,27,0.1); font-size:12px; line-height:16px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase;">
+            Finalizar mi compra
+          </a>
+        {% elif order_url %}
+          <a href="{{ order_url }}" style="display:inline-block; padding:9px 16px; border-radius:10px; background:#111111; color:#ffffff; border:1px solid rgba(24,24,27,0.1); font-size:12px; line-height:16px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase;">
+            Finalizar mi compra
+          </a>
+        {% elif whatsapp_url %}
+          <a
+            href="{{ whatsapp_url }}"
+            class="compact-email-cta"
+            style="
+              display:inline-block;
+              padding:9px 16px;
+              border-radius:10px;
+              background:#111111;
+              color:#ffffff;
+              border:1px solid rgba(24,24,27,0.1);
+              font-size:12px;
+              line-height:16px;
+              font-weight:600;
+              letter-spacing:0.05em;
+              text-transform:uppercase;
+              white-space:nowrap;
+              text-align:center;
+            "
+          >
+            Hablar por WhatsApp
+          </a>
+        {% endif %}
+      </td>
+    </tr>
+  </table>
+
+  <div style="height:22px; line-height:22px; font-size:22px;">&nbsp;</div>
+
+  <p class="body" style="margin:0; font-size:14px; line-height:24px; color:rgba(82,82,91,0.76);">
+    ¿Necesitas ayuda con el pago o con tu pedido? Responde a este correo o escríbenos por WhatsApp y te acompañamos.
+  </p>
+
+  <div style="height:16px; line-height:16px; font-size:16px;">&nbsp;</div>
+
+  <p class="body" style="margin:0; font-size:14px; line-height:24px; color:rgba(82,82,91,0.76);">
+    Un abrazo,<br />
+    <span class="strong">Equipo Kame.col</span>
+  </p>
+{% endblock %}

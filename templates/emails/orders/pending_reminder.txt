@@ -1,0 +1,45 @@
+{{ subject }}
+
+{% if first_name %}Hola {{ first_name }},{% else %}Hola,{% endif %}
+
+Vimos que dejaste un pedido sin completar en Kame.col. Las piezas que elegiste siguen apartadas por un tiempo limitado: si quieres asegurarlas, te recomendamos finalizar el pago pronto.
+
+—
+Resumen
+
+{% if payment_method %}Método elegido: {{ payment_method }}
+{% endif %}Subtotal: {{ subtotal_fmt }}
+Envío: {% if shipping_is_free %}Gratis{% else %}{{ shipping_cost_fmt }}{% endif %}
+Total: {{ total_fmt }}
+
+{% if email_items %}
+—
+Productos
+
+{% for item in email_items %}
+{{ forloop.counter }}. {{ item.name }}{% if item.variant_label %} · {{ item.variant_label }}{% endif %}
+Cantidad: {{ item.quantity }}
+Precio: {{ item.unit_price_fmt }}
+
+{% endfor %}
+{% endif %}
+
+—
+{% if order_public_url %}
+Finalizar mi compra:
+{{ order_public_url }}
+{% elif order_url %}
+Finalizar mi compra:
+{{ order_url }}
+{% elif whatsapp_url %}
+Hablar por WhatsApp:
+{{ whatsapp_url }}
+{% endif %}
+
+¿Necesitas ayuda con el pago o con tu pedido? Responde a este correo o escríbenos por WhatsApp y te acompañamos.
+
+Un abrazo,
+Equipo Kame.col
+
+KAME.COL
+Hecho en Colombia

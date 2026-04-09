@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { getAdminOrders } from "@/lib/admin-api";
+import { ADMIN_DATE_INPUT_CLASS } from "@/lib/admin-ui";
 import type { PaginatedOrders } from "@/types/admin";
 
 const STATUSES = [
@@ -82,26 +83,35 @@ export default function OrdenesPage() {
   return (
     <div className="space-y-4">
       {/* 🔥 HEADER CON FECHAS (igual dashboard) */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-        <h1 className="text-lg font-semibold text-zinc-900">Órdenes</h1>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <h1 className="text-lg font-semibold text-zinc-900 shrink-0">Órdenes</h1>
 
-        <div className="flex items-center gap-1.5 w-full sm:w-auto">
-          <input
-            type="date"
-            value={filters.start}
-            max={filters.end}
-            onChange={(e) => setFilter("start", e.target.value)}
-            className="min-w-0 flex-1 sm:flex-none border border-red-400 bg-red-50 rounded-lg px-2 py-2 sm:py-1.5 text-sm sm:text-xs text-zinc-900 focus:outline-none focus:ring-1 focus:ring-red-400/30"
-          />
-          <span className="text-zinc-400 text-xs shrink-0">—</span>
-          <input
-            type="date"
-            value={filters.end}
-            min={filters.start}
-            max={todayISO()}
-            onChange={(e) => setFilter("end", e.target.value)}
-            className="min-w-0 flex-1 sm:flex-none border border-red-400 bg-red-50 rounded-lg px-2 py-2 sm:py-1.5 text-sm sm:text-xs text-zinc-900 focus:outline-none focus:ring-1 focus:ring-red-400/30"
-          />
+        <div className="flex w-full min-w-0 flex-col gap-1 sm:w-fit sm:max-w-full sm:shrink-0 sm:items-end">
+          <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-500 sm:text-right">
+            Período de consulta
+          </span>
+          <div className="flex w-full flex-col gap-2 sm:w-fit sm:flex-row sm:flex-nowrap sm:items-center sm:gap-2">
+            <input
+              type="date"
+              aria-label="Fecha inicial"
+              value={filters.start}
+              max={filters.end}
+              onChange={(e) => setFilter("start", e.target.value)}
+              className={ADMIN_DATE_INPUT_CLASS}
+            />
+            <span className="hidden text-zinc-300 text-xs shrink-0 select-none sm:inline" aria-hidden>
+              —
+            </span>
+            <input
+              type="date"
+              aria-label="Fecha final"
+              value={filters.end}
+              min={filters.start}
+              max={todayISO()}
+              onChange={(e) => setFilter("end", e.target.value)}
+              className={ADMIN_DATE_INPUT_CLASS}
+            />
+          </div>
         </div>
       </div>
 

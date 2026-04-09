@@ -475,6 +475,11 @@ WOMPI_PRIVATE_KEY = os.getenv("WOMPI_PRIVATE_KEY", "")
 WOMPI_EVENTS_SECRET = os.getenv("WOMPI_EVENTS_SECRET", "")
 WOMPI_INTEGRITY_SECRET = os.getenv("WOMPI_INTEGRITY_SECRET", "")
 
+# Storefront público (emails / enlaces desde Django). En producción: FRONTEND_SITE_URL o NEXT_PUBLIC_SITE_URL.
+# En DEBUG, email_context solo usa FRONTEND_SITE_URL si la defines en el .env raíz; si no, localhost:3000.
+FRONTEND_SITE_URL = os.getenv("FRONTEND_SITE_URL", os.getenv("NEXT_PUBLIC_SITE_URL", "")).strip().rstrip("/")
+DEV_STOREFRONT_URL = os.getenv("DEV_STOREFRONT_URL", "").strip().rstrip("/")
+
 # Two-factor auth
 LOGIN_URL = 'two_factor:login'
 
