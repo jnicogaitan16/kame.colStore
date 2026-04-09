@@ -652,11 +652,13 @@ export async function getHomepageStory(): Promise<HomepageStory | null> {
     }
   }
 
-  // útil para diagnóstico
-  console.warn(
-    "getHomepageStory: no usable homepage story data from configured candidates. lastStatus=",
-    lastStatus
-  );
+  // Diagnóstico local; en CI (p. ej. Playwright + mock sin /homepage-story/) evita inundar el log.
+  if (typeof process !== "undefined" && process.env.CI !== "true") {
+    console.warn(
+      "getHomepageStory: no usable homepage story data from configured candidates. lastStatus=",
+      lastStatus
+    );
+  }
   return null;
 }
 

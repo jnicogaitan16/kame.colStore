@@ -152,6 +152,29 @@ export const PRODUCT_DETAIL_MOCK = {
   sold_out: false,
 };
 
+/** Debe coincidir con `PRODUCT_99_SOLD_OUT` en `mock-backend.mjs` (PDP agotado / no_variant). */
+export const PRODUCT_99_SOLD_OUT_MOCK = {
+  id: 99,
+  name: "Producto Agotado",
+  slug: "99",
+  price: "89000.00",
+  description: "Producto de prueba agotado.",
+  primary_image: null,
+  primary_thumb_url: null,
+  stock_total: 0,
+  category: {
+    id: 1,
+    name: "Camisetas",
+    slug: "camisetas",
+    variant_schema: "no_variant",
+    size_guide: null,
+  },
+  variants: [
+    { id: 991, value: "", color: "", is_active: false, stock: 0, price: "89000.00" },
+  ],
+  sold_out: true,
+} as const;
+
 export const CITIES_MOCK = {
   cities: [
     { code: "BOG", label: "Bogotá D.C." },

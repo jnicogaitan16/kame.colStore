@@ -375,11 +375,12 @@ function useProductSelection(product: PDPViewModel): SelectionState {
     if (isInvalidCombo) return true;
 
     if (variantSchema === "no_variant") {
+      if (product.sold_out === true) return true;
       return (product.stock_total ?? 0) <= 0;
     }
 
     return !hasStock(selectedVariant);
-  }, [isInvalidCombo, variantSchema, product.stock_total, selectedVariant]);
+  }, [isInvalidCombo, variantSchema, product.sold_out, product.stock_total, selectedVariant]);
 
   const availableStock = useMemo(() => {
     if (variantSchema === "no_variant") return product.stock_total ?? 0;
