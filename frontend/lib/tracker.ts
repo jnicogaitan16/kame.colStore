@@ -83,6 +83,7 @@ class KameTracker {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(batch),
         keepalive: true,
+        credentials: "omit", // no cookies de sesión admin → coherente con endpoint público
       });
     } catch {
       // best-effort — don't break the storefront

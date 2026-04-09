@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getTransactionStatus, type TransactionStatusResponse } from "@/lib/api";
+import { TrackPurchaseComplete } from "@/app/checkout/components/TrackPurchaseComplete";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // /checkout/resultado?ref=<payment_reference>&ws=<widget_status>
@@ -68,6 +69,9 @@ export default async function ResultadoPage({
 
   return (
     <main className="page-shell page-shell--transactional min-h-screen">
+      {displayStatus === "success" && ref && (
+        <TrackPurchaseComplete reference={ref} total={orderData?.total ?? null} />
+      )}
       <div className="mx-auto max-w-2xl px-4 pb-16 pt-8 text-[#111111]">
         {displayStatus === "success" && (
           <SuccessView orderData={orderData} />

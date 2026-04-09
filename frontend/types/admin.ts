@@ -24,6 +24,8 @@ export type RecentOrder = {
 
 export type DashboardData = {
   period: string;
+  start_date: string;
+  end_date: string;
   total_revenue: number;
   order_count: number;
   avg_ticket: number;
@@ -118,6 +120,14 @@ export type InventoryPoolItem = {
   reserved: number;
   is_active: boolean;
   low_stock: boolean;
+  updated_at?: string;
+};
+
+export type InventoryBulkLoadResult = {
+  ok: boolean;
+  created: number;
+  updated: number;
+  errors: string[];
 };
 
 export type AdjustmentLog = {
@@ -138,6 +148,8 @@ export type CustomerListItem = {
   email: string;
   phone: string;
   lifetime_value: number;
+  /** ISO 8601: fecha de creación del registro de cliente (created_at). */
+  created_at: string;
   order_count: number;
   last_purchase: string | null;
 };
@@ -152,11 +164,16 @@ export type CustomerMetrics = {
 
 export type CustomerDetail = {
   id: number;
+  first_name: string;
+  last_name: string;
   full_name: string;
   email: string;
   phone: string;
   document_type: string;
   cedula: string;
+  is_active: boolean;
+  /** ISO 8601: fecha de creación del registro (created_at). */
+  created_at: string;
   metrics: CustomerMetrics;
   orders: Array<{
     reference: string;
@@ -171,13 +188,52 @@ export type CustomerDetail = {
 // ── Analytics ──────────────────────────────────────────────────────────────
 
 export type FunnelStep = { event: string; sessions: number };
+export type FunnelVolumeStep = { event: string; count: number };
 export type CheckoutStep = { step: string; count: number };
 export type ProductClick = { product_id: string; product_name: string; clicks: number };
+export type TopProductViews = { product_id: string; product_name: string; views: number };
+export type TopProductAddToCart = { product_id: string; product_name: string; add_to_cart: number };
+
+export type ProductPerformanceRow = {
+  product_id: string;
+  product_name: string;
+  product_views: number;
+  view_sessions: number;
+  product_clicks: number;
+  click_sessions: number;
+  add_to_cart: number;
+  cart_sessions: number;
+  sessions_view_and_cart: number;
+  conv_view_to_cart_pct: number | null;
+  click_through_pct: number | null;
+};
+
+export type AnalyticsSummary = {
+  total_events: number;
+  unique_sessions: number;
+  events_by_type: Record<string, number>;
+};
+
+export type DailyActivityPoint = { date: string; events: number };
+
+export type HomeTraffic = {
+  hits: number;
+  sessions: number;
+};
 
 export type AnalyticsData = {
   period: string;
+  start_date: string;
+  end_date: string;
+  summary: AnalyticsSummary;
+  home_traffic: HomeTraffic;
+  daily_activity: DailyActivityPoint[];
   top_products_by_clicks: ProductClick[];
+  top_products_by_views: TopProductViews[];
+  top_products_by_add_to_cart: TopProductAddToCart[];
+  product_performance: ProductPerformanceRow[];
   funnel: FunnelStep[];
+  funnel_volume: FunnelVolumeStep[];
   checkout_steps: CheckoutStep[];
 };
 
@@ -226,5 +282,58 @@ export type AdminCategory = {
   name: string;
   slug: string;
   department: string;
+  department_id: number;
   is_leaf: boolean;
+  is_active: boolean;
+  variant_schema: string;
+  product_count: number;
+  parent_id: number | null;
+  sort_order: number;
+};
+
+export type AdminDepartment = {
+  id: number;
+  name: string;
+  slug: string;
+  is_active: boolean;
+  sort_order: number;
+};
+
+export type AdminHomepageBanner = {
+  id: number;
+  title: string;
+  subtitle: string;
+  description: string;
+  alt_text: string;
+  is_active: boolean;
+  sort_order: number;
+  cta_label: string;
+  cta_url: string;
+  show_text: boolean;
+  image_thumb_url: string | null;
+};
+
+export type AdminHomepagePromo = {
+  id: number;
+  title: string;
+  subtitle: string;
+  placement: string;
+  is_active: boolean;
+  sort_order: number;
+  cta_label: string;
+  cta_url: string;
+  show_text: boolean;
+  alt_text: string;
+  image_thumb_url: string | null;
+};
+
+export type AdminHomepageSection = {
+  id: number;
+  key: string;
+  title: string;
+  subtitle: string;
+  content: string;
+  content_preview: string;
+  is_active: boolean;
+  sort_order: number;
 };

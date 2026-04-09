@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { headers } from "next/headers";
 import "./globals.css";
 
 import HeaderServer from "@/components/header/HeaderServer";
@@ -64,11 +65,23 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const pathname = headers().get("x-pathname") ?? "";
+  const isAdmin = pathname.startsWith("/admin");
+  const bodyClass = `${inter.variable} bg-stone-50 text-zinc-950 antialiased font-sans`;
+
+  // Admin tiene su propio layout (sidebar + barra superior). Sin header/carrito/footer de tienda
+  // para que el menú hamburguesa del panel sea usable en móvil.
+  if (isAdmin) {
+    return (
+      <html lang="es">
+        <body className={bodyClass}>{children}</body>
+      </html>
+    );
+  }
+
   return (
     <html lang="es">
-      <body
-        className={`${inter.variable} bg-stone-50 text-zinc-950 antialiased font-sans`}
-      >
+      <body className={bodyClass}>
         <div className="site-shell min-h-screen bg-stone-50 text-zinc-950">
           <CartHydration />
           <TrackerInit />

@@ -8,6 +8,7 @@ import StockWarningChip from "@/components/cart/StockWarningChip";
 import { useCartStore } from "@/store/cart";
 import { Button } from "@/components/ui/Button";
 import { productPath } from "@/lib/routes";
+import { trackProductClick } from "@/hooks/useTracking";
 
 type MiniCartProps = {
   open?: boolean;
@@ -378,7 +379,14 @@ function MiniCart({ open, onClose }: MiniCartProps) {
                   <div className="min-w-0 flex-1 pt-0.5">
                     <Link
                       href={productPath(item.productSlug)}
-                      onClick={close}
+                      onClick={() => {
+                        trackProductClick({
+                          id: item.productSlug,
+                          name: item.productName,
+                          slug: item.productSlug,
+                        });
+                        close();
+                      }}
                       className="type-card-title block line-clamp-2 text-zinc-900 transition-colors duration-200 hover:text-zinc-700 hover:underline"
                     >
                       {item.productName}

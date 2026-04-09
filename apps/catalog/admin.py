@@ -27,6 +27,7 @@ from .forms import (
     ProductVariantAdminForm,
     ProductColorImageAdminForm,
 )
+from apps.catalog.services.inventory_pool_bulk import process_bulk_stock_lines
 from apps.catalog.services.variant_sync import sync_variants_for_pool
 
 
@@ -249,33 +250,8 @@ class CategoryAdmin(admin.ModelAdmin):
 
 
 def _process_bulk_stock(category_id, lines, add_to_existing):
-    """Crea o actualiza filas de InventoryPool. Retorna (created_count, updated_count, errors)."""
-    created = 0
-    updated = 0
-    errors = []
-    for value, color, qty in lines:
-        value = (value or "").strip().upper()
-        color = (color or "").strip()
-        try:
-            pool, was_created = InventoryPool.objects.get_or_create(
-                category_id=category_id,
-                value=value,
-                color=color,
-                defaults={"quantity": qty, "is_active": True},
-            )
-            if was_created:
-                created += 1
-            else:
-                if add_to_existing:
-                    pool.quantity = (pool.quantity or 0) + qty
-                else:
-                    pool.quantity = qty
-                pool.is_active = True
-                pool.save(update_fields=["quantity", "updated_at"])
-                updated += 1
-        except Exception as e:
-            errors.append(f"{value}/{color}: {e}")
-    return created, updated, errors
+    """Delega en servicio compartido con la API admin."""
+    return process_bulk_stock_lines(category_id, lines, add_to_existing)
 
 
 
