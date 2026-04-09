@@ -618,8 +618,8 @@ class WompiWebhookAPIView(APIView):
         except (TypeError, ValueError):
             timestamp = 0
 
-        logger.warning("WOMPI WEBHOOK raw event=%s timestamp=%s checksum=%s properties=%s",
-                       event, timestamp, checksum, properties)
+        # SECURITY: no loguear checksum ni properties (evita filtrar material de verificación de firma).
+        logger.info("Wompi webhook recibido event=%s timestamp=%s", event, timestamp)
 
         if not validate_webhook_signature(data, properties, checksum, timestamp):
             return Response({"detail": "Firma inválida."}, status=status.HTTP_401_UNAUTHORIZED)

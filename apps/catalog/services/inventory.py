@@ -165,6 +165,7 @@ def consume_stock(category_id: int, value: Any, color: Any, qty: int) -> None:
     value_norm = _norm_value(value)
     color_norm = _norm_color(color)
 
+    # CONCURRENCY: select_for_update prevents race condition on stock decrement
     with transaction.atomic():
         try:
             pool_row = (
@@ -266,6 +267,7 @@ def decrement_pool_stock(variant: Any, qty: int) -> None:
     Criterio:
     - No hay race condition (dos compras simultáneas)
     """
+    # CONCURRENCY: select_for_update prevents race condition on stock decrement (via consume_stock)
     # Backwards-compatible wrapper around consume_stock()
     category_id = _variant_category_id(variant)
     if not category_id:

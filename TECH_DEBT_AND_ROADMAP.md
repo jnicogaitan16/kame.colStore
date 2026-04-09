@@ -56,8 +56,6 @@ Monorepo **Django 5.2 + DRF** (`apps/*`, `config/`) y **Next.js 14 App Router** 
 
 | Riesgo | Probabilidad | Impacto | Mitigación |
 |--------|--------------|---------|------------|
-| Fuga de `WOMPI_EVENTS_SECRET` vía logs | Media | Crítico | Quitar/mascar logs; rotar secreto si hubo exposición |
-| Condiciones de carrera en stock bajo carga extrema | Baja–Media | Alto | Mantener `transaction.atomic()` en servicios; pruebas de concurrencia; considerar `select_for_update` donde falte |
 | Dependencias frontend desactualizadas (Next/React major) | Alta | Medio | Hoja de ruta de upgrade + E2E completo antes de bump |
 | E2E no cubre Nequi/Daviplata/correos | Alta | Medio | Specs y fixtures dedicados; sandbox Wompi + Resend test API |
 | Ausencia de Sentry/APM | Media | Medio | Integrar Django + Next; alertas en 5xx y latencia checkout |
@@ -216,15 +214,14 @@ Crear `tests/e2e/fixtures/payment-data.ts` con:
 
 | # | Tarea | Archivo(s) afectado(s) | Esfuerzo | Impacto | Categoría |
 |---|--------|-------------------------|----------|---------|-----------|
-| 1 | Eliminar logs que incluyan `WOMPI_EVENTS_SECRET` o concatenación sensible | `apps/orders/services/wompi.py` | Bajo | Crítico | Seguridad |
-| 2 | Ejecutar Bandit en CI | `.github/workflows/*` | Bajo | Medio | Seguridad |
-| 3 | Integrar Sentry Django + Next | `config/settings.py`, `frontend/*` | Medio | Alto | Observabilidad |
-| 4 | E2E sandbox tarjeta + Nequi/Daviplata (staging) | `tests/e2e/*`, fixtures | Alto | Alto | QA |
-| 5 | Quitar `console.log` de cart stock o poner detrás de flag dev | `frontend/store/cart-stock-slice.ts` | Bajo | Bajo | Higiene |
-| 6 | Tipar `ProductGrid` y rutas API | `frontend/components/product/ProductGrid.tsx`, `app/api/*` | Medio | Medio | Deuda técnica |
-| 7 | Hoja de ruta upgrade Next 15/16 + React 19 | `frontend/package.json` | Alto | Alto | Stack |
-| 8 | Health check Django + métricas | `config/urls.py`, nueva vista | Medio | Medio | Ops |
-| 9 | Evaluar Redis (caché catálogo + rate limit) | Infra, settings | Medio | Medio | Escala |
+| 1 | Ejecutar Bandit en CI | `.github/workflows/*` | Bajo | Medio | Seguridad |
+| 2 | Integrar Sentry Django + Next | `config/settings.py`, `frontend/*` | Medio | Alto | Observabilidad |
+| 3 | E2E sandbox tarjeta + Nequi/Daviplata (staging) | `tests/e2e/*`, fixtures | Alto | Alto | QA |
+| 4 | Quitar `console.log` de cart stock o poner detrás de flag dev | `frontend/store/cart-stock-slice.ts` | Bajo | Bajo | Higiene |
+| 5 | Tipar `ProductGrid` y rutas API | `frontend/components/product/ProductGrid.tsx`, `app/api/*` | Medio | Medio | Deuda técnica |
+| 6 | Hoja de ruta upgrade Next 15/16 + React 19 | `frontend/package.json` | Alto | Alto | Stack |
+| 7 | Health check Django + métricas | `config/urls.py`, nueva vista | Medio | Medio | Ops |
+| 8 | Evaluar Redis (caché catálogo + rate limit) | Infra, settings | Medio | Medio | Escala |
 
 ---
 

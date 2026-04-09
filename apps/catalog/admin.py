@@ -1,5 +1,6 @@
 from django.contrib import admin, messages
 from django import forms
+from django.db import transaction
 from django.db.models import Count
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -268,6 +269,15 @@ class InventoryPoolAdmin(admin.ModelAdmin):
     search_fields = ("value", "color", "category__name")
     list_select_related = ("category", "category__department")
     ordering = ("category__department__sort_order", "category__name", "value", "color", "id")
+
+    def save_model(self, request, obj, form, change):
+        # CONCURRENCY: select_for_update prevents race condition on stock decrement
+        if change and obj.pk:
+            with transaction.atomic():
+                InventoryPool.objects.select_for_update().get(pk=obj.pk)
+                super().save_model(request, obj, form, change)
+        else:
+            super().save_model(request, obj, form, change)
 
     # El stock solo se edita acá.
     fields = ("category", "value", "color", "quantity", "is_active")
