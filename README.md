@@ -113,7 +113,7 @@ python manage.py runserver
 
 **Filtro “Environment” en Issues (frontend):** el SDK ya envía `environment` en cada evento. Si el desplegable del proyecto *kamecol-frontend* sigue vacío, revisá **Project Settings → Environments** (entornos ocultos) y/o filtrá con `environment:development` en la búsqueda. Opcional en Vercel: **`NEXT_PUBLIC_SENTRY_RELEASE`** o **`NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA`** (commit del build) para `release` en Sentry y mejor correlación.
 
-**No commitees** `.env`, `frontend/.env.local` ni `SENTRY_AUTH_TOKEN`. DSN y token: **Sentry → Project → Client Keys** y **Settings → Auth Tokens**.
+**No commitees** `.env`, `frontend/.env.local` ni el token de Sentry. DSN: **Sentry → Project → Client Keys**. Token de source maps (`SENTRY_AUTH_TOKEN`): **Settings → Auth Tokens** — en local conviene ponerlo en **`frontend/.env.local`** (no uses un archivo aparte; Next lo carga en `next build`).
 
 **Render (backend, producción)**
 
@@ -130,7 +130,7 @@ NEXT_PUBLIC_ENV=production
 SENTRY_AUTH_TOKEN=<token para source maps en build>
 ```
 
-**Local:** `.env` → `SENTRY_DSN`, `DJANGO_ENV=development`. `frontend/.env.local` → `NEXT_PUBLIC_SENTRY_DSN`, `NEXT_PUBLIC_ENV=development`.
+**Local:** `.env` → `SENTRY_DSN`, `DJANGO_ENV=development`. `frontend/.env.local` → `NEXT_PUBLIC_SENTRY_DSN`, `NEXT_PUBLIC_ENV=development`, y si compilás con Sentry en prod: `SENTRY_AUTH_TOKEN=...`.
 
 **Probar backend (recomendado antes de prod):** `python manage.py verify_sentry` — envía un error de prueba y hace `flush`; falla si falta `SENTRY_DSN`. Opciones: `--timeout 15`, o `SENTRY_DEBUG=1 python manage.py verify_sentry` si no ves el evento en Sentry (proyecto del DSN backend, ventana 24h).
 

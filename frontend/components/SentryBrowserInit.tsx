@@ -33,8 +33,7 @@ function applyEnvironmentTags() {
 }
 
 /**
- * Next.js 14 no ejecuta `instrumentation-client.ts` en el navegador (Next 15.3+).
- * Si otro código crea el cliente antes sin `environment`, forzamos env en hooks y processor.
+ * Init del SDK en el navegador (Next 14). Server/edge cargan `sentry.runtime.config` vía instrumentation.
  */
 export default function SentryBrowserInit() {
   const sentrySetupDone = useRef(false);
