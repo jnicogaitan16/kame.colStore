@@ -54,8 +54,27 @@ export async function proxyDjangoApiRequest(
       body,
       cache: "no-store",
     });
-  } catch {
-    return Response.json({ error: "Failed to reach backend" }, { status: 502 });
+  } catch (cause: unknown) {
+    // 502 aquí = TCP falló (ECONNREFUSED, etc.), no “falta de variable”: DJANGO_API_BASE sí está definido.
+    const isDev = process.env.NODE_ENV === "development";
+    if (isDev) {
+      const detail =
+        cause instanceof Error ? cause.message : String(cause);
+      console.warn(
+        `[django-api-proxy] sin conexión a Django en ${base} → ${detail}. Levanta el backend o corrige DJANGO_API_BASE en frontend/.env.local.`
+      );
+    }
+    return Response.json(
+      isDev
+        ? {
+            error: "Failed to reach backend",
+            hint:
+              "Next.js ya lee DJANGO_API_BASE, pero no hay servidor respondiendo en esa URL. Ej.: en otra terminal `python manage.py runserver` (o el puerto que uses) y que coincida con frontend/.env.local.",
+            django_base: base,
+          }
+        : { error: "Failed to reach backend" },
+      { status: 502 }
+    );
   }
 
   const outHeaders = new Headers(backendRes.headers);

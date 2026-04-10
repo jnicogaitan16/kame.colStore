@@ -39,6 +39,7 @@ Tienda virtual de ropa streetwear (**Kame.col**) con arquitectura moderna:
 | Payments | Wompi |
 | Emails | Resend |
 | Testing | Playwright |
+| Observabilidad | Sentry |
 
 
 ## 📸 Screenshots
@@ -102,18 +103,51 @@ Run:
 python manage.py migrate
 python manage.py createsuperuser
 python manage.py runserver
+```
 
+### Observabilidad (Sentry) y ambientes
+
+**Environment:** `DJANGO_ENV` (Django) y `NEXT_PUBLIC_ENV` o `NEXT_PUBLIC_DJANGO_ENV` (Next; si no hay, usa `NODE_ENV`). Local: `development`; producción: `production`. Backend y frontend usan **DSN distintos** (un proyecto Sentry por app). Sin **`SENTRY_DSN`** en el `.env` raíz, Django no inicializa Sentry.
+
+**Dónde ver cada error:** el shell de Django envía al proyecto ligado a **`SENTRY_DSN`** (backend). El navegador envía al de **`NEXT_PUBLIC_SENTRY_DSN`** (frontend). En Sentry elegí el proyecto correcto en el selector; si solo abrís el del front, no verás los del back.
+
+**Filtro “Environment” en Issues (frontend):** el SDK ya envía `environment` en cada evento. Si el desplegable del proyecto *kamecol-frontend* sigue vacío, revisá **Project Settings → Environments** (entornos ocultos) y/o filtrá con `environment:development` en la búsqueda. Opcional en Vercel: **`NEXT_PUBLIC_SENTRY_RELEASE`** o **`NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA`** (commit del build) para `release` en Sentry y mejor correlación.
+
+**No commitees** `.env`, `frontend/.env.local` ni `SENTRY_AUTH_TOKEN`. DSN y token: **Sentry → Project → Client Keys** y **Settings → Auth Tokens**.
+
+**Render (backend, producción)**
+
+```text
+SENTRY_DSN=<DSN backend>
+DJANGO_ENV=production
+```
+
+**Vercel (frontend, producción)**
+
+```text
+NEXT_PUBLIC_SENTRY_DSN=<DSN frontend>
+NEXT_PUBLIC_ENV=production
+SENTRY_AUTH_TOKEN=<token para source maps en build>
+```
+
+**Local:** `.env` → `SENTRY_DSN`, `DJANGO_ENV=development`. `frontend/.env.local` → `NEXT_PUBLIC_SENTRY_DSN`, `NEXT_PUBLIC_ENV=development`.
+
+**Probar backend (recomendado antes de prod):** `python manage.py verify_sentry` — envía un error de prueba y hace `flush`; falla si falta `SENTRY_DSN`. Opciones: `--timeout 15`, o `SENTRY_DEBUG=1 python manage.py verify_sentry` si no ves el evento en Sentry (proyecto del DSN backend, ventana 24h).
+
+**Probar a mano:** `python manage.py shell` → `import sentry_sdk; sentry_sdk.capture_exception(Exception("test backend")); sentry_sdk.flush(timeout=5)` (sin `flush` el evento puede no salir antes de cerrar el shell). En el navegador (storefront, no solo `/admin`): `__KAME_SENTRY_TEST__.captureException(new Error("test front"))` y opcionalmente `await __KAME_SENTRY_TEST__.flush(5000)`. En dev el front usa `/api/sentry-tunnel`.
 
 ⸻
 
-2. Frontend
+### 2. Frontend
 
+```bash
 cd frontend
 npm install
 npm run dev
+```
 
-	•	Backend → http://localhost:8000
-	•	Frontend → http://localhost:3000
+- Backend → http://localhost:8000
+- Frontend → http://localhost:3000
 
 ⸻
 
@@ -187,9 +221,11 @@ Nacional	$24.900 COP
 ⸻
 
 ⚠️ Troubleshooting
-	•	ECONNREFUSED :8000 → Backend no corriendo
+	•	**502 / `Failed to reach backend` en `/api/...`** → Tener `DJANGO_API_BASE` en `frontend/.env.local` **no basta**: el proxy intenta conectar a esa URL y falla si Django no está levantado o el host/puerto no coincide. Arranca el API (`python manage.py runserver`, suele ser `http://127.0.0.1:8000`) y reinicia `npm run dev` si cambiaste el env.
+	•	ECONNREFUSED :8000 → Backend no corriendo (misma causa que arriba)
 	•	SECRET_KEY not found → Revisar .env
 	•	Webhooks Wompi → usar ngrok http 8000
+	•	Fuentes `/_next/static/media/*.woff2` 404 en dev → borrar `frontend/.next` y volver a ejecutar `npm run dev`
 
 ⸻
 
@@ -198,7 +234,7 @@ Nacional	$24.900 COP
 	•	Panel de promociones
 	•	Recomendaciones de productos
 	•	CI/CD pipeline
-	•	Observabilidad (logs + metrics)
+	•	Observabilidad ampliada (métricas, alertas)
 
 ⸻
 

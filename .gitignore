@@ -15,6 +15,7 @@ logs/
 frontend/node_modules/
 frontend/.next/
 frontend/.env.local
+frontend/.env.sentry-build-plugin
 # deps
 node_modules/
 node_modules/

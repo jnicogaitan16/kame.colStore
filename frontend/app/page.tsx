@@ -1,8 +1,6 @@
-import { Suspense } from "react";
 import {
   getHomepageBanners,
   getHomepageMarqueeProducts,
-  getHomepagePromos,
   getHomepageStory,
 } from "@/lib/api";
 import { HeroCarousel } from "@/components/home/HeroCarousel";
@@ -24,32 +22,6 @@ function logHomeDiagnostic(message: string, extra?: Record<string, unknown>) {
     return;
   }
   console.warn(`[HomePage] ${message}`);
-}
-
-function extractArray<T>(res: any): T[] {
-  if (Array.isArray(res)) return res as T[];
-  if (Array.isArray(res?.results)) return res.results as T[];
-  if (Array.isArray(res?.data)) return res.data as T[];
-  if (Array.isArray(res?.promos)) return res.promos as T[];
-  return [];
-}
-
-async function HomePromosProbe({ placement }: { placement: "TOP" | "MID" }) {
-  if (!isDevEnvironment()) return null;
-
-  try {
-    const promos = extractArray(await getHomepagePromos(placement));
-    if (promos.length === 0) {
-      logHomeDiagnostic(`no promos returned for placement=${placement}`);
-    }
-  } catch (error) {
-    logHomeDiagnostic(`promos probe failed for placement=${placement}`, {
-      placement,
-      error,
-    });
-  }
-
-  return null;
 }
 
 export default async function HomePage() {
@@ -109,16 +81,6 @@ export default async function HomePage() {
   return (
     <div className="home-page" data-page-type="home">
       <HomeVisitTracker />
-      {isDevEnvironment() ? (
-        <>
-          <Suspense fallback={null}>
-            <HomePromosProbe placement="TOP" />
-          </Suspense>
-          <Suspense fallback={null}>
-            <HomePromosProbe placement="MID" />
-          </Suspense>
-        </>
-      ) : null}
 
       {/* Home remains the controlled exception: it must start behind the fixed header instead of using the internal page shell offset. */}
       <HeroCarousel banners={banners} />
@@ -143,10 +105,10 @@ export default async function HomePage() {
             <section aria-label="Nuestra historia">
               <BrandStory story={story} />
             </section>
-          ) : process.env.NODE_ENV !== "production" ? (
+          ) : storyRes.status === "fulfilled" && isDevEnvironment() ? (
             <section className="rounded-2xl border border-zinc-900/8 bg-white/78 p-4 text-sm text-zinc-600 shadow-[0_16px_40px_rgba(24,24,27,0.06)] backdrop-blur-sm">
-              No llegó contenido de la historia del home desde <code className="text-zinc-900">/api/homepage-story/</code>. Revisa que exista al menos 1
-              registro activo en Django Admin → <span className="text-zinc-900">Secciones de Home</span>.
+              La API respondió sin historia usable desde <code className="text-zinc-900">/api/homepage-story/</code>. Crea al menos 1 sección activa en Django Admin →{" "}
+              <span className="text-zinc-900">Secciones de Home</span>.
             </section>
           ) : null}
         </div>
