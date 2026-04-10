@@ -1,10 +1,10 @@
 # Kame.col — Deuda Técnica, Riesgos y Hoja de Ruta de Mejoras
 
-> Generado: 2026-04-09 | Modo: Solo lectura — cero modificaciones al código fuente durante la auditoría (salvo la creación de este documento y referencias en documentación del repo).
+> Auditoría inicial: 2026-04-09. Actualizado: 2026-04-10 — incorpora cambios verificados en repo (Sentry Django/Next, hardening logs webhook Wompi, resiliencia DSN en deploy).
 
 ## Resumen Ejecutivo
 
-Monorepo **Django 5.2 + DRF** (`apps/*`, `config/`) y **Next.js 14 App Router** (`frontend/`), con **PostgreSQL**, pagos **Wompi**, correo **Resend** y E2E **Playwright** (`tests/`). El producto está maduro para MVP; los mayores huecos son **observabilidad unificada (Sentry/métricas)**, **higiene de secretos en logs**, **ampliación E2E de medios de pago y correos**, y **reducción de `any` / deuda de tipos** en el frontend. Las dependencias de frontend tienen **saltos mayores** disponibles (Next 16, React 19, ESLint 10) que conviene planificar como proyecto aparte.
+Monorepo **Django 5.2 + DRF** (`apps/*`, `config/`) y **Next.js 14 App Router** (`frontend/`), con **PostgreSQL**, pagos **Wompi**, correo **Resend** y E2E **Playwright** (`tests/`). El producto está maduro para MVP. **Sentry** ya cubre errores en backend y storefront; siguen como huecos relevantes **métricas RED/APM fuera de Sentry**, **ampliación E2E de medios de pago y correos**, y **reducción de `any` / deuda de tipos** en el frontend. Las dependencias de frontend tienen **saltos mayores** disponibles (Next 16, React 19, ESLint 10) que conviene planificar como proyecto aparte.
 
 ---
 
@@ -35,8 +35,9 @@ Monorepo **Django 5.2 + DRF** (`apps/*`, `config/`) y **Next.js 14 App Router** 
 
 ### 2.1 Crítico (corregir antes del próximo deploy)
 
-- **`WOMPI_EVENTS_SECRET` en logs:** En `apps/orders/services/wompi.py`, `validate_webhook_signature` construye `parts` que **incluye el secreto** y lo registra con `logger.warning("WOMPI SIG parts=%s", parts)`. Esto puede **volcar el secreto de firma de webhooks** en agregadores de logs. Mitigar: eliminar ese log o enmascarar; nunca loguear el secreto ni el string concatenado completo en producción.
 - **DEBUG / SECRET_KEY:** `config/settings.py` usa `DEBUG` desde env; en `DEBUG=True` hay fallback `SECRET_KEY` por defecto — aceptable solo en local; asegurar que producción siempre tenga `DJANGO_DEBUG` falso y `DJANGO_SECRET_KEY` fuerte.
+
+**Resuelto (verificado en código):** en `apps/orders/services/wompi.py`, `validate_webhook_signature` ya no registra `parts` ni datos que expongan `WOMPI_EVENTS_SECRET`; solo logs seguros (`debug` con `reference`, `warning` con `transaction_id` si firma inválida).
 
 ### 2.2 Prioridad Media
 
@@ -48,7 +49,7 @@ Monorepo **Django 5.2 + DRF** (`apps/*`, `config/`) y **Next.js 14 App Router** 
 
 - Sin `eval`/`exec` en `*.py`/`*.ts`/`*.tsx` (búsqueda puntual).
 - Sin `raw(` / `cursor.execute(` en Python (búsqueda puntual).
-- **Wompi:** Firma de integridad (widget) y validación de webhook por SHA256 alineadas con documentación; completitud lógica buena salvo el riesgo de logging anterior.
+- **Wompi:** Firma de integridad (widget) y validación de webhook por SHA256 alineadas con documentación; logging de firma sin exposición de secreto (ver §2.1).
 
 ---
 
@@ -58,7 +59,7 @@ Monorepo **Django 5.2 + DRF** (`apps/*`, `config/`) y **Next.js 14 App Router** 
 |--------|--------------|---------|------------|
 | Dependencias frontend desactualizadas (Next/React major) | Alta | Medio | Hoja de ruta de upgrade + E2E completo antes de bump |
 | E2E no cubre Nequi/Daviplata/correos | Alta | Medio | Specs y fixtures dedicados; sandbox Wompi + Resend test API |
-| Ausencia de Sentry/APM | Media | Medio | Integrar Django + Next; alertas en 5xx y latencia checkout |
+| Métricas RED/APM y dashboards fuera de Sentry | Media | Medio | Health/version/métricas propias; alertas de negocio (órdenes atascadas); completar reglas en Sentry (5xx, latencia checkout) |
 | Mock Playwright vs SSR Next desalineado | Media | Bajo | Ya parcialmente mitigado en el repo (`DJANGO_API_BASE` al mock); documentar para devs |
 
 ---
@@ -93,7 +94,9 @@ Monorepo **Django 5.2 + DRF** (`apps/*`, `config/`) y **Next.js 14 App Router** 
 
 ### 5.1 Estado actual
 
-- **Logging** Python vía `logging` en servicios Wompi y órdenes; **sin Sentry** (búsqueda sin coincidencias).
+- **Sentry — Django:** `sentry-sdk` en `config/settings.py` (`DjangoIntegration`, `LoggingIntegration`, `before_send` para filtrar datos sensibles en `request.data`). Variable `SENTRY_DSN`; `DJANGO_ENV` como `environment`. Si el DSN es inválido (p. ej. typo en Render), se registra advertencia y la app arranca sin Sentry (`BadDsn`). Comando: `python manage.py verify_sentry`.
+- **Sentry — Next.js:** `@sentry/nextjs` con `frontend/sentry.runtime.config.ts` (server/edge vía `instrumentation.ts`) e init en cliente (`SentryBrowserInit`). Túnel `/api/sentry-tunnel` en desarrollo según configuración del proyecto.
+- **Logging** clásico Python sigue en servicios Wompi y órdenes, complementario a Sentry.
 - **Frontend:** `console.log` de depuración en `cart-stock-slice.ts` (validación de stock).
 - **Health:** Next expone `GET /health` (`frontend/app/health/route.ts`); smoke Playwright lo valida. Backend: evaluar `/api/health` o similar para balanceadores.
 
@@ -102,11 +105,11 @@ Monorepo **Django 5.2 + DRF** (`apps/*`, `config/`) y **Next.js 14 App Router** 
 - **Producción:** JSON estructurado a stdout (12-factor); correlación `request_id` / `order_id` / `reference` Wompi.
 - **No** persistir logs de aplicación en PostgreSQL salvo tabla de auditoría mínima si hay compliance.
 
-### 5.3 Plan de integración de Sentry
+### 5.3 Sentry — seguimiento recomendado
 
-- **Django:** `sentry-sdk` con `DjangoIntegration`, filtrar PII en checkout.
-- **Next.js:** `@sentry/nextjs` en server + edge; sample rate en cliente.
-- Alertas: picos 5xx en `checkout`, `wompi-webhook`, errores de firma.
+- Configurar en la UI de Sentry: alertas por picos de 5xx, errores en rutas de checkout y webhooks Wompi; releases/source maps en deploy (frontend build plugin con token si aplica).
+- Revisar periódicamente sample rates (`traces_sample_rate` / cliente) según volumen y coste.
+- Mantener `SENTRY_DSN` correcto en cada entorno (una sola URL por variable; no mezclar con otras vars en el mismo campo en el panel del host).
 
 ### 5.4 Monitoreo faltante
 
@@ -215,13 +218,12 @@ Crear `tests/e2e/fixtures/payment-data.ts` con:
 | # | Tarea | Archivo(s) afectado(s) | Esfuerzo | Impacto | Categoría |
 |---|--------|-------------------------|----------|---------|-----------|
 | 1 | Ejecutar Bandit en CI | `.github/workflows/*` | Bajo | Medio | Seguridad |
-| 2 | Integrar Sentry Django + Next | `config/settings.py`, `frontend/*` | Medio | Alto | Observabilidad |
-| 3 | E2E sandbox tarjeta + Nequi/Daviplata (staging) | `tests/e2e/*`, fixtures | Alto | Alto | QA |
-| 4 | Quitar `console.log` de cart stock o poner detrás de flag dev | `frontend/store/cart-stock-slice.ts` | Bajo | Bajo | Higiene |
-| 5 | Tipar `ProductGrid` y rutas API | `frontend/components/product/ProductGrid.tsx`, `app/api/*` | Medio | Medio | Deuda técnica |
-| 6 | Hoja de ruta upgrade Next 15/16 + React 19 | `frontend/package.json` | Alto | Alto | Stack |
-| 7 | Health check Django + métricas | `config/urls.py`, nueva vista | Medio | Medio | Ops |
-| 8 | Evaluar Redis (caché catálogo + rate limit) | Infra, settings | Medio | Medio | Escala |
+| 2 | E2E sandbox tarjeta + Nequi/Daviplata (staging) | `tests/e2e/*`, fixtures | Alto | Alto | QA |
+| 3 | Quitar `console.log` de cart stock o poner detrás de flag dev | `frontend/store/cart-stock-slice.ts` | Bajo | Bajo | Higiene |
+| 4 | Tipar `ProductGrid` y rutas API | `frontend/components/product/ProductGrid.tsx`, `app/api/*` | Medio | Medio | Deuda técnica |
+| 5 | Hoja de ruta upgrade Next 15/16 + React 19 | `frontend/package.json` | Alto | Alto | Stack |
+| 6 | Health check Django + métricas | `config/urls.py`, nueva vista | Medio | Medio | Ops |
+| 7 | Evaluar Redis (caché catálogo + rate limit) | Infra, settings | Medio | Medio | Escala |
 
 ---
 
