@@ -496,6 +496,7 @@ import logging
 import sentry_sdk
 from sentry_sdk.integrations.django import DjangoIntegration
 from sentry_sdk.integrations.logging import LoggingIntegration
+from sentry_sdk.utils import BadDsn
 
 SENSITIVE_KEYS = {"password", "card_number", "cvv", "email", "token"}
 
@@ -513,23 +514,31 @@ def _sentry_before_send(event, hint):
 
 
 # Misma variable de entorno que en Render: SENTRY_DSN (valor local en .env, no commitear).
-SENTRY_DSN_BACKEND = os.getenv("SENTRY_DSN", "").strip()
-SENTRY_ENVIRONMENT = os.getenv("DJANGO_ENV", "production")
+# Debe ser solo la URL del DSN (https://...@oXXXX.ingest.sentry.io/NNNNN), sin otras variables pegadas.
+SENTRY_DSN_BACKEND = os.getenv("SENTRY_DSN", "").strip().strip('"').strip("'")
+SENTRY_ENVIRONMENT = os.getenv("DJANGO_ENV", "production").strip()
 
 if SENTRY_DSN_BACKEND:
-    sentry_sdk.init(
-        dsn=SENTRY_DSN_BACKEND,
-        environment=SENTRY_ENVIRONMENT,
-        integrations=[
-            DjangoIntegration(),
-            LoggingIntegration(
-                level=logging.INFO,
-                event_level=logging.ERROR,
-            ),
-        ],
-        traces_sample_rate=0.2,
-        profiles_sample_rate=0.1,
-        send_default_pii=False,
-        before_send=_sentry_before_send,
-        debug=os.getenv("SENTRY_DEBUG", "").lower() in ("1", "true", "yes"),
-    )
+    try:
+        sentry_sdk.init(
+            dsn=SENTRY_DSN_BACKEND,
+            environment=SENTRY_ENVIRONMENT,
+            integrations=[
+                DjangoIntegration(),
+                LoggingIntegration(
+                    level=logging.INFO,
+                    event_level=logging.ERROR,
+                ),
+            ],
+            traces_sample_rate=0.2,
+            profiles_sample_rate=0.1,
+            send_default_pii=False,
+            before_send=_sentry_before_send,
+            debug=os.getenv("SENTRY_DEBUG", "").lower() in ("1", "true", "yes"),
+        )
+    except BadDsn as exc:
+        logging.getLogger(__name__).warning(
+            "Sentry omitido: SENTRY_DSN inválido (revisa Render: una sola línea, URL completa, "
+            "sin pegar DJANGO_ENV u otras vars). Detalle: %s",
+            exc,
+        )
