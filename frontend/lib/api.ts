@@ -189,6 +189,43 @@ const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "/api").replace(/\/$/, "");
 const DJANGO_BASE = (process.env.DJANGO_API_BASE || "").replace(/\/$/, "");
 const SERVER_API_BASE = DJANGO_BASE ? `${DJANGO_BASE}/api` : "";
 
+/**
+ * En el servidor, las URLs relativas `/api/*` pueden resolverse de dos maneras:
+ * - Mismo origen que Next (p. ej. `http://localhost:3000/api/...`) → pasa por los Route Handlers.
+ * - Directo a Django (`DJANGO_API_BASE` + `/api/...`) → un salto menos, pero exige que el backend
+ *   sea alcanzable desde el proceso de Node (p. ej. `127.0.0.1:8000` con el servidor levantado).
+ *
+ * En `development`, por defecto usamos el origen del sitio para alinear SSR y navegador.
+ * Forzar llamada directa: `NEXT_SSR_DIRECT_DJANGO=1`.
+ * Origen explícito (Docker, puerto distinto): `INTERNAL_API_ORIGIN` o `NEXT_PUBLIC_SITE_URL`.
+ */
+function resolveServerSideApiUrl(url: string): string {
+  if (typeof window !== "undefined") return url;
+  if (!url.startsWith("/api")) return url;
+
+  const forceDirect =
+    process.env.NEXT_SSR_DIRECT_DJANGO === "1" ||
+    process.env.NEXT_SSR_DIRECT_DJANGO === "true";
+
+  const isDev = process.env.NODE_ENV === "development";
+
+  if (isDev && !forceDirect) {
+    const origin = (
+      process.env.INTERNAL_API_ORIGIN ||
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      "http://127.0.0.1:3000"
+    )
+      .trim()
+      .replace(/\/$/, "");
+    return `${origin}${url}`;
+  }
+
+  if (SERVER_API_BASE) {
+    return `${SERVER_API_BASE}${url.slice("/api".length)}`;
+  }
+
+  return url;
+}
 
 const getCookie = (name: string): string | null => {
   if (typeof document === "undefined") return null;
@@ -224,13 +261,9 @@ export async function apiFetch<T>(
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   let url = path.startsWith("http") ? path : `${API_BASE}${normalizedPath}`;
 
-  // Server-side (Next) can call Django directly to avoid depending on any public origin.
-  // In the browser we always stay same-origin via /api/* (tunnel-safe).
+  // Server-side: ver `resolveServerSideApiUrl`. En el navegador siempre same-origin `/api/*`.
   if (typeof window === "undefined" && url.startsWith("/")) {
-    if (SERVER_API_BASE && url.startsWith("/api")) {
-      url = `${SERVER_API_BASE}${url.slice("/api".length)}`;
-    }
-    // IMPORTANT: do NOT prepend an origin (APP_ORIGIN). Relative URLs must stay relative.
+    url = resolveServerSideApiUrl(url);
   }
 
   const method = (options.method || "GET").toUpperCase();
@@ -608,12 +641,15 @@ export async function getHomepageStory(): Promise<HomepageStory | null> {
   ];
 
   let lastStatus: number | null = null;
+  let lastError: unknown | null = null;
+  let receivedHttpResponse = false;
 
   for (const path of candidates) {
     try {
       const data = await apiFetch<any>(path, {
         next: { revalidate: 300 },
       });
+      receivedHttpResponse = true;
 
       // 1) Si viene una lista (o wrappers comunes), tomamos la primera activa.
       const rows = extractArray<HomepageStory>(data);
@@ -647,9 +683,18 @@ export async function getHomepageStory(): Promise<HomepageStory | null> {
       // Si llegó pero no tiene forma esperada, seguimos probando.
       lastStatus = 200;
     } catch (e: any) {
+      lastError = e;
       lastStatus = typeof e?.status === "number" ? e.status : lastStatus;
       continue;
     }
+  }
+
+  // 502 del proxy u otros errores HTTP antes de JSON: ningún 200 → propagamos (p. ej. backend caído).
+  if (!receivedHttpResponse && lastError) {
+    if (typeof process !== "undefined" && process.env.CI === "true") {
+      return null;
+    }
+    throw lastError;
   }
 
   // Diagnóstico local; en CI (p. ej. Playwright + mock sin /homepage-story/) evita inundar el log.

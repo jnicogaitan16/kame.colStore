@@ -487,3 +487,49 @@ LOGIN_URL = 'two_factor:login'
 # Leave empty to disable the restriction (e.g. local dev without the var set).
 _raw_admin_ips = os.getenv("ADMIN_ALLOWED_IPS", "")
 ADMIN_ALLOWED_IPS = {ip.strip() for ip in _raw_admin_ips.split(",") if ip.strip()}
+
+# =========================
+# Sentry (error monitoring)
+# =========================
+import logging
+
+import sentry_sdk
+from sentry_sdk.integrations.django import DjangoIntegration
+from sentry_sdk.integrations.logging import LoggingIntegration
+
+SENSITIVE_KEYS = {"password", "card_number", "cvv", "email", "token"}
+
+
+def _sentry_before_send(event, hint):
+    try:
+        data = event.get("request", {}).get("data", {})
+        if isinstance(data, dict):
+            for key in SENSITIVE_KEYS:
+                if key in data:
+                    data[key] = "[Filtered]"
+    except Exception:
+        pass
+    return event
+
+
+# Misma variable de entorno que en Render: SENTRY_DSN (valor local en .env, no commitear).
+SENTRY_DSN_BACKEND = os.getenv("SENTRY_DSN", "").strip()
+SENTRY_ENVIRONMENT = os.getenv("DJANGO_ENV", "production")
+
+if SENTRY_DSN_BACKEND:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN_BACKEND,
+        environment=SENTRY_ENVIRONMENT,
+        integrations=[
+            DjangoIntegration(),
+            LoggingIntegration(
+                level=logging.INFO,
+                event_level=logging.ERROR,
+            ),
+        ],
+        traces_sample_rate=0.2,
+        profiles_sample_rate=0.1,
+        send_default_pii=False,
+        before_send=_sentry_before_send,
+        debug=os.getenv("SENTRY_DEBUG", "").lower() in ("1", "true", "yes"),
+    )

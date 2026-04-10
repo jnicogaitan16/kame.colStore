@@ -13,3 +13,4 @@ boto3==1.42.52
 django-storages==1.14.6
 django-otp>=1.4.0
 django-two-factor-auth[totp]>=1.16.0
+sentry-sdk[django]>=2.0.0
