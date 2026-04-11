@@ -91,7 +91,8 @@ def _safe_send_multipart(
     )
 
     try:
-        with urllib_request.urlopen(request, timeout=20) as response:
+        # URL solo a API HTTPS de Resend (_get_resend_api_url); no es input de usuario.
+        with urllib_request.urlopen(request, timeout=20) as response:  # nosec B310
             response_body = response.read().decode("utf-8", errors="replace")
             logger.info(
                 "[emails] Email sent successfully provider=resend to=%s subject=%s status=%s body=%s",

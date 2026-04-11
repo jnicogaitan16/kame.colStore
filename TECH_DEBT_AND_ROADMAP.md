@@ -1,10 +1,12 @@
 # Kame.col — Deuda Técnica, Riesgos y Hoja de Ruta de Mejoras
 
-> Auditoría inicial: 2026-04-09. Actualizado: 2026-04-10 — incorpora cambios verificados en repo (Sentry Django/Next, hardening logs webhook Wompi, resiliencia DSN en deploy).
+> Auditoría inicial: 2026-04-09. Actualizado: 2026-04-11 — Sentry Django/Next, hardening Wompi (logs), DSN resiliente en deploy, **Bandit en CI** (`bandit.yml` + `pyproject.toml`), **`README.md` reestructurado** (entrada operativa: quick start, Sentry, Bandit, CI E2E+Python, sin detalle de reglas de negocio).
 
 ## Resumen Ejecutivo
 
-Monorepo **Django 5.2 + DRF** (`apps/*`, `config/`) y **Next.js 14 App Router** (`frontend/`), con **PostgreSQL**, pagos **Wompi**, correo **Resend** y E2E **Playwright** (`tests/`). El producto está maduro para MVP. **Sentry** ya cubre errores en backend y storefront; siguen como huecos relevantes **métricas RED/APM fuera de Sentry**, **ampliación E2E de medios de pago y correos**, y **reducción de `any` / deuda de tipos** en el frontend. Las dependencias de frontend tienen **saltos mayores** disponibles (Next 16, React 19, ESLint 10) que conviene planificar como proyecto aparte.
+Monorepo **Django 5.2 + DRF** (`apps/*`, `config/`) y **Next.js 14 App Router** (`frontend/`), con **PostgreSQL**, pagos **Wompi**, correo **Resend** y E2E **Playwright** (`tests/`). El producto está maduro para MVP. **Sentry** ya cubre errores en backend y storefront; **CI en GitHub Actions** incluye **E2E** (build Next + Playwright, `e2e.yml`) y **Bandit** solo sobre Python (`apps/`, `config/`). La **documentación de uso** vive en **`README.md`** (alineado a lo esencial; detalle de deuda y plan sigue en este documento).
+
+Siguen como huecos relevantes **métricas RED/APM fuera de Sentry**, **ampliación E2E de medios de pago y correos**, y **reducción de `any` / deuda de tipos** en el frontend. Las dependencias de frontend tienen **saltos mayores** disponibles (Next 16, React 19, ESLint 10) que conviene planificar como proyecto aparte.
 
 ---
 
@@ -43,7 +45,7 @@ Monorepo **Django 5.2 + DRF** (`apps/*`, `config/`) y **Next.js 14 App Router** 
 
 - **CSRF_TRUSTED_ORIGINS** incluye IP LAN fija (`192.168.20.128`) — revisar en despliegues; preferir solo env.
 - **Proxy API Next** (`frontend/app/api/[...path]/route.ts`): revisar que no amplíe superficie (métodos, headers, SSRF) — auditoría manual recomendada.
-- **Bandit:** No ejecutado (módulo no instalado en el Python del entorno de auditoría). Ejecutar en CI: `bandit -r apps config`.
+- **Bandit:** CI en `.github/workflows/bandit.yml` (PR y push a `main`); config en `pyproject.toml` (skip **B104** por falsos positivos Django; `# nosec B310` en `urlopen` hacia API HTTPS de Resend). Local igual que CI: `bandit -r apps config -ll -c pyproject.toml`. Sin `-ll` suelen listarse ~16 avisos **Low** (`B110`/`B112`); ver **`README.md`** (sección Bandit).
 
 ### 2.3 Baja Prioridad / Hardening
 
@@ -71,6 +73,7 @@ Monorepo **Django 5.2 + DRF** (`apps/*`, `config/`) y **Next.js 14 App Router** 
 - **Django + DRF** encaja con admin rico, ORM, migraciones y tests de dominio (`orders/tests.py` en inventario + pagos).
 - **Next 14 App Router** con fetch SSR y proxy `/api` es coherente con túneles y same-origin en el navegador.
 - **PostgreSQL** adecuado para transaccionalidad e integridad de pedidos.
+- **Onboarding y operación:** `README.md` con tech stack, quick start, Sentry (resumen), tabla CI (Bandit vs E2E), enlaces a `tests/README.md` y a este archivo.
 
 ### 4.2 Qué debería cambiar
 
@@ -120,7 +123,9 @@ Monorepo **Django 5.2 + DRF** (`apps/*`, `config/`) y **Next.js 14 App Router** 
 
 ## 6. Cobertura E2E — Estado y Plan
 
-Guía operativa (comandos, tabla de specs, plantilla `.env.test`): **`tests/README.md`**.
+**CI:** workflow **`e2e.yml`** (push/PR a `main`): dependencias `frontend/` + `tests/`, build Next, Playwright. No sustituye análisis Python; eso va en **`bandit.yml`**.
+
+Guía operativa (comandos, tabla de specs, plantilla `.env.test`): **`tests/README.md`**. Resumen de comandos y enlaces: **`README.md`** (sección Testing E2E).
 
 ### 6.1 Cobertura actual por método de pago
 
@@ -217,7 +222,7 @@ Crear `tests/e2e/fixtures/payment-data.ts` con:
 
 | # | Tarea | Archivo(s) afectado(s) | Esfuerzo | Impacto | Categoría |
 |---|--------|-------------------------|----------|---------|-----------|
-| 1 | Ejecutar Bandit en CI | `.github/workflows/*` | Bajo | Medio | Seguridad |
+| 1 | ~~Ejecutar Bandit en CI~~ **Hecho** | `.github/workflows/bandit.yml`, `pyproject.toml`, `apps/notifications/emails.py` (`nosec B310`), `README.md` (sección Bandit + stack) | — | — | Seguridad |
 | 2 | E2E sandbox tarjeta + Nequi/Daviplata (staging) | `tests/e2e/*`, fixtures | Alto | Alto | QA |
 | 3 | Quitar `console.log` de cart stock o poner detrás de flag dev | `frontend/store/cart-stock-slice.ts` | Bajo | Bajo | Higiene |
 | 4 | Tipar `ProductGrid` y rutas API | `frontend/components/product/ProductGrid.tsx`, `app/api/*` | Medio | Medio | Deuda técnica |
@@ -229,6 +234,8 @@ Crear `tests/e2e/fixtures/payment-data.ts` con:
 
 ## Anexos — Comandos y herramientas
 
+- **`README.md`:** entrada principal del repo — quick start, Sentry, Bandit (`-ll` vs auditoría amplia), tests E2E, estructura, troubleshooting breve; remite a **`tests/README.md`** y a **este documento** para profundidad.
+- **Bandit (recordatorio):** CI = `bandit -r apps config -ll -c pyproject.toml`. Auditoría con Low: mismo comando **sin** `-ll` (salida ≠ 0 con avisos Low es esperable).
 - **Dependencias backend:** `requirements/base.txt` (p.ej. Django 5.2.11, DRF 3.15.0). `pip list --outdated` en el entorno global del auditor solo mostró herramientas pip/wheel; **re-ejecutar dentro de `.venv` del proyecto** para el inventario real.
 - **Dependencias frontend (`npm outdated`):** Next/React/ESLint/Tailwind con versiones **Latest** muy por encima de las actuales — planificar upgrades mayor.
 - **pytest / migrate:** Requieren entorno virtual con dependencias instaladas.
