@@ -10,22 +10,17 @@
 
 👕 **https://www.kamecol.com/**
 
-Tienda virtual de ropa streetwear (**Kame.col**) con arquitectura moderna:  
-**Backend Django + API REST + Frontend Next.js + Admin interno + Analytics + Tracking propio**
-
+Tienda e-commerce **streetwear**: **Django + DRF** (API y admin), **Next.js 14** (storefront), **PostgreSQL**, pagos **Wompi**, correo **Resend**. Incluye panel interno, analytics y flujo de compra estándar (carrito → checkout → pago → pedido).
 
 ## ✨ Features
 
-- 🛒 E-commerce completo (catálogo, carrito, checkout)
-- 💳 Integración con **Wompi** (pagos + webhooks)
-- 📦 Gestión de órdenes (PENDING → PAID → SHIPPED)
-- 📊 Panel admin interno (dashboard, órdenes, inventario, clientes)
-- 📈 Analytics + tracking de comportamiento (eventos reales)
-- 🧠 Sistema de inventario robusto (`InventoryPool`)
-- 🔐 Autenticación segura + soporte 2FA
-- 📧 Emails transaccionales (Resend)
-- 🧪 Tests E2E con Playwright
-
+- Catálogo, carrito, checkout y gestión de pedidos
+- Pagos y webhooks **Wompi**; emails transaccionales **Resend**
+- Admin interno (catálogo, órdenes, clientes) con **2FA**
+- Inventario y variantes de producto
+- Eventos de comportamiento en storefront (analytics)
+- **Sentry** (backend + frontend) y **Bandit** en CI sobre Python
+- E2E **Playwright** (ver `tests/README.md`)
 
 ## 🧱 Tech Stack
 
@@ -40,7 +35,9 @@ Tienda virtual de ropa streetwear (**Kame.col**) con arquitectura moderna:
 | Emails | Resend |
 | Testing | Playwright |
 | Observabilidad | Sentry |
+| CI — seguridad (Python) | [Bandit](https://bandit.readthedocs.io/) en GitHub Actions (`apps/`, `config/`; umbral Medium+) |
 
+**CI:** además de Bandit, **GitHub Actions** ejecuta **E2E** (build de Next + Playwright en `tests/`). Detalle Bandit: sección más abajo.
 
 ## 📸 Screenshots
 
@@ -56,89 +53,27 @@ Tienda virtual de ropa streetwear (**Kame.col**) con arquitectura moderna:
 ### 📦 Orders Management
 ![Orders](./docs/screenshots/orders.png)
 
-
 ## ⚡ Quick Start
 
-### 1. Backend
+### Backend
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements/base.txt
+```
 
-Crear .env:
+Creá `.env` en la raíz (no commitear) con al menos: `DJANGO_SECRET_KEY`, `DJANGO_DEBUG=True`, `DJANGO_ALLOWED_HOSTS`, variables `DB_*` para PostgreSQL, claves **Wompi** y `RESEND_API_KEY`. La configuración de base de datos sigue `config/settings.py` leyendo esas variables.
 
-DJANGO_SECRET_KEY=
-DJANGO_DEBUG=True
-DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1
-
-DB_NAME=kamecol_dev
-DB_USER=tu_usuario
-DB_PASSWORD=tu_password
-DB_HOST=localhost
-DB_PORT=5432
-
-WOMPI_PUBLIC_KEY=pub_test_...
-WOMPI_PRIVATE_KEY=prv_test_...
-WOMPI_EVENTS_SECRET=...
-WOMPI_INTEGRITY_SECRET=...
-
-RESEND_API_KEY=
-
-Configurar DB:
-
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.getenv("DB_NAME"),
-        "USER": os.getenv("DB_USER"),
-        "PASSWORD": os.getenv("DB_PASSWORD"),
-        "HOST": os.getenv("DB_HOST", "localhost"),
-        "PORT": os.getenv("DB_PORT", "5432"),
-    }
-}
-
-Run:
-
+```bash
 python manage.py migrate
 python manage.py createsuperuser
 python manage.py runserver
 ```
 
-### Observabilidad (Sentry) y ambientes
+API típica: **http://127.0.0.1:8000**
 
-**Environment:** `DJANGO_ENV` (Django) y `NEXT_PUBLIC_ENV` o `NEXT_PUBLIC_DJANGO_ENV` (Next; si no hay, usa `NODE_ENV`). Local: `development`; producción: `production`. Backend y frontend usan **DSN distintos** (un proyecto Sentry por app). Sin **`SENTRY_DSN`** en el `.env` raíz, Django no inicializa Sentry.
-
-**Dónde ver cada error:** el shell de Django envía al proyecto ligado a **`SENTRY_DSN`** (backend). El navegador envía al de **`NEXT_PUBLIC_SENTRY_DSN`** (frontend). En Sentry elegí el proyecto correcto en el selector; si solo abrís el del front, no verás los del back.
-
-**Filtro “Environment” en Issues (frontend):** el SDK ya envía `environment` en cada evento. Si el desplegable del proyecto *kamecol-frontend* sigue vacío, revisá **Project Settings → Environments** (entornos ocultos) y/o filtrá con `environment:development` en la búsqueda. Opcional en Vercel: **`NEXT_PUBLIC_SENTRY_RELEASE`** o **`NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA`** (commit del build) para `release` en Sentry y mejor correlación.
-
-**No commitees** `.env`, `frontend/.env.local` ni el token de Sentry. DSN: **Sentry → Project → Client Keys**. Token de source maps (`SENTRY_AUTH_TOKEN`): **Settings → Auth Tokens** — en local conviene ponerlo en **`frontend/.env.local`** (no uses un archivo aparte; Next lo carga en `next build`).
-
-**Render (backend, producción)**
-
-```text
-SENTRY_DSN=<DSN backend>
-DJANGO_ENV=production
-```
-
-**Vercel (frontend, producción)**
-
-```text
-NEXT_PUBLIC_SENTRY_DSN=<DSN frontend>
-NEXT_PUBLIC_ENV=production
-SENTRY_AUTH_TOKEN=<token para source maps en build>
-```
-
-**Local:** `.env` → `SENTRY_DSN`, `DJANGO_ENV=development`. `frontend/.env.local` → `NEXT_PUBLIC_SENTRY_DSN`, `NEXT_PUBLIC_ENV=development`, y si compilás con Sentry en prod: `SENTRY_AUTH_TOKEN=...`.
-
-**Probar backend (recomendado antes de prod):** `python manage.py verify_sentry` — envía un error de prueba y hace `flush`; falla si falta `SENTRY_DSN`. Opciones: `--timeout 15`, o `SENTRY_DEBUG=1 python manage.py verify_sentry` si no ves el evento en Sentry (proyecto del DSN backend, ventana 24h).
-
-**Probar a mano:** `python manage.py shell` → `import sentry_sdk; sentry_sdk.capture_exception(Exception("test backend")); sentry_sdk.flush(timeout=5)` (sin `flush` el evento puede no salir antes de cerrar el shell). En el navegador (storefront, no solo `/admin`): `__KAME_SENTRY_TEST__.captureException(new Error("test front"))` y opcionalmente `await __KAME_SENTRY_TEST__.flush(5000)`. En dev el front usa `/api/sentry-tunnel`.
-
-⸻
-
-### 2. Frontend
+### Frontend
 
 ```bash
 cd frontend
@@ -146,116 +81,87 @@ npm install
 npm run dev
 ```
 
-- Backend → http://localhost:8000
-- Frontend → http://localhost:3000
+Storefront: **http://localhost:3000** — el proxy `/api` necesita el backend en marcha y `DJANGO_API_BASE` (u origen equivalente) en `frontend/.env.local` según tu entorno.
 
-⸻
+## 🔭 Sentry (resumen)
 
-🧠 Arquitectura
+- Backend y frontend usan **proyectos / DSN distintos** en Sentry. Backend: `SENTRY_DSN` y `DJANGO_ENV` en `.env` raíz. Frontend: `NEXT_PUBLIC_SENTRY_DSN`, `NEXT_PUBLIC_ENV` en `frontend/.env.local`; token de source maps (`SENTRY_AUTH_TOKEN`) en `frontend/.env.local` para builds con Sentry.
+- **Producción:** en el panel del host (p. ej. Render / Vercel) definí esas variables sin mezclar varias en un solo campo.
+- **Probar backend:** `python manage.py verify_sentry` (requiere `SENTRY_DSN`).
+- **Probar browser (storefront):** en consola, `__KAME_SENTRY_TEST__.captureException(new Error("test"))` y opcionalmente `await __KAME_SENTRY_TEST__.flush(5000)`; en dev suele usarse el túnel `/api/sentry-tunnel`.
 
-🔹 Inventory System
-	•	InventoryPool es la única fuente de verdad
-	•	Evita inconsistencias entre variantes
+No subas `.env`, `frontend/.env.local` ni tokens al repositorio.
 
-🔹 Cart System
-	•	100% frontend (Zustand + localStorage)
-	•	Backend revalida stock y precios
+## 🧪 Tests y CI
 
-🔹 Checkout Flow
+| Qué | Dónde |
+|-----|--------|
+| E2E Playwright | `tests/README.md` — `cd tests && npm ci && npx playwright install chromium && CI=true npx playwright test` |
+| Bandit (Python) | Esta repo: sección **Bandit** abajo; en CI: workflow en `.github/workflows/bandit.yml` |
 
-User → Checkout → Order (PENDING_PAYMENT)
-     → Wompi Widget
-     → Webhook
-         → PAID → stock ↓ + email
-         → FAILED → cancel
+Deuda técnica, riesgos y roadmap de producto: **`TECH_DEBT_AND_ROADMAP.md`**.
 
-🔹 Tracking System
+## 📦 Estructura (resumen)
 
-Eventos capturados:
-	•	product_view
-	•	add_to_cart
-	•	checkout_start
-	•	purchase_complete
-
-Batch + sendBeacon para performance óptima
-
-⸻
-
-🧪 Testing
-
-cd tests
-npx playwright test
-
-Incluye:
-	•	Checkout flow
-	•	Carrito
-	•	Navegación
-	•	Validaciones críticas
-
-⸻
-
-📦 Estructura
-
+```
 kame.colStore/
-├── apps/
-│   ├── catalog/
-│   ├── orders/
-│   ├── customers/
-│   └── notifications/
-├── config/
-├── frontend/
-├── templates/
-└── tests/
+├── apps/           # catalog, orders, customers, notifications, admin_api, …
+├── config/         # Django settings, urls
+├── frontend/       # Next.js storefront
+├── tests/          # Playwright E2E
+├── .github/workflows/
+├── pyproject.toml  # Bandit [tool.bandit]
+└── requirements/
+```
+
+## ⚠️ Troubleshooting
+
+- **502 / backend unreachable en `/api/...`:** levantá Django y revisá `DJANGO_API_BASE` (o URL del proxy) en `frontend/.env.local`.
+- **ECONNREFUSED :8000:** API no está corriendo.
+- **Webhooks Wompi en local:** suele hacer falta un túnel (p. ej. ngrok) hacia el puerto del backend.
+- **Fuentes `.woff2` 404 en dev:** borrá `frontend/.next` y volvé a `npm run dev`.
+
+## 📌 Roadmap (alto nivel)
+
+- Integraciones de envío (couriers)
+- Evolución de catálogo / promos / recomendaciones
+- CI ampliado (p. ej. lint frontend en Actions) y observabilidad tipo métricas — ver `TECH_DEBT_AND_ROADMAP.md`
 
 
-⸻
+## 🔒 Bandit (análisis estático de seguridad)
 
-🚚 Shipping Rules
+En **GitHub Actions** (PR y push a `main`) se ejecuta Bandit sobre `apps/` y `config/`. Config: `pyproject.toml` → `[tool.bandit]`.
 
-Región	Costo
-Bogotá	$14.900 COP
-Nacional	$24.900 COP
-+$170.000	Gratis
+**Igual que CI** (solo hallazgos Medium+):
 
+```bash
+pip install "bandit[toml]>=1.7.0"
+bandit -r apps config -ll -c pyproject.toml
+```
 
-⸻
+**Auditoría amplia** (incluye Low, p. ej. `B110` / `B112`; el exit code suele ser ≠ 0):
 
-⚠️ Troubleshooting
-	•	**502 / `Failed to reach backend` en `/api/...`** → Tener `DJANGO_API_BASE` en `frontend/.env.local` **no basta**: el proxy intenta conectar a esa URL y falla si Django no está levantado o el host/puerto no coincide. Arranca el API (`python manage.py runserver`, suele ser `http://127.0.0.1:8000`) y reinicia `npm run dev` si cambiaste el env.
-	•	ECONNREFUSED :8000 → Backend no corriendo (misma causa que arriba)
-	•	SECRET_KEY not found → Revisar .env
-	•	Webhooks Wompi → usar ngrok http 8000
-	•	Fuentes `/_next/static/media/*.woff2` 404 en dev → borrar `frontend/.next` y volver a ejecutar `npm run dev`
+```bash
+bandit -r apps config -c pyproject.toml
+```
 
-⸻
-
-📌 Roadmap
-	•	Integración con couriers (API real)
-	•	Panel de promociones
-	•	Recomendaciones de productos
-	•	CI/CD pipeline
-	•	Observabilidad ampliada (métricas, alertas)
-
-⸻
-
-👨‍💻 Author
-
-Nicolás Gaitán
-QA Engineer | Backend | E-commerce Builder
-
-⸻
-
-⭐ Contribuciones
-
-PRs y feedback son bienvenidos.
+Con **`-ll`**, el CI y este comando coinciden: los ~16 avisos Low no fallan el job.
 
 ---
 
 ## 🧪 Testing E2E (Playwright)
 
-Los comandos y el detalle (cobertura por spec, Wompi sandbox, `.env.test`) están en **`tests/README.md`**. Visión de producto, riesgos y plan de pagos/correos: **`TECH_DEBT_AND_ROADMAP.md`**.
+Comandos, specs y `.env.test`: **`tests/README.md`**.
 
 ```bash
 cd tests && npm ci && npx playwright install chromium
 CI=true npx playwright test
 ```
+## 👨‍💻 Author
+
+Nicolás Gaitán  
+QA Engineer | Backend | E-commerce Builder
+
+## ⭐ Contribuciones
+
+PRs y feedback son bienvenidos.

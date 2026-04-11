@@ -1,0 +1,5 @@
+[tool.bandit]
+# B104 dispara en literales "0.0.0.0" dentro de ALLOWED_HOSTS / listas de validación de URL;
+# no son bind() a interfaces; en Django es patrón habitual.
+skips = ["B104"]
+exclude_dirs = ["migrations"]

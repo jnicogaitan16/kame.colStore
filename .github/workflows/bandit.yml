@@ -1,0 +1,29 @@
+name: Bandit
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  bandit:
+    name: Bandit security scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Bandit
+        run: pip install "bandit[toml]>=1.7.0,<2"
+
+      - name: Run Bandit
+        # -ll = reportar Medium y High (omitir Low ruidosos; revisar con `bandit -r apps config` sin -ll)
+        run: bandit -r apps config -ll -c pyproject.toml
