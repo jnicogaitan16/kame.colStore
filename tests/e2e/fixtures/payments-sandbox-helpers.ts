@@ -171,38 +171,21 @@ async function buildLiveSandboxCartJson(page: Page): Promise<string> {
 }
 
 /**
- * Persiste en localStorage un carrito alineado con la DB del backend (no usa el mock 881).
+ * Abre checkout con carrito persistido en `kame-cart` (DB real vía API).
  *
- * El store usa `persist` + `skipHydration: true` y solo rehidrata en `CartHydration` (useEffect).
- * Si escribimos `kame-cart` después de un primer load, el store ya hidrató vacío y el checkout
- * queda sin ítems. `context.addInitScript` corre antes del JS de la página en la siguiente
- * navegación, así `rehydrate()` lee el carrito correcto.
+ * Zustand `skipHydration: true` + `CartHydration.rehydrate()` en el primer paint lee LS una vez.
+ * `addInitScript` no bastó en CI (orden de init / tamaño / contexto). Flujo estable: primera
+ * carga (puede hidratar vacío), escribir LS, `reload()` para que el segundo montaje rehidrate
+ * ítems y aparezca `#full_name`.
  */
-async function seedCheckoutCartFromFixture(page: Page): Promise<void> {
-  const raw = await buildLiveSandboxCartJson(page);
-  await page.context().addInitScript(
-    (cartJson: string) => {
-      try {
-        localStorage.setItem("kame-cart", cartJson);
-      } catch {
-        /* ignore */
-      }
-    },
-    raw
-  );
-}
-
-/**
- * Espera rehidratación del carrito (`skipHydration: true` + CartHydration).
- */
-async function waitForCheckoutCartHydrated(page: Page): Promise<void> {
-  await expect(page.locator("#full_name")).toBeVisible({ timeout: 45_000 });
-}
-
 async function openCheckoutWithSandboxCart(page: Page): Promise<void> {
-  await seedCheckoutCartFromFixture(page);
-  await page.goto("/checkout");
-  await waitForCheckoutCartHydrated(page);
+  const raw = await buildLiveSandboxCartJson(page);
+  await page.goto("/checkout", { waitUntil: "domcontentloaded" });
+  await page.evaluate((cartJson: string) => {
+    localStorage.setItem("kame-cart", cartJson);
+  }, raw);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page.locator("#full_name")).toBeVisible({ timeout: 45_000 });
   await page.locator("form").waitFor({ state: "visible", timeout: 20_000 });
 }
 
