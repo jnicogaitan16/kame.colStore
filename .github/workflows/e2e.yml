@@ -1,18 +1,15 @@
 name: E2E Tests
 
+# Solo PR hacia main: un run por actualización de PR (evita duplicar push + pull_request).
+# Tras merge a main este workflow no se vuelve a ejecutar aquí (Bandit/Vercel siguen su curso).
 on:
-  push:
-    # Cualquier rama de trabajo; se excluyen bots para no gastar minutos en PRs automáticos.
-    branches-ignore:
-      - "dependabot/**"
   pull_request:
     branches: [main]
-  # Ejecutar a mano desde Actions → E2E Tests → Run workflow (sin commits de relleno).
   workflow_dispatch:
 
-# Mismo commit puede disparar push + pull_request; una sola corrida activa.
+# Misma PR: el último push cancela el run anterior en curso.
 concurrency:
-  group: e2e-${{ github.workflow }}-${{ github.sha }}
+  group: e2e-${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 
 jobs:
@@ -115,8 +112,7 @@ jobs:
           retention-days: 3
 
   # Wompi Nequi contra Next+Django reales (no mock). Tras el job Playwright E2E.
-  # Corre en: cualquier PR hacia main, push a ramas de trabajo (no dependabot), o workflow_dispatch.
-  # Requiere secret `E2E_SANDBOX_BASE_URL` (URL del storefront desplegado).
+  # Corre en: PR hacia main o workflow_dispatch. Requiere Repository secret (no Variable) E2E_SANDBOX_BASE_URL.
   e2e-wompi-nequi-sandbox:
     name: Playwright Wompi Nequi (sandbox)
     runs-on: ubuntu-latest
@@ -124,9 +120,7 @@ jobs:
     # `secrets` no está permitido en `jobs.<id>.if`; el filtro por URL va en el paso "Guard".
     if: >
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' && github.base_ref == 'main') ||
-      (github.event_name == 'push' &&
-        !startsWith(github.ref, 'refs/heads/dependabot/'))
+      (github.event_name == 'pull_request' && github.base_ref == 'main')
     timeout-minutes: 25
 
     steps:
@@ -137,7 +131,7 @@ jobs:
         run: |
           if [ -z "$SANDBOX_BASE_URL" ]; then
             echo "run=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::E2E_SANDBOX_BASE_URL no configurado; se omite el E2E sandbox Wompi."
+            echo "::notice::E2E_SANDBOX_BASE_URL vacío: creá Repository secret (Settings → Secrets and variables → Actions → Secrets, no Variables). PRs desde fork no reciben secrets."
           else
             echo "run=true" >> "$GITHUB_OUTPUT"
           fi

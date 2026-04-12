@@ -1,6 +1,6 @@
 # Kame.col — Deuda Técnica, Riesgos y Hoja de Ruta de Mejoras
 
-> Auditoría inicial: 2026-04-09. Actualizado: 2026-04-11 — **E2E Wompi sandbox:** solo **`payments-nequi-sandbox.spec.ts`** + `payments-sandbox-helpers.ts` (flujo Nequi aprobado/declinado contra widget y backend reales); no hay specs sandbox para tarjeta/PSE/Daviplata/QR/Puntos (datos de prueba siguen en `wompi-sandbox.ts`). CI estándar: mock + stub en `checkout.spec.ts`. Job opcional en `e2e.yml` (PR→`main`, push ramas de trabajo, o manual; secret `E2E_SANDBOX_BASE_URL`): ver §6. **Django:** `GET /api/health/` mínimo para probes/túneles. **Pyright:** `pyrightconfig.json`. El **README raíz** no documenta el detalle de pagos E2E; este archivo y `tests/README.md` sí.
+> Auditoría inicial: 2026-04-09. Actualizado: 2026-04-11 — **E2E Wompi sandbox:** solo **`payments-nequi-sandbox.spec.ts`** + `payments-sandbox-helpers.ts` (flujo Nequi aprobado/declinado contra widget y backend reales); no hay specs sandbox para tarjeta/PSE/Daviplata/QR/Puntos (datos de prueba siguen en `wompi-sandbox.ts`). CI estándar: mock + stub en `checkout.spec.ts`. Job opcional en `e2e.yml` (solo `pull_request`→`main` o manual; secret `E2E_SANDBOX_BASE_URL`): ver §6. **Django:** `GET /api/health/` mínimo para probes/túneles. **Pyright:** `pyrightconfig.json`. El **README raíz** no documenta el detalle de pagos E2E; este archivo y `tests/README.md` sí.
 
 ## Resumen Ejecutivo
 
@@ -123,7 +123,7 @@ Siguen como huecos relevantes **métricas RED/APM fuera de Sentry**, **E2E sandb
 
 ## 6. Cobertura E2E — Estado y Plan
 
-**CI:** workflow **`e2e.yml`** (push a ramas salvo `dependabot/**`, PR a `main`, `workflow_dispatch`): job **Playwright E2E** — mock backend, build Next, tests Playwright estándar (sin Wompi real). Si existe el secret **`E2E_SANDBOX_BASE_URL`**, un segundo job ejecuta el spec sandbox Nequi contra la URL desplegada en **cualquier PR hacia `main`**, **push** a ramas de trabajo, o ejecución manual (`needs: e2e`). Sin secret, ese job se omite. Análisis Python: **`bandit.yml`**.
+**CI:** workflow **`e2e.yml`** (**solo** `pull_request` a `main` y `workflow_dispatch`; sin `push`, evita doble corrida y no repite tras merge a `main`): job **Playwright E2E** — mock backend, build Next, tests Playwright estándar (sin Wompi real). Si existe el **Repository secret** **`E2E_SANDBOX_BASE_URL`**, un segundo job ejecuta el spec sandbox Nequi (`needs: e2e`). Sin secret, ese job se omite. Análisis Python: **`bandit.yml`**.
 
 **Alcance E2E y pagos:** no hay una suite E2E que cubra *todos* los métodos de pago. El único flujo **browser + Wompi sandbox real** implementado es **Nequi** (casos aprobado y declinado → URL de resultado), para medir la integración checkout → widget → resultado. En CI principal el checkout usa **stub** del widget; otros métodos no tienen spec sandbox dedicado (datos de prueba siguen en `WOMPI_SANDBOX` para el día que se añadan).
 

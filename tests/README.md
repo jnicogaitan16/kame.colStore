@@ -80,11 +80,11 @@ cd tests && RUN_WOMPI_SANDBOX_E2E=1 npx playwright test -c playwright.sandbox.co
 
 ### CI (GitHub Actions)
 
-En **`.github/workflows/e2e.yml`** el job **`Playwright E2E`** sigue usando mock + Next local (sin Wompi real). El job **`Playwright Wompi Nequi (sandbox)`** (`needs: e2e`) corre además cuando: **cualquier `pull_request` hacia `main`** (cualquier rama origen), **push** a ramas de trabajo (se ignoran `dependabot/**`), **`workflow_dispatch`**. Sin el secret de URL, el sandbox se omite (no falla el workflow).
+En **`.github/workflows/e2e.yml`** el workflow se dispara solo con **`pull_request` hacia `main`** o **`workflow_dispatch`** (no con `push`), para **una sola corrida** por actualización de PR; el merge a `main` no vuelve a ejecutar este archivo. El job **`Playwright E2E`** usa mock + Next local (sin Wompi real). El job **`Playwright Wompi Nequi (sandbox)`** (`needs: e2e`) corre en ese mismo run si existe el secret de URL; si no, se omite (no falla el workflow).
 
 | Secret (repo) | Obligatorio | Uso |
 |---------------|-------------|-----|
-| `E2E_SANDBOX_BASE_URL` | Sí, para que el job exista | URL del storefront ya desplegado con **Django real** y checkout Wompi sandbox (p. ej. preview de `main` o staging). Sin este secret el job **se omite** (no falla el workflow). |
+| `E2E_SANDBOX_BASE_URL` | Sí, para que el job exista | Debe ser **Repository secret** (pestaña *Secrets*), no *Variable*. Valor: solo la URL HTTPS del storefront. Sin este secret el sandbox **se omite** (no falla el workflow). |
 | `E2E_SANDBOX_WOMPI_PUBLIC_KEY` | No | `pub_test_…` para `addInitScript` en Playwright si el build del sitio no expone `NEXT_PUBLIC_WOMPI_PUBLIC_KEY` al entorno del runner. |
 
 Los PR desde **forks** no reciben secrets; en **push** al mismo repo el secret del repo sí aplica.
