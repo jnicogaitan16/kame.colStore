@@ -349,3 +349,12 @@ class WompiWebhookIdempotencyTest(TestCase):
         # Both requests should succeed (200 is the idempotent response for duplicates)
         self.assertIn(resp1.status_code, [200, 201])
         self.assertIn(resp2.status_code, [200, 201])
+
+
+class ApiHealthViewTests(TestCase):
+    """GET /api/health/ — comprobar túnel (ngrok) y probes."""
+
+    def test_returns_ok_json(self):
+        r = self.client.get("/api/health/")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json(), {"status": "ok"})

@@ -12,7 +12,9 @@ import type {
   StockWarningStatus,
 } from "./cart";
 
-const DEV_VALIDATE_LOGS = process.env.NODE_ENV !== "production";
+const DEV_VALIDATE_LOGS =
+  process.env.NODE_ENV !== "production" &&
+  process.env.NEXT_PUBLIC_E2E_QUIET_VALIDATE !== "1";
 const STOCK_VALIDATE_DEBOUNCE_MS = 150;
 
 let stockAbortController: AbortController | null = null;

@@ -6,6 +6,9 @@
  * - WOMPI_PUBLIC_KEY se lee desde NEXT_PUBLIC_WOMPI_PUBLIC_KEY (solo en frontend).
  * - WOMPI_INTEGRITY_SECRET NUNCA llega al frontend — la firma se genera en Django.
  * - El Widget se carga de forma lazy (solo cuando se necesita).
+ *
+ * Si en Red ves 404 `NOT_FOUND_ERROR` en `.../merchants/pub_.../check_pco_blacklist`, Wompi sandbox
+ * no reconoce esa llave/comercio: revisá el panel Wompi y que `.env.local` coincida (reiniciá dev).
  */
 
 const WOMPI_WIDGET_URL = "https://checkout.wompi.co/widget.js";

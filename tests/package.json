@@ -8,6 +8,9 @@
     "test:debug": "playwright test --debug",
     "test:smoke": "playwright test e2e/smoke.spec.ts",
     "test:headed": "playwright test --headed",
+    "test:sandbox": "RUN_WOMPI_SANDBOX_E2E=1 playwright test -c playwright.sandbox.config.ts",
+    "test:sandbox:nequi": "RUN_WOMPI_SANDBOX_E2E=1 playwright test e2e/payments-nequi-sandbox.spec.ts -c playwright.sandbox.config.ts",
+    "test:sandbox:nequi:headed": "RUN_WOMPI_SANDBOX_E2E=1 E2E_PLAYWRIGHT_SLOW_MO=350 playwright test e2e/payments-nequi-sandbox.spec.ts -c playwright.sandbox.config.ts --headed",
     "report": "playwright show-report"
   },
   "devDependencies": {

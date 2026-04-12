@@ -37,7 +37,7 @@ Tienda e-commerce **streetwear**: **Django + DRF** (API y admin), **Next.js 14**
 | Observabilidad | Sentry |
 | CI — seguridad (Python) | [Bandit](https://bandit.readthedocs.io/) en GitHub Actions (`apps/`, `config/`; umbral Medium+) |
 
-**CI:** además de Bandit, **GitHub Actions** ejecuta **E2E** (build de Next + Playwright en `tests/`). Detalle Bandit: sección más abajo.
+**CI:** además de Bandit, **GitHub Actions** ejecuta **E2E** (build de Next + Playwright en `tests/`). Otros jobs y alcance: **`TECH_DEBT_AND_ROADMAP.md`** §6. Detalle Bandit: sección más abajo.
 
 ## 📸 Screenshots
 
@@ -96,10 +96,11 @@ No subas `.env`, `frontend/.env.local` ni tokens al repositorio.
 
 | Qué | Dónde |
 |-----|--------|
-| E2E Playwright | `tests/README.md` — `cd tests && npm ci && npx playwright install chromium && CI=true npx playwright test` |
-| Bandit (Python) | Esta repo: sección **Bandit** abajo; en CI: workflow en `.github/workflows/bandit.yml` |
+| E2E Playwright (checkout con mock) | `tests/README.md` — `cd tests && npm ci && npx playwright install chromium && CI=true npx playwright test` |
+| Bandit (Python) | Sección **Bandit** abajo; CI: `.github/workflows/bandit.yml` |
+| Alcance E2E, pagos, jobs opcionales en Actions | **`TECH_DEBT_AND_ROADMAP.md`** §6 (el README raíz no entra en detalle por método de pago) |
 
-Deuda técnica, riesgos y roadmap de producto: **`TECH_DEBT_AND_ROADMAP.md`**.
+Deuda técnica, riesgos y roadmap: **`TECH_DEBT_AND_ROADMAP.md`**.
 
 ## 📦 Estructura (resumen)
 
@@ -118,7 +119,9 @@ kame.colStore/
 
 - **502 / backend unreachable en `/api/...`:** levantá Django y revisá `DJANGO_API_BASE` (o URL del proxy) en `frontend/.env.local`.
 - **ECONNREFUSED :8000:** API no está corriendo.
-- **Webhooks Wompi en local:** suele hacer falta un túnel (p. ej. ngrok) hacia el puerto del backend.
+- **Webhooks Wompi en local:** túnel hacia Django (p. ej. `ngrok http 8000`). En Wompi, URL del webhook: `https://<host-ngrok>/api/wompi-webhook/`.
+- **Ngrok + `ALLOWED_HOSTS` / CSRF:** `DJANGO_ALLOWED_HOSTS` debe aceptar el host (p. ej. `.ngrok-free.dev`). `DJANGO_CSRF_TRUSTED_ORIGINS` = origen HTTPS completo (`https://<host>`); si pegás una URL con path, el backend la reduce a `scheme://host`.
+- **Probar el túnel:** `curl` no lee `.env`. Usá el `https://…` exacto de *Forwarding* en ngrok + `/api/health/`. Plan free: cabecera `ngrok-skip-browser-warning: true`. Respuesta esperada **200** y `{"status":"ok"}`. *Could not resolve host*: el host no es un dominio real. *Different Host* / *ERR_NGROK_3200*: agente ngrok apagado o URL desactualizada.
 - **Fuentes `.woff2` 404 en dev:** borrá `frontend/.next` y volvé a `npm run dev`.
 
 ## 📌 Roadmap (alto nivel)
@@ -147,16 +150,6 @@ bandit -r apps config -c pyproject.toml
 
 Con **`-ll`**, el CI y este comando coinciden: los ~16 avisos Low no fallan el job.
 
----
-
-## 🧪 Testing E2E (Playwright)
-
-Comandos, specs y `.env.test`: **`tests/README.md`**.
-
-```bash
-cd tests && npm ci && npx playwright install chromium
-CI=true npx playwright test
-```
 ## 👨‍💻 Author
 
 Nicolás Gaitán  
