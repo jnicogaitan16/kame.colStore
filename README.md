@@ -61,6 +61,8 @@ Tienda e-commerce **streetwear**: **Django + DRF** (API y admin), **Next.js 14**
 python -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements/base.txt
+# opcional — mejores tipos Django en el IDE (Pyright / basedpyright):
+# pip install -r requirements/dev.txt
 ```
 
 Creá `.env` en la raíz (no commitear) con al menos: `DJANGO_SECRET_KEY`, `DJANGO_DEBUG=True`, `DJANGO_ALLOWED_HOSTS`, variables `DB_*` para PostgreSQL, claves **Wompi** y `RESEND_API_KEY`. La configuración de base de datos sigue `config/settings.py` leyendo esas variables.

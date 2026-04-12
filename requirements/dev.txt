@@ -1,0 +1,4 @@
+# Tipado IDE / Pyright (opcional). Tras `pip install -r requirements/base.txt`:
+#   pip install -r requirements/dev.txt
+django-stubs>=5.2.0,<6
+djangorestframework-stubs>=3.15.0
