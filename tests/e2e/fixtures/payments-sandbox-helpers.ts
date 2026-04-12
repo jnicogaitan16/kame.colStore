@@ -160,8 +160,9 @@ async function buildLiveSandboxCartJson(page: Page): Promise<string> {
       ],
       stockWarningsByVariantId: {},
       stockHintsByVariantId: {},
-      lastStockValidateRequestId: null,
+      lastStockValidateRequestId: 0,
       stockValidateStatus: "idle" as const,
+      lastStockValidateAt: 0,
     },
     version: 0,
   };
@@ -171,13 +172,24 @@ async function buildLiveSandboxCartJson(page: Page): Promise<string> {
 
 /**
  * Persiste en localStorage un carrito alineado con la DB del backend (no usa el mock 881).
+ *
+ * El store usa `persist` + `skipHydration: true` y solo rehidrata en `CartHydration` (useEffect).
+ * Si escribimos `kame-cart` después de un primer load, el store ya hidrató vacío y el checkout
+ * queda sin ítems. `context.addInitScript` corre antes del JS de la página en la siguiente
+ * navegación, así `rehydrate()` lee el carrito correcto.
  */
 async function seedCheckoutCartFromFixture(page: Page): Promise<void> {
-  await page.goto("/");
   const raw = await buildLiveSandboxCartJson(page);
-  await page.evaluate((cartJson: string) => {
-    localStorage.setItem("kame-cart", cartJson);
-  }, raw);
+  await page.context().addInitScript(
+    (cartJson: string) => {
+      try {
+        localStorage.setItem("kame-cart", cartJson);
+      } catch {
+        /* ignore */
+      }
+    },
+    raw
+  );
 }
 
 /**

@@ -70,7 +70,7 @@ O en un solo comando:
 cd tests && RUN_WOMPI_SANDBOX_E2E=1 npx playwright test -c playwright.sandbox.config.ts
 ```
 
-**Carrito:** `payments-sandbox-helpers` arma `localStorage` `kame-cart` desde `/api/catalogo/` y el PDP (`E2E_SANDBOX_PRODUCT_SLUG` opcional si el primero del listado no tiene stock).
+**Carrito:** `payments-sandbox-helpers` arma `kame-cart` desde `/api/catalogo/` y el PDP (`E2E_SANDBOX_PRODUCT_SLUG` opcional) y lo inyecta con `addInitScript` antes de abrir `/checkout`, para que Zustand (`skipHydration`) rehidrate ítems y exista `#full_name`.
 
 **Sandbox activo:**
 
