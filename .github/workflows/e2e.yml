@@ -113,7 +113,9 @@ jobs:
           retention-days: 3
 
   # Wompi Nequi contra Next+Django reales (no mock). Tras el job Playwright E2E.
-  # Corre en: PR hacia main o workflow_dispatch. Requiere Repository secret (no Variable) E2E_SANDBOX_BASE_URL.
+  # Corre en: PR hacia main o workflow_dispatch.
+  # URL del storefront: secret E2E_SANDBOX_BASE_URL, o si está vacío el primer origen de
+  # DJANGO_CSRF_TRUSTED_ORIGINS (misma convención que config/settings.py: https://host, CSV).
   e2e-wompi-nequi-sandbox:
     name: Playwright Wompi Nequi (sandbox)
     runs-on: ubuntu-latest
@@ -125,16 +127,27 @@ jobs:
     timeout-minutes: 25
 
     steps:
-      - name: Guard (require E2E_SANDBOX_BASE_URL)
+      - name: Guard (resolve SANDBOX_BASE_URL)
         id: sandbox-guard
         env:
-          SANDBOX_BASE_URL: ${{ secrets.E2E_SANDBOX_BASE_URL }}
+          E2E_SANDBOX_BASE_URL: ${{ secrets.E2E_SANDBOX_BASE_URL }}
+          DJANGO_CSRF_TRUSTED_ORIGINS: ${{ secrets.DJANGO_CSRF_TRUSTED_ORIGINS }}
         run: |
-          if [ -z "$SANDBOX_BASE_URL" ]; then
+          SANDBOX="${E2E_SANDBOX_BASE_URL:-}"
+          if [ -z "$SANDBOX" ] && [ -n "${DJANGO_CSRF_TRUSTED_ORIGINS:-}" ]; then
+            SANDBOX="${DJANGO_CSRF_TRUSTED_ORIGINS%%,*}"
+            SANDBOX="$(echo "$SANDBOX" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+          fi
+          if [ -z "$SANDBOX" ]; then
             echo "run=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::E2E_SANDBOX_BASE_URL vacío: creá Repository secret (Settings → Secrets and variables → Actions → Secrets, no Variables). PRs desde fork no reciben secrets."
+            echo "::notice::Definí Repository secret E2E_SANDBOX_BASE_URL o DJANGO_CSRF_TRUSTED_ORIGINS (primer origen HTTPS, alineado con Django). PRs desde fork no reciben secrets."
           else
             echo "run=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "SANDBOX_BASE_URL<<__KAME_SANDBOX_URL__"
+              echo "$SANDBOX"
+              echo "__KAME_SANDBOX_URL__"
+            } >> "$GITHUB_ENV"
           fi
 
       - name: Checkout
@@ -182,7 +195,6 @@ jobs:
         env:
           CI: true
           RUN_WOMPI_SANDBOX_E2E: "1"
-          SANDBOX_BASE_URL: ${{ secrets.E2E_SANDBOX_BASE_URL }}
           E2E_SKIP_LOAD_FRONTEND_ENV: "1"
           NEXT_PUBLIC_WOMPI_PUBLIC_KEY: ${{ secrets.E2E_SANDBOX_WOMPI_PUBLIC_KEY }}
           E2E_PLAYWRIGHT_DISABLE_GPU: "1"

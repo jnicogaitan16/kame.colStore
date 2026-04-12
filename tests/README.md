@@ -84,8 +84,11 @@ En **`.github/workflows/e2e.yml`** el workflow se dispara solo con **`pull_reque
 
 | Secret (repo) | Obligatorio | Uso |
 |---------------|-------------|-----|
-| `E2E_SANDBOX_BASE_URL` | Sí, para que el job exista | Debe ser **Repository secret** (pestaña *Secrets*), no *Variable*. Valor: solo la URL HTTPS del storefront. Sin este secret el sandbox **se omite** (no falla el workflow). |
+| `E2E_SANDBOX_BASE_URL` | Uno de los dos* | URL HTTPS del storefront (sin path final innecesario), **Repository secret**. Suele coincidir con el primer valor de `DJANGO_CSRF_TRUSTED_ORIGINS` en el backend. |
+| `DJANGO_CSRF_TRUSTED_ORIGINS` | Uno de los dos* | Si `E2E_SANDBOX_BASE_URL` está vacío, el job sandbox toma el **primer** origen (coma-separados), misma forma que en `config/settings.py`. |
 | `E2E_SANDBOX_WOMPI_PUBLIC_KEY` | No | `pub_test_…` para `addInitScript` en Playwright si el build del sitio no expone `NEXT_PUBLIC_WOMPI_PUBLIC_KEY` al entorno del runner. |
+
+\*Sin ninguno de los dos, el job sandbox **se omite** (no falla el workflow).
 
 Los PR desde **forks** no reciben secrets; en **push** al mismo repo el secret del repo sí aplica.
 
