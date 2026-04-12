@@ -63,6 +63,18 @@ const sandboxLaunchArgs =
 
 const CI = !!process.env.CI;
 
+/** ngrok free devuelve HTML de aviso si no mandás este header en requests (incl. `page.request`). */
+function sandboxExtraHttpHeaders(): Record<string, string> {
+  const h: Record<string, string> = {
+    "x-test-env": "playwright-wompi-sandbox",
+  };
+  const base = (process.env.SANDBOX_BASE_URL || "").toLowerCase();
+  if (base.includes("ngrok")) {
+    h["ngrok-skip-browser-warning"] = "69420";
+  }
+  return h;
+}
+
 export default defineConfig({
   testDir: "./e2e",
   testMatch: "**/payments-nequi-sandbox.spec.ts",
@@ -83,7 +95,7 @@ export default defineConfig({
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
-    extraHTTPHeaders: { "x-test-env": "playwright-wompi-sandbox" },
+    extraHTTPHeaders: sandboxExtraHttpHeaders(),
     launchOptions: {
       ...(slowMo != null ? { slowMo } : {}),
       ...(sandboxLaunchArgs.length > 0 ? { args: sandboxLaunchArgs } : {}),

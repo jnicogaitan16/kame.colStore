@@ -1,5 +1,6 @@
 import {
   expect,
+  type APIResponse,
   type Frame,
   type FrameLocator,
   type Locator,
@@ -53,6 +54,34 @@ function formatPriceForCart(price: string | number): string {
   return Number.isFinite(n) ? n.toFixed(2) : String(price);
 }
 
+/** Evita `SyntaxError` opaco si el servidor devuelve HTML (ngrok, 404 Next, proxy mal configurado). */
+async function readJsonFromApiResponse(
+  res: APIResponse,
+  label: string
+): Promise<unknown> {
+  const text = await res.text();
+  if (!res.ok()) {
+    throw new Error(
+      `E2E sandbox: ${label} → ${res.status()} ${text.slice(0, 600)}`
+    );
+  }
+  const head = text.trimStart().slice(0, 12).toLowerCase();
+  if (head.startsWith("<!doctype") || head.startsWith("<html")) {
+    throw new Error(
+      `E2E sandbox: ${label} devolvió HTML, no JSON. Si usás ngrok free, ` +
+        `usá playwright.sandbox.config (header ngrok-skip-browser-warning) o otra URL. ` +
+        `Prólogo: ${text.slice(0, 400)}`
+    );
+  }
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    throw new Error(
+      `E2E sandbox: ${label}: cuerpo no es JSON válido: ${text.slice(0, 400)}`
+    );
+  }
+}
+
 /**
  * Arma el JSON de `kame-cart` desde la API real (variantes deben existir en la DB
  * donde corre Django; el fixture 881 de mock E2E no aplica en sandbox).
@@ -67,13 +96,10 @@ async function buildLiveSandboxCartJson(page: Page): Promise<string> {
 
   if (!slug) {
     const listRes = await page.request.get("/api/catalogo/?page_size=40");
-    if (!listRes.ok()) {
-      const t = await listRes.text();
-      throw new Error(
-        `E2E sandbox: GET /api/catalogo/ → ${listRes.status()} ${t.slice(0, 600)}`
-      );
-    }
-    const listData = (await listRes.json()) as { results?: CatalogListRow[] };
+    const listData = (await readJsonFromApiResponse(
+      listRes,
+      "GET /api/catalogo/"
+    )) as { results?: CatalogListRow[] };
     const products = listData.results ?? [];
     const row = products.find((p) => p.slug && p.sold_out !== true);
     if (!row?.slug) {
@@ -88,14 +114,10 @@ async function buildLiveSandboxCartJson(page: Page): Promise<string> {
   const detailRes = await page.request.get(
     `/api/products/${encodeURIComponent(slug)}/`
   );
-  if (!detailRes.ok()) {
-    const t = await detailRes.text();
-    throw new Error(
-      `E2E sandbox: GET /api/products/${slug}/ → ${detailRes.status()} ${t.slice(0, 600)}`
-    );
-  }
-
-  const product = (await detailRes.json()) as ProductDetailJson;
+  const product = (await readJsonFromApiResponse(
+    detailRes,
+    `GET /api/products/${slug}/`
+  )) as ProductDetailJson;
   const variants = product.variants ?? [];
   const withStock = variants.find(
     (v) => v.is_active !== false && Number(v.stock) > 0
