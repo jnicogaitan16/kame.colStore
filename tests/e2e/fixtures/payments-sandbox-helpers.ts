@@ -181,6 +181,49 @@ function isLocalSandboxBaseUrl(): boolean {
 }
 
 /**
+ * Espera el formulario de checkout; si la UI muestra carrito vacío, reinyecta `kame-cart` y recarga.
+ * Mitiga carreras de hidratación Zustand (`skipHydration`) en previews remotos (CI/Vercel).
+ */
+async function waitForCheckoutFormOrReseedCart(
+  page: Page,
+  cartJson: string,
+  isRemote: boolean
+): Promise<void> {
+  const maxAttempts = isRemote ? 5 : 3;
+  const firstTimeout = isRemote ? 50_000 : 45_000;
+  let lastError: Error | undefined;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      await expect(page.locator("#full_name")).toBeVisible({
+        timeout: attempt === 1 ? firstTimeout : 18_000,
+      });
+      await page.locator("form").waitFor({ state: "visible", timeout: 20_000 });
+      return;
+    } catch (e) {
+      lastError = e instanceof Error ? e : new Error(String(e));
+      const emptyHint = page.getByText("Tu carrito está vacío", { exact: false });
+      const emptyVisible = await emptyHint.isVisible().catch(() => false);
+
+      if (!emptyVisible || attempt >= maxAttempts) {
+        throw lastError;
+      }
+
+      await page.evaluate((json: string) => {
+        try {
+          localStorage.setItem("kame-cart", json);
+        } catch {
+          /* ignore */
+        }
+      }, cartJson);
+      await page.reload({ waitUntil: "load" });
+    }
+  }
+
+  throw lastError ?? new Error("E2E sandbox: checkout form not ready");
+}
+
+/**
  * Abre checkout con carrito persistido en `kame-cart` (DB real vía API).
  *
  * - `addInitScript` + `goto(load)`.
@@ -222,8 +265,7 @@ async function openCheckoutWithSandboxCart(page: Page): Promise<void> {
     await page.reload({ waitUntil: "load" });
   }
 
-  await expect(page.locator("#full_name")).toBeVisible({ timeout: 45_000 });
-  await page.locator("form").waitFor({ state: "visible", timeout: 20_000 });
+  await waitForCheckoutFormOrReseedCart(page, raw, isRemote);
 }
 
 /** Datos válidos para el formulario (alineados con checkout.spec). */

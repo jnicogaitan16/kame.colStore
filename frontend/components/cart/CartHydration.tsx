@@ -1,19 +1,24 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { useCartStore } from "@/store/cart";
 
 /**
  * Rehidrata el carrito desde localStorage en el cliente (Zustand persist).
  *
- * Nota:
- * Este componente solo se encarga de la rehidratación explícita del store.
- * No debe disparar validaciones de stock ni otros efectos colaterales.
+ * `useLayoutEffect` corre antes del paint del navegador (a diferencia de `useEffect`),
+ * así el primer frame ya puede reflejar ítems persistidos — útil en E2E remoto (Vercel/CI)
+ * y evita un flash de “carrito vacío” en checkout.
+ *
+ * En el servidor usamos `useEffect` para no disparar el warning de SSR de `useLayoutEffect`.
  */
+const useIsoLayoutEffect =
+  typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
 export function CartHydration() {
   const hasRehydratedRef = useRef(false);
 
-  useEffect(() => {
+  useIsoLayoutEffect(() => {
     // Defensa contra doble ejecución en React StrictMode (dev)
     if (hasRehydratedRef.current) return;
 
