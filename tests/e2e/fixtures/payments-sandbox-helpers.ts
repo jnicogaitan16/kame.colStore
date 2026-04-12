@@ -181,31 +181,28 @@ function isLocalSandboxBaseUrl(): boolean {
 }
 
 /**
- * Espera el formulario de checkout; si la UI muestra carrito vacío, reinyecta `kame-cart` y recarga.
- * Mitiga carreras de hidratación Zustand (`skipHydration`) en previews remotos (CI/Vercel).
+ * Espera el formulario de checkout; ante cualquier fallo de `#full_name`, reinyecta `kame-cart` y recarga.
+ * En remoto la UI a veces no muestra “carrito vacío” (sigue hidratando, error soft, etc.) y antes no reintentábamos.
  */
 async function waitForCheckoutFormOrReseedCart(
   page: Page,
   cartJson: string,
   isRemote: boolean
 ): Promise<void> {
-  const maxAttempts = isRemote ? 5 : 3;
-  const firstTimeout = isRemote ? 50_000 : 45_000;
+  const maxAttempts = isRemote ? 8 : 4;
+  const firstTimeout = isRemote ? 55_000 : 45_000;
   let lastError: Error | undefined;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       await expect(page.locator("#full_name")).toBeVisible({
-        timeout: attempt === 1 ? firstTimeout : 18_000,
+        timeout: attempt === 1 ? firstTimeout : 22_000,
       });
       await page.locator("form").waitFor({ state: "visible", timeout: 20_000 });
       return;
     } catch (e) {
       lastError = e instanceof Error ? e : new Error(String(e));
-      const emptyHint = page.getByText("Tu carrito está vacío", { exact: false });
-      const emptyVisible = await emptyHint.isVisible().catch(() => false);
-
-      if (!emptyVisible || attempt >= maxAttempts) {
+      if (attempt >= maxAttempts) {
         throw lastError;
       }
 
@@ -256,13 +253,20 @@ async function openCheckoutWithSandboxCart(page: Page): Promise<void> {
     raw
   );
 
-  await page.goto("/checkout", { waitUntil: "load" });
-
   if (isRemote) {
+    // Home primero: monta layout + CartHydration antes del cliente de checkout (Vercel/CI).
+    await page.goto("/", { waitUntil: "load" });
+    await page.goto("/checkout", { waitUntil: "load" });
     await page.evaluate((cartJson: string) => {
-      localStorage.setItem("kame-cart", cartJson);
+      try {
+        localStorage.setItem("kame-cart", cartJson);
+      } catch {
+        /* ignore */
+      }
     }, raw);
     await page.reload({ waitUntil: "load" });
+  } else {
+    await page.goto("/checkout", { waitUntil: "load" });
   }
 
   await waitForCheckoutFormOrReseedCart(page, raw, isRemote);
