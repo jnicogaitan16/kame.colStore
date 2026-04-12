@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "jam": {
+      "url": "https://mcp.jam.dev/mcp",
+      "headers": {
+        "Authorization": "Bearer ${env:JAM_MCP_TOKEN}"
+      }
+    }
+  }
+}

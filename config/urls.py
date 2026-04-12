@@ -21,6 +21,8 @@ from django.conf.urls.static import static
 from two_factor.admin import AdminSiteOTPRequired
 from two_factor.urls import urlpatterns as tf_urls
 
+from .views import api_health
+
 # Force the admin site to require 2FA for every staff user.
 admin.site.__class__ = AdminSiteOTPRequired
 
@@ -28,6 +30,9 @@ urlpatterns = [
     path("", include(tf_urls)),
     path("admin/", admin.site.urls),
     path("orders/", include("apps.orders.urls")),
+    # Antes de los include("api/…") para que /api/health no caiga en 404 del router.
+    path("api/health/", api_health),
+    path("api/health", api_health),
     # Catálogo bajo /api/
     path("api/", include("apps.catalog.urls_api")),
     # Órdenes y checkout también bajo /api/

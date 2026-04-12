@@ -25,3 +25,6 @@ test-results/
 *.tsbuildinfo
 .claude/
 CLAUDE.md
+
+# MCP local (tokens); usar .cursor/mcp.json.example como plantilla
+.cursor/mcp.json

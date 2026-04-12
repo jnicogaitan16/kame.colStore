@@ -26,6 +26,20 @@ function isProd() {
   return process.env.NODE_ENV === "production";
 }
 
+/** E2E sandbox: Playwright inyecta llave real aunque el bundle de Next no tenga la env embebida. */
+function wompiPublicKeyForWidget(): string {
+  if (typeof window !== "undefined") {
+    const injected = (
+      window as unknown as { __KAME_E2E_WOMPI_PUBLIC_KEY__?: string }
+    ).__KAME_E2E_WOMPI_PUBLIC_KEY__;
+    if (typeof injected === "string") {
+      const t = injected.trim();
+      if (t && t !== "undefined" && t !== "null") return t;
+    }
+  }
+  return String(process.env.NEXT_PUBLIC_WOMPI_PUBLIC_KEY ?? "").trim();
+}
+
 function sanitizeCoPhone(
   input: string
 ): { ok: true; phone10: string } | { ok: false; message: string } {
@@ -583,8 +597,12 @@ export default function CheckoutClient() {
 
     async function openWidget() {
       try {
-        const publicKey = process.env.NEXT_PUBLIC_WOMPI_PUBLIC_KEY || "";
-        if (!publicKey) throw new Error("NEXT_PUBLIC_WOMPI_PUBLIC_KEY no configurado");
+        const publicKey = wompiPublicKeyForWidget();
+        if (!publicKey || publicKey === "undefined" || publicKey === "null") {
+          throw new Error(
+            "NEXT_PUBLIC_WOMPI_PUBLIC_KEY no configurado o inválido (reiniciá `npm run dev` tras editar .env.local)."
+          );
+        }
 
         const [sigData] = await Promise.all([
           getWompiSignature(order.payment_reference),

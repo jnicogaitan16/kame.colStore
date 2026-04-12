@@ -54,20 +54,38 @@ if raw_allowed_hosts:
         h.strip() for h in raw_allowed_hosts.split(",") if h.strip()
     ]
 
-# CSRF trusted origins (needed when exposing via HTTPS tunnels / reverse proxies)
- # CSRF trusted origins for frontend access (local + LAN)
+# CSRF trusted origins (túneles HTTPS / reverse proxy + frontend local/LAN)
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://192.168.20.128:3000",
 ]
 
-# Allow extra trusted origins via env if provided
+
+def _normalize_csrf_trusted_origin(raw: str) -> str | None:
+    """
+    Django espera orígenes sin barra final. Si pegás una URL con path
+    (p. ej. https://xxx.ngrok-free.dev/foo), se reduce a scheme://host.
+    """
+    t = raw.strip()
+    if not t:
+        return None
+    t = t.rstrip("/")
+    if "://" in t:
+        p = urlparse(t)
+        if p.scheme in ("http", "https") and p.netloc:
+            return f"{p.scheme}://{p.netloc}"
+        return None
+    return None
+
+
+# Orígenes extra vía env (coma-separados), p. ej. https://sub.ngrok-free.dev
 raw_csrf_trusted = os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "")
 if raw_csrf_trusted:
-    CSRF_TRUSTED_ORIGINS += [
-        o.strip() for o in raw_csrf_trusted.split(",") if o.strip()
-    ]
+    for piece in raw_csrf_trusted.split(","):
+        norm = _normalize_csrf_trusted_origin(piece)
+        if norm and norm not in CSRF_TRUSTED_ORIGINS:
+            CSRF_TRUSTED_ORIGINS.append(norm)
 
 # When running behind a reverse proxy (e.g., Cloudflare Tunnel), Django should trust
 # the forwarded proto header to know the original scheme was HTTPS.

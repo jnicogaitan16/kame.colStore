@@ -1,6 +1,6 @@
 # E2E con Playwright
 
-Todo el detalle de tests, mocks y (futuros) datos sandbox vive aquí para no inflar el README raíz.
+Todo el detalle de tests, mocks y datos sandbox vive aquí para no inflar el README raíz.
 
 ## Requisitos
 
@@ -27,6 +27,8 @@ npx playwright test && npx playwright show-report
 
 **Nota:** Ejecutar siempre desde `tests/` (aquí están `package.json` y `playwright.config.ts`). El `webServer` levanta el mock en `:3001` y Next en `:3000` con `DJANGO_API_BASE` apuntando al mock. Si reutilizas tu propio `next dev`, en `frontend/` usa `DJANGO_API_BASE=http://localhost:3001`.
 
+El spec **`payments-nequi-sandbox.spec.ts`** **no** corre con el config por defecto (`testIgnore` en `playwright.config.ts` incluye el patrón sandbox); usa **`playwright.sandbox.config.ts`** (ver § E2E Wompi sandbox).
+
 ## Cobertura actual por spec
 
 | Spec | Enfoque |
@@ -37,30 +39,66 @@ npx playwright test && npx playwright show-report
 | `e2e/cart.spec.ts` | Carrito, mini cart, persistencia, mobile |
 | `e2e/navigation.spec.ts` | Header, logo, menú mobile (`fixme` en un caso), categoría |
 | `e2e/checkout.spec.ts` | Formulario, envío, submit, **stub** widget Wompi APPROVED/DECLINED, errores API, stock warning, mobile |
+| `e2e/payments-nequi-sandbox.spec.ts` | Wompi **sandbox real** Nequi (local o CI con secret; ver § E2E Wompi sandbox) |
 
-Hoy el checkout E2E **no** usa tarjetas sandbox reales ni Nequi/Daviplata; el widget se sustituye en `e2e/fixtures/api-mocks.ts`. No hay E2E de correos transaccionales.
+El checkout en CI sigue usando **stub** del widget (`e2e/fixtures/api-mocks.ts`). No hay E2E de correos transaccionales.
 
-## Variables de entorno para tests contra sandbox real (futuro)
+## E2E Wompi sandbox (opt-in)
 
-Crear `tests/.env.test` (no commitear secretos):
+**Alcance:** no hay E2E sandbox automatizado para *todos* los métodos de pago. Solo **`payments-nequi-sandbox.spec.ts`** ejerce el widget Wompi **real** (sandbox) con **Nequi**, en variantes **aprobada y declinada**, para validar la integración extremo a extremo. En CI estándar, el checkout sigue usando **stub** (`checkout.spec.ts`). Otros métodos: datos de prueba en `WOMPI_SANDBOX` sin spec Playwright dedicado por ahora — ver **`TECH_DEBT_AND_ROADMAP.md`** §6.
 
-```env
-# Wompi sandbox — valores de tu cuenta de pruebas
-WOMPI_PUBLIC_KEY_TEST=pub_test_...
-WOMPI_INTEGRITY_SECRET_TEST=...
-WOMPI_EVENTS_SECRET_TEST=...
-TEST_CARD_APPROVED=...
-TEST_CARD_DECLINED=...
-TEST_NEQUI_NUMBER=...
-TEST_DAVIPLATA_NUMBER=...
-RESEND_API_KEY_TEST=...
+**Datos de prueba no secretos:** `e2e/fixtures/wompi-sandbox.ts` (`WOMPI_SANDBOX`: Nequi en uso por el spec; también tarjeta, PSE, Daviplata, QR, Puntos para referencia futura).
+
+**Llaves:** en `.env` del backend y `frontend/.env.local` (`NEXT_PUBLIC_WOMPI_PUBLIC_KEY`, etc.), como en desarrollo normal. No commitear secretos.
+
+**Config:** `playwright.sandbox.config.ts` — **no** levanta `mock-backend.mjs`. Tenés que arrancar **Django + Next** apuntando al API real (mismo criterio que probás a mano en local/staging). Si `SANDBOX_BASE_URL` es **ngrok**, el config y el helper de checkout envían `ngrok-skip-browser-warning` (vía `extraHTTPHeaders` y `page.setExtraHTTPHeaders`) y un **reload** extra tras el primer `load`, para evitar la página de aviso y que `#full_name` no aparezca.
+
+**Flag obligatorio:**
+
+```bash
+export RUN_WOMPI_SANDBOX_E2E=1
+# opcional: URL del storefront si no es localhost:3000
+# export SANDBOX_BASE_URL=https://tu-preview.vercel.app
+
+cd tests
+npx playwright test -c playwright.sandbox.config.ts
 ```
 
-Cargarlas en el proceso que ejecute Playwright cuando escribas specs contra el sandbox. Plan y brechas: **`TECH_DEBT_AND_ROADMAP.md`** (raíz), sección 6.
+O en un solo comando:
+
+```bash
+cd tests && RUN_WOMPI_SANDBOX_E2E=1 npx playwright test -c playwright.sandbox.config.ts
+```
+
+**Carrito:** `payments-sandbox-helpers` arma `kame-cart` desde `/api/catalogo/` y el PDP (`E2E_SANDBOX_PRODUCT_SLUG` opcional), abre `/checkout`, escribe `localStorage` y hace **`reload()`** para que Zustand (`skipHydration` + `rehydrate`) vuelva a leer ítems y exista `#full_name`.
+
+**Sandbox activo:**
+
+| Archivo | Estado |
+|---------|--------|
+| `payments-nequi-sandbox.spec.ts` | Checkout real → widget Wompi → Nequi (teléfonos sandbox) → `/checkout/resultado` (`APPROVED` / `DECLINED`). |
+
+### CI (GitHub Actions)
+
+En **`.github/workflows/e2e.yml`** el workflow se dispara solo con **`pull_request` hacia `main`** o **`workflow_dispatch`** (no con `push`), para **una sola corrida** por actualización de PR; el merge a `main` no vuelve a ejecutar este archivo. El job **`Playwright E2E`** usa mock + Next local (sin Wompi real). El job **`Playwright Wompi Nequi (sandbox)`** (`needs: e2e`) corre en ese mismo run si existe el secret de URL; si no, se omite (no falla el workflow).
+
+| Secret (repo) | Obligatorio | Uso |
+|---------------|-------------|-----|
+| `E2E_SANDBOX_BASE_URL` | Uno de los dos* | URL HTTPS del storefront (sin path final innecesario), **Repository secret**. Suele coincidir con el primer valor de `DJANGO_CSRF_TRUSTED_ORIGINS` en el backend. |
+| `DJANGO_CSRF_TRUSTED_ORIGINS` | Uno de los dos* | Si `E2E_SANDBOX_BASE_URL` está vacío, el job sandbox toma el **primer** origen (coma-separados), misma forma que en `config/settings.py`. |
+| `E2E_SANDBOX_WOMPI_PUBLIC_KEY` | No | `pub_test_…` para `addInitScript` en Playwright si el build del sitio no expone `NEXT_PUBLIC_WOMPI_PUBLIC_KEY` al entorno del runner. |
+
+\*Sin ninguno de los dos, el job sandbox **se omite** (no falla el workflow).
+
+Los PR desde **forks** no reciben secrets; en **push** al mismo repo el secret del repo sí aplica.
+
+## Variables opcionales `.env.test`
+
+Podés crear `tests/.env.test` (no commitear) si cargás secretos adicionales con dotenv en el futuro. Hoy las llaves Wompi salen del entorno del proceso (backend/frontend ya configurados).
 
 ## Datos de prueba Wompi
 
-La fuente de verdad es [docs.wompi.co](https://docs.wompi.co) (sandbox, tarjetas de prueba, Nequi/Daviplata). **No pegues claves de producción en el repo.**
+Convención en repo: **`WOMPI_SANDBOX`** en código + [docs.wompi.co](https://docs.wompi.co). **No pegues claves de producción en el repo.**
 
 ## Más contexto
 

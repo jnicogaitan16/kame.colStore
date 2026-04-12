@@ -17,6 +17,8 @@ if (!CI) {
 
 export default defineConfig({
   testDir: "./e2e",
+  /** Wompi sandbox: `playwright.sandbox.config.ts` + `RUN_WOMPI_SANDBOX_E2E` (ver tests/README.md). */
+  testIgnore: ["**/payments-*-sandbox.spec.ts"],
   fullyParallel: true,
   forbidOnly: CI,
   retries: CI ? 2 : 0,

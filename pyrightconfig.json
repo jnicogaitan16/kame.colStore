@@ -1,0 +1,12 @@
+{
+  "include": ["apps", "config", "manage.py"],
+  "exclude": ["**/migrations", "frontend", "tests/node_modules", ".venv"],
+  "venvPath": ".",
+  "venv": ".venv",
+  "pythonVersion": "3.11",
+  "typeCheckingMode": "basic",
+  "reportAttributeAccessIssue": "none",
+  "reportUnknownMemberType": "none",
+  "reportArgumentType": "none",
+  "reportOperatorIssue": "none"
+}

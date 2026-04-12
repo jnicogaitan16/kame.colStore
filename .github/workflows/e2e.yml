@@ -1,10 +1,16 @@
 name: E2E Tests
 
+# Solo PR hacia main: un run por actualización de PR (evita duplicar push + pull_request).
+# Tras merge a main este workflow no se vuelve a ejecutar aquí (Bandit/Vercel siguen su curso).
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+
+# Misma PR: el último push cancela el run anterior en curso.
+concurrency:
+  group: e2e-${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
 
 jobs:
   e2e:
@@ -75,7 +81,8 @@ jobs:
       - name: Install Playwright browsers
         working-directory: tests
         run: |
-          if [ "${{ steps.playwright-cache.outputs.cache-hit }}" = "true" ]; then
+          HIT="${{ steps.playwright-cache.outputs.cache-hit }}"
+          if [ "${HIT:-false}" = "true" ]; then
             npx playwright install chromium
           else
             npx playwright install --with-deps chromium
@@ -102,5 +109,108 @@ jobs:
         if: failure()
         with:
           name: playwright-results
+          path: tests/test-results/
+          retention-days: 3
+
+  # Wompi Nequi contra Next+Django reales (no mock). Tras el job Playwright E2E.
+  # Corre en: PR hacia main o workflow_dispatch.
+  # URL del storefront: secret E2E_SANDBOX_BASE_URL, o si está vacío el primer origen de
+  # DJANGO_CSRF_TRUSTED_ORIGINS (misma convención que config/settings.py: https://host, CSV).
+  e2e-wompi-nequi-sandbox:
+    name: Playwright Wompi Nequi (sandbox)
+    runs-on: ubuntu-latest
+    needs: e2e
+    # `secrets` no está permitido en `jobs.<id>.if`; el filtro por URL va en el paso "Guard".
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' && github.base_ref == 'main')
+    timeout-minutes: 25
+
+    steps:
+      - name: Guard (resolve SANDBOX_BASE_URL)
+        id: sandbox-guard
+        env:
+          E2E_SANDBOX_BASE_URL: ${{ secrets.E2E_SANDBOX_BASE_URL }}
+          DJANGO_CSRF_TRUSTED_ORIGINS: ${{ secrets.DJANGO_CSRF_TRUSTED_ORIGINS }}
+        run: |
+          SANDBOX="${E2E_SANDBOX_BASE_URL:-}"
+          if [ -z "$SANDBOX" ] && [ -n "${DJANGO_CSRF_TRUSTED_ORIGINS:-}" ]; then
+            SANDBOX="${DJANGO_CSRF_TRUSTED_ORIGINS%%,*}"
+            SANDBOX="$(echo "$SANDBOX" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+          fi
+          if [ -z "$SANDBOX" ]; then
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Definí Repository secret E2E_SANDBOX_BASE_URL o DJANGO_CSRF_TRUSTED_ORIGINS (primer origen HTTPS, alineado con Django). PRs desde fork no reciben secrets."
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "SANDBOX_BASE_URL<<__KAME_SANDBOX_URL__"
+              echo "$SANDBOX"
+              echo "__KAME_SANDBOX_URL__"
+            } >> "$GITHUB_ENV"
+          fi
+
+      - name: Checkout
+        if: steps.sandbox-guard.outputs.run == 'true'
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        if: steps.sandbox-guard.outputs.run == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: tests/package-lock.json
+
+      - name: Install test deps
+        if: steps.sandbox-guard.outputs.run == 'true'
+        working-directory: tests
+        run: npm ci
+
+      - name: Cache Playwright browsers
+        if: steps.sandbox-guard.outputs.run == 'true'
+        id: playwright-sandbox-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-sandbox-${{ runner.os }}-${{ hashFiles('tests/package-lock.json') }}
+          restore-keys: |
+            playwright-sandbox-${{ runner.os }}-
+
+      - name: Install Playwright browsers
+        if: steps.sandbox-guard.outputs.run == 'true'
+        working-directory: tests
+        run: |
+          HIT="${{ steps.playwright-sandbox-cache.outputs.cache-hit }}"
+          if [ "${HIT:-false}" = "true" ]; then
+            npx playwright install chromium
+          else
+            npx playwright install --with-deps chromium
+          fi
+
+      - name: Run Wompi Nequi sandbox E2E
+        if: steps.sandbox-guard.outputs.run == 'true'
+        working-directory: tests
+        run: npx playwright test -c playwright.sandbox.config.ts
+        env:
+          CI: true
+          RUN_WOMPI_SANDBOX_E2E: "1"
+          E2E_SKIP_LOAD_FRONTEND_ENV: "1"
+          NEXT_PUBLIC_WOMPI_PUBLIC_KEY: ${{ secrets.E2E_SANDBOX_WOMPI_PUBLIC_KEY }}
+          E2E_PLAYWRIGHT_DISABLE_GPU: "1"
+
+      - name: Upload Playwright sandbox report
+        uses: actions/upload-artifact@v4
+        if: always() && steps.sandbox-guard.outputs.run == 'true'
+        with:
+          name: playwright-sandbox-report
+          path: tests/playwright-report/
+          retention-days: 7
+
+      - name: Upload sandbox test results
+        uses: actions/upload-artifact@v4
+        if: failure() && steps.sandbox-guard.outputs.run == 'true'
+        with:
+          name: playwright-sandbox-results
           path: tests/test-results/
           retention-days: 3
