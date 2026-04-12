@@ -170,18 +170,28 @@ async function buildLiveSandboxCartJson(page: Page): Promise<string> {
   return JSON.stringify(cartState);
 }
 
+/** `SANDBOX_BASE_URL` vacío → config usa localhost; explícito localhost/127 también. */
+function isLocalSandboxBaseUrl(): boolean {
+  const b = (process.env.SANDBOX_BASE_URL || "").trim().toLowerCase();
+  return (
+    b === "" ||
+    b.includes("localhost") ||
+    b.includes("127.0.0.1")
+  );
+}
+
 /**
  * Abre checkout con carrito persistido en `kame-cart` (DB real vía API).
  *
- * - `addInitScript`: LS antes del JS de la página en cada navegación.
- * - `waitUntil: "load"`: da tiempo a hidratar React (mejor que `domcontentloaded` solo).
- * - **ngrok free:** la página de aviso a veces gana al `reload` sin headers explícitos en la
- *   `Page`; forzamos `setExtraHTTPHeaders` + segundo ciclo `evaluate` + `reload` tras el primer `load`.
+ * - `addInitScript` + `goto(load)`.
+ * - **Cualquier base remota** (Vercel, ngrok, staging): segundo paso `evaluate` + `reload(load)`
+ *   para que Zustand `rehydrate()` lea el carrito (en CI el secret suele ser URL sin "ngrok").
+ * - **ngrok free:** `setExtraHTTPHeaders` con bypass de la página de aviso.
  */
 async function openCheckoutWithSandboxCart(page: Page): Promise<void> {
-  const isNgrok = (process.env.SANDBOX_BASE_URL || "")
-    .toLowerCase()
-    .includes("ngrok");
+  const baseLower = (process.env.SANDBOX_BASE_URL || "").trim().toLowerCase();
+  const isNgrok = baseLower.includes("ngrok");
+  const isRemote = !isLocalSandboxBaseUrl();
 
   if (isNgrok) {
     await page.setExtraHTTPHeaders({
@@ -205,7 +215,7 @@ async function openCheckoutWithSandboxCart(page: Page): Promise<void> {
 
   await page.goto("/checkout", { waitUntil: "load" });
 
-  if (isNgrok) {
+  if (isRemote) {
     await page.evaluate((cartJson: string) => {
       localStorage.setItem("kame-cart", cartJson);
     }, raw);

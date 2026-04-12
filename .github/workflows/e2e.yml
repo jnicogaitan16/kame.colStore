@@ -81,7 +81,8 @@ jobs:
       - name: Install Playwright browsers
         working-directory: tests
         run: |
-          if [ "${{ steps.playwright-cache.outputs.cache-hit }}" = "true" ]; then
+          HIT="${{ steps.playwright-cache.outputs.cache-hit }}"
+          if [ "${HIT:-false}" = "true" ]; then
             npx playwright install chromium
           else
             npx playwright install --with-deps chromium
@@ -167,7 +168,8 @@ jobs:
         if: steps.sandbox-guard.outputs.run == 'true'
         working-directory: tests
         run: |
-          if [ "${{ steps.playwright-sandbox-cache.outputs.cache-hit }}" = "true" ]; then
+          HIT="${{ steps.playwright-sandbox-cache.outputs.cache-hit }}"
+          if [ "${HIT:-false}" = "true" ]; then
             npx playwright install chromium
           else
             npx playwright install --with-deps chromium
