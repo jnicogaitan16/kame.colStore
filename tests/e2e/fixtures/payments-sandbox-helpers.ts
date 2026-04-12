@@ -173,18 +173,45 @@ async function buildLiveSandboxCartJson(page: Page): Promise<string> {
 /**
  * Abre checkout con carrito persistido en `kame-cart` (DB real vía API).
  *
- * Zustand `skipHydration: true` + `CartHydration.rehydrate()` en el primer paint lee LS una vez.
- * `addInitScript` no bastó en CI (orden de init / tamaño / contexto). Flujo estable: primera
- * carga (puede hidratar vacío), escribir LS, `reload()` para que el segundo montaje rehidrate
- * ítems y aparezca `#full_name`.
+ * - `addInitScript`: LS antes del JS de la página en cada navegación.
+ * - `waitUntil: "load"`: da tiempo a hidratar React (mejor que `domcontentloaded` solo).
+ * - **ngrok free:** la página de aviso a veces gana al `reload` sin headers explícitos en la
+ *   `Page`; forzamos `setExtraHTTPHeaders` + segundo ciclo `evaluate` + `reload` tras el primer `load`.
  */
 async function openCheckoutWithSandboxCart(page: Page): Promise<void> {
+  const isNgrok = (process.env.SANDBOX_BASE_URL || "")
+    .toLowerCase()
+    .includes("ngrok");
+
+  if (isNgrok) {
+    await page.setExtraHTTPHeaders({
+      "x-test-env": "playwright-wompi-sandbox",
+      "ngrok-skip-browser-warning": "true",
+    });
+  }
+
   const raw = await buildLiveSandboxCartJson(page);
-  await page.goto("/checkout", { waitUntil: "domcontentloaded" });
-  await page.evaluate((cartJson: string) => {
-    localStorage.setItem("kame-cart", cartJson);
-  }, raw);
-  await page.reload({ waitUntil: "domcontentloaded" });
+
+  await page.context().addInitScript(
+    (cartJson: string) => {
+      try {
+        localStorage.setItem("kame-cart", cartJson);
+      } catch {
+        /* ignore */
+      }
+    },
+    raw
+  );
+
+  await page.goto("/checkout", { waitUntil: "load" });
+
+  if (isNgrok) {
+    await page.evaluate((cartJson: string) => {
+      localStorage.setItem("kame-cart", cartJson);
+    }, raw);
+    await page.reload({ waitUntil: "load" });
+  }
+
   await expect(page.locator("#full_name")).toBeVisible({ timeout: 45_000 });
   await page.locator("form").waitFor({ state: "visible", timeout: 20_000 });
 }

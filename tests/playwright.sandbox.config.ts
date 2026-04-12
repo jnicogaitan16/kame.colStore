@@ -70,7 +70,7 @@ function sandboxExtraHttpHeaders(): Record<string, string> {
   };
   const base = (process.env.SANDBOX_BASE_URL || "").toLowerCase();
   if (base.includes("ngrok")) {
-    h["ngrok-skip-browser-warning"] = "69420";
+    h["ngrok-skip-browser-warning"] = "true";
   }
   return h;
 }

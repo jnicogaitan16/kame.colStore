@@ -51,7 +51,7 @@ El checkout en CI sigue usando **stub** del widget (`e2e/fixtures/api-mocks.ts`)
 
 **Llaves:** en `.env` del backend y `frontend/.env.local` (`NEXT_PUBLIC_WOMPI_PUBLIC_KEY`, etc.), como en desarrollo normal. No commitear secretos.
 
-**Config:** `playwright.sandbox.config.ts` — **no** levanta `mock-backend.mjs`. Tenés que arrancar **Django + Next** apuntando al API real (mismo criterio que probás a mano en local/staging). Si `SANDBOX_BASE_URL` es **ngrok** (`*.ngrok*.dev` / `*.ngrok-free.app`), el config añade el header `ngrok-skip-browser-warning` para que `/api/*` no devuelva la página HTML de aviso.
+**Config:** `playwright.sandbox.config.ts` — **no** levanta `mock-backend.mjs`. Tenés que arrancar **Django + Next** apuntando al API real (mismo criterio que probás a mano en local/staging). Si `SANDBOX_BASE_URL` es **ngrok**, el config y el helper de checkout envían `ngrok-skip-browser-warning` (vía `extraHTTPHeaders` y `page.setExtraHTTPHeaders`) y un **reload** extra tras el primer `load`, para evitar la página de aviso y que `#full_name` no aparezca.
 
 **Flag obligatorio:**
 
