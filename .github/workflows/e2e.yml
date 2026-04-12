@@ -5,6 +5,8 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Ejecutar a mano desde Actions → E2E Tests → Run workflow (sin commits de relleno).
+  workflow_dispatch:
 
 jobs:
   e2e:
