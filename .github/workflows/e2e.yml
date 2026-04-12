@@ -2,11 +2,18 @@ name: E2E Tests
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - "feat/**"
   pull_request:
     branches: [main]
   # Ejecutar a mano desde Actions → E2E Tests → Run workflow (sin commits de relleno).
   workflow_dispatch:
+
+# Mismo commit puede disparar push + pull_request; una sola corrida activa.
+concurrency:
+  group: e2e-${{ github.workflow }}-${{ github.sha }}
+  cancel-in-progress: true
 
 jobs:
   e2e:
@@ -107,14 +114,22 @@ jobs:
           path: tests/test-results/
           retention-days: 3
 
-  # Wompi Nequi contra Next+Django reales (no mock). Solo en push a `main` (p. ej. tras merge),
-  # después del job Playwright E2E. Requiere secret `E2E_SANDBOX_BASE_URL` (URL del storefront desplegado).
+  # Wompi Nequi contra Next+Django reales (no mock). Tras el job Playwright E2E.
+  # Corre en: push a main o feat/*, PR a main desde feat/*, o workflow_dispatch.
+  # Requiere secret `E2E_SANDBOX_BASE_URL` (URL del storefront desplegado).
   e2e-wompi-nequi-sandbox:
     name: Playwright Wompi Nequi (sandbox)
     runs-on: ubuntu-latest
     needs: e2e
     # `secrets` no está permitido en `jobs.<id>.if`; el filtro por URL va en el paso "Guard".
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' &&
+        (github.ref == 'refs/heads/main' ||
+         startsWith(github.ref, 'refs/heads/feat/'))) ||
+      (github.event_name == 'pull_request' &&
+        github.base_ref == 'main' &&
+        startsWith(github.head_ref, 'feat/'))
     timeout-minutes: 25
 
     steps:
