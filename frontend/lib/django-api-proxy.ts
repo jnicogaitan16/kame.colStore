@@ -38,6 +38,12 @@ export async function proxyDjangoApiRequest(
     req.headers.get("x-csrftoken") || req.headers.get("x-csrf-token");
   if (csrf) headers["X-CSRFToken"] = csrf;
 
+  /* Django CsrfViewMiddleware comprueba Referer en HTTPS; el fetch servidor→Django no lo incluye por defecto. */
+  const referer = req.headers.get("referer");
+  if (referer) headers["Referer"] = referer;
+  const origin = req.headers.get("origin");
+  if (origin) headers["Origin"] = origin;
+
   let body: BodyInit | undefined = undefined;
   if (!["GET", "HEAD"].includes(req.method)) {
     const buf = await req.arrayBuffer();
