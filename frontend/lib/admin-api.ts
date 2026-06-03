@@ -388,6 +388,8 @@ export async function updateProduct(
     description: string;
     is_active: boolean;
     category_id: number;
+    show_in_home_marquee?: boolean;
+    home_marquee_order?: number;
   }>
 ): Promise<AdminProductDetail> {
   return adminFetch<AdminProductDetail>(`/admin/products/${id}/edit/`, {

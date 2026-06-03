@@ -1470,6 +1470,11 @@ select {
   flex: 0 0 auto;
 }
 
+/* Clones del loop infinito: ocultos para lectores de pantalla pero clicables en desktop */
+.home-marquee-segment[data-marquee-clone="true"] {
+  pointer-events: auto;
+}
+
 .home-marquee-item {
   width: 9.75rem;
   flex: 0 0 auto;
@@ -1482,6 +1487,8 @@ select {
   gap: 0.55rem;
   text-decoration: none;
   color: inherit;
+  pointer-events: auto;
+  touch-action: manipulation;
 }
 
 .home-marquee-media {
