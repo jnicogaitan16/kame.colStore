@@ -24,6 +24,8 @@ function formatApiError(err: unknown): string {
       name: "Nombre",
       category: "Categoría",
       is_active: "Estado",
+      show_in_home_marquee: "Marquee del Home",
+      home_marquee_order: "Orden en marquee",
       __all__: "General",
     };
     const parts: string[] = [];
@@ -51,6 +53,8 @@ export default function EditarProductoPage({ params }: { params: { product_id: s
     description: "",
     category_id: "",
     is_active: false,
+    show_in_home_marquee: false,
+    home_marquee_order: "0",
   });
   const [variantForm, setVariantForm] = useState({ value: "", color: "", initial_stock: "0" });
   const [addingVariant, setAddingVariant] = useState(false);
@@ -74,6 +78,8 @@ export default function EditarProductoPage({ params }: { params: { product_id: s
         description: p.description,
         category_id: String(p.category_id),
         is_active: p.is_active,
+        show_in_home_marquee: p.show_in_home_marquee ?? false,
+        home_marquee_order: String(p.home_marquee_order ?? 0),
       });
     }).catch((e) => setError(e.message)).finally(() => setLoading(false));
   }, [product_id]);
@@ -99,6 +105,8 @@ export default function EditarProductoPage({ params }: { params: { product_id: s
         description: form.description,
         is_active: form.is_active,
         category_id: parseInt(form.category_id),
+        show_in_home_marquee: form.show_in_home_marquee,
+        home_marquee_order: Math.max(0, parseInt(form.home_marquee_order, 10) || 0),
       });
       setProduct(updated);
       showToast("Producto actualizado.");
@@ -183,9 +191,152 @@ export default function EditarProductoPage({ params }: { params: { product_id: s
   const useSelectForValue = Boolean(rule?.use_select && allowedValues.length);
   const useSelectForColor = Boolean(allowedColors.length);
   const isSizeColor = (product.category_variant_schema || "").toLowerCase() === "size_color";
+  const showColorImages =
+    isSizeColor || (product.color_images?.length ?? 0) > 0;
+
+  const colorImagesSection = showColorImages ? (
+    <div className="bg-white border border-zinc-200 rounded-2xl p-5">
+      <p className="text-xs text-zinc-500 font-semibold uppercase tracking-wide mb-4">
+        Imágenes por color ({product.color_images?.length || 0})
+      </p>
+      {!isSizeColor && (
+        <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
+          La categoría actual no usa esquema Talla + Color; solo puedes ver o eliminar imágenes ya cargadas.
+        </p>
+      )}
+
+      {(product.color_images?.length || 0) > 0 && (
+        <div className="grid sm:grid-cols-2 gap-3 mb-5">
+          {product.color_images.map((img) => (
+            <div key={img.id} className="border border-zinc-200 rounded-xl p-3 flex gap-3">
+              <div className="w-16 h-16 bg-zinc-50 border border-zinc-200 rounded-lg overflow-hidden flex items-center justify-center">
+                {img.image_thumb_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={img.image_thumb_url} alt={img.alt_text || img.color} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-[11px] text-zinc-400">Sin imagen</span>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="truncate">
+                    <p className="text-sm font-medium text-zinc-900 truncate">{img.color}</p>
+                    <p className="text-xs text-zinc-500 truncate">{img.alt_text || "—"}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {img.is_primary && (
+                      <span className="text-[11px] px-2 py-0.5 rounded-full border bg-green-50 text-green-700 border-green-200">
+                        Principal
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteColorImage(img)}
+                      className="text-xs px-2 py-1 rounded-lg border border-zinc-200 hover:bg-zinc-50 text-zinc-700"
+                    >
+                      Eliminar
+                    </button>
+                  </div>
+                </div>
+                <p className="mt-1 text-[11px] text-zinc-400">Orden: {img.sort_order}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {isSizeColor && (
+        <form onSubmit={handleAddColorImage} className={`space-y-3 ${(product.color_images?.length || 0) > 0 ? "border-t border-zinc-100 pt-4" : ""}`}>
+          <p className="text-xs text-zinc-500 font-medium">Agregar imagen por color</p>
+          <div className="grid md:grid-cols-2 gap-3">
+            <Field label="Color *">
+              {useSelectForColor ? (
+                <select
+                  value={colorImageForm.color}
+                  onChange={(e) => setColorImageForm({ ...colorImageForm, color: e.target.value })}
+                  className={INPUT}
+                  required
+                >
+                  <option value="">Seleccionar...</option>
+                  {allowedColors.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={colorImageForm.color}
+                  onChange={(e) => setColorImageForm({ ...colorImageForm, color: e.target.value })}
+                  className={INPUT}
+                  placeholder="Negro..."
+                  required
+                />
+              )}
+            </Field>
+            <Field label="Orden">
+              <input
+                type="number"
+                min={0}
+                value={colorImageForm.sort_order}
+                onChange={(e) => setColorImageForm({ ...colorImageForm, sort_order: e.target.value })}
+                className={INPUT}
+              />
+            </Field>
+          </div>
+
+          <Field label="Imagen *">
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => setColorImageForm({ ...colorImageForm, file: e.target.files?.[0] || null })}
+              className="block w-full text-sm text-zinc-700 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border file:border-zinc-200 file:bg-white file:text-zinc-700 hover:file:bg-zinc-50"
+              required
+            />
+          </Field>
+
+          <Field label="Alt text (opcional)">
+            <input
+              type="text"
+              value={colorImageForm.alt_text}
+              onChange={(e) => setColorImageForm({ ...colorImageForm, alt_text: e.target.value })}
+              className={INPUT}
+              placeholder="Ej: Camiseta negra"
+            />
+          </Field>
+
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={colorImageForm.is_primary}
+              onChange={(e) => setColorImageForm({ ...colorImageForm, is_primary: e.target.checked })}
+              className="w-4 h-4 accent-red-500"
+            />
+            <span className="text-sm text-zinc-700">Marcar como principal (para este color)</span>
+          </label>
+
+          <button
+            type="submit"
+            disabled={uploadingColorImage}
+            className="text-xs px-4 py-2 bg-zinc-100 hover:bg-zinc-200 disabled:opacity-40 text-zinc-700 rounded-lg transition-colors border border-zinc-200 font-medium"
+          >
+            {uploadingColorImage ? "Subiendo..." : "+ Agregar imagen"}
+          </button>
+        </form>
+      )}
+    </div>
+  ) : (
+    <div className="bg-zinc-50 border border-zinc-200 border-dashed rounded-2xl p-4">
+      <p className="text-xs text-zinc-500">
+        <span className="font-semibold text-zinc-600">Imágenes por color</span> — disponible solo en categorías con esquema{" "}
+        <span className="font-mono text-zinc-600">Talla + Color</span>. Cambiá la categoría del producto si necesitás subir fotos por color.
+      </p>
+    </div>
+  );
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="space-y-6 max-w-3xl">
       <div className="flex items-center gap-2 text-xs text-zinc-400">
         <Link href="/admin/catalogo" className="hover:text-zinc-700">Catálogo</Link>
         <span>/</span>
@@ -241,6 +392,34 @@ export default function EditarProductoPage({ params }: { params: { product_id: s
               className="w-4 h-4 accent-red-500" />
             <span className="text-sm text-zinc-700">Producto activo (visible en tienda)</span>
           </label>
+          <div className="border-t border-zinc-100 pt-4 space-y-3">
+            <p className="text-xs text-zinc-500 font-semibold uppercase tracking-wide">Home / Marquee</p>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.show_in_home_marquee}
+                onChange={(e) => setForm({ ...form, show_in_home_marquee: e.target.checked })}
+                className="w-4 h-4 accent-red-500"
+              />
+              <span className="text-sm text-zinc-700">Mostrar en marquee del Home</span>
+            </label>
+            <p className="text-xs text-zinc-500 -mt-1 ml-6">
+              Si está activo, el producto aparecerá en el carrusel del Home (debe estar activo en tienda).
+            </p>
+            {form.show_in_home_marquee && (
+              <Field label="Orden en marquee">
+                <input
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={form.home_marquee_order}
+                  onChange={(e) => setForm({ ...form, home_marquee_order: e.target.value })}
+                  className={INPUT}
+                />
+                <p className="text-xs text-zinc-500 mt-1">Menor número = aparece primero.</p>
+              </Field>
+            )}
+          </div>
           {error && <p className="text-red-600 text-xs bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
           <button type="submit" disabled={saving}
             className="bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white text-sm py-2.5 px-6 rounded-lg transition-colors font-medium">
@@ -248,6 +427,8 @@ export default function EditarProductoPage({ params }: { params: { product_id: s
           </button>
         </form>
       </div>
+
+      {colorImagesSection}
 
       {/* Variants */}
       <div className="bg-white border border-zinc-200 rounded-2xl p-5">
@@ -354,134 +535,6 @@ export default function EditarProductoPage({ params }: { params: { product_id: s
           </button>
         </form>
       </div>
-
-      {/* Images by color (Django Admin parity for SIZE_COLOR) */}
-      {isSizeColor && (
-        <div className="bg-white border border-zinc-200 rounded-2xl p-5">
-          <p className="text-xs text-zinc-500 font-semibold uppercase tracking-wide mb-4">
-            Imágenes por color ({product.color_images?.length || 0})
-          </p>
-
-          {(product.color_images?.length || 0) > 0 && (
-            <div className="grid sm:grid-cols-2 gap-3 mb-5">
-              {product.color_images.map((img) => (
-                <div key={img.id} className="border border-zinc-200 rounded-xl p-3 flex gap-3">
-                  <div className="w-16 h-16 bg-zinc-50 border border-zinc-200 rounded-lg overflow-hidden flex items-center justify-center">
-                    {img.image_thumb_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={img.image_thumb_url} alt={img.alt_text || img.color} className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-[11px] text-zinc-400">Sin imagen</span>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="truncate">
-                        <p className="text-sm font-medium text-zinc-900 truncate">{img.color}</p>
-                        <p className="text-xs text-zinc-500 truncate">{img.alt_text || "—"}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {img.is_primary && (
-                          <span className="text-[11px] px-2 py-0.5 rounded-full border bg-green-50 text-green-700 border-green-200">
-                            Principal
-                          </span>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteColorImage(img)}
-                          className="text-xs px-2 py-1 rounded-lg border border-zinc-200 hover:bg-zinc-50 text-zinc-700"
-                        >
-                          Eliminar
-                        </button>
-                      </div>
-                    </div>
-                    <p className="mt-1 text-[11px] text-zinc-400">Orden: {img.sort_order}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <form onSubmit={handleAddColorImage} className="border-t border-zinc-100 pt-4 space-y-3">
-            <p className="text-xs text-zinc-500 font-medium">Agregar imagen por color</p>
-            <div className="grid md:grid-cols-2 gap-3">
-              <Field label="Color *">
-                {useSelectForColor ? (
-                  <select
-                    value={colorImageForm.color}
-                    onChange={(e) => setColorImageForm({ ...colorImageForm, color: e.target.value })}
-                    className={INPUT}
-                    required
-                  >
-                    <option value="">Seleccionar...</option>
-                    {allowedColors.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <input
-                    type="text"
-                    value={colorImageForm.color}
-                    onChange={(e) => setColorImageForm({ ...colorImageForm, color: e.target.value })}
-                    className={INPUT}
-                    placeholder="Negro..."
-                    required
-                  />
-                )}
-              </Field>
-              <Field label="Orden">
-                <input
-                  type="number"
-                  min={0}
-                  value={colorImageForm.sort_order}
-                  onChange={(e) => setColorImageForm({ ...colorImageForm, sort_order: e.target.value })}
-                  className={INPUT}
-                />
-              </Field>
-            </div>
-
-            <Field label="Imagen *">
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => setColorImageForm({ ...colorImageForm, file: e.target.files?.[0] || null })}
-                className="block w-full text-sm text-zinc-700 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border file:border-zinc-200 file:bg-white file:text-zinc-700 hover:file:bg-zinc-50"
-                required
-              />
-            </Field>
-
-            <Field label="Alt text (opcional)">
-              <input
-                type="text"
-                value={colorImageForm.alt_text}
-                onChange={(e) => setColorImageForm({ ...colorImageForm, alt_text: e.target.value })}
-                className={INPUT}
-                placeholder="Ej: Camiseta negra"
-              />
-            </Field>
-
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={colorImageForm.is_primary}
-                onChange={(e) => setColorImageForm({ ...colorImageForm, is_primary: e.target.checked })}
-                className="w-4 h-4 accent-red-500"
-              />
-              <span className="text-sm text-zinc-700">Marcar como principal (para este color)</span>
-            </label>
-
-            <button
-              type="submit"
-              disabled={uploadingColorImage}
-              className="text-xs px-4 py-2 bg-zinc-100 hover:bg-zinc-200 disabled:opacity-40 text-zinc-700 rounded-lg transition-colors border border-zinc-200 font-medium"
-            >
-              {uploadingColorImage ? "Subiendo..." : "+ Agregar imagen"}
-            </button>
-          </form>
-        </div>
-      )}
 
       {toast && (
         <div className={`fixed bottom-5 right-5 border rounded-xl px-4 py-2.5 text-sm shadow-md ${

@@ -140,15 +140,50 @@ jobs:
           fi
           if [ -z "$SANDBOX" ]; then
             echo "run=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Definí Repository secret E2E_SANDBOX_BASE_URL o DJANGO_CSRF_TRUSTED_ORIGINS (primer origen HTTPS, alineado con Django). PRs desde fork no reciben secrets."
-          else
-            echo "run=true" >> "$GITHUB_OUTPUT"
-            {
-              echo "SANDBOX_BASE_URL<<__KAME_SANDBOX_URL__"
-              echo "$SANDBOX"
-              echo "__KAME_SANDBOX_URL__"
-            } >> "$GITHUB_ENV"
+            echo "::notice::Definí Repository secret E2E_SANDBOX_BASE_URL (URL del storefront, p. ej. preview Vercel). PRs desde fork no reciben secrets."
+            exit 0
           fi
+
+          SANDBOX="${SANDBOX%/}"
+          CURL_EXTRA=()
+          if echo "$SANDBOX" | grep -qi ngrok; then
+            CURL_EXTRA=(-H "ngrok-skip-browser-warning: true")
+          fi
+
+          sandbox_api_ok() {
+            local path="$1"
+            local code
+            code="$(curl -sS -m 25 -o /tmp/kame-sandbox-preflight.body -w "%{http_code}" \
+              "${CURL_EXTRA[@]}" "${SANDBOX}${path}" 2>/dev/null || echo "000")"
+            if [ "$code" != "200" ]; then
+              return 1
+            fi
+            if head -c 32 /tmp/kame-sandbox-preflight.body 2>/dev/null | grep -qiE '^[[:space:]]*<(!DOCTYPE|html)'; then
+              return 1
+            fi
+            return 0
+          }
+
+          PREFLIGHT_OK=false
+          for path in "/api/health/" "/api/catalogo/?page_size=1"; do
+            if sandbox_api_ok "$path"; then
+              PREFLIGHT_OK=true
+              break
+            fi
+          done
+
+          if [ "$PREFLIGHT_OK" != "true" ]; then
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Sandbox E2E omitido: ${SANDBOX} no devolvió API JSON (¿ngrok apagado o URL no es el storefront?). Usá E2E_SANDBOX_BASE_URL=https://tu-preview.vercel.app"
+            exit 0
+          fi
+
+          echo "run=true" >> "$GITHUB_OUTPUT"
+          {
+            echo "SANDBOX_BASE_URL<<__KAME_SANDBOX_URL__"
+            echo "$SANDBOX"
+            echo "__KAME_SANDBOX_URL__"
+          } >> "$GITHUB_ENV"
 
       - name: Checkout
         if: steps.sandbox-guard.outputs.run == 'true'

@@ -263,6 +263,8 @@ export type AdminProduct = {
   /** Mirrors Django Category.variant_schema (e.g. "size_color"). */
   category_variant_schema: string;
   is_active: boolean;
+  show_in_home_marquee: boolean;
+  home_marquee_order: number;
   total_stock: number;
   variant_count: number;
   primary_image: string | null;

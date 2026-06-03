@@ -100,6 +100,8 @@ def _serialize_product(p: Product) -> dict:
         "category_name": p.category.name if p.category_id else "",
         "category_variant_schema": schema,
         "is_active": p.is_active,
+        "show_in_home_marquee": p.show_in_home_marquee,
+        "home_marquee_order": p.home_marquee_order,
         "total_stock": p.total_stock,
         "variant_count": variant_count,
         "primary_image": primary_image,
@@ -133,11 +135,7 @@ def _serialize_product_detail(p: Product) -> dict:
     base["variants"] = variants
 
     request = getattr(p, "_request", None)
-    if (
-        request is not None
-        and base.get("category_variant_schema") == Category.VariantSchema.SIZE_COLOR
-        and hasattr(p, "color_images")
-    ):
+    if request is not None and hasattr(p, "color_images"):
         imgs = list(p.color_images.all().order_by("-is_primary", "sort_order", "created_at", "id"))
         base["color_images"] = [_serialize_color_image(request, img) for img in imgs]
     else:
@@ -267,6 +265,20 @@ def product_update(request: Request, product_id: int):
             return Response({"error": "Categoría no encontrada."}, status=400)
     if "show_in_home_marquee" in data:
         p.show_in_home_marquee = bool(data["show_in_home_marquee"])
+    if "home_marquee_order" in data:
+        try:
+            order = int(data["home_marquee_order"])
+        except (TypeError, ValueError):
+            return Response(
+                {"error": {"home_marquee_order": ["Debe ser un número entero ≥ 0."]}},
+                status=400,
+            )
+        if order < 0:
+            return Response(
+                {"error": {"home_marquee_order": ["Debe ser un número entero ≥ 0."]}},
+                status=400,
+            )
+        p.home_marquee_order = order
 
     try:
         p.full_clean()
