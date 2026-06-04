@@ -3,3 +3,6 @@
 # no son bind() a interfaces; en Django es patrón habitual.
 skips = ["B104"]
 exclude_dirs = ["migrations"]
+
+[tool.django-stubs]
+django_settings_module = "config.settings"

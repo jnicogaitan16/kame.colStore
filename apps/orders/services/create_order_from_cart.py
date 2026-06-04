@@ -497,11 +497,4 @@ def create_order_from_checkout(payload: Dict[str, Any]) -> Order:
         # El modelo no expone recalculate_total(); los totales ya fueron seteados.
         pass
 
-    # Enviar email de pedido creado
-    try:
-        from apps.notifications.emails import send_order_created_email
-        send_order_created_email(order)
-    except Exception:
-        # No romper checkout si el email falla
-        pass
     return order

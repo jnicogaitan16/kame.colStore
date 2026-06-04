@@ -6,9 +6,7 @@
     <meta name="x-apple-disable-message-reformatting" />
     <meta name="color-scheme" content="light" />
     <meta name="supported-color-schemes" content="light" />
-
     <title>{% block title %}KAME.COL{% endblock %}</title>
-
     <style>
       html, body {
         margin: 0 !important;
@@ -41,367 +39,120 @@
       }
 
       body {
-        background: #f7f5f2 !important;
-        color: #18181b !important;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif !important;
+        background: #f7f5ef !important;
+        color: #151515 !important;
+        font-family: Arial, Helvetica, sans-serif !important;
       }
 
-      .container {
-        width: 640px;
-        max-width: 640px;
-      }
-
-      .page-bg {
-        background: #f7f5f2;
-      }
-
-      .card {
-        background: #ffffff;
-        border: 1px solid rgba(24, 24, 27, 0.05);
-        border-radius: 18px;
-      }
-
-      .subcard {
-        background: #ffffff;
-        border: 1px solid rgba(24, 24, 27, 0.05);
-        border-radius: 14px;
-      }
-
-      .item-thumb-shell {
-        width: 96px;
-        height: 96px;
-        min-width: 96px;
-        min-height: 96px;
-        overflow: hidden;
-        border-radius: 0;
-        background: transparent;
-        border: 0;
-      }
-
-      .item-thumb-image {
-        width: 96px;
-        height: 96px;
-        display: block;
-        object-fit: contain;
-        object-position: center center;
-        background: transparent;
-      }
-
-      .item-thumb-fallback {
-        width: 96px;
-        height: 96px;
-        display: table;
-        background: #f4f4f5;
-        color: rgba(82, 82, 91, 0.78);
-        text-align: center;
-        font-size: 11px;
-        line-height: 14px;
-        font-weight: 600;
-        letter-spacing: 0.04em;
-        text-transform: uppercase;
-      }
-
-      .item-thumb-fallback-inner {
-        display: table-cell;
-        vertical-align: middle;
-        padding: 10px;
-      }
-
-      .brand-main {
-        margin-top: 18px;
-        font-size: 24px;
-        line-height: 1;
-        font-weight: 600;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: #18181b;
-      }
-
-      .brand-sub {
-        margin-top: 6px;
-        font-size: 12px;
-        line-height: 18px;
-        color: rgba(82, 82, 91, 0.6);
-      }
-
-      .h1 {
-        margin: 0;
-        font-size: 28px;
-        line-height: 1.16;
-        font-weight: 600;
-        letter-spacing: 0.005em;
-        color: rgba(24, 24, 27, 0.96);
-      }
-
-      .label {
-        margin: 0;
-        font-size: 11px;
-        line-height: 16px;
-        font-weight: 600;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: rgba(82, 82, 91, 0.72);
-      }
-
-      .body {
-        margin: 0;
-        font-size: 15px;
-        line-height: 26px;
-        font-weight: 400;
-        letter-spacing: 0.008em;
-        color: rgba(63, 63, 70, 0.84);
-      }
-
-      .strong {
-        color: rgba(24, 24, 27, 0.96);
-        font-weight: 600;
-      }
-
-      .meta-title {
-        margin: 0;
-        font-size: 12px;
-        line-height: 18px;
-        font-weight: 500;
-        letter-spacing: 0.09em;
-        text-transform: uppercase;
-        color: rgba(113, 113, 122, 0.92);
-      }
-
-      .meta-value {
-        margin: 4px 0 0 0;
-        font-size: 15px;
-        line-height: 22px;
-        font-weight: 600;
-        color: rgba(24, 24, 27, 0.94);
-      }
-
-      .email-product-name {
-        margin: 0;
-        font-size: 14px;
-        line-height: 20px;
-        font-weight: 600;
-        color: rgba(24, 24, 27, 0.94);
-      }
-
-      .email-product-meta {
-        margin: 2px 0 0 0;
-        font-size: 12px;
-        line-height: 18px;
-        color: rgba(82, 82, 91, 0.7);
-      }
-
-      .email-product-qty {
-        font-size: 12px;
-        color: rgba(82, 82, 91, 0.7);
-      }
-
-      .email-product-price {
-        font-size: 14px;
-        font-weight: 600;
-        color: rgba(24, 24, 27, 0.94);
-      }
-
-      .summary-row,
-      .summary-row-sm {
-        width: 100%;
-      }
-
-      .summary-label {
-        margin: 0;
-        font-size: 12px;
-        line-height: 18px;
-        font-weight: 500;
-        letter-spacing: 0.02em;
-        color: rgba(113, 113, 122, 0.92);
-      }
-
-      .summary-value,
-      .summary-value-sm {
-        margin: 0;
-        text-align: right;
-        font-size: 14px;
-        line-height: 20px;
-        font-weight: 600;
-        color: rgba(39, 39, 42, 0.92);
-      }
-
-      .summary-total .summary-label,
-      .summary-total .summary-value,
-      .summary-total-value {
-        font-size: 16px;
-        line-height: 24px;
-        font-weight: 700;
-        color: rgba(24, 24, 27, 0.98);
-      }
-
-      .summary-divider,
-      .summary-divider-inner {
-        border-top: 1px solid rgba(24, 24, 27, 0.08);
-        height: 1px;
-        line-height: 1px;
-        font-size: 1px;
-      }
-
-      .divider {
-        border-top: 1px solid rgba(24, 24, 27, 0.08);
-        height: 1px;
-        line-height: 1px;
-        font-size: 1px;
-      }
-
-      .btn-primary {
-        display: inline-block;
-        min-height: 48px;
-        padding: 12px 18px;
-        border-radius: 10px;
-        background: #111111;
-        color: #ffffff !important;
-        border: 1px solid rgba(24, 24, 27, 0.1);
-        font-size: 13px;
-        line-height: 20px;
-        font-weight: 600;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-      }
-
-      .btn-secondary {
-        display: inline-block;
-        min-height: 48px;
-        padding: 14px 22px;
-        border-radius: 12px;
-        background: rgba(255, 255, 255, 0.92);
-        color: rgba(24, 24, 27, 0.92) !important;
-        border: 1px solid rgba(24, 24, 27, 0.12);
-        font-size: 13px;
-        line-height: 20px;
-        font-weight: 600;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-      }
-      .compact-email-cta {
-        display: inline-block;
-        padding: 10px 16px;
-        border-radius: 10px;
-        background: #111111;
-        color: #ffffff !important;
-        border: 1px solid rgba(24, 24, 27, 0.1);
-        font-size: 11px;
-        line-height: 14px;
-        font-weight: 600;
-        letter-spacing: 0.05em;
-        text-transform: uppercase;
-        white-space: nowrap;
-      }
-
-      .footer {
-        font-size: 12px;
-        line-height: 18px;
-        color: rgba(82, 82, 91, 0.72);
-      }
-
-      .footer-link {
-        color: rgba(82, 82, 91, 0.86) !important;
-      }
-
-      @media screen and (max-width: 600px) {
-        .container {
+      @media only screen and (max-width: 600px) {
+        .email-container {
           width: 100% !important;
           max-width: 100% !important;
         }
 
-        .mobile-px {
-          padding-left: 16px !important;
-          padding-right: 16px !important;
+        .email-padding {
+          padding-left: 20px !important;
+          padding-right: 20px !important;
         }
 
-        .h1 {
-          font-size: 24px !important;
-        }
-
-        .brand-main {
-          font-size: 21px !important;
-        }
-        .compact-email-cta {
-          padding: 9px 14px !important;
-          font-size: 10.5px !important;
-          line-height: 13px !important;
-        }
-
-        .stack-col,
-        .stack-col td {
+        .stack-column,
+        .stack-column table {
           display: block !important;
           width: 100% !important;
-          text-align: left !important;
+          max-width: 100% !important;
         }
 
-        .summary-value {
-          text-align: right !important;
+        .stack-column {
+          padding-right: 0 !important;
+          padding-left: 0 !important;
+          border-right: 0 !important;
         }
 
-        .item-thumb,
-        .item-thumb-shell,
-        .item-thumb-image,
-        .item-thumb-fallback {
-          width: 88px !important;
-          height: 88px !important;
-          min-width: 88px !important;
-          min-height: 88px !important;
+        .center-mobile {
+          text-align: center !important;
+        }
+
+        .center-mobile table {
+          margin-left: auto !important;
+          margin-right: auto !important;
+        }
+
+        .product-image {
+          margin: 0 auto 16px auto !important;
+          padding-right: 0 !important;
+        }
+
+        .product-image img,
+        .product-image div {
+          margin-left: auto !important;
+          margin-right: auto !important;
+        }
+
+        .mobile-full-button {
+          display: block !important;
+          width: 100% !important;
+          box-sizing: border-box !important;
+        }
+
+        .mobile-title {
+          font-size: 26px !important;
+          line-height: 1.1 !important;
+        }
+
+        .body-padding {
+          padding-top: 28px !important;
+          padding-bottom: 28px !important;
         }
       }
     </style>
   </head>
 
-  <body style="margin:0; padding:0; background:#f7f5f2;">
+  <body style="margin:0; padding:0; background:#f7f5ef; font-family:Arial, Helvetica, sans-serif;">
     <div style="display:none; font-size:1px; line-height:1px; max-height:0; max-width:0; opacity:0; overflow:hidden; mso-hide:all;">
       {% block preheader %}Notificación de KAME.COL{% endblock %}
     </div>
 
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="page-bg" style="width:100%; background:#f7f5f2;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%; background:#f7f5ef;">
       <tr>
-        <td align="center" style="padding:28px 12px;">
-          <table role="presentation" width="640" cellpadding="0" cellspacing="0" border="0" class="container">
+        <td align="center" style="padding:0;">
+          <table role="presentation" class="email-container" width="640" cellpadding="0" cellspacing="0" border="0" style="width:640px; max-width:640px; background:#f7f5ef;">
+
             <tr>
-              <td class="mobile-px" style="padding-left:24px; padding-right:24px;">
-
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-                  <tr>
-                    <td style="padding:8px 0 22px 0;">
-                      <div class="brand-main">KAME.COL</div>
-                      <div class="brand-sub">Hecho en Colombia</div>
-                    </td>
-                  </tr>
-                </table>
-
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="card" style="width:100%; background:#ffffff; border:1px solid rgba(24,24,27,0.08); border-radius:18px;">
-                  <tr>
-                    <td style="padding:24px;">
-                      {% block content %}{% endblock %}
-                    </td>
-                  </tr>
-                </table>
-
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-                  <tr>
-                    <td style="padding:18px 2px 0 2px;">
-                      {% block footer %}
-                        <p class="label" style="margin:0; font-size:11px; line-height:16px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:rgba(82,82,91,0.72);">
-                          Soporte
-                        </p>
-                        <div style="height:8px; line-height:8px; font-size:8px;">&nbsp;</div>
-                        <p class="body" style="margin:0; font-size:14px; line-height:22px; color:rgba(82,82,91,0.84);">
-                          ¿Necesitas ayuda? Responde a este correo o escríbenos por WhatsApp.
-                        </p>
-                        <div style="height:14px; line-height:14px; font-size:14px;">&nbsp;</div>
-                        <p class="footer" style="margin:0;">
-                          © {% now "Y" %} KAME.COL · Todos los derechos reservados.
-                        </p>
-                      {% endblock %}
-                    </td>
-                  </tr>
-                </table>
-
+              <td style="padding:0;">
+                {% include "emails/includes/header.html" %}
               </td>
             </tr>
+
+            <tr>
+              <td style="padding:0;">
+                {% block banner %}{% endblock %}
+              </td>
+            </tr>
+
+            <tr>
+              <td class="email-padding body-padding" style="padding:40px; background:#f7f5ef;">
+                {% block content %}{% endblock %}
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:0;">
+                {% include "emails/includes/benefits.html" %}
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:0;">
+                {% include "emails/includes/thanks_bar.html" %}
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:0;">
+                {% include "emails/includes/footer.html" %}
+              </td>
+            </tr>
+
           </table>
         </td>
       </tr>

@@ -10,7 +10,8 @@ import logging
 from urllib.parse import quote
 from django.conf import settings
 
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError
+from django.db.transaction import atomic, on_commit
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_exempt
@@ -469,7 +470,7 @@ class CheckoutAPIView(APIView):
             )
 
         try:
-            with transaction.atomic():
+            with atomic():
                 order = create_order_from_cart(
                     customer=customer,
                     cart_items=cart_items,
@@ -670,12 +671,31 @@ class WompiWebhookAPIView(APIView):
                 )
         elif tx_status in ("DECLINED", "ERROR"):
             if order.status == Order.Status.PENDING_PAYMENT:
+                order_id = order.pk
                 Order.objects.filter(pk=order.pk).update(status=Order.Status.CANCELLED)
                 logger.info(
                     "Wompi webhook: orden #%s cancelada (status Wompi=%s)",
                     order.id,
                     tx_status,
                 )
+
+                def _send_declined_email() -> None:
+                    logger.info(
+                        "Ejecutando callback post-commit de pago declinado para order_id=%s",
+                        order_id,
+                    )
+                    try:
+                        from apps.notifications.emails import send_payment_declined_email
+
+                        fresh_order = Order.objects.get(pk=order_id)
+                        send_payment_declined_email(fresh_order, wompi_status=tx_status)
+                    except Exception:
+                        logger.exception(
+                            "Fallo enviando email de pago declinado order_id=%s",
+                            order_id,
+                        )
+
+                on_commit(_send_declined_email)
 
         return Response({"ok": True})
 

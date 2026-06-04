@@ -1,13 +1,13 @@
 {% extends "emails/base_dark.html" %}
 
-{% block title %}Pago confirmado · KAME.COL{% endblock %}
+{% block title %}Pago declinado · KAME.COL{% endblock %}
 
 {% block preheader %}
-Pago confirmado. Procesamos tu orden.
+Tu pago no fue aprobado. Puedes intentar de nuevo.
 {% endblock %}
 
 {% block banner %}
-  {% include "emails/includes/banner.html" with banner_bg="#d9f99d" banner_text_color="#050505" banner_icon="✓" banner_title="PAGO CONFIRMADO" banner_subtitle="Pago verificado · Orden en curso" %}
+  {% include "emails/includes/banner.html" with banner_bg="#fecaca" banner_text_color="#050505" banner_icon="×" banner_title="PAGO DECLINADO" banner_subtitle="La transacción no se completó" %}
 {% endblock %}
 
 {% block content %}
@@ -20,19 +20,19 @@ Pago confirmado. Procesamos tu orden.
   </p>
 
   <p style="margin:16px 0 0 0; font-family:Arial, Helvetica, sans-serif; font-size:15px; line-height:1.6; color:#333333;">
-    Tu pago quedó confirmado. Procesamos tu orden y te avisamos cuando avance.
+    Tu pago no fue aprobado. Puedes intentar de nuevo o escribirnos si necesitas ayuda.
   </p>
 
   {% include "emails/includes/order_reference.html" %}
 
-  {% include "emails/includes/payment_summary.html" with payment_provider_label="Pagado desde" total_label="Total pagado" total_row_bg="#d9f99d" %}
+  {% include "emails/includes/payment_summary.html" with payment_provider_label="Intento desde" total_label="Total" total_row_bg="#fecaca" %}
 
   {% include "emails/includes/product_list.html" %}
 
   {% if order_public_url %}
-    {% include "emails/includes/primary_button.html" with button_url=order_public_url button_label="Ver mi pedido" %}
+    {% include "emails/includes/primary_button.html" with button_url=order_public_url button_label="Reintentar pago" %}
   {% elif order_url %}
-    {% include "emails/includes/primary_button.html" with button_url=order_url button_label="Ver mi pedido" %}
+    {% include "emails/includes/primary_button.html" with button_url=order_url button_label="Reintentar pago" %}
   {% elif whatsapp_url %}
     {% include "emails/includes/primary_button.html" with button_url=whatsapp_url button_label="Contáctanos" button_icon="whatsapp" %}
   {% endif %}
