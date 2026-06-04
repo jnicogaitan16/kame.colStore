@@ -64,13 +64,20 @@ test.describe("PDP — variantes", () => {
       await colorBtn.click();
     }
 
-    const addToCartBtn = page.getByRole("button", { name: /agregar al carrito|sin stock/i });
+    const addToCartBtn = page.getByRole("button", { name: /agregar al carrito/i });
     await expect(addToCartBtn).toBeEnabled({ timeout: 3000 });
+    await expect(page.getByRole("button", { name: /comprar ahora/i })).toBeEnabled({
+      timeout: 3000,
+    });
   });
 
   test("CTA muestra estado correcto según variante seleccionada", async ({ page }) => {
-    const addToCartBtn = page.getByRole("button", { name: /agregar al carrito|sin stock/i });
-    await expect(addToCartBtn).toBeVisible({ timeout: 3000 });
+    await expect(page.getByRole("button", { name: /agregar al carrito|sin stock/i }).first()).toBeVisible({
+      timeout: 3000,
+    });
+    await expect(page.getByRole("button", { name: /comprar ahora|sin stock/i }).first()).toBeVisible({
+      timeout: 3000,
+    });
   });
 });
 
@@ -109,10 +116,12 @@ test.describe("PDP — producto agotado", () => {
     await mockAllAPIs(page);
     await page.goto(TEST_PRODUCT_SOLD_OUT.pdpUrl);
 
-    const soldOutBtn = page.getByRole("button", { name: /sin stock/i });
+    const soldOutButtons = page.getByRole("button", { name: /sin stock/i });
 
-    await expect(soldOutBtn).toBeVisible({ timeout: 5000 });
-    await expect(soldOutBtn).toBeDisabled();
+    await expect(soldOutButtons).toHaveCount(2, { timeout: 5000 });
+    await expect(soldOutButtons.first()).toBeVisible();
+    await expect(soldOutButtons.first()).toBeDisabled();
+    await expect(soldOutButtons.nth(1)).toBeDisabled();
 
     await expect(page.getByText(/^Agotado$/)).toBeVisible({ timeout: 5000 });
   });

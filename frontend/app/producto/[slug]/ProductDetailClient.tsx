@@ -1,6 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { HomepageMarqueeProduct } from "@/lib/api";
 
@@ -633,6 +634,7 @@ function ProductPurchaseBox({
   isInvalidCombo,
   isSubmittingToCart,
   onAddToCart,
+  onBuyNow,
   selectedVariant,
   triggerRef,
 }: {
@@ -642,6 +644,7 @@ function ProductPurchaseBox({
   isInvalidCombo: boolean;
   isSubmittingToCart: boolean;
   onAddToCart: () => void;
+  onBuyNow: () => void;
   selectedVariant: ProductVariant | null;
   triggerRef: React.Ref<HTMLDivElement>;
 }) {
@@ -674,7 +677,7 @@ function ProductPurchaseBox({
         </span>
       </div>
 
-      <div ref={triggerRef}>
+      <div ref={triggerRef} className="flex flex-col gap-3">
         <Button
           type="button"
           onClick={onAddToCart}
@@ -684,6 +687,17 @@ function ProductPurchaseBox({
           className="pdp-cta-refined w-full"
         >
           {canAdd ? "Agregar al carrito" : "Sin stock"}
+        </Button>
+
+        <Button
+          type="button"
+          onClick={onBuyNow}
+          disabled={!canAdd || isSubmittingToCart}
+          variant="secondary"
+          fullWidth
+          className="pdp-cta-refined w-full"
+        >
+          {canAdd ? "Comprar ahora" : "Sin stock"}
         </Button>
       </div>
     </div>
@@ -732,6 +746,7 @@ export function ProductDetailClient({
   product,
   moreFromKame,
 }: ProductDetailClientProps) {
+  const router = useRouter();
   const addItem = useCartStore((state) => state.addItem);
   const trackAddToCartFn = useTrackAddToCart();
 
@@ -812,19 +827,21 @@ export function ProductDetailClient({
     );
   };
 
-  const handleAddToCart = () => {
-    if (selection.isInvalidCombo || isSubmittingToCart) return;
+  const addSelectedVariantToCart = (): string | null => {
+    if (selection.isInvalidCombo || isSubmittingToCart) return null;
 
     const variants = product.variants ?? EMPTY_VARIANTS;
 
     if (selection.variantSchema === "no_variant") {
       const variant = variants.length === 1 ? variants[0] : null;
-      if (!variant) return;
-      if ((product.stock_total ?? 0) <= 0) return;
+      if (!variant) return null;
+      if ((product.stock_total ?? 0) <= 0) return null;
       const cartImageUrl = getCartImageUrlForVariant(variant.id);
 
-      setIsSubmittingToCart(true);
-      trackAddToCartFn({ id: product.id, name: product.name, slug: product.slug, price: product.price }, { value: variant.value ?? undefined, color: variant.color ?? undefined });
+      trackAddToCartFn(
+        { id: product.id, name: product.name, slug: product.slug, price: product.price },
+        { value: variant.value ?? undefined, color: variant.color ?? undefined }
+      );
 
       addItem(
         {
@@ -839,19 +856,22 @@ export function ProductDetailClient({
         1
       );
 
-      triggerCartFlyAnimation(cartImageUrl);
-      window.setTimeout(() => setIsSubmittingToCart(false), 320);
-      return;
+      return cartImageUrl;
     }
 
     const variantToAdd =
       selection.selectedVariant ?? (variants.length === 1 ? variants[0] : null);
-    if (!variantToAdd) return;
+    if (!variantToAdd) return null;
 
     const cartImageUrl = getCartImageUrlForVariant(variantToAdd.id);
 
-    setIsSubmittingToCart(true);
-    trackAddToCartFn({ id: product.id, name: product.name, slug: product.slug, price: product.price }, { value: variantToAdd.value ?? undefined, color: variantToAdd.color ?? undefined });
+    trackAddToCartFn(
+      { id: product.id, name: product.name, slug: product.slug, price: product.price },
+      {
+        value: variantToAdd.value ?? undefined,
+        color: variantToAdd.color ?? undefined,
+      }
+    );
 
     addItem(
       {
@@ -866,7 +886,30 @@ export function ProductDetailClient({
       1
     );
 
+    return cartImageUrl;
+  };
+
+  const handleAddToCart = () => {
+    setIsSubmittingToCart(true);
+    const cartImageUrl = addSelectedVariantToCart();
+    if (!cartImageUrl) {
+      setIsSubmittingToCart(false);
+      return;
+    }
+
     triggerCartFlyAnimation(cartImageUrl);
+    window.setTimeout(() => setIsSubmittingToCart(false), 320);
+  };
+
+  const handleBuyNow = () => {
+    setIsSubmittingToCart(true);
+    const cartImageUrl = addSelectedVariantToCart();
+    if (!cartImageUrl) {
+      setIsSubmittingToCart(false);
+      return;
+    }
+
+    router.push("/checkout");
     window.setTimeout(() => setIsSubmittingToCart(false), 320);
   };
 
@@ -902,6 +945,7 @@ export function ProductDetailClient({
             isInvalidCombo={selection.isInvalidCombo}
             isSubmittingToCart={isSubmittingToCart}
             onAddToCart={handleAddToCart}
+            onBuyNow={handleBuyNow}
             selectedVariant={selection.selectedVariant}
             triggerRef={addToCartButtonRef}
           />

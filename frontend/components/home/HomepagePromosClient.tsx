@@ -17,9 +17,6 @@ type HomepagePromoWithOptimizedImages = HomepagePromo & {
 const BLUR_DATA_URL =
   "data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAA=";
 
-const HERO_OVERLAY_CLASS =
-  "absolute inset-0 bg-gradient-to-t from-black/75 via-black/35 to-black/10";
-
 const HERO_CONTAINER_CLASS = "mx-auto w-full max-w-6xl px-4";
 
 const HERO_SUBTITLE_CLASS =
@@ -124,7 +121,7 @@ function PromoCard({ promo, idx }: PromoCardProps) {
     <div
       className={
         "promo-enter group relative w-full overflow-hidden " +
-        "bg-black transition-all duration-300"
+        "bg-neutral-100 transition-all duration-300"
       }
     >
       <div className="absolute inset-0">
@@ -152,11 +149,6 @@ function PromoCard({ promo, idx }: PromoCardProps) {
           />
         )}
       </div>
-
-      <div className={`pointer-events-none ${HERO_OVERLAY_CLASS}`} />
-      {imageFailed ? (
-        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.16),rgba(0,0,0,0.45))]" />
-      ) : null}
 
       <div
         className={`relative w-full ${promoHeightClass} flex items-end py-10 md:py-12`}
