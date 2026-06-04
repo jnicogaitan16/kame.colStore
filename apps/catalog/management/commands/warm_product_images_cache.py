@@ -54,6 +54,11 @@ class Command(BaseCommand):
             help="Also generate image_large (default: only thumb+medium).",
         )
         parser.add_argument(
+            "--include-email",
+            action="store_true",
+            help="Also generate image_email JPEG (correos transaccionales).",
+        )
+        parser.add_argument(
             "--delete-missing",
             action="store_true",
             help="Delete ProductImage rows whose source file is missing in storage (DANGEROUS).",
@@ -70,6 +75,7 @@ class Command(BaseCommand):
         from apps.catalog.models import ProductImage
 
         include_large: bool = bool(options.get("include_large"))
+        include_email: bool = bool(options.get("include_email"))
         limit: int = int(options.get("limit") or 0)
         sleep_s: float = float(options.get("sleep") or 0.0)
         delete_missing: bool = bool(options.get("delete_missing"))
@@ -79,6 +85,8 @@ class Command(BaseCommand):
         spec_attrs = ["image_thumb", "image_medium"]
         if include_large:
             spec_attrs.append("image_large")
+        if include_email:
+            spec_attrs.append("image_email")
 
         qs = ProductImage.objects.only("id", "image").order_by("id")
 
@@ -196,6 +204,42 @@ class Command(BaseCommand):
         self.stdout.write(
             f"Images processed: {total} | ok={gen_ok} fail={gen_fail} missing_source={missing_source} missing_deleted={missing_deleted} | "
             f"spec_ok={spec_ok} spec_fail={spec_fail} | elapsed={elapsed:.1f}s"
+        )
+
+        from apps.catalog.models import ProductColorImage
+
+        self.stdout.write("")
+        self.stdout.write(
+            self.style.MIGRATE_HEADING(
+                f"Warming ImageKit cachefiles for ProductColorImage: specs={spec_attrs}"
+            )
+        )
+        total_c = spec_ok_c = spec_fail_c = 0
+        started_c = time.time()
+        for img in ProductColorImage.objects.only("id", "image").order_by("id").iterator(
+            chunk_size=200
+        ):
+            if limit and total_c >= limit:
+                break
+            total_c += 1
+            if not getattr(img, "image", None):
+                continue
+            for attr in spec_attrs:
+                spec = getattr(img, attr, None)
+                if not spec:
+                    spec_fail_c += 1
+                    continue
+                try:
+                    _generate_spec(spec)
+                    spec_ok_c += 1
+                except Exception as e:
+                    spec_fail_c += 1
+                    self.stdout.write(
+                        self.style.WARNING(f"[color {img.id}] {attr} failed: {e}")
+                    )
+        self.stdout.write(
+            f"Color images processed: {total_c} | spec_ok={spec_ok_c} spec_fail={spec_fail_c} | "
+            f"elapsed={time.time() - started_c:.1f}s"
         )
 
         # Optional: also warm variant images if the project defines such a model

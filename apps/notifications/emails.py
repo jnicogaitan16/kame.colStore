@@ -10,6 +10,7 @@ from django.conf import settings
 from django.template.exceptions import TemplateDoesNotExist
 from django.template.loader import render_to_string
 
+from apps.notifications.email_assets import get_brand_asset_resend_attachments
 from apps.notifications.email_context import (
     build_order_created_context,
     build_payment_confirmed_context,
@@ -76,6 +77,9 @@ def _safe_send_multipart(
     }
     if html_body:
         payload["html"] = html_body
+        inline_attachments = get_brand_asset_resend_attachments()
+        if inline_attachments:
+            payload["attachments"] = inline_attachments
 
     raw_payload = json.dumps(payload).encode("utf-8")
     request = urllib_request.Request(

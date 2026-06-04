@@ -3,6 +3,7 @@ from urllib.parse import quote
 
 from django.conf import settings
 
+from apps.notifications.email_assets import enrich_context_with_brand_assets
 from apps.notifications.email_product_media import get_email_variant_image_url
 from apps.notifications.email_utils import format_cop, _build_variant_label
 
@@ -31,13 +32,6 @@ def _get_support_whatsapp() -> str:
 def _get_brand_name() -> str:
     return "Kame.col"
 
-
-def _get_wompi_logo_url() -> str:
-    return f"{_get_storefront_base_url()}/emails/wompi-logo.png"
-
-
-def _get_whatsapp_icon_url() -> str:
-    return f"{_get_storefront_base_url()}/emails/whatsapp-white.svg"
 
 def _get_order_public_url(order) -> str | None:
     return getattr(order, "public_url", None)
@@ -243,7 +237,7 @@ def build_payment_confirmed_context(order) -> dict:
     items_count = sum(int(item.get("quantity") or 0) for item in email_items)
     has_multiple_items = len(email_items) > 1
 
-    return {
+    ctx = {
         "first_name": first_name,
         "brand_name": _get_brand_name(),
         "preheader": preheader,
@@ -263,9 +257,8 @@ def build_payment_confirmed_context(order) -> dict:
         "shipping_is_free": shipping_is_free,
         "total_fmt": total_fmt,
         "email_items": email_items,
-        "wompi_logo_url": _get_wompi_logo_url(),
-        "whatsapp_icon_url": _get_whatsapp_icon_url(),
     }
+    return enrich_context_with_brand_assets(ctx)
 
 
 def build_payment_declined_context(order, *, wompi_status: str | None = None) -> dict:
@@ -306,7 +299,7 @@ def build_payment_declined_context(order, *, wompi_status: str | None = None) ->
         or _build_highest_value_product_page_url(order)
     )
 
-    return {
+    ctx = {
         "first_name": first_name,
         "brand_name": _get_brand_name(),
         "preheader": preheader,
@@ -326,10 +319,9 @@ def build_payment_declined_context(order, *, wompi_status: str | None = None) ->
         "shipping_is_free": shipping_is_free,
         "total_fmt": total_fmt,
         "email_items": email_items,
-        "wompi_logo_url": _get_wompi_logo_url(),
-        "whatsapp_icon_url": _get_whatsapp_icon_url(),
         "wompi_status": (wompi_status or "").strip() or None,
     }
+    return enrich_context_with_brand_assets(ctx)
 
 
 def build_order_created_context(order) -> dict:
@@ -347,7 +339,7 @@ def build_order_created_context(order) -> dict:
 
     resume_url = _build_checkout_resume_url(order)
 
-    return {
+    ctx = {
         "first_name": first_name,
         "brand_name": _get_brand_name(),
         "preheader": "Orden registrada. Te avisamos cuando el pago quede confirmado.",
@@ -358,9 +350,8 @@ def build_order_created_context(order) -> dict:
         "order_public_url": resume_url,
         "whatsapp_url": whatsapp_url,
         "to_email": to_email,
-        "wompi_logo_url": _get_wompi_logo_url(),
-        "whatsapp_icon_url": _get_whatsapp_icon_url(),
     }
+    return enrich_context_with_brand_assets(ctx)
 
 
 def build_pending_payment_reminder_context(order) -> dict:
@@ -404,7 +395,7 @@ def build_pending_payment_reminder_context(order) -> dict:
         or _build_checkout_resume_url(order)
     )
 
-    return {
+    ctx = {
         "first_name": first_name,
         "brand_name": _get_brand_name(),
         "preheader": preheader,
@@ -422,6 +413,5 @@ def build_pending_payment_reminder_context(order) -> dict:
         "shipping_is_free": shipping_is_free,
         "total_fmt": total_fmt,
         "email_items": email_items,
-        "wompi_logo_url": _get_wompi_logo_url(),
-        "whatsapp_icon_url": _get_whatsapp_icon_url(),
     }
+    return enrich_context_with_brand_assets(ctx)

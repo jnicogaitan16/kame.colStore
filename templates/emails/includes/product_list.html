@@ -1,15 +1,18 @@
 {% if email_items %}
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%; margin-top:36px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="product-section-heading" style="width:100%; margin-top:36px;">
   <tr>
-    <td>
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+    <td align="center" style="text-align:center;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" align="center">
         <tr>
-          <td style="white-space:nowrap; padding-right:16px;">
-            <p style="margin:0; font-family:Arial, Helvetica, sans-serif; font-size:13px; line-height:1.2; font-weight:900; color:#111111; letter-spacing:0.5px; text-transform:uppercase;">
+          <td width="42%" valign="middle" class="product-heading-line" style="width:42%; vertical-align:middle; padding:0 14px 0 0;">
+            <div style="border-top:1px solid #e6e2d8; height:1px; line-height:1px; font-size:1px;">&nbsp;</div>
+          </td>
+          <td align="center" valign="middle" class="product-heading-label" style="vertical-align:middle; padding:0 4px; white-space:nowrap; text-align:center;">
+            <p style="margin:0; font-family:Arial, Helvetica, sans-serif; font-size:13px; line-height:1.2; font-weight:900; color:#111111; letter-spacing:0.5px; text-transform:uppercase; text-align:center;">
               Producto{% if has_multiple_items %}s{% endif %}
             </p>
           </td>
-          <td width="100%" style="width:100%;">
+          <td width="42%" valign="middle" class="product-heading-line" style="width:42%; vertical-align:middle; padding:0 0 0 14px;">
             <div style="border-top:1px solid #e6e2d8; height:1px; line-height:1px; font-size:1px;">&nbsp;</div>
           </td>
         </tr>
@@ -24,40 +27,50 @@
     <td style="padding:0;">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%; border:1px solid #ddd8ce; border-radius:8px; overflow:hidden;">
         <tr>
-          <td width="150" valign="top" class="stack-column center-mobile product-image" style="width:150px; vertical-align:top; padding:28px; border-right:1px solid #ddd8ce; background:#ffffff;">
-            {% if item.image_url %}
-              <img
-                src="{{ item.image_url }}"
-                alt="{{ item.name }}"
-                width="150"
-                style="display:block; width:150px; max-width:150px; height:auto; border:0; outline:none; text-decoration:none; margin:0;"
-              />
-            {% else %}
-              <div style="width:150px; max-width:150px; height:150px; background:#f7f5ef; border:1px solid #e6e2d8;">&nbsp;</div>
-            {% endif %}
+          <td align="center" class="product-image-row" style="padding:28px 28px 20px; border-bottom:1px solid #ddd8ce; background:#ffffff; text-align:center;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" align="center">
+              <tr>
+                <td width="25%" style="width:25%; font-size:0; line-height:0;">&nbsp;</td>
+                <td width="150" align="center" valign="top" style="width:150px; text-align:center; vertical-align:top;">
+                  {% if item.image_url %}
+                    <img
+                      src="{{ item.image_url }}"
+                      alt="{{ item.name }}"
+                      width="150"
+                      style="display:block; width:150px; max-width:150px; height:auto; border:0; outline:none; text-decoration:none; margin:0 auto; background-color:#ffffff;"
+                    />
+                  {% else %}
+                    <div style="width:150px; max-width:150px; height:150px; background:#f7f5ef; border:1px solid #e6e2d8; margin:0 auto;">&nbsp;</div>
+                  {% endif %}
+                </td>
+                <td width="25%" style="width:25%; font-size:0; line-height:0;">&nbsp;</td>
+              </tr>
+            </table>
           </td>
-          <td valign="top" class="stack-column center-mobile" style="vertical-align:top; padding:28px; background:#ffffff;">
-            <p style="margin:0; font-family:Arial, Helvetica, sans-serif; font-size:22px; line-height:1.1; font-weight:900; color:#111111; text-transform:uppercase;">
+        </tr>
+        <tr>
+          <td align="center" class="product-details" style="padding:20px 28px 28px; background:#ffffff; text-align:center;">
+            <p style="margin:0; font-family:Arial, Helvetica, sans-serif; font-size:22px; line-height:1.1; font-weight:900; color:#111111; text-transform:uppercase; text-align:center;">
               {{ item.name }}
             </p>
 
             {% if item.variant_size %}
-              <p style="margin:14px 0 0 0; font-family:Arial, Helvetica, sans-serif; font-size:15px; line-height:1.5; color:#555555;">
+              <p style="margin:14px 0 0 0; font-family:Arial, Helvetica, sans-serif; font-size:15px; line-height:1.5; color:#555555; text-align:center;">
                 Talla: <strong style="color:#111111; font-weight:700;">{{ item.variant_size }}</strong>
               </p>
             {% endif %}
 
             {% if item.variant_color %}
-              <p style="margin:8px 0 0 0; font-family:Arial, Helvetica, sans-serif; font-size:15px; line-height:1.5; color:#555555;">
+              <p style="margin:8px 0 0 0; font-family:Arial, Helvetica, sans-serif; font-size:15px; line-height:1.5; color:#555555; text-align:center;">
                 Color: <strong style="color:#111111; font-weight:700;">{{ item.variant_color }}</strong>
               </p>
             {% elif item.variant_label and not item.variant_size %}
-              <p style="margin:14px 0 0 0; font-family:Arial, Helvetica, sans-serif; font-size:15px; line-height:1.5; color:#555555;">
+              <p style="margin:14px 0 0 0; font-family:Arial, Helvetica, sans-serif; font-size:15px; line-height:1.5; color:#555555; text-align:center;">
                 Variante: <strong style="color:#111111; font-weight:700;">{{ item.variant_label }}</strong>
               </p>
             {% endif %}
 
-            <p style="margin:8px 0 0 0; font-family:Arial, Helvetica, sans-serif; font-size:15px; line-height:1.5; color:#555555;">
+            <p style="margin:8px 0 0 0; font-family:Arial, Helvetica, sans-serif; font-size:15px; line-height:1.5; color:#555555; text-align:center;">
               Cantidad: <strong style="color:#111111; font-weight:700;">{{ item.quantity }}</strong>
             </p>
           </td>

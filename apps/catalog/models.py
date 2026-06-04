@@ -11,6 +11,7 @@ from imagekit.models import ImageSpecField
 from imagekit.cachefiles import ImageCacheFile
 from imagekit.processors import ResizeToFit
 
+from .email_image_processors import EMAIL_IMAGE_PROCESSORS
 from .variant_rules import (
     get_variant_rule,
     normalize_variant_value,
@@ -515,6 +516,13 @@ class ProductImage(models.Model):
         format="WEBP",
         options={"quality": 78},
     )
+    # Correo transaccional: JPEG con fondo blanco (evita alpha/WebP en Gmail).
+    image_email = ImageSpecField(
+        source="image",
+        processors=EMAIL_IMAGE_PROCESSORS,
+        format="JPEG",
+        options={"quality": 80},
+    )
 
     @property
     def image_thumb_url(self) -> str:
@@ -527,6 +535,11 @@ class ProductImage(models.Model):
     @property
     def image_large_url(self) -> str:
         return getattr(self.image_large, 'url', '') if self.image else ''
+
+    @property
+    def image_email_url(self) -> str:
+        return getattr(self.image_email, "url", "") if self.image else ""
+
     alt_text = models.CharField(
         max_length=200,
         blank=True,
@@ -617,7 +630,7 @@ class ProductImage(models.Model):
 
         warm_imagekit_derivatives(
             self,
-            ("image_thumb", "image_medium", "image_large"),
+            ("image_thumb", "image_medium", "image_large", "image_email"),
         )
     
     @property
@@ -672,6 +685,12 @@ class ProductColorImage(models.Model):
         format="WEBP",
         options={"quality": 78},
     )
+    image_email = ImageSpecField(
+        source="image",
+        processors=EMAIL_IMAGE_PROCESSORS,
+        format="JPEG",
+        options={"quality": 80},
+    )
 
     alt_text = models.CharField(
         max_length=200,
@@ -704,6 +723,10 @@ class ProductColorImage(models.Model):
     @property
     def image_large_url(self) -> str:
         return getattr(self.image_large, "url", "") if self.image else ""
+
+    @property
+    def image_email_url(self) -> str:
+        return getattr(self.image_email, "url", "") if self.image else ""
 
     def clean(self):
         super().clean()
@@ -771,7 +794,7 @@ class ProductColorImage(models.Model):
 
         warm_imagekit_derivatives(
             self,
-            ("image_thumb", "image_medium", "image_large"),
+            ("image_thumb", "image_medium", "image_large", "image_email"),
         )
 
         return result
