@@ -47,7 +47,7 @@ def _generate_product_image_cachefiles(instance: ProductImage) -> None:
         return
 
     # Minimum required for UX: thumb + detail
-    for attr in ("image_thumb", "image_medium", "image_large"):
+    for attr in ("image_thumb", "image_medium", "image_large", "image_email"):
         spec = getattr(instance, attr, None)
         _safe_generate(spec)
 
@@ -57,7 +57,7 @@ def _generate_product_color_image_cachefiles(instance: ProductColorImage) -> Non
     if not getattr(instance, "image", None):
         return
 
-    for attr in ("image_thumb", "image_medium", "image_large"):
+    for attr in ("image_thumb", "image_medium", "image_large", "image_email"):
         spec = getattr(instance, attr, None)
         _safe_generate(spec)
 

@@ -77,15 +77,32 @@
           margin-right: auto !important;
         }
 
-        .product-image {
-          margin: 0 auto 16px auto !important;
-          padding-right: 0 !important;
+        .product-section-heading,
+        .product-heading-label,
+        .product-heading-label p {
+          text-align: center !important;
         }
 
-        .product-image img,
-        .product-image div {
+        .product-heading-line {
+          width: 35% !important;
+        }
+
+        .product-image-row,
+        .product-image-row table,
+        .product-image-row td,
+        .product-image-row img {
+          text-align: center !important;
           margin-left: auto !important;
           margin-right: auto !important;
+        }
+
+        .product-image-row img {
+          display: block !important;
+        }
+
+        .product-details,
+        .product-details p {
+          text-align: center !important;
         }
 
         .mobile-full-button {
@@ -102,6 +119,13 @@
         .body-padding {
           padding-top: 28px !important;
           padding-bottom: 28px !important;
+        }
+      }
+
+      @media only screen and (min-width: 601px) {
+        .product-details,
+        .product-details p {
+          text-align: center !important;
         }
       }
     </style>
