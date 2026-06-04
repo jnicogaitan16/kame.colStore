@@ -95,7 +95,9 @@ async function buildLiveSandboxCartJson(page: Page): Promise<string> {
   let slug: string | null = slugOverride || null;
 
   if (!slug) {
-    const listRes = await page.request.get("/api/catalogo/?page_size=40");
+    const listRes = await page.request.get("/api/catalogo/?page_size=40", {
+      timeout: 30_000,
+    });
     const listData = (await readJsonFromApiResponse(
       listRes,
       "GET /api/catalogo/"
@@ -112,7 +114,8 @@ async function buildLiveSandboxCartJson(page: Page): Promise<string> {
   }
 
   const detailRes = await page.request.get(
-    `/api/products/${encodeURIComponent(slug)}/`
+    `/api/products/${encodeURIComponent(slug)}/`,
+    { timeout: 30_000 }
   );
   const product = (await readJsonFromApiResponse(
     detailRes,
@@ -180,6 +183,14 @@ function isLocalSandboxBaseUrl(): boolean {
   );
 }
 
+/** En CI remoto (Vercel) `load` puede tardar minutos; `domcontentloaded` suele bastar. */
+function sandboxGotoWaitUntil(): "load" | "domcontentloaded" {
+  if (process.env.CI && !isLocalSandboxBaseUrl()) {
+    return "domcontentloaded";
+  }
+  return "load";
+}
+
 /**
  * Espera el formulario de checkout; ante cualquier fallo de `#full_name`, reinyecta `kame-cart` y recarga.
  * En remoto la UI a veces no muestra “carrito vacío” (sigue hidratando, error soft, etc.) y antes no reintentábamos.
@@ -241,6 +252,7 @@ async function openCheckoutWithSandboxCart(page: Page): Promise<void> {
   }
 
   const raw = await buildLiveSandboxCartJson(page);
+  const gotoWait = sandboxGotoWaitUntil();
 
   await page.context().addInitScript(
     (cartJson: string) => {
@@ -255,8 +267,8 @@ async function openCheckoutWithSandboxCart(page: Page): Promise<void> {
 
   if (isRemote) {
     // Home primero: monta layout + CartHydration antes del cliente de checkout (Vercel/CI).
-    await page.goto("/", { waitUntil: "load" });
-    await page.goto("/checkout", { waitUntil: "load" });
+    await page.goto("/", { waitUntil: gotoWait });
+    await page.goto("/checkout", { waitUntil: gotoWait });
     await page.evaluate((cartJson: string) => {
       try {
         localStorage.setItem("kame-cart", cartJson);
@@ -264,9 +276,9 @@ async function openCheckoutWithSandboxCart(page: Page): Promise<void> {
         /* ignore */
       }
     }, raw);
-    await page.reload({ waitUntil: "load" });
+    await page.reload({ waitUntil: gotoWait });
   } else {
-    await page.goto("/checkout", { waitUntil: "load" });
+    await page.goto("/checkout", { waitUntil: gotoWait });
   }
 
   await waitForCheckoutFormOrReseedCart(page, raw, isRemote);

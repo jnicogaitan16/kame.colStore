@@ -219,6 +219,7 @@ jobs:
           HIT="${{ steps.playwright-sandbox-cache.outputs.cache-hit }}"
           if [ "${HIT:-false}" = "true" ]; then
             npx playwright install chromium
+            npx playwright install-deps chromium
           else
             npx playwright install --with-deps chromium
           fi
@@ -226,7 +227,14 @@ jobs:
       - name: Run Wompi Nequi sandbox E2E
         if: steps.sandbox-guard.outputs.run == 'true'
         working-directory: tests
-        run: npx playwright test -c playwright.sandbox.config.ts
+        run: |
+          echo "SANDBOX_BASE_URL=${SANDBOX_BASE_URL}"
+          echo "::group::Pre-warm storefront"
+          curl -sS -m 45 -o /dev/null -w "GET / → %{http_code}\n" \
+            -H "x-test-env: playwright-wompi-sandbox" \
+            "${SANDBOX_BASE_URL}/" || true
+          echo "::endgroup::"
+          npx playwright test -c playwright.sandbox.config.ts
         env:
           CI: true
           RUN_WOMPI_SANDBOX_E2E: "1"

@@ -85,12 +85,21 @@ export default defineConfig({
   /** Nequi sandbox puede superar 3 min (checkout + widget + 2 casos en serie). */
   timeout: 300_000,
   expect: { timeout: 20_000 },
-  reporter: CI ? [["github"], ["html", { open: "never" }]] : "list",
+  reporter: CI
+    ? [
+        ["github"],
+        ["list"],
+        ["html", { open: "never" }],
+      ]
+    : "list",
+  globalSetup: "./e2e/global-setup-sandbox.ts",
 
   use: {
     baseURL: process.env.SANDBOX_BASE_URL || "http://localhost:3000",
     /** Alineado con el widget Wompi (ES); evita que Chrome traduzca labels y rompa los locators. */
     locale: "es-CO",
+    actionTimeout: CI ? 90_000 : 60_000,
+    navigationTimeout: CI ? 120_000 : 90_000,
     /** `on-first-retry` + interrupción manual puede dejar ENOENT en artefactos; retain solo en fallo. */
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
