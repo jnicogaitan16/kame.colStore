@@ -82,8 +82,8 @@ export default defineConfig({
   forbidOnly: CI,
   retries: 0,
   workers: 1,
-  /** Nequi sandbox puede superar 3 min (checkout + widget + 2 casos en serie). */
-  timeout: 300_000,
+  /** Nequi en CI remoto (Vercel + widget): checkout + widget pueden superar 5 min por test. */
+  timeout: CI ? 480_000 : 300_000,
   expect: { timeout: 20_000 },
   reporter: CI
     ? [

@@ -7,10 +7,10 @@ on:
     branches: [main]
   workflow_dispatch:
 
-# Misma PR: el último push cancela el run anterior en curso.
+# Misma PR: un solo workflow activo; no cancelar en curso (el sandbox Nequi tarda ~15 min).
 concurrency:
   group: e2e-${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   e2e:
@@ -124,7 +124,7 @@ jobs:
     if: >
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'pull_request' && github.base_ref == 'main')
-    timeout-minutes: 25
+    timeout-minutes: 35
 
     steps:
       - name: Guard (resolve SANDBOX_BASE_URL)
