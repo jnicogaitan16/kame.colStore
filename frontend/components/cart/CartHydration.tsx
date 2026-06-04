@@ -29,7 +29,9 @@ export function CartHydration() {
     const w = window as Window & {
       __KAME_E2E_REHYDRATE_CART__?: () => Promise<void>;
     };
-    w.__KAME_E2E_REHYDRATE_CART__ = () => useCartStore.persist.rehydrate();
+    w.__KAME_E2E_REHYDRATE_CART__ = async () => {
+      await useCartStore.persist.rehydrate();
+    };
   }, []);
 
   return null;
