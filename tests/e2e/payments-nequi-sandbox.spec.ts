@@ -8,6 +8,9 @@
  *   npm run test:sandbox:nequi:headed
  */
 import { test, expect } from "@playwright/test";
+
+const SANDBOX_TEST_TIMEOUT_MS = process.env.CI ? 480_000 : 300_000;
+const SANDBOX_WIDGET_TIMEOUT_MS = process.env.CI ? 180_000 : 120_000;
 import { WOMPI_SANDBOX } from "./fixtures/wompi-sandbox";
 import { isWompiSandboxE2EEnabled } from "./fixtures/wompi-sandbox-env";
 import {
@@ -22,7 +25,7 @@ test.describe("Wompi sandbox — Nequi", () => {
    * Playwright UI / configs ajenos suelen usar ~60s por test: el widget Nequi + checkout supera eso.
    * Forzá acá el tope aunque no se pase `-c playwright.sandbox.config.ts`.
    */
-  test.describe.configure({ timeout: 300_000 });
+  test.describe.configure({ timeout: SANDBOX_TEST_TIMEOUT_MS });
 
   test.beforeEach(() => {
     test.skip(
@@ -43,7 +46,7 @@ test.describe("Wompi sandbox — Nequi", () => {
 
     await wompiSandboxAdvanceThroughWidget(page, {
       nequiPhoneDigits: WOMPI_SANDBOX.nequi.approved.phone,
-      timeoutMs: 120_000,
+      timeoutMs: SANDBOX_WIDGET_TIMEOUT_MS,
     });
 
     await expectCheckoutResultUrl(page, "APPROVED");
@@ -55,7 +58,7 @@ test.describe("Wompi sandbox — Nequi", () => {
 
     await wompiSandboxAdvanceThroughWidget(page, {
       nequiPhoneDigits: WOMPI_SANDBOX.nequi.declined.phone,
-      timeoutMs: 120_000,
+      timeoutMs: SANDBOX_WIDGET_TIMEOUT_MS,
     });
 
     await expectCheckoutResultUrl(page, "DECLINED");

@@ -1,0 +1,36 @@
+{% if button_url and button_label %}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%; margin-top:28px;">
+  <tr>
+    <td align="center">
+      <a
+        href="{{ button_url }}"
+        class="mobile-full-button"
+        style="display:block; width:100%; max-width:100%; background:#050505; color:#ffffff !important; text-decoration:none; text-align:center; padding:18px 24px; border-radius:10px; font-family:Arial, Helvetica, sans-serif; font-size:15px; line-height:1.2; font-weight:900; text-transform:uppercase; letter-spacing:0.2px; box-sizing:border-box;"
+      >
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto;">
+          <tr>
+            {% if button_icon == "whatsapp" %}
+              <td valign="middle" style="vertical-align:middle; padding-right:10px;">
+                {% if whatsapp_icon_url %}
+                  <img
+                    src="{{ whatsapp_icon_url }}"
+                    alt=""
+                    width="20"
+                    height="20"
+                    style="display:block; width:20px; height:20px; border:0; outline:none; text-decoration:none;"
+                  />
+                {% else %}
+                  <span style="display:inline-block; font-size:18px; line-height:1; color:#ffffff;">&#9990;</span>
+                {% endif %}
+              </td>
+            {% endif %}
+            <td valign="middle" style="vertical-align:middle; font-family:Arial, Helvetica, sans-serif; font-size:15px; line-height:1.2; font-weight:900; text-transform:uppercase; letter-spacing:0.2px; color:#ffffff !important; white-space:nowrap;">
+              {{ button_label }}
+            </td>
+          </tr>
+        </table>
+      </a>
+    </td>
+  </tr>
+</table>
+{% endif %}

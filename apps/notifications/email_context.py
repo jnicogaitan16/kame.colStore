@@ -32,6 +32,13 @@ def _get_brand_name() -> str:
     return "Kame.col"
 
 
+def _get_wompi_logo_url() -> str:
+    return f"{_get_storefront_base_url()}/emails/wompi-logo.png"
+
+
+def _get_whatsapp_icon_url() -> str:
+    return f"{_get_storefront_base_url()}/emails/whatsapp-white.svg"
+
 def _get_order_public_url(order) -> str | None:
     return getattr(order, "public_url", None)
 
@@ -133,6 +140,22 @@ def _normalize_email_item_variant_label(variant) -> str | None:
     return normalized or None
 
 
+def _normalize_email_item_variant_size(variant) -> str | None:
+    if variant is None:
+        return None
+    value = str(getattr(variant, "value", "") or "").strip()
+    return value or None
+
+
+def _normalize_email_item_variant_color(variant) -> str | None:
+    if variant is None:
+        return None
+    color = str(getattr(variant, "color", "") or "").strip()
+    if not color:
+        return None
+    return color.title()
+
+
 
 def _normalize_email_item_quantity(item) -> int:
     try:
@@ -176,6 +199,8 @@ def _build_email_items(order) -> list[dict]:
             {
                 "name": _normalize_email_item_name(product),
                 "variant_label": _normalize_email_item_variant_label(variant),
+                "variant_size": _normalize_email_item_variant_size(variant),
+                "variant_color": _normalize_email_item_variant_color(variant),
                 "quantity": _normalize_email_item_quantity(item),
                 "unit_price_fmt": _normalize_email_item_unit_price_fmt(item),
                 "image_url": _normalize_email_item_image_url(variant),
@@ -206,7 +231,7 @@ def build_payment_confirmed_context(order) -> dict:
     total_fmt = format_cop(raw_total)
 
     subject = "Pago confirmado"
-    preheader = "Tu pago fue confirmado y ya estamos preparando tu pedido."
+    preheader = "Pago confirmado. Procesamos tu orden."
 
     support_whatsapp = _get_support_whatsapp()
     whatsapp_url = None
@@ -238,6 +263,103 @@ def build_payment_confirmed_context(order) -> dict:
         "shipping_is_free": shipping_is_free,
         "total_fmt": total_fmt,
         "email_items": email_items,
+        "wompi_logo_url": _get_wompi_logo_url(),
+        "whatsapp_icon_url": _get_whatsapp_icon_url(),
+    }
+
+
+def build_payment_declined_context(order, *, wompi_status: str | None = None) -> dict:
+    first_name = _get_first_name(order)
+
+    order_number = getattr(order, "id", None)
+    to_email = (getattr(order, "email", "") or "").strip() or None
+    reference = (getattr(order, "payment_reference", "") or "").strip() or None
+    payment_method = (getattr(order, "payment_method", "") or "").strip()
+
+    raw_subtotal = getattr(order, "subtotal", None)
+    raw_shipping_cost = getattr(order, "shipping_cost", None)
+
+    raw_total = getattr(order, "total", None)
+    if raw_total is None:
+        raw_total = getattr(order, "total_amount", None)
+
+    subtotal_fmt = format_cop(raw_subtotal)
+    shipping_cost_fmt = format_cop(raw_shipping_cost)
+    shipping_is_free = int(raw_shipping_cost or 0) <= 0
+    total_fmt = format_cop(raw_total)
+
+    subject = "Pago declinado"
+    preheader = "Tu pago no fue aprobado. Puedes intentar de nuevo."
+
+    support_whatsapp = _get_support_whatsapp()
+    whatsapp_url = None
+    if support_whatsapp:
+        msg = "Hola, tuve un problema con mi pago en Kame.col."
+        whatsapp_url = f"https://wa.me/{support_whatsapp}?text={quote(msg)}"
+
+    email_items = _build_email_items(order)
+    items_count = sum(int(item.get("quantity") or 0) for item in email_items)
+    has_multiple_items = len(email_items) > 1
+
+    order_public_url = (
+        _build_checkout_resume_url(order)
+        or _build_highest_value_product_page_url(order)
+    )
+
+    return {
+        "first_name": first_name,
+        "brand_name": _get_brand_name(),
+        "preheader": preheader,
+        "subject": subject,
+        "order_number": order_number,
+        "reference": reference,
+        "order": order,
+        "order_public_url": order_public_url,
+        "support_whatsapp": support_whatsapp,
+        "whatsapp_url": whatsapp_url,
+        "payment_method": payment_method,
+        "to_email": to_email,
+        "items_count": items_count,
+        "has_multiple_items": has_multiple_items,
+        "subtotal_fmt": subtotal_fmt,
+        "shipping_cost_fmt": shipping_cost_fmt,
+        "shipping_is_free": shipping_is_free,
+        "total_fmt": total_fmt,
+        "email_items": email_items,
+        "wompi_logo_url": _get_wompi_logo_url(),
+        "whatsapp_icon_url": _get_whatsapp_icon_url(),
+        "wompi_status": (wompi_status or "").strip() or None,
+    }
+
+
+def build_order_created_context(order) -> dict:
+    """Contexto para el email de pedido recibido / creado."""
+    first_name = _get_first_name(order)
+    to_email = (getattr(order, "email", "") or "").strip() or None
+    reference = (getattr(order, "payment_reference", "") or "").strip() or None
+    order_number = getattr(order, "id", None)
+
+    support_whatsapp = _get_support_whatsapp()
+    whatsapp_url = None
+    if support_whatsapp:
+        msg = "Hola, necesito ayuda con mi pedido en Kame.col."
+        whatsapp_url = f"https://wa.me/{support_whatsapp}?text={quote(msg)}"
+
+    resume_url = _build_checkout_resume_url(order)
+
+    return {
+        "first_name": first_name,
+        "brand_name": _get_brand_name(),
+        "preheader": "Orden registrada. Te avisamos cuando el pago quede confirmado.",
+        "subject": f"Pedido #{order_number} recibido" if order_number else "Pedido recibido",
+        "order_number": order_number,
+        "reference": reference,
+        "order": order,
+        "order_public_url": resume_url,
+        "whatsapp_url": whatsapp_url,
+        "to_email": to_email,
+        "wompi_logo_url": _get_wompi_logo_url(),
+        "whatsapp_icon_url": _get_whatsapp_icon_url(),
     }
 
 
@@ -260,10 +382,8 @@ def build_pending_payment_reminder_context(order) -> dict:
     shipping_is_free = int(raw_shipping_cost or 0) <= 0
     total_fmt = format_cop(raw_total)
 
-    subject = "Tu prenda sigue esperándote"
-    preheader = (
-        "Dejaste productos reservados. Completa tu pago y asegura tu pedido en Kame.col."
-    )
+    subject = "Tu pedido te espera"
+    preheader = "Piezas apartadas. Finaliza tu pago en KAME.COL."
 
     support_whatsapp = _get_support_whatsapp()
     whatsapp_url = None
@@ -302,4 +422,6 @@ def build_pending_payment_reminder_context(order) -> dict:
         "shipping_is_free": shipping_is_free,
         "total_fmt": total_fmt,
         "email_items": email_items,
+        "wompi_logo_url": _get_wompi_logo_url(),
+        "whatsapp_icon_url": _get_whatsapp_icon_url(),
     }

@@ -1,0 +1,18 @@
+Pedido recibido
+
+{% if first_name %}Hola {{ first_name }},{% else %}Hola,{% endif %}
+
+Registramos tu pedido. Te avisamos cuando el pago quede confirmado.
+
+{% if reference %}Referencia: {{ reference }}
+{% endif %}{% if order_public_url %}
+Completar pago:
+{{ order_public_url }}
+{% elif whatsapp_url %}
+Contáctanos:
+{{ whatsapp_url }}
+{% endif %}
+
+¿Algo con tu pedido? Contáctanos.
+
+Gracias por elegir KAME.COL.

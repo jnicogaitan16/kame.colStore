@@ -10,7 +10,11 @@ from django.conf import settings
 from django.template.exceptions import TemplateDoesNotExist
 from django.template.loader import render_to_string
 
-from apps.notifications.email_context import build_payment_confirmed_context
+from apps.notifications.email_context import (
+    build_order_created_context,
+    build_payment_confirmed_context,
+    build_payment_declined_context,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -127,21 +131,35 @@ def _safe_send_multipart(
 
 
 def send_order_created_email(order) -> None:
-    """Email: pedido creado (dummy/log o send_mail si está configurado)."""
-    to_email = getattr(order, "email", None)
-    payment_reference = getattr(order, "payment_reference", "") or ""
+    """Email: pedido creado (HTML + TXT)."""
+    to_email = (getattr(order, "email", None) or "").strip() or None
+    ctx = build_order_created_context(order)
+    template_ctx = {**ctx}
 
-    subject = f"Pedido #{order.id} creado"
-    message = (
-        "Tu pedido fue creado con éxito.\n\n"
-        f"Referencia de pago: {payment_reference}\n"
-        "Te avisaremos cuando el pago sea confirmado."
+    subject = str(ctx.get("subject") or "Pedido recibido")
+    text_body = render_to_string("emails/orders/created.txt", template_ctx)
+
+    html_body: Optional[str] = None
+    try:
+        html_body = render_to_string("emails/orders/created.html", template_ctx)
+    except TemplateDoesNotExist:
+        logger.exception(
+            "[emails] created.html not found; sending TXT-only. order_id=%s",
+            getattr(order, "id", None),
+        )
+    except Exception:
+        logger.exception(
+            "[emails] Failed to render created.html; sending TXT-only. order_id=%s",
+            getattr(order, "id", None),
+        )
+
+    logger.info(
+        "[emails] order_created order_id=%s to=%s ref=%s",
+        getattr(order, "id", None),
+        to_email,
+        getattr(order, "payment_reference", None),
     )
-
-    logger.info("[emails] order_created order_id=%s to=%s", getattr(order, "id", None), to_email)
-    # Minimal HTML fallback for a valid transactional HTML body
-    html_body = "<html><body><pre style=\"font-family:Arial, sans-serif;\">" + message + "</pre></body></html>"
-    _safe_send_multipart(subject=subject, text_body=message, html_body=html_body, to_email=to_email)
+    _safe_send_multipart(subject=subject, text_body=text_body, html_body=html_body, to_email=to_email)
 
 
 def send_order_paid_email(order) -> None:
@@ -202,3 +220,55 @@ def send_payment_confirmed_email(order) -> None:
     )
     # Backward compatible alias
     send_order_paid_email(order)
+
+
+def send_payment_declined_email(order, *, wompi_status: str | None = None) -> None:
+    """Email: pago declinado / rechazado (HTML + TXT)."""
+    to_email = (getattr(order, "email", None) or "").strip() or None
+    logger.info(
+        "[emails] Enter send_payment_declined_email order_id=%s to=%s wompi_status=%s",
+        getattr(order, "id", None),
+        to_email,
+        wompi_status,
+    )
+    if not to_email:
+        logger.error(
+            "[emails] payment_declined received empty to_email. order_id=%s",
+            getattr(order, "id", None),
+        )
+
+    ctx = build_payment_declined_context(order, wompi_status=wompi_status)
+    order_url = ctx.get("order_public_url") or ctx.get("order_url")
+    whatsapp_url = ctx.get("whatsapp_url")
+
+    template_ctx = {
+        **ctx,
+        "order_url": order_url,
+        "whatsapp_url": whatsapp_url,
+    }
+
+    subject = str(ctx.get("subject") or "Pago declinado")
+    text_body = render_to_string("emails/orders/declined.txt", template_ctx)
+
+    html_body: Optional[str] = None
+    try:
+        html_body = render_to_string("emails/orders/declined.html", template_ctx)
+    except TemplateDoesNotExist:
+        logger.exception(
+            "[emails] declined.html not found; sending TXT-only. order_id=%s",
+            getattr(order, "id", None),
+        )
+    except Exception:
+        logger.exception(
+            "[emails] Failed to render declined.html; sending TXT-only. order_id=%s",
+            getattr(order, "id", None),
+        )
+
+    logger.info(
+        "[emails] payment_declined order_id=%s to=%s ref=%s",
+        getattr(order, "id", None),
+        to_email,
+        getattr(order, "payment_reference", None),
+    )
+
+    _safe_send_multipart(subject=subject, text_body=text_body, html_body=html_body, to_email=to_email)

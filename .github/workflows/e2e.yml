@@ -7,10 +7,10 @@ on:
     branches: [main]
   workflow_dispatch:
 
-# Misma PR: el último push cancela el run anterior en curso.
+# Misma PR: un solo workflow activo; no cancelar en curso (el sandbox Nequi tarda ~15 min).
 concurrency:
   group: e2e-${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   e2e:
@@ -124,7 +124,7 @@ jobs:
     if: >
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'pull_request' && github.base_ref == 'main')
-    timeout-minutes: 25
+    timeout-minutes: 35
 
     steps:
       - name: Guard (resolve SANDBOX_BASE_URL)
@@ -137,17 +137,18 @@ jobs:
           if [ -z "$SANDBOX" ] && [ -n "${DJANGO_CSRF_TRUSTED_ORIGINS:-}" ]; then
             SANDBOX="${DJANGO_CSRF_TRUSTED_ORIGINS%%,*}"
             SANDBOX="$(echo "$SANDBOX" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+            echo "::notice::E2E_SANDBOX_BASE_URL vacío: usando primer origen de DJANGO_CSRF_TRUSTED_ORIGINS. Debe ser el storefront Next (Vercel/ngrok :3000), no solo Django (:8000)."
           fi
           if [ -z "$SANDBOX" ]; then
             echo "run=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Definí Repository secret E2E_SANDBOX_BASE_URL (URL del storefront, p. ej. preview Vercel). PRs desde fork no reciben secrets."
+            echo "::notice::Definí Repository secret E2E_SANDBOX_BASE_URL (URL del storefront Next, p. ej. preview Vercel). PRs desde fork no reciben secrets."
             exit 0
           fi
 
           SANDBOX="${SANDBOX%/}"
-          CURL_EXTRA=()
+          CURL_EXTRA=(-H "x-test-env: playwright-wompi-sandbox")
           if echo "$SANDBOX" | grep -qi ngrok; then
-            CURL_EXTRA=(-H "ngrok-skip-browser-warning: true")
+            CURL_EXTRA+=(-H "ngrok-skip-browser-warning: true")
           fi
 
           sandbox_api_ok() {
@@ -164,17 +165,38 @@ jobs:
             return 0
           }
 
-          PREFLIGHT_OK=false
+          sandbox_storefront_ok() {
+            local code
+            code="$(curl -sS -m 25 -o /tmp/kame-sandbox-storefront.body -w "%{http_code}" \
+              "${CURL_EXTRA[@]}" "${SANDBOX}/checkout" 2>/dev/null || echo "000")"
+            if [ "$code" != "200" ]; then
+              echo "checkout_http=${code}" >> "$GITHUB_OUTPUT"
+              return 1
+            fi
+            if ! grep -qiE 'Checkout|Finaliza tu pedido|id="full_name"|id=.full_name' /tmp/kame-sandbox-storefront.body 2>/dev/null; then
+              echo "checkout_http=${code}" >> "$GITHUB_OUTPUT"
+              return 1
+            fi
+            return 0
+          }
+
+          API_OK=false
           for path in "/api/health/" "/api/catalogo/?page_size=1"; do
             if sandbox_api_ok "$path"; then
-              PREFLIGHT_OK=true
+              API_OK=true
               break
             fi
           done
 
-          if [ "$PREFLIGHT_OK" != "true" ]; then
+          if [ "$API_OK" != "true" ]; then
             echo "run=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Sandbox E2E omitido: ${SANDBOX} no devolvió API JSON (¿ngrok apagado o URL no es el storefront?). Usá E2E_SANDBOX_BASE_URL=https://tu-preview.vercel.app"
+            echo "::notice::Sandbox E2E omitido: ${SANDBOX} no devolvió API JSON. Usá E2E_SANDBOX_BASE_URL=https://tu-preview.vercel.app (Next + proxy a Django)."
+            exit 0
+          fi
+
+          if ! sandbox_storefront_ok; then
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Sandbox E2E omitido: ${SANDBOX} tiene API pero /checkout no es el storefront Next (¿apuntás a Django/ngrok :8000?). Secret = URL de Next (Vercel preview o ngrok http 3000)."
             exit 0
           fi
 
@@ -219,6 +241,7 @@ jobs:
           HIT="${{ steps.playwright-sandbox-cache.outputs.cache-hit }}"
           if [ "${HIT:-false}" = "true" ]; then
             npx playwright install chromium
+            npx playwright install-deps chromium
           else
             npx playwright install --with-deps chromium
           fi
@@ -226,7 +249,14 @@ jobs:
       - name: Run Wompi Nequi sandbox E2E
         if: steps.sandbox-guard.outputs.run == 'true'
         working-directory: tests
-        run: npx playwright test -c playwright.sandbox.config.ts
+        run: |
+          echo "SANDBOX_BASE_URL=${SANDBOX_BASE_URL}"
+          echo "::group::Pre-warm storefront"
+          curl -sS -m 45 -o /dev/null -w "GET /checkout → %{http_code}\n" \
+            -H "x-test-env: playwright-wompi-sandbox" \
+            "${SANDBOX_BASE_URL}/checkout"
+          echo "::endgroup::"
+          npx playwright test -c playwright.sandbox.config.ts
         env:
           CI: true
           RUN_WOMPI_SANDBOX_E2E: "1"

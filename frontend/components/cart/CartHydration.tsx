@@ -24,6 +24,14 @@ export function CartHydration() {
 
     useCartStore.persist.rehydrate();
     hasRehydratedRef.current = true;
+
+    // E2E sandbox (Playwright): rehidratar carrito tras escribir `kame-cart` en la misma pestaña.
+    const w = window as Window & {
+      __KAME_E2E_REHYDRATE_CART__?: () => Promise<void>;
+    };
+    w.__KAME_E2E_REHYDRATE_CART__ = async () => {
+      await useCartStore.persist.rehydrate();
+    };
   }, []);
 
   return null;

@@ -1,0 +1,64 @@
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%; margin-top:28px; background:#ffffff; border:1px solid #e6e2d8; border-radius:10px; overflow:hidden;">
+  <tr>
+    <td style="padding:0;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%; border:1px solid #ddd8ce; border-radius:8px; overflow:hidden;">
+        <tr>
+          {% if payment_method %}
+          <td valign="middle" align="center" class="stack-column center-mobile" style="vertical-align:middle; padding:28px; border-right:1px solid #ddd8ce; background:#ffffff; text-align:center;">
+            <p style="margin:0; font-family:Arial, Helvetica, sans-serif; font-size:12px; line-height:1.2; font-weight:900; color:#777777; letter-spacing:1px; text-transform:uppercase; text-align:center;">
+              {{ payment_provider_label|default:"Pagado desde" }}
+            </p>
+            <div style="margin-top:12px; text-align:center;">
+              {% if payment_method|lower == "wompi" or "wompi" in payment_method|lower %}
+                {% include "emails/includes/wompi_brand.html" %}
+              {% else %}
+                <span style="font-family:Arial, Helvetica, sans-serif; font-size:24px; line-height:1; font-weight:900; color:#111111; text-align:center;">
+                  {{ payment_method }}
+                </span>
+              {% endif %}
+            </div>
+          </td>
+          {% endif %}
+          <td valign="middle" class="stack-column" style="vertical-align:middle; padding:28px; background:#ffffff;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td style="padding:0 0 8px 0;">
+                  <p style="margin:0; font-family:Arial, Helvetica, sans-serif; font-size:14px; line-height:1.4; color:#333333;">Subtotal</p>
+                </td>
+                <td align="right" style="padding:0 0 8px 0;">
+                  <p style="margin:0; font-family:Arial, Helvetica, sans-serif; font-size:14px; line-height:1.4; font-weight:800; color:#111111; text-align:right;">{{ subtotal_fmt }}</p>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:0 0 8px 0;">
+                  <p style="margin:0; font-family:Arial, Helvetica, sans-serif; font-size:14px; line-height:1.4; color:#333333;">Envío</p>
+                </td>
+                <td align="right" style="padding:0 0 8px 0;">
+                  <p style="margin:0; font-family:Arial, Helvetica, sans-serif; font-size:14px; line-height:1.4; font-weight:800; color:#111111; text-align:right;">{% if shipping_is_free %}Gratis{% else %}{{ shipping_cost_fmt }}{% endif %}</p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td colspan="2" style="padding:0; background:{{ total_row_bg|default:'#d9f99d' }};">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td style="padding:18px 28px;">
+                  <p style="margin:0; font-family:Arial, Helvetica, sans-serif; font-size:13px; line-height:1.2; font-weight:900; text-transform:uppercase; color:#050505;">
+                    {{ total_label|default:"Total pagado" }}
+                  </p>
+                </td>
+                <td align="right" style="padding:18px 28px;">
+                  <p style="margin:0; font-family:Arial, Helvetica, sans-serif; font-size:28px; line-height:1; font-weight:900; color:#050505; text-align:right;">
+                    {{ total_fmt }}
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>

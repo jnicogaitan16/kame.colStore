@@ -1,16 +1,17 @@
-{{ subject }}
+Pago declinado
 
-{% if first_name %}Hola {{ first_name }},{% else %}Hola,{% endif %}
+{% if first_name %}Hola {{ first_name }},{% elif full_name %}Hola {{ full_name }},{% else %}Hola,{% endif %}
 
-Tienes un pedido pendiente. Las piezas que elegiste están reservadas por tiempo limitado.
+Tu pago no fue aprobado. Puedes intentar de nuevo o escribirnos si necesitas ayuda.
 
 —
 Resumen
 
-{% if payment_method %}Método elegido: {{ payment_method }}
+{% if payment_method %}Intento desde: {{ payment_method }}
 {% endif %}Subtotal: {{ subtotal_fmt }}
 Envío: {% if shipping_is_free %}Gratis{% else %}{{ shipping_cost_fmt }}{% endif %}
 Total: {{ total_fmt }}
+{% if reference %}Referencia: {{ reference }}{% endif %}
 
 {% if email_items %}
 —
@@ -28,16 +29,14 @@ Productos
 
 —
 {% if order_public_url %}
-Finalizar compra:
+Reintentar pago:
 {{ order_public_url }}
 {% elif order_url %}
-Finalizar compra:
+Reintentar pago:
 {{ order_url }}
 {% elif whatsapp_url %}
 Contáctanos:
 {{ whatsapp_url }}
 {% endif %}
-
-¿Algo con tu pago? Contáctanos.
 
 Gracias por elegir KAME.COL.

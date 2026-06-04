@@ -2,8 +2,7 @@ Pago confirmado
 
 {% if first_name %}Hola {{ first_name }},{% elif full_name %}Hola {{ full_name }},{% else %}Hola,{% endif %}
 
-Gracias por confiar en KAME.COL.
-Tu pago fue confirmado y ya estamos preparando tu pedido.
+Tu pago quedó confirmado. Procesamos tu orden y te avisamos cuando avance.
 
 —
 Resumen
@@ -19,9 +18,11 @@ Total: {{ total_fmt }}
 Productos
 
 {% for item in email_items %}
-{{ forloop.counter }}. {{ item.name }}{% if item.variant_label %} · {{ item.variant_label }}{% endif %}
-Cantidad: {{ item.quantity }}
-Precio: {{ item.unit_price_fmt }}
+{{ forloop.counter }}. {{ item.name }}
+{% if item.variant_size %}Talla: {{ item.variant_size }}
+{% endif %}{% if item.variant_color %}Color: {{ item.variant_color }}
+{% elif item.variant_label %}Variante: {{ item.variant_label }}
+{% endif %}Cantidad: {{ item.quantity }}
 
 {% endfor %}
 {% endif %}
@@ -34,13 +35,10 @@ Ver mi pedido:
 Ver mi pedido:
 {{ order_url }}
 {% elif whatsapp_url %}
-Hablar por WhatsApp:
+Contáctanos:
 {{ whatsapp_url }}
 {% endif %}
 
-Si necesitas ayuda, responde a este correo y te ayudamos.
+¿Algo con tu orden? Contáctanos.
 
-Gracias por apoyar una marca independiente.
-
-KAME.COL
-Hecho en Colombia
+Gracias por elegir KAME.COL.
