@@ -24,6 +24,12 @@ export function CartHydration() {
 
     useCartStore.persist.rehydrate();
     hasRehydratedRef.current = true;
+
+    // E2E sandbox (Playwright): reinyectar carrito tras `localStorage.setItem` en la misma pestaña.
+    const w = window as Window & {
+      __KAME_E2E_REHYDRATE_CART__?: () => Promise<void>;
+    };
+    w.__KAME_E2E_REHYDRATE_CART__ = () => useCartStore.persist.rehydrate();
   }, []);
 
   return null;

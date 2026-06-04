@@ -183,48 +183,101 @@ function isLocalSandboxBaseUrl(): boolean {
   );
 }
 
-/** En CI remoto (Vercel) `load` puede tardar minutos; `domcontentloaded` suele bastar. */
-function sandboxGotoWaitUntil(): "load" | "domcontentloaded" {
-  if (process.env.CI && !isLocalSandboxBaseUrl()) {
-    return "domcontentloaded";
-  }
+/** Navegación estable en remoto: `domcontentloaded` deja el checkout sin hidratar Zustand. */
+function sandboxGotoWaitUntil(): "load" {
   return "load";
 }
 
+/** Relee `kame-cart` en Zustand tras escribir localStorage (hook expuesto en CartHydration). */
+async function rehydrateSandboxCartInPage(
+  page: Page,
+  cartJson: string
+): Promise<void> {
+  await page.evaluate(async (json: string) => {
+    try {
+      localStorage.setItem("kame-cart", json);
+    } catch {
+      /* ignore */
+    }
+    const w = globalThis as typeof globalThis & {
+      __KAME_E2E_REHYDRATE_CART__?: () => Promise<void>;
+    };
+    await w.__KAME_E2E_REHYDRATE_CART__?.();
+  }, cartJson);
+}
+
+async function waitForCheckoutFormReady(
+  page: Page,
+  timeoutMs: number
+): Promise<void> {
+  await page.waitForFunction(
+    () => {
+      try {
+        const raw = localStorage.getItem("kame-cart");
+        if (!raw) return false;
+        const parsed = JSON.parse(raw) as {
+          state?: { items?: unknown[] };
+          items?: unknown[];
+        };
+        const items = parsed.state?.items ?? parsed.items ?? [];
+        if (!Array.isArray(items) || items.length === 0) return false;
+        const el = document.querySelector("#full_name");
+        if (!el) return false;
+        const style = window.getComputedStyle(el);
+        return (
+          style.display !== "none" &&
+          style.visibility !== "hidden" &&
+          (el as HTMLElement).offsetParent !== null
+        );
+      } catch {
+        return false;
+      }
+    },
+    { timeout: timeoutMs, polling: 300 }
+  );
+  await page.locator("form").waitFor({ state: "visible", timeout: 15_000 });
+}
+
 /**
- * Espera el formulario de checkout; ante cualquier fallo de `#full_name`, reinyecta `kame-cart` y recarga.
- * En remoto la UI a veces no muestra “carrito vacío” (sigue hidratando, error soft, etc.) y antes no reintentábamos.
+ * Espera el formulario de checkout; ante fallo reinyecta carrito, rehidrata Zustand y recarga.
  */
 async function waitForCheckoutFormOrReseedCart(
   page: Page,
   cartJson: string,
   isRemote: boolean
 ): Promise<void> {
-  const maxAttempts = isRemote ? 8 : 4;
-  const firstTimeout = isRemote ? 55_000 : 45_000;
+  const maxAttempts = isRemote ? 6 : 4;
+  const firstTimeout = isRemote ? 90_000 : 45_000;
+  const gotoWait = sandboxGotoWaitUntil();
   let lastError: Error | undefined;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      await expect(page.locator("#full_name")).toBeVisible({
-        timeout: attempt === 1 ? firstTimeout : 22_000,
-      });
-      await page.locator("form").waitFor({ state: "visible", timeout: 20_000 });
+      const timeout = attempt === 1 ? firstTimeout : 35_000;
+      await waitForCheckoutFormReady(page, timeout);
       return;
     } catch (e) {
       lastError = e instanceof Error ? e : new Error(String(e));
       if (attempt >= maxAttempts) {
-        throw lastError;
+        const hint = await page
+          .locator("body")
+          .innerText()
+          .catch(() => "");
+        const snippet = hint.replace(/\s+/g, " ").trim().slice(0, 280);
+        throw new Error(
+          `E2E sandbox: checkout sin #full_name tras ${maxAttempts} intentos. ` +
+            `URL=${page.url()} texto≈"${snippet}"`
+        );
       }
 
-      await page.evaluate((json: string) => {
-        try {
-          localStorage.setItem("kame-cart", json);
-        } catch {
-          /* ignore */
-        }
-      }, cartJson);
-      await page.reload({ waitUntil: "load" });
+      await rehydrateSandboxCartInPage(page, cartJson);
+      if (isRemote) {
+        await page.goto("/", { waitUntil: gotoWait });
+        await page.goto("/checkout", { waitUntil: gotoWait });
+        await rehydrateSandboxCartInPage(page, cartJson);
+      }
+      await page.reload({ waitUntil: gotoWait });
+      await rehydrateSandboxCartInPage(page, cartJson);
     }
   }
 
@@ -269,14 +322,9 @@ async function openCheckoutWithSandboxCart(page: Page): Promise<void> {
     // Home primero: monta layout + CartHydration antes del cliente de checkout (Vercel/CI).
     await page.goto("/", { waitUntil: gotoWait });
     await page.goto("/checkout", { waitUntil: gotoWait });
-    await page.evaluate((cartJson: string) => {
-      try {
-        localStorage.setItem("kame-cart", cartJson);
-      } catch {
-        /* ignore */
-      }
-    }, raw);
+    await rehydrateSandboxCartInPage(page, raw);
     await page.reload({ waitUntil: gotoWait });
+    await rehydrateSandboxCartInPage(page, raw);
   } else {
     await page.goto("/checkout", { waitUntil: gotoWait });
   }
