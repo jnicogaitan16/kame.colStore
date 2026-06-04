@@ -213,7 +213,17 @@ async function waitForCheckoutFormReady(
   await page.waitForFunction(
     () => {
       try {
-        const raw = localStorage.getItem("kame-cart");
+        const g = globalThis as {
+          localStorage?: { getItem: (k: string) => string | null };
+          document?: {
+            querySelector: (s: string) => { offsetParent: unknown } | null;
+          };
+          getComputedStyle?: (el: unknown) => {
+            display: string;
+            visibility: string;
+          };
+        };
+        const raw = g.localStorage?.getItem("kame-cart");
         if (!raw) return false;
         const parsed = JSON.parse(raw) as {
           state?: { items?: unknown[] };
@@ -221,13 +231,14 @@ async function waitForCheckoutFormReady(
         };
         const items = parsed.state?.items ?? parsed.items ?? [];
         if (!Array.isArray(items) || items.length === 0) return false;
-        const el = document.querySelector("#full_name");
+        const el = g.document?.querySelector("#full_name");
         if (!el) return false;
-        const style = window.getComputedStyle(el);
+        const style = g.getComputedStyle?.(el);
         return (
+          !!style &&
           style.display !== "none" &&
           style.visibility !== "hidden" &&
-          (el as HTMLElement).offsetParent !== null
+          el.offsetParent !== null
         );
       } catch {
         return false;
