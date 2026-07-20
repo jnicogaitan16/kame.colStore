@@ -307,11 +307,11 @@
         rule.colors ??
         null;
 
-      const categorySlug = normalizeSlug(
-        rule.category_slug ?? rule.categorySlug ?? rule.category ?? rule.slug ?? ""
-      );
+      const variantSchema = String(
+        rule.variant_schema ?? rule.variantSchema ?? ""
+      ).trim().toLowerCase();
 
-      const isApparel = categorySlug === "camisetas" || categorySlug === "hoodies";
+      const isApparel = variantSchema === "size_color";
 
       const shouldUseSelect = Boolean(rule.use_select ?? rule.useSelect) || isApparel;
 
@@ -321,16 +321,14 @@
           allowed_values:
             Array.isArray(allowedValues) && allowedValues.length
               ? allowedValues
-              : isApparel
-                ? DEFAULT_CAMISETA_VALUES
-                : [],
+              : [],
         }, "id_value");
       } else {
         setValueAsInput("id_value", "Value");
       }
       setSaveButtonsEnabled(true);
 
-      // Color: only for apparel categories (camisetas/hoodies)
+      // Color: only for size_color schema categories
       if (isApparel) {
         const colorsArr =
           Array.isArray(allowedColors) && allowedColors.length

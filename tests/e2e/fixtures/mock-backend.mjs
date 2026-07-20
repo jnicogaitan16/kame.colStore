@@ -20,7 +20,7 @@ const NAVIGATION = {
       slug: "mujer",
       sort_order: 1,
       categories: [
-        { id: 1, name: "Camisetas", slug: "camisetas", sort_order: 1 },
+        { id: 1, name: "T-Shirts", slug: "t-shirts", sort_order: 1 },
         { id: 2, name: "Hoodies", slug: "hoodies", sort_order: 2 },
       ],
     },
@@ -30,7 +30,7 @@ const NAVIGATION = {
       slug: "hombre",
       sort_order: 2,
       categories: [
-        { id: 3, name: "Camisetas", slug: "camisetas-hombre", sort_order: 1 },
+        { id: 3, name: "T-Shirts", slug: "t-shirts-hombre", sort_order: 1 },
       ],
     },
   ],
@@ -49,8 +49,8 @@ const PRODUCT_88 = {
   primary_card_url: "https://kamecol.com/media/products/p88.jpg",
   category: {
     id: 1,
-    name: "Camisetas",
-    slug: "camisetas",
+    name: "T-Shirts",
+    slug: "t-shirts",
     variant_schema: "jean_size",
     size_guide: {
       title: "Guía de tallas",
@@ -88,8 +88,8 @@ const PRODUCT_DETAIL = {
   primary_thumb_url: null,
   category: {
     id: 1,
-    name: "Camisetas",
-    slug: "camisetas",
+    name: "T-Shirts",
+    slug: "t-shirts",
     variant_schema: "size_color",
     size_guide: {
       title: "Guía de tallas",
@@ -134,8 +134,8 @@ const PRODUCT_99_SOLD_OUT = {
   stock_total: 0,
   category: {
     id: 1,
-    name: "Camisetas",
-    slug: "camisetas",
+    name: "T-Shirts",
+    slug: "t-shirts",
     variant_schema: "no_variant",
     size_guide: null,
   },

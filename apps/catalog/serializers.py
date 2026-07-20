@@ -905,10 +905,12 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         # en ProductVariant según el schema de la categoría.
         variants = list(obj.variants.filter(is_active=True))
         category_slug = getattr(obj.category, "slug", None)
+        variant_schema = getattr(obj.category, "variant_schema", None)
 
         ordered_values = sort_variant_values(
             [getattr(v, "value", "") for v in variants],
             category_slug,
+            variant_schema=variant_schema,
         )
         value_order_map = {value: index for index, value in enumerate(ordered_values)}
 

@@ -66,7 +66,7 @@ export const TEST_CHECKOUT_CART_STATE = {
 export const TEST_NAVIGATION = {
   department1: "Mujer",
   department2: "Hombre",
-  firstCategorySlug: "camisetas",
+  firstCategorySlug: "t-shirts",
 } as const;
 
 /** Shipping quote amounts for test assertions. */
@@ -86,7 +86,7 @@ export const NAVIGATION_MOCK = {
       slug: "mujer",
       sort_order: 1,
       categories: [
-        { id: 1, name: "Camisetas", slug: "camisetas", sort_order: 1 },
+        { id: 1, name: "T-Shirts", slug: "t-shirts", sort_order: 1 },
         { id: 2, name: "Hoodies", slug: "hoodies", sort_order: 2 },
       ],
     },
@@ -96,7 +96,7 @@ export const NAVIGATION_MOCK = {
       slug: "hombre",
       sort_order: 2,
       categories: [
-        { id: 3, name: "Camisetas", slug: "camisetas-hombre", sort_order: 1 },
+        { id: 3, name: "T-Shirts", slug: "t-shirts-hombre", sort_order: 1 },
       ],
     },
   ],
@@ -115,7 +115,7 @@ export const PRODUCT_LIST_MOCK = {
       primary_card_url: "https://kamecol.com/media/products/p88.jpg",
       primary_thumb_url: "https://kamecol.com/media/products/p88-thumb.jpg",
       primary_image: "https://kamecol.com/media/products/p88.jpg",
-      category: { id: 1, name: "Camisetas", slug: "camisetas", variant_schema: "jean_size" },
+      category: { id: 1, name: "T-Shirts", slug: "t-shirts", variant_schema: "jean_size" },
       sold_out: false,
     },
   ],
@@ -131,8 +131,8 @@ export const PRODUCT_DETAIL_MOCK = {
   primary_thumb_url: "https://kamecol.com/media/products/p88-thumb.jpg",
   category: {
     id: 1,
-    name: "Camisetas",
-    slug: "camisetas",
+    name: "T-Shirts",
+    slug: "t-shirts",
     variant_schema: "jean_size",
     size_guide: {
       title: "Guía de tallas",
@@ -164,8 +164,8 @@ export const PRODUCT_99_SOLD_OUT_MOCK = {
   stock_total: 0,
   category: {
     id: 1,
-    name: "Camisetas",
-    slug: "camisetas",
+    name: "T-Shirts",
+    slug: "t-shirts",
     variant_schema: "no_variant",
     size_guide: null,
   },

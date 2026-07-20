@@ -299,7 +299,7 @@ export default function CategoriasPage() {
                     setForm((prev) => ({ ...prev, slug: e.target.value }));
                   }}
                   className={`${INPUT} font-mono text-xs`}
-                  placeholder="ej: camisetas"
+                  placeholder="ej: t-shirts"
                   required={formMode.type === "edit"}
                   spellCheck={false}
                 />
