@@ -553,12 +553,15 @@ function ProductSelectors({
                     const selected = isSameOption(selectedColor, color);
                     const soldOut = !selected && isColorSoldOut(color);
 
+                    const isLong = color.length > 8;
+
                     return (
                       <button
                         key={color}
                         type="button"
                         className={
                           "ui-selectable-control pdp-color-chip pdp-variant-refined " +
+                          (isLong ? "pdp-color-chip--long " : "") +
                           (selected ? "ui-selectable-control--selected " : "") +
                           (soldOut ? "ui-selectable-control--disabled " : "")
                         }

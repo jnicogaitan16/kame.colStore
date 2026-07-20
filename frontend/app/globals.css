@@ -2657,6 +2657,12 @@ html[data-page-loading="1"] body {
   transform: none;
 }
 
+.pdp-color-chip.pdp-color-chip--long {
+  font-size: 0.66rem;
+  letter-spacing: 0;
+  padding: 0.5rem 0.4rem;
+}
+
 .pdp-color-chip--disabled {
   cursor: not-allowed;
 }
