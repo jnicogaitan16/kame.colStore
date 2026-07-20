@@ -3,7 +3,7 @@
 
   const EMPTY_OPTION_TEXT = "---------";
 
-  const DEFAULT_CAMISETA_VALUES = null; // o ["S","M","L","XL","2XL"] como fallback mínimo
+  const DEFAULT_CAMISETA_VALUES = null; // o ["XS","S","M","L","XL","2XL"] como fallback mínimo
   const DEFAULT_APPAREL_COLORS = null; // o ["Blanco","Negro",...] como fallback mínimo
 
   function normalizeSlug(v) {

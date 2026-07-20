@@ -7,10 +7,10 @@ from typing import Any, Dict, List, Optional
 # ----------------------
 
 # Shared sizes for apparel categories
-APPAREL_SIZES: List[str] = ["S", "M", "L", "XL", "2XL"]
+APPAREL_SIZES: List[str] = ["XS","S", "M", "L", "XL", "2XL"]
 
 # Shared colors for apparel categories
-APPAREL_COLORS: List[str] = ["Blanco", "Negro", "Beige", "Verde", "Rojo", "Café", "Azul"]
+APPAREL_COLORS: List[str] = ["Blanco", "Negro", "Beige", "Verde", "Rojo", "Café", "Azul", "Gris","Blanco - acid wash", "Negro - acid wash", "Gris - acid wash", "Verde - acid wash", "Rojo - acid wash", "Azul - acid wash"]
 
 # Shared sizes for shoe categories
 SHOE_SIZES: List[str] = ["36", "37", "38", "39", "40", "41", "42"]
