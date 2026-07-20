@@ -33,37 +33,6 @@ SCHEMA_VARIANT_RULES: Dict[str, Dict[str, Any]] = {
     },
 }
 
-# Canonical rules by category slug (override layer)
-VARIANT_RULES: Dict[str, Dict[str, Any]] = {
-    "camisetas": {
-        "label": "Talla",
-        "allowed_values": APPAREL_SIZES,
-        "allowed_colors": APPAREL_COLORS,
-        "use_select": True,
-        "normalize_upper": True,
-    },
-    "zapatillas": {
-        "label": "Talla",
-        "allowed_values": SHOE_SIZES,
-        "allowed_colors": None,
-        "use_select": True,
-        "normalize_upper": True,
-    },
-    "hoodies": {
-        "label": "Talla",
-        "allowed_values": APPAREL_SIZES,
-        "allowed_colors": APPAREL_COLORS,
-        "use_select": True,
-        "normalize_upper": True,
-    },
-    "camisetas-sin-mangas": {
-        "label": "Talla",
-        "allowed_values": APPAREL_SIZES,
-        "allowed_colors": APPAREL_COLORS,
-        "use_select": True,
-        "normalize_upper": True,
-    },
-}
 
 # Default rule (free text)
 DEFAULT_VARIANT_RULE: Dict[str, Any] = {
@@ -81,16 +50,11 @@ def resolve_variant_rule(
 ) -> Dict[str, Any]:
     """
     Resolve the canonical variant rule using:
-    1) explicit category slug override
-    2) base rule by variant schema
-    3) default free-text rule
+    1) base rule by variant schema
+    2) default free-text rule
     """
 
-    slug = (category_slug or "").strip().lower()
     schema = (variant_schema or "").strip().lower()
-
-    if slug and slug in VARIANT_RULES:
-        return dict(VARIANT_RULES[slug])
 
     if schema and schema in SCHEMA_VARIANT_RULES:
         return dict(SCHEMA_VARIANT_RULES[schema])
@@ -107,8 +71,6 @@ def get_variant_rule(
     return resolve_variant_rule(category_slug=category_slug, variant_schema=variant_schema)
 
 
-# Backwards-compatible alias for older imports/usages.
-CATEGORY_VARIANT_RULES = VARIANT_RULES
 
 
 # Helper functions for canonical allowed values and colors
@@ -210,7 +172,7 @@ def normalize_variant_color(color: Optional[str]) -> Optional[str]:
     """
     Normalize a variant color to canonical display format.
 
-    Colors should follow the display format used in VARIANT_RULES
+    Colors should follow the display format used in SCHEMA_VARIANT_RULES
     (e.g. 'Negro', 'Blanco', 'Beige'). This helper ensures that values
     coming from bulk imports, admin forms, services, or APIs are aligned
     with the canonical representation.
