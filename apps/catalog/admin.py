@@ -25,6 +25,7 @@ from .forms import (
     CategorySizeGuideAdminForm,
     InventoryPoolAdminForm,
     InventoryPoolBulkLoadForm,
+    PrettyJSONWidget,
     ProductVariantAdminForm,
     ProductColorImageAdminForm,
 )
@@ -119,10 +120,11 @@ class CategorySizeGuideInline(admin.StackedInline):
 
         examples = {
             "size_color": {
-                "title": "Guía de tallas — Oversize",
+                "title": "Guía de tallas",
                 "subtitle": "Medidas reales en centímetros (cm). Corte amplio, caída relajada y fit urbano. Puede variar ±1–2 cm según el lote.",
                 "columns_json": ["Talla", "Largo (cm)", "Ancho (cm)", "Manga (cm)"],
                 "rows_json": [
+                    {"size": "XS", "values": [68, 45, 20]},
                     {"size": "S", "values": [71, 50, 21]},
                     {"size": "M", "values": [74, 55, 22]},
                     {"size": "L", "values": [77, 60, 23]},
@@ -176,8 +178,8 @@ class CategorySizeGuideInline(admin.StackedInline):
         form.base_fields["is_active"].help_text = ""
 
         form.base_fields["subtitle"].widget = forms.Textarea(attrs={"rows": 3})
-        form.base_fields["columns_json"].widget = forms.Textarea(attrs={"rows": 6})
-        form.base_fields["rows_json"].widget = forms.Textarea(attrs={"rows": 12})
+        form.base_fields["columns_json"].widget = PrettyJSONWidget(attrs={"rows": 6})
+        form.base_fields["rows_json"].widget = PrettyJSONWidget(attrs={"rows": 20})
 
         try:
             has_guide = bool(obj and obj.size_guide)

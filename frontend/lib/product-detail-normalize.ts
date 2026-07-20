@@ -125,7 +125,7 @@ export type PDPViewModel = ProductDetailViewModel &
     flags: PDPSelectionFlags;
   };
 
-const APPAREL_ORDER = ["S", "M", "L", "XL", "2XL"];
+const APPAREL_ORDER = ["XS","S", "M", "L", "XL", "2XL"];
 const SHOE_ORDER = ["36", "37", "38", "39", "40", "41", "42"];
 
 export function normalizeOption(value: unknown): string {

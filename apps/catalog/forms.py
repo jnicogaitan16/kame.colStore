@@ -1,3 +1,5 @@
+import json
+
 from django import forms
 from django.core.exceptions import ValidationError
 
@@ -8,6 +10,21 @@ from apps.catalog.variant_rules import (
     normalize_variant_value,
     resolve_variant_rule,
 )
+
+
+class PrettyJSONWidget(forms.Textarea):
+    """Textarea that pretty-prints JSON for easier editing."""
+
+    def format_value(self, value):
+        if isinstance(value, str):
+            try:
+                parsed = json.loads(value)
+                return json.dumps(parsed, indent=2, ensure_ascii=False)
+            except (json.JSONDecodeError, TypeError):
+                return value
+        if isinstance(value, (list, dict)):
+            return json.dumps(value, indent=2, ensure_ascii=False)
+        return super().format_value(value)
 
 
 class CatalogAdminRuleAwareForm(forms.ModelForm):
