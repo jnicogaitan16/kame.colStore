@@ -341,8 +341,11 @@ def create_order_from_checkout(payload: Dict[str, Any]) -> Order:
     - full_name, document_type, cedula, email?, phone?, city_code, address, notes?, payment_method?
     """
     # Soportar payload anidado (frontend): customer + shipping_address
-    payload_customer = payload.get("customer") if isinstance(payload.get("customer"), dict) else {}
-    shipping_payload = payload.get("shipping_address") if isinstance(payload.get("shipping_address"), dict) else {}
+    customer_raw = payload.get("customer")
+    payload_customer: dict[str, Any] = customer_raw if isinstance(customer_raw, dict) else {}
+
+    shipping_raw = payload.get("shipping_address")
+    shipping_payload: dict[str, Any] = shipping_raw if isinstance(shipping_raw, dict) else {}
 
     def _norm_email(value: Any) -> str:
         return (value or "").strip().lower()
