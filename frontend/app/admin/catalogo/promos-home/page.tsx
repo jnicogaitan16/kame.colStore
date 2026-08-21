@@ -31,7 +31,7 @@ const emptyForm = (): PromoForm => ({
   subtitle: "",
   placement: "MID",
   alt_text: "",
-  cta_label: "Ver más",
+  cta_label: "",
   cta_url: "",
   show_text: true,
   is_active: true,
@@ -44,7 +44,7 @@ function formFromPromo(p: AdminHomepagePromo): PromoForm {
     subtitle: p.subtitle || "",
     placement: p.placement || "MID",
     alt_text: p.alt_text || "",
-    cta_label: p.cta_label || "Ver más",
+    cta_label: p.cta_label || "",
     cta_url: p.cta_url || "",
     show_text: p.show_text,
     is_active: p.is_active,
@@ -311,7 +311,7 @@ export default function PromosHomeAdminPage() {
                 <input type="text" value={form.alt_text} onChange={(e) => setForm((f) => ({ ...f, alt_text: e.target.value }))} className={INPUT} />
               </Field>
               <Field label="CTA — etiqueta">
-                <input type="text" value={form.cta_label} onChange={(e) => setForm((f) => ({ ...f, cta_label: e.target.value }))} className={INPUT} />
+                <input type="text" value={form.cta_label} onChange={(e) => setForm((f) => ({ ...f, cta_label: e.target.value }))} className={INPUT} placeholder="Opcional (ej. Ver más)" />
               </Field>
               <Field label="CTA — URL (relativa, opcional)">
                 <input type="text" value={form.cta_url} onChange={(e) => setForm((f) => ({ ...f, cta_url: e.target.value }))} className={INPUT} />

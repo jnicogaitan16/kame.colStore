@@ -269,7 +269,7 @@ def homepage_promo_create(request: Request):
         title=(data.get("title") or "").strip(),
         subtitle=(data.get("subtitle") or "").strip(),
         placement=raw_place,
-        cta_label=(data.get("cta_label") or "Ver más").strip(),
+        cta_label=(data.get("cta_label") or "").strip(),
         cta_url=(data.get("cta_url") or "").strip(),
         alt_text=(data.get("alt_text") or "").strip(),
         show_text=_parse_bool(data.get("show_text", True)),

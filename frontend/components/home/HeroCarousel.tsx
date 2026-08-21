@@ -11,6 +11,10 @@ import "swiper/css/pagination";
 import "swiper/css/effect-fade";
 
 import HomeCtaButton from "@/components/home/HomeCtaButton";
+import {
+  buildHomeLinkAriaLabel,
+  resolveHomeOverlayState,
+} from "@/lib/home-overlay-state";
 import type { HomepageBanner as HomepageBannerModel } from "@/types/catalog";
 
 type HomepageBanner = HomepageBannerModel & {
@@ -103,13 +107,6 @@ function HeroBannerImage({
   );
 }
 
-function normalizeBannerHref(value: string | null | undefined): string | null {
-  const raw = String(value || "").trim();
-  if (!raw) return null;
-  if (raw.startsWith("http://") || raw.startsWith("https://")) return null;
-  return raw.startsWith("/") ? raw : `/${raw}`;
-}
-
 function getFallbackCopy(banner: HomepageBanner): {
   eyebrow: string;
   title: string;
@@ -182,17 +179,21 @@ export function HeroCarousel({ banners }: { banners: HeroCarouselBannersProp }) 
           const alt = b.alt_text || b.title || "Banner";
           const isActive = idx === activeIndex;
           const slideFailed = Boolean(failedSlides[b.id]);
-          const href = normalizeBannerHref(b.cta_url);
           const fallbackCopy = getFallbackCopy(b);
-          const showText = b.show_text !== false || slideFailed;
+          const overlay = resolveHomeOverlayState({
+            show_text: b.show_text,
+            cta_label: b.cta_label,
+            cta_url: b.cta_url,
+            mediaFailed: slideFailed,
+            fallbackCtaLabel: fallbackCopy.ctaLabel,
+          });
+          const { showText, ctaLabel, href, showOverlay } = overlay;
 
-          const ctaLabelRaw = slideFailed ? fallbackCopy.ctaLabel : b.cta_label;
-          const ctaLabel = String(ctaLabelRaw || "").trim() || null;
-          const showOverlay = showText || Boolean(ctaLabel);
-
-          const slideAriaLabel = ctaLabel
-            ? `${ctaLabel}: ${slideFailed ? fallbackCopy.title : b.title || alt}`
-            : `Abrir ${slideFailed ? fallbackCopy.title : b.title || alt}`;
+          const slideAriaLabel = buildHomeLinkAriaLabel({
+            ctaLabel,
+            headline: slideFailed ? fallbackCopy.title : b.title,
+            fallback: alt,
+          });
 
           const eyebrow = slideFailed ? fallbackCopy.eyebrow : b.subtitle;
           const headline = slideFailed ? fallbackCopy.title : b.title;

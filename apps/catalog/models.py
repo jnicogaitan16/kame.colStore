@@ -1070,7 +1070,10 @@ class HomepagePromo(models.Model):
 
     show_text = models.BooleanField(
         default=True,
-        help_text="Si se desactiva, no se muestran título/subtítulo aunque existan.",
+        help_text=(
+            "Si se desactiva, no se muestran título/subtítulo aunque existan. "
+            "El botón CTA es independiente: solo aparece si Cta label tiene texto."
+        ),
     )
 
     class Placement(models.TextChoices):
@@ -1134,8 +1137,8 @@ class HomepagePromo(models.Model):
     cta_label = models.CharField(
         max_length=80,
         blank=True,
-        default="Ver más",
-        help_text="Texto del CTA (por ejemplo, 'Ver más').",
+        default="",
+        help_text="Texto del CTA (por ejemplo, 'Ver más'). Dejar vacío para no mostrar botón.",
     )
     cta_url = models.CharField(
         max_length=255,
