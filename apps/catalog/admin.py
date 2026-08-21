@@ -525,6 +525,15 @@ class HomepagePromoAdminForm(forms.ModelForm):
             self.fields["title"].required = False
         if "subtitle" in self.fields:
             self.fields["subtitle"].required = False
+        if "show_text" in self.fields:
+            self.fields["show_text"].help_text = (
+                "Si se desactiva, no se muestran título/subtítulo aunque existan. "
+                "El botón CTA es independiente: solo aparece si Cta label tiene texto."
+            )
+        if "cta_label" in self.fields:
+            self.fields["cta_label"].help_text = (
+                "Dejar vacío para no mostrar botón. Show text no controla el CTA."
+            )
         if "image" in self.fields:
             self.fields["image"].help_text = (
                 "Recomendado: 2400×800 px (~3:1), texto/gráfico legible en desktop y mobile. "

@@ -1092,7 +1092,9 @@ select {
   font-weight: 600;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  transition: color 0.35s ease;
+  transition:
+    color 0.35s ease,
+    font-weight 0.35s ease;
 }
 
 .home-cta-sweep::before {
@@ -1125,6 +1127,22 @@ select {
 
 .home-cta-sweep--light::before {
   background: #18181b;
+}
+
+.home-cta-sweep--overlay:hover,
+.home-cta-sweep--overlay:focus-visible,
+.group:hover .home-cta-sweep--overlay,
+.group:focus-within .home-cta-sweep--overlay {
+  color: #fff;
+  font-weight: 700;
+}
+
+.home-cta-sweep--light:hover,
+.home-cta-sweep--light:focus-visible,
+.group:hover .home-cta-sweep--light,
+.group:focus-within .home-cta-sweep--light {
+  color: #111;
+  font-weight: 700;
 }
 
 .home-cta-sweep:hover::before,

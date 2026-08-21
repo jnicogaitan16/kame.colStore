@@ -5,6 +5,10 @@ import Link from "next/link";
 import { useState } from "react";
 
 import HomeCtaButton from "@/components/home/HomeCtaButton";
+import {
+  buildHomeLinkAriaLabel,
+  resolveHomeOverlayState,
+} from "@/lib/home-overlay-state";
 import type { HomepagePromo } from "@/types/catalog";
 
 type HomepagePromoWithOptimizedImages = HomepagePromo & {
@@ -33,13 +37,6 @@ const PROMO_FRAME_CLASS =
 
 function isDevEnvironment(): boolean {
   return process.env.NODE_ENV !== "production";
-}
-
-function normalizeHref(href: string | null | undefined): string | null {
-  const raw = (href || "").trim();
-  if (!raw) return null;
-  if (raw.startsWith("http://") || raw.startsWith("https://")) return null;
-  return raw.startsWith("/") ? raw : `/${raw}`;
 }
 
 function normalizeImageSrc(src: string | null | undefined): string | null {
@@ -111,20 +108,27 @@ function PromoCard({ promo, idx }: PromoCardProps) {
   const [imageCandidateIndex, setImageCandidateIndex] = useState(0);
 
   const isTop = String(promo.placement || "TOP").toUpperCase() === "TOP";
-  const href = normalizeHref(promo.cta_url);
-  const hasCta = !!href;
 
   const title = (promo.title || "").trim();
   const subtitle = (promo.subtitle || "").trim();
   const fallbackCopy = normalizePromoFallbackCopy(promo);
-  const showText = promo.show_text !== false || imageFailed;
-
-  const ctaLabelRaw = imageFailed ? fallbackCopy.ctaLabel : promo.cta_label;
-  const ctaLabel = String(ctaLabelRaw || "").trim() || null;
-  const showOverlay = showText || Boolean(ctaLabel);
+  const overlay = resolveHomeOverlayState({
+    show_text: promo.show_text,
+    cta_label: promo.cta_label,
+    cta_url: promo.cta_url,
+    mediaFailed: imageFailed,
+    fallbackCtaLabel: fallbackCopy.ctaLabel,
+  });
+  const { showText, ctaLabel, href, showOverlay, hasLink } = overlay;
 
   const eyebrow = imageFailed ? fallbackCopy.eyebrow : subtitle;
   const headline = imageFailed ? fallbackCopy.title : title;
+
+  const linkAriaLabel = buildHomeLinkAriaLabel({
+    ctaLabel,
+    headline,
+    fallback: promo.alt_text || title || "promo",
+  });
 
   const imageCandidates = buildPromoImageCandidates(promo);
   const imageSrc = resolvePromoImageSrc(promo, imageCandidateIndex);
@@ -227,13 +231,9 @@ function PromoCard({ promo, idx }: PromoCardProps) {
 
                   {ctaLabel ? (
                     <div className={showText ? "mt-6" : ""}>
-                      <HomeCtaButton variant="overlay">
+                      <HomeCtaButton variant={imageFailed ? "light" : "overlay"}>
                         {ctaLabel}
                       </HomeCtaButton>
-                    </div>
-                  ) : imageFailed && !hasCta ? (
-                    <div className={showText ? "mt-6" : ""}>
-                      <HomeCtaButton variant="overlay">Promo disponible</HomeCtaButton>
                     </div>
                   ) : null}
                 </div>
@@ -247,11 +247,11 @@ function PromoCard({ promo, idx }: PromoCardProps) {
 
   return (
     <div className={breakoutClass}>
-      {hasCta ? (
+      {hasLink && href ? (
         <Link
-          href={href as string}
+          href={href}
           className="group block focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
-          aria-label={promo.cta_label?.trim() || `Ver más: ${title || "promo"}`}
+          aria-label={linkAriaLabel}
         >
           {CardInner}
         </Link>
