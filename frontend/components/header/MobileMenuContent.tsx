@@ -2,12 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import type {
   NormalizedNavCategory,
   NormalizedNavDepartment,
 } from "../../lib/navigation-normalize";
-import { categoryPath } from "@/lib/routes";
+import { categoryPath, departmentCatalogPath } from "@/lib/routes";
 import { buildStoreWhatsAppUrl } from "@/lib/whatsapp";
 import {
   FacebookIcon,
@@ -92,6 +93,8 @@ export default function MobileMenuContent({
   isOpen,
   variant = "solid-internal",
 }: MobileMenuContentProps) {
+  const router = useRouter();
+
   const orderedDepts = useMemo(() => {
     return Array.isArray(navDepartments)
       ? navDepartments.filter(
@@ -162,6 +165,19 @@ export default function MobileMenuContent({
   const socialLinkClass =
     "inline-flex h-10 w-10 items-center justify-center rounded-full border border-zinc-900/8 bg-white text-zinc-600 transition duration-300 hover:scale-[1.02] hover:border-zinc-900/12 hover:bg-white hover:text-zinc-950";
 
+  const openDepartmentCatalog = (deptSlug: string) => {
+    onNavigate();
+    router.push(departmentCatalogPath(deptSlug));
+  };
+
+  const handleDepartmentSelect = (deptSlug: string) => {
+    if (activeDeptSlug === deptSlug && showDepartmentCategories) {
+      openDepartmentCatalog(deptSlug);
+      return;
+    }
+    setActiveDeptSlug(deptSlug);
+  };
+
   return (
     <div
       className={drawerRootClass}
@@ -172,7 +188,7 @@ export default function MobileMenuContent({
         <>
           {showDepartmentCategories ? (
             <div className={drawerHeaderClass}>
-              <div className="flex items-center gap-3 text-zinc-900">
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setActiveDeptSlug(null)}
@@ -181,9 +197,17 @@ export default function MobileMenuContent({
                 >
                   <ChevronLeft className="h-5 w-5" />
                 </button>
-                <div className={drawerTitleClass}>
-                  {String(activeDept?.name || "").toUpperCase()}
-                </div>
+                <Link
+                  href={departmentCatalogPath(activeDept.slug)}
+                  onClick={onNavigate}
+                  className={`${listLinkClass} min-w-0 flex-1 px-3`}
+                  aria-label={`Ver todos los productos de ${activeDept.name}`}
+                >
+                  <span className={drawerTitleClass}>
+                    {String(activeDept?.name || "").toUpperCase()}
+                  </span>
+                  <ChevronRight className="h-5 w-5 shrink-0 text-zinc-300 transition-colors duration-200" />
+                </Link>
               </div>
             </div>
           ) : (
@@ -206,7 +230,7 @@ export default function MobileMenuContent({
                     <li key={dept.slug}>
                       <button
                         type="button"
-                        onClick={() => setActiveDeptSlug(dept.slug)}
+                        onClick={() => handleDepartmentSelect(dept.slug)}
                         className={listButtonClass}
                       >
                         <span>{dept.name}</span>

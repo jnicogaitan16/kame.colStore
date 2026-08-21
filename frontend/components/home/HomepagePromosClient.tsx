@@ -7,6 +7,7 @@ import { useState } from "react";
 import type { HomepagePromo } from "@/types/catalog";
 
 type HomepagePromoWithOptimizedImages = HomepagePromo & {
+  image_card_url?: string | null;
   image_thumb_url?: string | null;
   image_medium_url?: string | null;
   image_large_url?: string | null;
@@ -24,6 +25,9 @@ const HERO_SUBTITLE_CLASS =
 
 const HERO_TITLE_CLASS = "text-3xl font-semibold text-white md:text-5xl";
 
+const PROMO_FRAME_CLASS =
+  "relative w-full aspect-[16/9] max-h-[min(56vw,420px)] md:aspect-[21/9] md:max-h-[480px]";
+
 function isDevEnvironment(): boolean {
   return process.env.NODE_ENV !== "production";
 }
@@ -40,6 +44,35 @@ function normalizeImageSrc(src: string | null | undefined): string | null {
   if (!raw) return null;
   if (raw.startsWith("http://") || raw.startsWith("https://")) return raw;
   return raw.startsWith("/") ? raw : `/${raw}`;
+}
+
+function uniqueUrls(...values: Array<string | null | undefined>): string[] {
+  const seen = new Set<string>();
+  const urls: string[] = [];
+  for (const value of values) {
+    const url = String(value || "").trim();
+    if (!url || seen.has(url)) continue;
+    seen.add(url);
+    urls.push(url);
+  }
+  return urls;
+}
+
+function buildPromoImageCandidates(promo: HomepagePromoWithOptimizedImages): string[] {
+  return uniqueUrls(
+    promo.image_card_url,
+    promo.image,
+    promo.image_large_url,
+    promo.image_medium_url,
+  );
+}
+
+function resolvePromoImageSrc(
+  promo: HomepagePromoWithOptimizedImages,
+  candidateIndex = 0
+): string | null {
+  const candidates = buildPromoImageCandidates(promo);
+  return normalizeImageSrc(candidates[candidateIndex]);
 }
 
 function normalizePromoFallbackCopy(promo: HomepagePromoWithOptimizedImages): {
@@ -72,6 +105,7 @@ type PromoCardProps = {
 
 function PromoCard({ promo, idx }: PromoCardProps) {
   const [imageFailed, setImageFailed] = useState(false);
+  const [imageCandidateIndex, setImageCandidateIndex] = useState(0);
 
   const isTop = true;
   const href = normalizeHref(promo.cta_url);
@@ -90,23 +124,19 @@ function PromoCard({ promo, idx }: PromoCardProps) {
         : title || subtitle
     );
 
-  const preferred = promo.image_large_url || promo.image_medium_url || promo.image;
-
-  let imageSrc = normalizeImageSrc(preferred);
-
-  if (imageSrc?.includes("/media/CACHE/") && promo.image) {
-    imageSrc = normalizeImageSrc(promo.image);
-  }
-
-  const imageSizes = "100vw";
+  const imageCandidates = buildPromoImageCandidates(promo);
+  const imageSrc = resolvePromoImageSrc(promo, imageCandidateIndex);
+  const imageSizes = "(max-width: 768px) 100vw, 1280px";
   const imagePriority = isTop && idx === 0;
 
   const breakoutClass =
     "relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] w-screen";
 
-  const promoHeightClass = "min-h-[32vh] md:min-h-[38vh]";
-
   const handleImageError = () => {
+    if (imageCandidateIndex < imageCandidates.length - 1) {
+      setImageCandidateIndex((current) => current + 1);
+      return;
+    }
     if (!imageFailed) {
       setImageFailed(true);
       if (isDevEnvironment()) {
@@ -124,89 +154,89 @@ function PromoCard({ promo, idx }: PromoCardProps) {
         "bg-neutral-100 transition-all duration-300"
       }
     >
-      <div className="absolute inset-0">
-        {imageSrc && !imageFailed ? (
-          <Image
-            src={imageSrc}
-            alt={promo.alt_text || title || "Promo"}
-            fill
-            sizes={imageSizes}
-            priority={imagePriority}
-            unoptimized
-            placeholder="blur"
-            blurDataURL={BLUR_DATA_URL}
-            onError={handleImageError}
-            {...(idx === 0 ? {} : { loading: "lazy" as const })}
-            className="object-cover transition-transform duration-300 group-hover:scale-[1.01]"
-          />
-        ) : (
-          <div
-            className="h-full w-full"
-            style={{
-              background:
-                "radial-gradient(1000px 520px at 50% 0%, rgba(255,255,255,0.12), rgba(255,255,255,0) 52%), linear-gradient(135deg, rgba(24,24,27,1) 0%, rgba(9,9,11,1) 42%, rgba(17,24,39,1) 100%)",
-            }}
-          />
-        )}
-      </div>
+      <div className={PROMO_FRAME_CLASS}>
+        <div className="absolute inset-0">
+          {imageSrc && !imageFailed ? (
+            <Image
+              src={imageSrc}
+              alt={promo.alt_text || title || "Promo"}
+              fill
+              sizes={imageSizes}
+              priority={imagePriority}
+              unoptimized
+              placeholder="blur"
+              blurDataURL={BLUR_DATA_URL}
+              onError={handleImageError}
+              {...(idx === 0 ? {} : { loading: "lazy" as const })}
+              className="object-cover object-center transition-transform duration-300 group-hover:scale-[1.01]"
+            />
+          ) : (
+            <div
+              className="h-full w-full"
+              style={{
+                background:
+                  "radial-gradient(1000px 520px at 50% 0%, rgba(255,255,255,0.12), rgba(255,255,255,0) 52%), linear-gradient(135deg, rgba(24,24,27,1) 0%, rgba(9,9,11,1) 42%, rgba(17,24,39,1) 100%)",
+              }}
+            />
+          )}
+        </div>
 
-      <div
-        className={`relative w-full ${promoHeightClass} flex items-end py-10 md:py-12`}
-      >
-        <div className={HERO_CONTAINER_CLASS}>
-          <div className="w-full">
-            {hasText || shouldRenderVisualCta ? (
-              <div className="inline-block rounded-2xl border border-white/10 bg-black/25 px-5 py-4 backdrop-blur-md shadow-[0_10px_40px_rgba(0,0,0,0.28)]">
-                {hasText ? (
-                  <div>
-                    {(imageFailed ? fallbackCopy.eyebrow : subtitle) ? (
-                      <p
-                        className={
-                          isTop
-                            ? HERO_SUBTITLE_CLASS
-                            : "mb-3 inline-flex rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-semibold tracking-widest text-white/85"
-                        }
-                      >
-                        {imageFailed ? fallbackCopy.eyebrow : subtitle}
-                      </p>
-                    ) : null}
+        <div className="relative z-10 flex h-full w-full items-end py-10 md:py-12">
+          <div className={HERO_CONTAINER_CLASS}>
+            <div className="w-full">
+              {hasText || shouldRenderVisualCta ? (
+                <div className="inline-block rounded-2xl border border-white/10 bg-black/25 px-5 py-4 backdrop-blur-md shadow-[0_10px_40px_rgba(0,0,0,0.28)]">
+                  {hasText ? (
+                    <div>
+                      {(imageFailed ? fallbackCopy.eyebrow : subtitle) ? (
+                        <p
+                          className={
+                            isTop
+                              ? HERO_SUBTITLE_CLASS
+                              : "mb-3 inline-flex rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-semibold tracking-widest text-white/85"
+                          }
+                        >
+                          {imageFailed ? fallbackCopy.eyebrow : subtitle}
+                        </p>
+                      ) : null}
 
-                    {(imageFailed ? fallbackCopy.title : title) ? (
-                      <h3
-                        className={
-                          isTop
-                            ? HERO_TITLE_CLASS
-                            : "text-2xl font-semibold text-white md:text-3xl"
-                        }
-                      >
-                        {imageFailed ? fallbackCopy.title : title}
-                      </h3>
-                    ) : null}
+                      {(imageFailed ? fallbackCopy.title : title) ? (
+                        <h3
+                          className={
+                            isTop
+                              ? HERO_TITLE_CLASS
+                              : "text-2xl font-semibold text-white md:text-3xl"
+                          }
+                        >
+                          {imageFailed ? fallbackCopy.title : title}
+                        </h3>
+                      ) : null}
 
-                    {imageFailed ? (
-                      <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/80 md:text-base">
-                        {fallbackCopy.description}
-                      </p>
-                    ) : null}
-                  </div>
-                ) : null}
+                      {imageFailed ? (
+                        <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/80 md:text-base">
+                          {fallbackCopy.description}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
 
-                {shouldRenderVisualCta ? (
-                  <div className={hasText ? "mt-4" : ""}>
-                    <span className="inline-flex items-center rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white/95">
-                      {(imageFailed ? fallbackCopy.ctaLabel : promo.cta_label)?.trim() ||
-                        "Promo disponible"}
-                    </span>
-                  </div>
-                ) : imageFailed && !hasCta ? (
-                  <div className="mt-4">
-                    <span className="inline-flex items-center rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white/95">
-                      Promo disponible
-                    </span>
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
+                  {shouldRenderVisualCta ? (
+                    <div className={hasText ? "mt-4" : ""}>
+                      <span className="inline-flex items-center rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white/95">
+                        {(imageFailed ? fallbackCopy.ctaLabel : promo.cta_label)?.trim() ||
+                          "Promo disponible"}
+                      </span>
+                    </div>
+                  ) : imageFailed && !hasCta ? (
+                    <div className="mt-4">
+                      <span className="inline-flex items-center rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white/95">
+                        Promo disponible
+                      </span>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
           </div>
         </div>
       </div>

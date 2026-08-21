@@ -230,6 +230,8 @@ export interface HomepageBanner {
   title: string;
   subtitle?: string | null;
   image: string | null;
+  image_hero_desktop_url?: string | null;
+  image_hero_mobile_url?: string | null;
   cta_label?: string | null;
   cta_url?: string | null;
   show_text?: boolean;
@@ -243,6 +245,7 @@ export interface HomepagePromo {
   title?: string | null;
   subtitle?: string | null;
   image: string | null;
+  image_card_url?: string | null;
   cta_label?: string | null;
   cta_url?: string | null;
   placement?: string;

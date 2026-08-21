@@ -121,8 +121,8 @@ def _resolve_public_image_urls(obj, request=None, primary_specs=None):
     """Resuelve una sola vez todas las URLs públicas relevantes de una imagen.
 
     `primary_specs` permite definir la prioridad del campo `image` público por tipo:
-    - banners: ("image_hero", "image_large", "image_medium", "image_thumb")
-    - promos: ("image_card", "image_large", "image_medium", "image_thumb")
+    - banners: ("image_hero_desktop", "image_hero", "image_large", "image_medium", "image_thumb")
+    - promos: ("image_card", "image_medium", "image_large", "image_thumb")
     - default: ("image_large", "image_medium", "image_thumb")
     """
     if not getattr(obj, "image", None):
@@ -944,6 +944,8 @@ class HomepageBannerSerializer(serializers.ModelSerializer):
     image_thumb_url = serializers.SerializerMethodField()
     image_medium_url = serializers.SerializerMethodField()
     image_large_url = serializers.SerializerMethodField()
+    image_hero_desktop_url = serializers.SerializerMethodField()
+    image_hero_mobile_url = serializers.SerializerMethodField()
 
     class Meta:
         model = HomepageBanner
@@ -957,6 +959,8 @@ class HomepageBannerSerializer(serializers.ModelSerializer):
             "image_thumb_url",
             "image_medium_url",
             "image_large_url",
+            "image_hero_desktop_url",
+            "image_hero_mobile_url",
             "alt_text",
             "cta_label",
             "cta_url",
@@ -972,7 +976,22 @@ class HomepageBannerSerializer(serializers.ModelSerializer):
         resolved = _resolve_public_image_urls(
             obj,
             request=self.context.get("request"),
-            primary_specs=("image_hero", "image_large", "image_medium", "image_thumb"),
+            primary_specs=(
+                "image_large",
+                "image_hero_desktop",
+                "image_hero",
+                "image_medium",
+                "image_thumb",
+            ),
+        )
+        request = self.context.get("request")
+        resolved["image_hero_desktop_url"] = public_media_url(
+            _spec_url(obj, "image_hero_desktop") or _spec_url(obj, "image_hero"),
+            request=request,
+        )
+        resolved["image_hero_mobile_url"] = public_media_url(
+            _spec_url(obj, "image_hero_mobile"),
+            request=request,
         )
         cache[key] = resolved
         return resolved
@@ -989,6 +1008,12 @@ class HomepageBannerSerializer(serializers.ModelSerializer):
     def get_image_large_url(self, obj):
         return self._get_resolved_urls(obj)["image_large_url"]
 
+    def get_image_hero_desktop_url(self, obj):
+        return self._get_resolved_urls(obj)["image_hero_desktop_url"]
+
+    def get_image_hero_mobile_url(self, obj):
+        return self._get_resolved_urls(obj)["image_hero_mobile_url"]
+
 
 # ---------------------------------------------------------------------------
 # Homepage story / sections (editorial)
@@ -1004,6 +1029,7 @@ class HomepageStorySerializer(serializers.ModelSerializer):
 # ---------------------------------------------------------------------------
 class HomepagePromoSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
+    image_card_url = serializers.SerializerMethodField()
     image_thumb_url = serializers.SerializerMethodField()
     image_medium_url = serializers.SerializerMethodField()
     image_large_url = serializers.SerializerMethodField()
@@ -1017,6 +1043,7 @@ class HomepagePromoSerializer(serializers.ModelSerializer):
             "show_text",
             "placement",
             "image",
+            "image_card_url",
             "image_thumb_url",
             "image_medium_url",
             "image_large_url",
@@ -1035,13 +1062,21 @@ class HomepagePromoSerializer(serializers.ModelSerializer):
         resolved = _resolve_public_image_urls(
             obj,
             request=self.context.get("request"),
-            primary_specs=("image_card", "image_large", "image_medium", "image_thumb"),
+            primary_specs=("image_large", "image_card", "image_medium", "image_thumb"),
+        )
+        request = self.context.get("request")
+        resolved["image_card_url"] = public_media_url(
+            _spec_url(obj, "image_card"),
+            request=request,
         )
         cache[key] = resolved
         return resolved
 
     def get_image(self, obj):
         return self._get_resolved_urls(obj)["image"]
+
+    def get_image_card_url(self, obj):
+        return self._get_resolved_urls(obj)["image_card_url"]
 
     def get_image_thumb_url(self, obj):
         return self._get_resolved_urls(obj)["image_thumb_url"]

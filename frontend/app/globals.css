@@ -1061,6 +1061,12 @@ select {
   border-radius: 1rem;
 }
 
+.hero-carousel-swiper,
+.hero-carousel-swiper .swiper-wrapper,
+.hero-carousel-swiper .swiper-slide {
+  height: auto;
+}
+
 .hero-carousel-swiper .swiper-pagination-bullet {
   background: rgba(255, 255, 255, 0.72);
   opacity: 1;

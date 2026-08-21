@@ -68,6 +68,11 @@ class HomepageBannerAdminForm(forms.ModelForm):
             self.fields["subtitle"].required = False
         if "description" in self.fields:
             self.fields["description"].required = False
+        if "image" in self.fields:
+            self.fields["image"].help_text = (
+                "Recomendado: 1920×1080 px (16:9), sujeto centrado. "
+                "Formatos JPG o WebP. Evita imágenes muy verticales sin margen."
+            )
 
 
 
@@ -516,6 +521,11 @@ class HomepagePromoAdminForm(forms.ModelForm):
             self.fields["title"].required = False
         if "subtitle" in self.fields:
             self.fields["subtitle"].required = False
+        if "image" in self.fields:
+            self.fields["image"].help_text = (
+                "Recomendado: 2400×800 px (~3:1), texto/gráfico legible en desktop y mobile. "
+                "Formatos JPG o WebP."
+            )
 
 @admin.register(HomepagePromo)
 class HomepagePromoAdmin(admin.ModelAdmin):
