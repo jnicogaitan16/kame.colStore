@@ -43,7 +43,6 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
     ? ((productsRes as any).results as Product[])
     : [];
 
-  const count = Number((productsRes as any)?.count ?? results.length ?? 0);
   const next = (productsRes as any)?.next ?? null;
 
   // ✅ Derivar nombre de categoría/departamento desde el primer producto (si existe)
@@ -111,9 +110,6 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
 
           <div className="page-title-block">
             <h1 className="page-title">{categoryName}</h1>
-            <p className="page-subtitle">
-              {count} producto{count !== 1 ? "s" : ""}
-            </p>
           </div>
         </header>
       </div>

@@ -1076,6 +1076,107 @@ select {
   background: #fff;
 }
 
+/* Home editorial CTA + image motion (hero / promos) */
+.home-cta-sweep {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  min-width: 11rem;
+  padding: 0.85rem 1.35rem;
+  border-width: 1px;
+  border-style: solid;
+  background: transparent;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  transition: color 0.35s ease;
+}
+
+.home-cta-sweep::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(0);
+  transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 0;
+}
+
+.home-cta-sweep__label {
+  position: relative;
+  z-index: 1;
+}
+
+.home-cta-sweep--overlay {
+  border-color: #fff;
+  color: #111;
+}
+
+.home-cta-sweep--overlay::before {
+  background: #fff;
+}
+
+.home-cta-sweep--light {
+  border-color: #18181b;
+  color: #fff;
+}
+
+.home-cta-sweep--light::before {
+  background: #18181b;
+}
+
+.home-cta-sweep:hover::before,
+.home-cta-sweep:focus-visible::before,
+.group:hover .home-cta-sweep::before,
+.group:focus-within .home-cta-sweep::before {
+  transform: translateX(100%);
+}
+
+@keyframes heroKenBurns {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.06);
+  }
+}
+
+.hero-ken-burns {
+  animation: heroKenBurns 6s ease-out forwards;
+}
+
+@keyframes promoKenBurns {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.04);
+  }
+}
+
+.promo-ken-burns {
+  animation: promoKenBurns 8s ease-in-out infinite alternate;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .promo-ken-burns {
+    animation: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-cta-sweep::before {
+    transition: none;
+  }
+
+  .hero-ken-burns,
+  .promo-ken-burns {
+    animation: none !important;
+  }
+}
+
 .header-transition {
   transition:
     background-color 300ms ease,
