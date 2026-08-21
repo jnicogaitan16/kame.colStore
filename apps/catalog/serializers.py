@@ -218,6 +218,9 @@ def _effective_inventory_from_pool(category_id: int, variants_qs_or_list):
     if pool_map is None:
         pool_map = get_pool_map(int(category_id or 0))
 
+    if not variants_qs_or_list:
+        return 0, True, pool_map
+
     max_stock = 0
     for v in variants_qs_or_list:
         try:

@@ -408,6 +408,9 @@ class CategorySizeGuideAdminForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
+        if cleaned_data is None:
+            return cleaned_data
+
         columns = cleaned_data.get("columns_json")
         rows = cleaned_data.get("rows_json")
 
@@ -467,6 +470,9 @@ class InventoryPoolBulkLoadForm(forms.Form):
 
     def clean(self):
         cleaned_data = super().clean()
+        if cleaned_data is None:
+            return cleaned_data
+
         category = cleaned_data.get("category")
         raw_lines = cleaned_data.get("lines") or ""
         add_to_existing = bool(cleaned_data.get("add_to_existing"))

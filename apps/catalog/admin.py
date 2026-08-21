@@ -1,5 +1,8 @@
+from typing import Any, cast
+
 from django.contrib import admin, messages
 from django import forms
+from django.forms import ModelForm
 from django.db import transaction
 from django.db.models import Count
 from django.http import JsonResponse
@@ -174,17 +177,17 @@ class CategorySizeGuideInline(admin.StackedInline):
         }
 
         selected_example = examples.get(schema)
-        form = formset.form
+        form_class = cast(type[ModelForm[Any]], getattr(formset, "form"))
 
-        form.base_fields["title"].help_text = ""
-        form.base_fields["subtitle"].help_text = ""
-        form.base_fields["columns_json"].help_text = ""
-        form.base_fields["rows_json"].help_text = ""
-        form.base_fields["is_active"].help_text = ""
+        form_class.base_fields["title"].help_text = ""
+        form_class.base_fields["subtitle"].help_text = ""
+        form_class.base_fields["columns_json"].help_text = ""
+        form_class.base_fields["rows_json"].help_text = ""
+        form_class.base_fields["is_active"].help_text = ""
 
-        form.base_fields["subtitle"].widget = forms.Textarea(attrs={"rows": 3})
-        form.base_fields["columns_json"].widget = PrettyJSONWidget(attrs={"rows": 6})
-        form.base_fields["rows_json"].widget = PrettyJSONWidget(attrs={"rows": 20})
+        form_class.base_fields["subtitle"].widget = forms.Textarea(attrs={"rows": 3})
+        form_class.base_fields["columns_json"].widget = PrettyJSONWidget(attrs={"rows": 6})
+        form_class.base_fields["rows_json"].widget = PrettyJSONWidget(attrs={"rows": 20})
 
         try:
             has_guide = bool(obj and obj.size_guide)
@@ -192,11 +195,11 @@ class CategorySizeGuideInline(admin.StackedInline):
             has_guide = False
 
         if selected_example and obj and not has_guide:
-            form.base_fields["title"].initial = selected_example["title"]
-            form.base_fields["subtitle"].initial = selected_example["subtitle"]
-            form.base_fields["columns_json"].initial = selected_example["columns_json"]
-            form.base_fields["rows_json"].initial = selected_example["rows_json"]
-            form.base_fields["is_active"].initial = True
+            form_class.base_fields["title"].initial = selected_example["title"]
+            form_class.base_fields["subtitle"].initial = selected_example["subtitle"]
+            form_class.base_fields["columns_json"].initial = selected_example["columns_json"]
+            form_class.base_fields["rows_json"].initial = selected_example["rows_json"]
+            form_class.base_fields["is_active"].initial = True
 
         return formset
 
@@ -394,7 +397,8 @@ class InventoryPoolAdmin(admin.ModelAdmin):
                         for err in field_errors:
                             messages.error(request, str(err))
                     else:
-                        label = form.fields.get(field_name).label if field_name in form.fields else field_name
+                        field = form.fields.get(field_name)
+                        label = field.label if field is not None else field_name
                         for err in field_errors:
                             messages.error(request, f"{label}: {err}")
         else:
