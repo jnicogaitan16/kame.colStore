@@ -10,6 +10,7 @@ import "swiper/css";
 import "swiper/css/pagination";
 import "swiper/css/effect-fade";
 
+import HomeCtaButton from "@/components/home/HomeCtaButton";
 import type { HomepageBanner as HomepageBannerModel } from "@/types/catalog";
 
 type HomepageBanner = HomepageBannerModel & {
@@ -95,8 +96,7 @@ function HeroBannerImage({
       onError={handleError}
       className={[
         "absolute inset-0 h-full w-full object-cover object-center",
-        "transition-transform duration-[1200ms] ease-out",
-        isActive ? "scale-[1.02]" : "scale-100",
+        isActive ? "hero-ken-burns" : "scale-100",
       ].join(" ")}
       sizes="100vw"
     />
@@ -138,7 +138,13 @@ const HERO_SECTION_CLASS =
 const HERO_FRAME_CLASS =
   "hero-carousel-frame relative w-full aspect-[4/5] max-h-[92svh] sm:aspect-[16/9] sm:max-h-[min(72svh,720px)] lg:aspect-[21/9] lg:max-h-[640px]";
 const HERO_CONTENT_CLASS =
-  "absolute inset-0 z-10 mx-auto flex max-w-6xl items-center px-4 pt-16 pb-14 md:px-6 md:pt-20 md:pb-20";
+  "absolute inset-0 z-10 mx-auto flex max-w-6xl items-end px-4 pb-14 pt-16 md:items-end md:px-6 md:pb-20 md:pt-20";
+
+const HERO_EYEBROW_OVERLAY_CLASS =
+  "mb-3 text-[11px] font-semibold uppercase tracking-[0.28em] text-white [text-shadow:0_1px_12px_rgba(0,0,0,0.45)]";
+
+const HERO_TITLE_OVERLAY_CLASS =
+  "text-3xl font-semibold uppercase tracking-wide text-white [text-shadow:0_2px_18px_rgba(0,0,0,0.42)] md:text-5xl";
 
 export function HeroCarousel({ banners }: { banners: HeroCarouselBannersProp }) {
   const bannersArray: HomepageBanner[] = extractArray<HomepageBanner>(banners);
@@ -180,16 +186,23 @@ export function HeroCarousel({ banners }: { banners: HeroCarouselBannersProp }) 
           const fallbackCopy = getFallbackCopy(b);
           const showText = b.show_text !== false || slideFailed;
 
-          const ctaLabel = slideFailed ? fallbackCopy.ctaLabel : b.cta_label;
+          const ctaLabelRaw = slideFailed ? fallbackCopy.ctaLabel : b.cta_label;
+          const ctaLabel = String(ctaLabelRaw || "").trim() || null;
+          const showOverlay = showText || Boolean(ctaLabel);
+
           const slideAriaLabel = ctaLabel
             ? `${ctaLabel}: ${slideFailed ? fallbackCopy.title : b.title || alt}`
             : `Abrir ${slideFailed ? fallbackCopy.title : b.title || alt}`;
+
+          const eyebrow = slideFailed ? fallbackCopy.eyebrow : b.subtitle;
+          const headline = slideFailed ? fallbackCopy.title : b.title;
+          const bodyCopy = slideFailed ? fallbackCopy.description : b.description;
 
           const slideInner = (
             <div className={HERO_FRAME_CLASS}>
               <div
                 className={[
-                  "absolute inset-0",
+                  "absolute inset-0 overflow-hidden",
                   isActive ? "opacity-100" : "opacity-0",
                   "transition-opacity duration-700",
                 ].join(" ")}
@@ -233,36 +246,60 @@ export function HeroCarousel({ banners }: { banners: HeroCarouselBannersProp }) 
                     isActive ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0",
                   ].join(" ")}
                 >
-                  {showText ? (
-                    <div className="inline-flex max-w-lg flex-col rounded-2xl border border-white/35 bg-white/32 px-5 py-4 backdrop-blur-sm shadow-[0_12px_34px_rgba(24,24,27,0.08)] md:px-6 md:py-5">
-                      {(slideFailed ? fallbackCopy.eyebrow : b.subtitle) ? (
-                        <p className="mb-3 inline-flex w-fit rounded-full border border-zinc-900/8 bg-white/72 px-3 py-1 text-[11px] font-semibold tracking-[0.22em] text-zinc-700">
-                          {slideFailed ? fallbackCopy.eyebrow : b.subtitle}
-                        </p>
-                      ) : null}
+                  {showOverlay ? (
+                    <div className="max-w-lg">
+                      {showText ? (
+                        <>
+                          {eyebrow ? (
+                            <p
+                              className={
+                                slideFailed
+                                  ? "mb-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-500"
+                                  : HERO_EYEBROW_OVERLAY_CLASS
+                              }
+                            >
+                              {eyebrow}
+                            </p>
+                          ) : null}
 
-                      {(slideFailed ? fallbackCopy.title : b.title) ? (
-                        <h1 className="text-3xl font-bold tracking-[-0.02em] text-zinc-950 md:text-5xl">
-                          {slideFailed ? fallbackCopy.title : b.title}
-                        </h1>
-                      ) : null}
+                          {headline ? (
+                            <h1
+                              className={
+                                slideFailed
+                                  ? "text-3xl font-bold tracking-[-0.02em] text-zinc-950 md:text-5xl"
+                                  : HERO_TITLE_OVERLAY_CLASS
+                              }
+                            >
+                              {headline}
+                            </h1>
+                          ) : null}
 
-                      {(slideFailed ? fallbackCopy.description : b.description) ? (
-                        <p className="mt-4 text-sm leading-relaxed text-zinc-700 md:text-base">
-                          {slideFailed ? fallbackCopy.description : b.description}
-                        </p>
-                      ) : null}
+                          {bodyCopy ? (
+                            <p
+                              className={
+                                slideFailed
+                                  ? "mt-4 text-sm leading-relaxed text-zinc-700 md:text-base"
+                                  : "mt-4 max-w-xl text-sm leading-relaxed text-white/85 [text-shadow:0_1px_10px_rgba(0,0,0,0.35)] md:text-base"
+                              }
+                            >
+                              {bodyCopy}
+                            </p>
+                          ) : null}
 
-                      {slideFailed ? (
-                        <p className="mt-4 text-[11px] font-medium uppercase tracking-[0.18em] text-zinc-500">
-                          Media temporalmente no disponible
-                        </p>
+                          {slideFailed ? (
+                            <p className="mt-4 text-[11px] font-medium uppercase tracking-[0.18em] text-zinc-500">
+                              Media temporalmente no disponible
+                            </p>
+                          ) : null}
+                        </>
                       ) : null}
 
                       {ctaLabel ? (
-                        <span className={href ? "mt-5 inline-flex w-fit items-center rounded-full border border-zinc-900/10 bg-zinc-950 px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-zinc-800" : "mt-5 inline-flex w-fit items-center rounded-full border border-zinc-900/10 bg-white/78 px-4 py-2 text-sm font-semibold text-zinc-900"}>
-                          {ctaLabel}
-                        </span>
+                        <div className={showText ? "mt-6" : ""}>
+                          <HomeCtaButton variant={slideFailed ? "light" : "overlay"}>
+                            {ctaLabel}
+                          </HomeCtaButton>
+                        </div>
                       ) : null}
                     </div>
                   ) : null}
@@ -276,7 +313,7 @@ export function HeroCarousel({ banners }: { banners: HeroCarouselBannersProp }) 
               {href ? (
                 <Link
                   href={href}
-                  className="block h-full focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black/30"
+                  className="group block h-full focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black/30"
                   aria-label={slideAriaLabel}
                 >
                   {slideInner}
