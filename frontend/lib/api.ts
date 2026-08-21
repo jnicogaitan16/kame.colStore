@@ -547,9 +547,15 @@ export async function getProductBySlug(
  * - Cacheable with ISR-style revalidation.
  */
 export async function getHomepageBanners(): Promise<HomepageBanner[]> {
-  return apiFetch<HomepageBanner[]>("/homepage-banners/", {
-    next: { revalidate: 300 },
-  });
+  const data = await apiFetch<HomepageBanner[] | PaginatedResponse<HomepageBanner>>(
+    "/homepage-banners/",
+    {
+      next: { revalidate: 300 },
+    }
+  );
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.results)) return data.results;
+  return [];
 }
 
 /**

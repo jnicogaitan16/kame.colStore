@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 
 import { Swiper, SwiperSlide } from "swiper/react";
@@ -14,26 +13,94 @@ import "swiper/css/effect-fade";
 import type { HomepageBanner as HomepageBannerModel } from "@/types/catalog";
 
 type HomepageBanner = HomepageBannerModel & {
-  // Imagen optimizada (ImageKit) opcional
   image_url?: string | null;
-
-  // Campos que pueden venir desde backend aunque el tipo base no los tenga aún
+  image_hero_desktop_url?: string | null;
+  image_hero_mobile_url?: string | null;
+  image_medium_url?: string | null;
+  image_large_url?: string | null;
   alt_text?: string | null;
   description?: string | null;
   show_text?: boolean | null;
 };
 
-function extractArray<T>(res: any): T[] {
+function extractArray<T>(res: unknown): T[] {
   if (Array.isArray(res)) return res as T[];
-  if (Array.isArray(res?.results)) return res.results as T[];
-  // Some backends wrap payloads differently
-  if (Array.isArray(res?.data)) return res.data as T[];
-  if (Array.isArray(res?.banners)) return res.banners as T[];
+  const payload = res as Record<string, unknown> | null | undefined;
+  if (Array.isArray(payload?.results)) return payload.results as T[];
+  if (Array.isArray(payload?.data)) return payload.data as T[];
+  if (Array.isArray(payload?.banners)) return payload.banners as T[];
   return [];
 }
 
-function normalizeBannerImage(b: HomepageBanner | null | undefined): string {
-  return (b?.image_url ?? b?.image ?? "") || "";
+function uniqueUrls(...values: Array<string | null | undefined>): string[] {
+  const seen = new Set<string>();
+  const urls: string[] = [];
+  for (const value of values) {
+    const url = String(value || "").trim();
+    if (!url || seen.has(url)) continue;
+    seen.add(url);
+    urls.push(url);
+  }
+  return urls;
+}
+
+function buildBannerImageCandidates(b: HomepageBanner): string[] {
+  return uniqueUrls(
+    b.image_hero_desktop_url,
+    b.image_hero_mobile_url,
+    b.image_large_url,
+    b.image_medium_url,
+    b.image,
+    b.image_url,
+  );
+}
+
+function HeroBannerImage({
+  banner,
+  alt,
+  isActive,
+  priority,
+  onExhausted,
+}: {
+  banner: HomepageBanner;
+  alt: string;
+  isActive: boolean;
+  priority: boolean;
+  onExhausted: () => void;
+}) {
+  const candidates = useMemo(() => buildBannerImageCandidates(banner), [banner]);
+  const [candidateIndex, setCandidateIndex] = useState(0);
+  const src = candidates[candidateIndex] ?? "";
+
+  const handleError = () => {
+    if (candidateIndex < candidates.length - 1) {
+      setCandidateIndex((current) => current + 1);
+      return;
+    }
+    onExhausted();
+  };
+
+  if (!src) {
+    return null;
+  }
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt={alt}
+      decoding="async"
+      fetchPriority={priority ? "high" : "auto"}
+      loading={priority ? "eager" : "lazy"}
+      onError={handleError}
+      className={[
+        "absolute inset-0 h-full w-full object-cover object-center",
+        "transition-transform duration-[1200ms] ease-out",
+        isActive ? "scale-[1.02]" : "scale-100",
+      ].join(" ")}
+      sizes="100vw"
+    />
+  );
 }
 
 function normalizeBannerHref(value: string | null | undefined): string | null {
@@ -66,18 +133,19 @@ function getFallbackCopy(banner: HomepageBanner): {
 
 type HeroCarouselBannersProp = unknown;
 
-// Home is its own overlay-hero family.
-// It intentionally remains full-bleed behind the fixed navbar and must not inherit PDP safe-area behavior.
-const HERO_SECTION_CLASS = "page-shell page-shell--hero-overlay relative w-full overflow-hidden min-h-[92svh] md:min-h-[100svh] -mt-12 md:-mt-14";
-const HERO_SLIDE_CLASS = "w-full min-h-[92svh] md:min-h-[100svh]";
-const HERO_CONTENT_CLASS = "relative z-10 mx-auto flex min-h-[92svh] md:min-h-[100svh] max-w-6xl items-center px-4 pt-16 pb-14 md:px-6 md:pt-20 md:pb-20";
+const HERO_SECTION_CLASS =
+  "page-shell page-shell--hero-overlay relative w-full overflow-hidden -mt-12 md:-mt-14";
+const HERO_FRAME_CLASS =
+  "hero-carousel-frame relative w-full aspect-[4/5] max-h-[92svh] sm:aspect-[16/9] sm:max-h-[min(72svh,720px)] lg:aspect-[21/9] lg:max-h-[640px]";
+const HERO_CONTENT_CLASS =
+  "absolute inset-0 z-10 mx-auto flex max-w-6xl items-center px-4 pt-16 pb-14 md:px-6 md:pt-20 md:pb-20";
 
 export function HeroCarousel({ banners }: { banners: HeroCarouselBannersProp }) {
   const bannersArray: HomepageBanner[] = extractArray<HomepageBanner>(banners);
 
   const slides = useMemo(() => {
     const safe = Array.isArray(bannersArray) ? bannersArray : [];
-    return safe.filter((b) => normalizeBannerImage(b).length > 0);
+    return safe.filter((b) => buildBannerImageCandidates(b).length > 0);
   }, [bannersArray]);
 
   const [activeIndex, setActiveIndex] = useState(0);
@@ -102,10 +170,9 @@ export function HeroCarousel({ banners }: { banners: HeroCarouselBannersProp }) 
         autoplay={{ delay: 6000, disableOnInteraction: false }}
         loop={slides.length > 1}
         onSlideChange={(s) => setActiveIndex(s.realIndex)}
-        className={HERO_SLIDE_CLASS + " hero-carousel-swiper"}
+        className="hero-carousel-swiper w-full"
       >
         {slides.map((b, idx) => {
-          const img = normalizeBannerImage(b);
           const alt = b.alt_text || b.title || "Banner";
           const isActive = idx === activeIndex;
           const slideFailed = Boolean(failedSlides[b.id]);
@@ -119,7 +186,7 @@ export function HeroCarousel({ banners }: { banners: HeroCarouselBannersProp }) 
             : `Abrir ${slideFailed ? fallbackCopy.title : b.title || alt}`;
 
           const slideInner = (
-            <div className={`relative ${HERO_SLIDE_CLASS}`}>
+            <div className={HERO_FRAME_CLASS}>
               <div
                 className={[
                   "absolute inset-0",
@@ -129,18 +196,12 @@ export function HeroCarousel({ banners }: { banners: HeroCarouselBannersProp }) 
               >
                 {!slideFailed ? (
                   <>
-                    <Image
-                      src={img}
+                    <HeroBannerImage
+                      banner={b}
                       alt={alt}
-                      fill
+                      isActive={isActive}
                       priority={idx === 0}
-                      unoptimized
-                      onError={() => markSlideAsFailed(b.id)}
-                      className={
-                        "object-cover transition-transform duration-[1200ms] ease-out " +
-                        (isActive ? "scale-[1.06]" : "scale-100")
-                      }
-                      sizes="100vw"
+                      onExhausted={() => markSlideAsFailed(b.id)}
                     />
                     <div className="absolute inset-0 bg-gradient-to-b from-black/6 via-transparent to-black/12" />
                   </>
@@ -227,7 +288,6 @@ export function HeroCarousel({ banners }: { banners: HeroCarouselBannersProp }) 
           );
         })}
       </Swiper>
-      {/* Home-only bottom fade. Keep separate from PDP hero transitions. */}
       <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-b from-transparent to-stone-50" />
     </section>
   );

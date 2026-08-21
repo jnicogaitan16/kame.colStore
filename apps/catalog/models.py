@@ -9,7 +9,7 @@ from django.utils.text import slugify
 
 from imagekit.models import ImageSpecField
 from imagekit.cachefiles import ImageCacheFile
-from imagekit.processors import ResizeToFit
+from imagekit.processors import ResizeToFill, ResizeToFit
 
 from .email_image_processors import EMAIL_IMAGE_PROCESSORS
 from .variant_rules import (
@@ -944,10 +944,22 @@ class HomepageBanner(models.Model):
         format='WEBP',
         options={'quality': 82},
     )
-    # Hero optimizado para Home (mejor balance peso/calidad)
+    # Hero optimizado para Home (crop 16:9 desktop; fallback legacy)
     image_hero = ImageSpecField(
         source='image',
-        processors=[ResizeToFit(1400, 1400)],
+        processors=[ResizeToFill(1920, 1080)],
+        format='WEBP',
+        options={'quality': 75},
+    )
+    image_hero_desktop = ImageSpecField(
+        source='image',
+        processors=[ResizeToFill(1920, 1080)],
+        format='WEBP',
+        options={'quality': 75},
+    )
+    image_hero_mobile = ImageSpecField(
+        source='image',
+        processors=[ResizeToFill(1080, 1350)],
         format='WEBP',
         options={'quality': 75},
     )
@@ -955,6 +967,14 @@ class HomepageBanner(models.Model):
     @property
     def image_hero_url(self) -> str:
         return getattr(self.image_hero, 'url', '') if self.image else ''
+
+    @property
+    def image_hero_desktop_url(self) -> str:
+        return getattr(self.image_hero_desktop, 'url', '') if self.image else ''
+
+    @property
+    def image_hero_mobile_url(self) -> str:
+        return getattr(self.image_hero_mobile, 'url', '') if self.image else ''
 
     @property
     def image_thumb_url(self) -> str:
@@ -1086,10 +1106,10 @@ class HomepagePromo(models.Model):
         format='WEBP',
         options={'quality': 82},
     )
-    # Promo optimizado (más liviano que hero)
+    # Promo optimizado (crop ~3:1 para bandas horizontales en Home)
     image_card = ImageSpecField(
         source='image',
-        processors=[ResizeToFit(1000, 1000)],
+        processors=[ResizeToFill(2400, 800)],
         format='WEBP',
         options={'quality': 75},
     )

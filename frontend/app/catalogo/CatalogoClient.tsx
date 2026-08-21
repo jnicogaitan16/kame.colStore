@@ -5,11 +5,23 @@ import type { Product } from "@/types/catalog";
 
 type CatalogoClientProps = {
   initialProducts?: Product[];
+  departmentSlug?: string;
+  departmentName?: string;
 };
 
 export default function CatalogoClient({
   initialProducts = [],
+  departmentSlug,
+  departmentName,
 }: CatalogoClientProps) {
+  const isDepartmentView = Boolean(departmentSlug);
+  const title = isDepartmentView
+    ? departmentName || departmentSlug || "Departamento"
+    : "Todos los productos";
+  const eyebrow = isDepartmentView ? "Departamento" : "Catálogo";
+  const description = isDepartmentView
+    ? `Todos los productos de ${title}, sin omitir categorías.`
+    : "Productos sin filtros.";
 
   /**
    * Contract:
@@ -20,9 +32,9 @@ export default function CatalogoClient({
   return (
     <main className="mx-auto max-w-6xl px-4 pb-12 md:px-6 md:pb-16 elegant-enter">
       <header className="mb-8 md:mb-10">
-        <p className="type-section-title text-zinc-600">Catálogo</p>
-        <h1 className="type-page-title mt-3 text-zinc-950">Todos los productos</h1>
-        <p className="type-body mt-4 max-w-2xl text-zinc-600">Productos sin filtros.</p>
+        <p className="type-section-title text-zinc-600">{eyebrow}</p>
+        <h1 className="type-page-title mt-3 text-zinc-950">{title}</h1>
+        <p className="type-body mt-4 max-w-2xl text-zinc-600">{description}</p>
       </header>
 
       <ProductGrid

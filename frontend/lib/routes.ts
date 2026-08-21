@@ -6,6 +6,11 @@ export function catalogPath() {
   return "/catalogo";
 }
 
+export function departmentCatalogPath(deptSlug: string) {
+  const dept = encodeURIComponent(String(deptSlug || "").trim());
+  return dept ? `${catalogPath()}?dept=${dept}` : catalogPath();
+}
+
 export const categoryPath = (slug: string, dept?: string) => {
   const s = encodeURIComponent(String(slug || "").trim());
 
