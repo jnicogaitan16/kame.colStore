@@ -115,7 +115,7 @@ def _variant_category_id(variant: Any) -> int:
     # variant.category_id (if exists)
     try:
         cid = int(getattr(variant, "category_id", 0) or 0)
-    except Exception:
+    except (TypeError, ValueError):
         cid = 0
     if cid > 0:
         return cid
@@ -126,7 +126,7 @@ def _variant_category_id(variant: Any) -> int:
 
     try:
         cid = int(getattr(product, "category_id", 0) or 0)
-    except Exception:
+    except (TypeError, ValueError):
         cid = 0
     if cid > 0:
         return cid
@@ -134,7 +134,7 @@ def _variant_category_id(variant: Any) -> int:
     category = getattr(product, "category", None)
     try:
         cid = int(getattr(category, "id", 0) or 0)
-    except Exception:
+    except (TypeError, ValueError):
         cid = 0
     return cid if cid > 0 else 0
 
