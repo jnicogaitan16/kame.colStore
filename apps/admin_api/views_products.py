@@ -8,8 +8,12 @@ PUT    /api/admin/products/{id}/
 DELETE /api/admin/products/{id}/   → soft delete (is_active=False)
 POST   /api/admin/products/{id}/variants/
 """
+import logging
+
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
+
+logger = logging.getLogger(__name__)
 from rest_framework.decorators import api_view, permission_classes, parser_classes
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAdminUser
@@ -210,6 +214,15 @@ def products_create(request: Request):
         return Response({"error": err}, status=400)
     except Exception as e:
         return Response({"error": str(e)}, status=400)
+
+    # Auto-sync variants from existing InventoryPool entries for this category.
+    # If the category already has pool entries (e.g., M/Negro with stock=10),
+    # ProductVariant entries are created automatically — no manual variant creation needed.
+    try:
+        from apps.catalog.services.variant_sync import sync_variants_for_category
+        sync_variants_for_category(product.category_id)
+    except Exception:
+        logger.exception("Auto-sync variants failed for product %s", product.pk)
 
     product = (
         Product.objects.select_related("category")
