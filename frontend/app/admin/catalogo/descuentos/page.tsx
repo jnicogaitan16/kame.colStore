@@ -105,8 +105,8 @@ export default function DiscountsPage() {
       setRules(r);
       setDepartments(d.map((x) => ({ id: x.id, name: x.name })));
       setCategories(c.map((x) => ({ id: x.id, name: x.name })));
-      const prodList = Array.isArray(p) ? p : (p as { results?: unknown[] })?.results ?? [];
-      setProducts((prodList as { id: number; name: string }[]).map((x) => ({ id: x.id, name: x.name })));
+      const prodList = Array.isArray(p) ? p : (p as { results?: { id: number; name: string }[] })?.results ?? [];
+      setProducts(prodList.map((x) => ({ id: x.id, name: x.name })));
     } catch (e) {
       console.error("Error loading discounts", e);
     } finally {
