@@ -39,20 +39,6 @@ Tienda e-commerce **streetwear**: **Django + DRF** (API y admin), **Next.js 14**
 
 **CI:** además de Bandit, **GitHub Actions** ejecuta **E2E** (build de Next + Playwright en `tests/`). Otros jobs y alcance: **`docs/TECH_DEBT_AND_ROADMAP.md`** §6. Detalle Bandit: sección más abajo.
 
-## 📸 Screenshots
-
-### 🏠 Storefront
-![Storefront](./docs/screenshots/storefront.png)
-
-### 🛒 Checkout
-![Checkout](./docs/screenshots/checkout.png)
-
-### 📊 Admin Dashboard
-![Dashboard](./docs/screenshots/admin-dashboard.png)
-
-### 📦 Orders Management
-![Orders](./docs/screenshots/orders.png)
-
 ## ⚡ Quick Start
 
 ### Backend
