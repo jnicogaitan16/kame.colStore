@@ -770,6 +770,7 @@ class HomeMarqueeProductSerializer(ProductListSerializer):
             "primary_thumb_url",
             "primary_medium_url",
             "sold_out",
+            "discount",
         ]
 
  # ---------------------------------------------------------------------------

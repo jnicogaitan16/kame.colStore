@@ -43,6 +43,13 @@ export type HomepageMarqueeProduct = {
   primary_thumb_url?: string | null;
   primary_medium_url?: string | null;
   sold_out?: boolean;
+  discount?: {
+    has_discount: boolean;
+    compare_at_price: number;
+    discount_price: number;
+    discount_percentage: number;
+    discount_label: string;
+  } | null;
 };
 
 export type CategoryNav = {

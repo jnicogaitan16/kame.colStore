@@ -462,7 +462,19 @@ export default function ProductMarqueeCarousel({
 
                       <div className="home-marquee-meta">
                         <p className="home-marquee-name">{productName}</p>
-                        {product.resolvedPrice ? (
+                        {product.discount?.has_discount ? (
+                          <div className="home-marquee-price-row">
+                            <span className="home-marquee-price home-marquee-price--discount">
+                              {formatPrice(product.discount.discount_price)}
+                            </span>
+                            <span className="home-marquee-price home-marquee-price--original">
+                              {product.resolvedPrice}
+                            </span>
+                            <span className="home-marquee-discount-label">
+                              {product.discount.discount_label}
+                            </span>
+                          </div>
+                        ) : product.resolvedPrice ? (
                           <p className="home-marquee-price">{product.resolvedPrice}</p>
                         ) : null}
                       </div>
