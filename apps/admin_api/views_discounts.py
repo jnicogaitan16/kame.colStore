@@ -51,9 +51,8 @@ def discounts_list(request):
 @api_view(["POST"])
 @permission_classes([IsAdminUser])
 def discount_create(request):
-    try:
-        data = json.loads(request.body)
-    except json.JSONDecodeError:
+    data = request.data
+    if not isinstance(data, dict):
         return JsonResponse({"error": "JSON inválido."}, status=400)
 
     rule = DiscountRule(
@@ -95,9 +94,8 @@ def discount_detail(request, rule_id):
         return JsonResponse({"ok": True})
 
     # PUT
-    try:
-        data = json.loads(request.body)
-    except json.JSONDecodeError:
+    data = request.data
+    if not isinstance(data, dict):
         return JsonResponse({"error": "JSON inválido."}, status=400)
 
     for field in ("name", "discount_type", "discount_value", "scope", "is_active", "priority"):
