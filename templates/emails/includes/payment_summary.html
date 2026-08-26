@@ -42,6 +42,13 @@
                   Subtotal&nbsp;<span style="font-weight:800; color:#111111;">{{ subtotal_fmt }}</span>
                 </td>
               </tr>
+              {% if has_order_discount %}
+              <tr>
+                <td align="center" style="padding:0 0 12px 0; font-family:Arial, Helvetica, sans-serif; font-size:14px; line-height:1.5; color:#333333; text-align:center;">
+                  Descuento&nbsp;<span style="font-weight:800; color:#111111;">-{{ discount_total_fmt }}</span>
+                </td>
+              </tr>
+              {% endif %}
               <tr>
                 <td align="center" style="font-family:Arial, Helvetica, sans-serif; font-size:14px; line-height:1.5; color:#333333; text-align:center;">
                   Envío&nbsp;<span style="font-weight:800; color:#111111;">{% if shipping_is_free %}Gratis{% else %}{{ shipping_cost_fmt }}{% endif %}</span>

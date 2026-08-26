@@ -189,6 +189,10 @@ def _build_email_items(order) -> list[dict]:
         variant = getattr(item, "product_variant", None)
         product = getattr(variant, "product", None)
 
+        unit_price = getattr(item, "unit_price", 0) or 0
+        original_price = getattr(item, "original_price", None)
+        has_discount = original_price is not None and int(original_price) > int(unit_price)
+
         items_payload.append(
             {
                 "name": _normalize_email_item_name(product),
@@ -197,6 +201,8 @@ def _build_email_items(order) -> list[dict]:
                 "variant_color": _normalize_email_item_variant_color(variant),
                 "quantity": _normalize_email_item_quantity(item),
                 "unit_price_fmt": _normalize_email_item_unit_price_fmt(item),
+                "original_price_fmt": format_cop(original_price) if has_discount else None,
+                "has_discount": has_discount,
                 "image_url": _normalize_email_item_image_url(variant),
             }
         )
@@ -237,6 +243,20 @@ def build_payment_confirmed_context(order) -> dict:
     items_count = sum(int(item.get("quantity") or 0) for item in email_items)
     has_multiple_items = len(email_items) > 1
 
+    # Calcular ahorro total por descuentos
+    discount_total = 0
+    try:
+        for item in order.items.all():
+            orig = int(getattr(item, "original_price", 0) or 0)
+            paid = int(getattr(item, "unit_price", 0) or 0)
+            qty = int(getattr(item, "quantity", 0) or 0)
+            if orig > paid:
+                discount_total += (orig - paid) * qty
+    except Exception:
+        pass
+    has_order_discount = discount_total > 0
+    discount_total_fmt = format_cop(discount_total) if has_order_discount else None
+
     ctx = {
         "first_name": first_name,
         "brand_name": _get_brand_name(),
@@ -256,6 +276,8 @@ def build_payment_confirmed_context(order) -> dict:
         "shipping_cost_fmt": shipping_cost_fmt,
         "shipping_is_free": shipping_is_free,
         "total_fmt": total_fmt,
+        "has_order_discount": has_order_discount,
+        "discount_total_fmt": discount_total_fmt,
         "email_items": email_items,
     }
     return enrich_context_with_brand_assets(ctx)

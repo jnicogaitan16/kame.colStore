@@ -73,6 +73,17 @@
             <p style="margin:8px 0 0 0; font-family:Arial, Helvetica, sans-serif; font-size:15px; line-height:1.5; color:#555555; text-align:center;">
               Cantidad: <strong style="color:#111111; font-weight:700;">{{ item.quantity }}</strong>
             </p>
+
+            {% if item.has_discount %}
+            <p style="margin:12px 0 0 0; font-family:Arial, Helvetica, sans-serif; font-size:15px; line-height:1.5; color:#555555; text-align:center;">
+              <span style="text-decoration:line-through; color:#999999;">{{ item.original_price_fmt }}</span>&nbsp;&nbsp;
+              <strong style="color:#111111; font-weight:700;">{{ item.unit_price_fmt }}</strong>
+            </p>
+            {% else %}
+            <p style="margin:12px 0 0 0; font-family:Arial, Helvetica, sans-serif; font-size:15px; line-height:1.5; color:#555555; text-align:center;">
+              Precio: <strong style="color:#111111; font-weight:700;">{{ item.unit_price_fmt }}</strong>
+            </p>
+            {% endif %}
           </td>
         </tr>
       </table>

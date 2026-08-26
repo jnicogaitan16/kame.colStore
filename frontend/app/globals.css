@@ -1683,6 +1683,31 @@ select {
   color: rgba(82, 82, 91, 0.82);
 }
 
+.home-marquee-price-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.home-marquee-price--discount {
+  color: #18181b;
+  font-weight: 700;
+}
+
+.home-marquee-price--original {
+  text-decoration: line-through;
+  color: rgba(161, 161, 170, 0.8);
+  font-weight: 500;
+}
+
+.home-marquee-discount-label {
+  font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: #ef4444;
+}
+
 .home-marquee-soldout {
   position: absolute;
   left: 0.75rem;
