@@ -8,10 +8,14 @@ import MobileMenuContent from "./MobileMenuContent";
 import MiniCart from "@/components/cart/MiniCart";
 import DrawerShell from "@/components/drawer/DrawerShell";
 import { useCartStore } from "@/store/cart";
+import type {
+  NormalizedNavCategory,
+  NormalizedNavDepartment,
+} from "@/lib/navigation-normalize";
 
 type HeaderProps = {
-  categories?: any[];
-  navDepartments?: any[];
+  categories?: NormalizedNavCategory[];
+  navDepartments?: NormalizedNavDepartment[];
 };
 
 export default function Header({

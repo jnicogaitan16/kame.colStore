@@ -11,16 +11,17 @@ import {
 } from "@/lib/product-card-policy";
 import type { ProductCardSurface } from "@/lib/product-card-policy";
 import { ProductCard } from "./ProductCard";
+import type { Product } from "@/types/catalog";
 
 interface ProductGridProps {
-  products: any[];
+  products: Product[];
   className?: string;
   emptyState?: React.ReactNode;
   surface?: ProductCardSurface;
 }
 
 type ProductGridGroupItem = {
-  product: any;
+  product: Product;
   absoluteIndex: number;
   groupIndex: number;
   groupPosition: number;
@@ -37,7 +38,7 @@ const PRODUCT_GRID_INNER_CLASS =
   "grid grid-cols-2 gap-x-4 gap-y-8 md:grid-cols-3 md:gap-x-5 md:gap-y-10 xl:grid-cols-4 xl:gap-x-6 xl:gap-y-12";
 
 function buildProductGroups(
-  products: any[],
+  products: Product[],
   groupSize: number,
   isDesktop: boolean
 ): ProductGridGroup[] {
