@@ -78,7 +78,9 @@ def sync_variants_for_pool(pool_id: int) -> SyncStats:
         for product in products:
 
             if schema == Category.VariantSchema.SIZE_COLOR:
-                desired_is_active = pool.is_active and _product_has_visual_color_enabled(product, color)
+                # Activate if pool is active and has stock — images are visual, not availability.
+                # Previously required ProductColorImage, but this blocked new products from being sellable.
+                desired_is_active = pool.is_active and pool.quantity > 0
             else:
                 desired_is_active = pool.is_active
 
