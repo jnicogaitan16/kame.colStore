@@ -59,6 +59,15 @@ type PDPViewModel = {
   variantByColorValue?: Record<string, ProductVariant>;
   variantGalleryImagesById?: Record<string, GalleryImage[]>;
   variantPrimaryImageById?: Record<string, string | null>;
+  discount?: {
+    has_discount: boolean;
+    compare_at_price: number;
+    discount_price: number;
+    discount_percentage: number;
+    discount_amount: number;
+    discount_label: string;
+    rule_name: string;
+  } | null;
 };
 
 interface ProductDetailClientProps {
@@ -484,7 +493,7 @@ function ProductMedia({
   );
 }
 
-function ProductHeader({ name, price, slug }: { name: string; price: string; slug: string }) {
+function ProductHeader({ name, price, slug, discount }: { name: string; price: string; slug: string; discount?: PDPViewModel["discount"] }) {
   const displayName = name.toUpperCase();
   return (
     <div className="relative z-0 flex items-start gap-2.5">
@@ -492,7 +501,21 @@ function ProductHeader({ name, price, slug }: { name: string; price: string; slu
         <h1 className="pdp-title max-w-[14ch] text-zinc-900 md:max-w-[15ch]">
           {displayName}
         </h1>
-        <p className="pdp-price-refined mt-2.5">{formatPriceCOP(price)}</p>
+        {discount?.has_discount ? (
+          <div className="mt-2.5 flex flex-wrap items-baseline gap-2.5">
+            <span className="pdp-price-refined text-zinc-900">
+              {formatPriceCOP(String(discount.discount_price))}
+            </span>
+            <span className="text-[0.95rem] text-zinc-400 line-through">
+              {formatPriceCOP(price)}
+            </span>
+            <span className="text-[0.8rem] font-semibold text-red-500">
+              {discount.discount_label}
+            </span>
+          </div>
+        ) : (
+          <p className="pdp-price-refined mt-2.5">{formatPriceCOP(price)}</p>
+        )}
       </div>
 
       <div className="absolute right-0 top-0 z-0 opacity-80 transition-opacity duration-200 hover:opacity-100">
@@ -934,6 +957,7 @@ export function ProductDetailClient({
             name={product.name}
             price={product.price}
             slug={product.slug}
+            discount={product.discount}
           />
 
           <ProductSelectors

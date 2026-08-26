@@ -137,9 +137,23 @@ export function ProductCard({
         <div className="type-card-title text-zinc-900 leading-[1.18] tracking-[0.015em]">
           {name}
         </div>
-        <div className="mt-1.5 type-price text-[0.82rem] text-zinc-500">
-          ${Number(price).toLocaleString("es-CO")}
-        </div>
+        {product?.discount?.has_discount ? (
+          <div className="mt-1.5 flex items-baseline gap-2">
+            <span className="type-price text-[0.82rem] text-zinc-900 font-medium">
+              ${product.discount.discount_price.toLocaleString("es-CO")}
+            </span>
+            <span className="type-price text-[0.72rem] text-zinc-400 line-through">
+              ${Number(price).toLocaleString("es-CO")}
+            </span>
+            <span className="text-[0.65rem] font-semibold text-red-500">
+              {product.discount.discount_label}
+            </span>
+          </div>
+        ) : (
+          <div className="mt-1.5 type-price text-[0.82rem] text-zinc-500">
+            ${Number(price).toLocaleString("es-CO")}
+          </div>
+        )}
       </div>
     </Link>
   );
