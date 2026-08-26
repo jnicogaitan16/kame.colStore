@@ -1,7 +1,8 @@
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.db.models import Sum
+from django.db.models import Q, Sum
 from django.conf import settings
+from django.utils import timezone
 import os
 import uuid
 
@@ -906,6 +907,97 @@ class ProductVariant(models.Model):
         color_part = f" / {self.color}" if (self.color or "").strip() else ""
         return f"{self.product.name} - {self.value}{color_part}"
 
+
+
+# =============================================
+# Descuentos
+# =============================================
+
+class DiscountRule(models.Model):
+    """Regla de descuento aplicable a tienda, departamento, categoría o producto."""
+
+    class DiscountType(models.TextChoices):
+        PERCENTAGE = "percentage", "Porcentaje"
+        FIXED_AMOUNT = "fixed_amount", "Monto fijo (COP)"
+
+    class Scope(models.TextChoices):
+        STORE_WIDE = "store_wide", "Toda la tienda"
+        DEPARTMENT = "department", "Departamento"
+        CATEGORY = "category", "Categoría"
+        PRODUCT = "product", "Producto específico"
+
+    SCOPE_PRIORITY = {
+        "product": 40,
+        "category": 30,
+        "department": 20,
+        "store_wide": 10,
+    }
+
+    name = models.CharField(max_length=200, help_text="Nombre interno (ej: Día de la Mujer 2026)")
+    discount_type = models.CharField(max_length=20, choices=DiscountType.choices, default=DiscountType.PERCENTAGE)
+    discount_value = models.DecimalField(
+        max_digits=10, decimal_places=2,
+        help_text="Porcentaje (ej: 5 para 5%) o monto fijo en COP (ej: 10000).",
+    )
+
+    scope = models.CharField(max_length=20, choices=Scope.choices, default=Scope.STORE_WIDE)
+    department = models.ForeignKey(
+        "Department", on_delete=models.CASCADE, null=True, blank=True,
+        related_name="discount_rules",
+        help_text="Solo si scope = departamento.",
+    )
+    category = models.ForeignKey(
+        "Category", on_delete=models.CASCADE, null=True, blank=True,
+        related_name="discount_rules",
+        help_text="Solo si scope = categoría.",
+    )
+    product = models.ForeignKey(
+        "Product", on_delete=models.CASCADE, null=True, blank=True,
+        related_name="discount_rules",
+        help_text="Solo si scope = producto.",
+    )
+
+    starts_at = models.DateTimeField(help_text="Fecha y hora de inicio del descuento.")
+    ends_at = models.DateTimeField(null=True, blank=True, help_text="Dejar vacío para descuento sin expiración.")
+    is_active = models.BooleanField(default=True, db_index=True)
+    priority = models.PositiveIntegerField(
+        default=0,
+        help_text="Mayor prioridad prevalece entre reglas del mismo scope.",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-priority", "-created_at"]
+        verbose_name = "Regla de descuento"
+        verbose_name_plural = "Reglas de descuento"
+
+    def __str__(self):
+        return f"{self.name} ({self.get_scope_display()}: {self.discount_value}{'%' if self.discount_type == self.DiscountType.PERCENTAGE else ' COP'})"
+
+    def clean(self):
+        super().clean()
+        if self.scope == self.Scope.DEPARTMENT and not self.department:
+            raise ValidationError({"department": "Requerido cuando el scope es departamento."})
+        if self.scope == self.Scope.CATEGORY and not self.category:
+            raise ValidationError({"category": "Requerido cuando el scope es categoría."})
+        if self.scope == self.Scope.PRODUCT and not self.product:
+            raise ValidationError({"product": "Requerido cuando el scope es producto."})
+        if self.discount_type == self.DiscountType.PERCENTAGE and not (0 < self.discount_value <= 100):
+            raise ValidationError({"discount_value": "El porcentaje debe estar entre 0 y 100."})
+        if self.discount_type == self.DiscountType.FIXED_AMOUNT and self.discount_value <= 0:
+            raise ValidationError({"discount_value": "El monto fijo debe ser mayor a 0."})
+
+    def is_currently_active(self) -> bool:
+        if not self.is_active:
+            return False
+        now = timezone.now()
+        if now < self.starts_at:
+            return False
+        if self.ends_at and now > self.ends_at:
+            return False
+        return True
 
 
 class HomepageBanner(models.Model):

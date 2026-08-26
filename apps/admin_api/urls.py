@@ -8,6 +8,7 @@ from django.urls import path
 from . import (
     views_auth,
     views_dashboard,
+    views_discounts,
     views_orders,
     views_inventory,
     views_customers,
@@ -102,6 +103,14 @@ urlpatterns = [
     path("admin/products/departments",                views_products.departments_list,   name="admin-departments-ns"),
     path("admin/products/departments/<int:department_id>/edit/", views_products.department_update, name="admin-department-update"),
     path("admin/products/departments/<int:department_id>/edit",  views_products.department_update, name="admin-department-update-ns"),
+
+    # ── Discounts ─────────────────────────────────────────────────────────
+    path("admin/discounts/",                              views_discounts.discounts_list,    name="admin-discounts-list"),
+    path("admin/discounts",                               views_discounts.discounts_list,    name="admin-discounts-list-ns"),
+    path("admin/discounts/create/",                       views_discounts.discount_create,   name="admin-discount-create"),
+    path("admin/discounts/create",                        views_discounts.discount_create,   name="admin-discount-create-ns"),
+    path("admin/discounts/<int:rule_id>/",                views_discounts.discount_detail,   name="admin-discount-detail"),
+    path("admin/discounts/<int:rule_id>",                 views_discounts.discount_detail,   name="admin-discount-detail-ns"),
 
     # ── Homepage (banners / promos / sections) ────────────────────────────
     path("admin/homepage/banners/create/",             views_homepage.homepage_banner_create,    name="admin-homepage-banner-create"),
