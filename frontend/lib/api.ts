@@ -312,7 +312,7 @@ export async function apiFetch<T>(
   });
 
   if (!res.ok) {
-    let payload: any = null;
+    let payload: Record<string, unknown> | null = null;
     try {
       payload = await res.json();
     } catch {
@@ -328,11 +328,10 @@ export async function apiFetch<T>(
       }
     }
 
-    const err: any = new Error(
-      `API ${res.status}: ${text || res.statusText || "Request failed"}`
+    const err = Object.assign(
+      new Error(`API ${res.status}: ${text || res.statusText || "Request failed"}`),
+      { status: res.status, payload },
     );
-    err.status = res.status;
-    err.payload = payload;
     throw err;
   }
 
@@ -352,7 +351,7 @@ export async function apiFetch<T>(
  * when `/navigation/` is unavailable or invalid upstream.
  */
 export async function getCategories(): Promise<Category[]> {
-  const data = await apiFetch<any>("/categories/", {
+  const data = await apiFetch<Category[] | { results?: Category[] }>("/categories/", {
     next: { revalidate: 300 },
   });
 
@@ -379,7 +378,7 @@ export async function getCategories(): Promise<Category[]> {
  * `frontend/lib/navigation-normalize.ts`).
  */
 export async function getNavigation(): Promise<NavigationResponse> {
-  const data = await apiFetch<any>("/navigation/", {
+  const data = await apiFetch<Record<string, unknown>>("/navigation/", {
     next: { revalidate: 300 },
   });
 
@@ -389,10 +388,10 @@ export async function getNavigation(): Promise<NavigationResponse> {
       ? data
       : [];
 
-  const departments: DepartmentNav[] = rawDepartments.map((d: any) => {
+  const departments: DepartmentNav[] = rawDepartments.map((d: Record<string, unknown>) => {
     const rawCategories = Array.isArray(d?.categories) ? d.categories : [];
 
-    const categories: CategoryNav[] = rawCategories.map((c: any) => ({
+    const categories: CategoryNav[] = rawCategories.map((c: Record<string, unknown>) => ({
       id: Number(c?.id) || 0,
       name: String(c?.name || "").trim(),
       slug: String(c?.slug || "").trim(),
@@ -492,7 +491,7 @@ export async function getCatalogo(
   });
 }
 
-function normalizeProductDetail(raw: any): ProductDetail {
+function normalizeProductDetail(raw: Record<string, unknown>): ProductDetail {
   // Defensive normalization: ensure runtime types are stable even if backend returns strings.
   const soldRaw = raw?.sold_out;
   const stockRaw = raw?.stock_total;
@@ -531,7 +530,7 @@ export async function getProductBySlug(
   slug: string,
   options?: ProductFetchOptions
 ): Promise<ProductDetail> {
-  const raw = await apiFetch<any>(`/products/${encodeURIComponent(slug)}/`, {
+  const raw = await apiFetch<Record<string, unknown>>(`/products/${encodeURIComponent(slug)}/`, {
     cache: options?.cache,
     next: options?.next,
   });
@@ -592,14 +591,14 @@ export async function getHomepagePromos(
  * - Cacheable with ISR-style revalidation.
  */
 export async function getHomepageMarqueeProducts(): Promise<HomepageMarqueeProduct[]> {
-  const data = await apiFetch<any>("/homepage-marquee-products/", {
+  const data = await apiFetch<Record<string, unknown>>("/homepage-marquee-products/", {
     next: { revalidate: 300 },
   });
 
   return extractHomepageMarqueeProducts(data);
 }
 
-function extractArray<T>(res: any): T[] {
+function extractArray<T>(res: Record<string, unknown>): T[] {
   if (Array.isArray(res)) return res as T[];
   if (Array.isArray(res?.results)) return res.results as T[];
   if (Array.isArray(res?.data)) return res.data as T[];
@@ -609,13 +608,13 @@ function extractArray<T>(res: any): T[] {
   return [];
 }
 
-function extractHomepageMarqueeProducts(res: any): HomepageMarqueeProduct[] {
+function extractHomepageMarqueeProducts(res: Record<string, unknown>): HomepageMarqueeProduct[] {
   if (Array.isArray(res)) return res as HomepageMarqueeProduct[];
   if (Array.isArray(res?.results)) return res.results as HomepageMarqueeProduct[];
   return [];
 }
 
-function isActiveRow(row: any): boolean {
+function isActiveRow(row: Record<string, unknown>): boolean {
   if (!row) return false;
   // soporta is_active o active (y null/undefined = true por defecto)
   if (typeof row.is_active === "boolean") return row.is_active;
@@ -652,7 +651,7 @@ export async function getHomepageStory(): Promise<HomepageStory | null> {
 
   for (const path of candidates) {
     try {
-      const data = await apiFetch<any>(path, {
+      const data = await apiFetch<Record<string, unknown>>(path, {
         next: { revalidate: 300 },
       });
       receivedHttpResponse = true;
@@ -665,17 +664,16 @@ export async function getHomepageStory(): Promise<HomepageStory | null> {
       }
 
       // 2) Si viene un objeto directo (legacy), lo aceptamos.
-      const maybe = (data?.story ?? data) as any;
+      const maybe = ((data?.story ?? data) ?? {}) as Record<string, unknown>;
       const hasFields =
         maybe &&
         (typeof maybe.title === "string" || typeof maybe.content === "string");
 
       if (hasFields && isActiveRow(maybe)) {
-        // Normaliza a HomepageStory mínimo
         return {
           id: Number(maybe.id) || 0,
           title: String(maybe.title || ""),
-          subtitle: (maybe.subtitle ?? null) as any,
+          subtitle: (maybe.subtitle as string) ?? null,
           content: String(maybe.content || ""),
           is_active:
             typeof maybe.is_active === "boolean"
@@ -688,9 +686,10 @@ export async function getHomepageStory(): Promise<HomepageStory | null> {
 
       // Si llegó pero no tiene forma esperada, seguimos probando.
       lastStatus = 200;
-    } catch (e: any) {
+    } catch (e: unknown) {
       lastError = e;
-      lastStatus = typeof e?.status === "number" ? e.status : lastStatus;
+      const errObj = e as Record<string, unknown>;
+      lastStatus = typeof errObj?.status === "number" ? errObj.status : lastStatus;
       continue;
     }
   }
