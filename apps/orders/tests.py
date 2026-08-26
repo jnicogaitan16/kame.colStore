@@ -64,7 +64,7 @@ def _make_product(category: Category, name="Camiseta Test", price=50_000) -> Pro
 def _make_variant(product: Product, size="M", color="Negro") -> ProductVariant:
     variant, _ = ProductVariant.objects.get_or_create(
         product=product,
-        size=size,
+        value=size,
         color=color,
         defaults={"is_active": True},
     )
