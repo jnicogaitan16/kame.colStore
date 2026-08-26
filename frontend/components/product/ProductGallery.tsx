@@ -31,29 +31,28 @@ type ZoomTransform = {
   y: number;
 };
 
-const DEFAULT_ZOOM_STATE: ZoomTransform = {
-  scale: 1,
-  x: 0,
-  y: 0,
-};
+const DEFAULT_ZOOM: ZoomTransform = { scale: 1, x: 0, y: 0 };
+const MIN_ZOOM = 1;
+const MAX_ZOOM = 3;
+
+function clamp(v: number, min: number, max: number) {
+  return Math.min(Math.max(v, min), max);
+}
+
+function dist(a: TouchPointLike, b: TouchPointLike) {
+  return Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY);
+}
 
 export function ProductGallery({ images, productName, soldOut = false, variant = "default" }: ProductGalleryProps) {
   const slides = useMemo(() => {
     if (!images?.length) return [];
-
     const seen = new Set<string>();
-
     return images
-      .map((img) => {
-        const url = img?.url ? normalizeProductMediaUrl(img.url) : "";
-        const thumb = img?.thumb_url ? normalizeProductMediaUrl(img.thumb_url) : "";
-
-        return {
-          ...img,
-          url,
-          thumb_url: thumb,
-        };
-      })
+      .map((img) => ({
+        ...img,
+        url: img?.url ? normalizeProductMediaUrl(img.url) : "",
+        thumb_url: img?.thumb_url ? normalizeProductMediaUrl(img.thumb_url) : "",
+      }))
       .filter((img) => {
         if (!img.url) return false;
         if (seen.has(img.url)) return false;
@@ -64,67 +63,42 @@ export function ProductGallery({ images, productName, soldOut = false, variant =
 
   const isPdp = variant === "pdp";
 
-  const MIN_PDP_ZOOM = 1;
-  const MAX_PDP_ZOOM = 3;
-  const [pdpZoom, setPdpZoom] = useState<Record<number, ZoomTransform>>({});
-  const gestureRef = useRef<{
-    startX: number;
-    startY: number;
-    moved: boolean;
-    pinchIndex: number | null;
-    startDistance: number;
-    startScale: number;
-    panIndex: number | null;
-    panStartX: number;
-    panStartY: number;
-    panOriginX: number;
-    panOriginY: number;
-    blockClickUntil: number;
-  }>({
+  // ── Refs for zero-re-render zoom during gestures ──
+  const zoomRef = useRef<ZoomTransform>(DEFAULT_ZOOM);
+  const zoomIndexRef = useRef<number | null>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const overlayImgRef = useRef<HTMLDivElement>(null);
+  const sourceSpanRefs = useRef<Record<number, HTMLSpanElement | null>>({});
+  const rafRef = useRef<number>(0);
+
+  const gestureRef = useRef({
     startX: 0,
     startY: 0,
     moved: false,
-    pinchIndex: null,
+    pinchIndex: null as number | null,
     startDistance: 0,
     startScale: 1,
-    panIndex: null,
-    panStartX: 0,
-    panStartY: 0,
-    panOriginX: 0,
-    panOriginY: 0,
     blockClickUntil: 0,
   });
+
   const surfaceRefs = useRef<Record<number, HTMLButtonElement | null>>({});
 
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
-
-  // Fullscreen zoom overlay (Instagram-style)
-  const activeZoomIndex = useMemo(() => {
-    for (const [key, zoom] of Object.entries(pdpZoom)) {
-      if (zoom && zoom.scale > 1.05) return Number(key);
-    }
-    return null;
-  }, [pdpZoom]);
-
-  const isFullscreenZoom = isPdp && activeZoomIndex !== null;
-
-  // Block body scroll during fullscreen zoom
-  useEffect(() => {
-    if (!isFullscreenZoom) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = prev; };
-  }, [isFullscreenZoom]);
+  const [overlayVisible, setOverlayVisible] = useState(false);
 
   useEffect(() => {
     setLightboxOpen(false);
-    setLightboxIndex((current) => (slides.length === 0 ? 0 : Math.min(current, slides.length - 1)));
+    setLightboxIndex((c) => (slides.length === 0 ? 0 : Math.min(c, slides.length - 1)));
   }, [slides]);
 
+  // Block body scroll during fullscreen zoom
   useEffect(() => {
-    setPdpZoom({});
-  }, [slides, variant]);
+    if (!overlayVisible) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, [overlayVisible]);
 
   const openLightbox = useCallback((index: number) => {
     setLightboxIndex(index);
@@ -135,112 +109,31 @@ export function ProductGallery({ images, productName, soldOut = false, variant =
     setLightboxOpen(false);
   }, []);
 
-  const clamp = useCallback((value: number, min: number, max: number) => {
-    return Math.min(Math.max(value, min), max);
-  }, []);
+  // ── Direct DOM updates (no React re-render) ──
+  const applyZoomToDOM = useCallback(() => {
+    const z = zoomRef.current;
+    const overlay = overlayRef.current;
+    const imgStage = overlayImgRef.current;
+    const idx = zoomIndexRef.current;
 
-  const getDistance = useCallback((touchA: TouchPointLike, touchB: TouchPointLike) => {
-    const dx = touchB.clientX - touchA.clientX;
-    const dy = touchB.clientY - touchA.clientY;
-    return Math.hypot(dx, dy);
-  }, []);
-
-  const getZoomState = useCallback(
-    (index: number) => {
-      return pdpZoom[index] ?? DEFAULT_ZOOM_STATE;
-    },
-    [pdpZoom],
-  );
-
-  const clampZoomState = useCallback(
-    (index: number, nextScale: number, nextX: number, nextY: number) => {
-      const scale = clamp(nextScale, MIN_PDP_ZOOM, MAX_PDP_ZOOM);
-
-      if (scale <= 1) {
-        return DEFAULT_ZOOM_STATE;
-      }
-
-      // Fullscreen zoom: allow pan across entire viewport
-      const vw = typeof window !== "undefined" ? window.innerWidth : 400;
-      const vh = typeof window !== "undefined" ? window.innerHeight : 800;
-      const maxX = Math.max(0, (vw * scale) / 2);
-      const maxY = Math.max(0, (vh * scale) / 2);
-
-      return {
-        scale,
-        x: clamp(nextX, -maxX, maxX),
-        y: clamp(nextY, -maxY, maxY),
-      };
-    },
-    [clamp],
-  );
-
-  const updateZoomState = useCallback(
-    (index: number, nextScale: number, nextX: number, nextY: number) => {
-      setPdpZoom((current) => ({
-        ...current,
-        [index]: clampZoomState(index, nextScale, nextX, nextY),
-      }));
-    },
-    [clampZoomState],
-  );
-
-  const resetZoomState = useCallback((index: number) => {
-    setPdpZoom((current) => ({
-      ...current,
-      [index]: DEFAULT_ZOOM_STATE,
-    }));
-  }, []);
-
-  const handlePointerDown = useCallback((index: number, clientX: number, clientY: number) => {
-    gestureRef.current.startX = clientX;
-    gestureRef.current.startY = clientY;
-    gestureRef.current.moved = false;
-
-    const zoom = getZoomState(index);
-    if (zoom.scale > 1) {
-      gestureRef.current.panIndex = index;
-      gestureRef.current.panStartX = clientX;
-      gestureRef.current.panStartY = clientY;
-      gestureRef.current.panOriginX = zoom.x;
-      gestureRef.current.panOriginY = zoom.y;
-    }
-  }, [getZoomState]);
-
-  const handlePointerMove = useCallback(
-    (index: number, clientX: number, clientY: number) => {
-      const deltaX = Math.abs(clientX - gestureRef.current.startX);
-      const deltaY = Math.abs(clientY - gestureRef.current.startY);
-
-      if (deltaX > 8 || deltaY > 8) {
-        gestureRef.current.moved = true;
-      }
-
-      if (gestureRef.current.panIndex !== index) return;
-      const zoom = getZoomState(index);
-      if (zoom.scale <= 1) return;
-
-      updateZoomState(
-        index,
-        zoom.scale,
-        gestureRef.current.panOriginX + (clientX - gestureRef.current.panStartX),
-        gestureRef.current.panOriginY + (clientY - gestureRef.current.panStartY),
-      );
-    },
-    [getZoomState, updateZoomState],
-  );
-
-  const handlePointerRelease = useCallback((index: number) => {
-    if (gestureRef.current.panIndex === index) {
-      gestureRef.current.panIndex = null;
+    if (overlay) {
+      const opacity = Math.min(0.85, (z.scale - 1) * 0.7);
+      overlay.style.background = `rgba(0,0,0,${opacity})`;
     }
 
-    const zoom = getZoomState(index).scale;
-    if (zoom <= 1.01) {
-      resetZoomState(index);
+    if (imgStage) {
+      imgStage.style.transform = `translate3d(${z.x}px, ${z.y}px, 0) scale(${z.scale})`;
     }
-  }, [getZoomState, resetZoomState]);
 
+    // Source image hidden/shown via touchStart/touchEnd directly
+  }, []);
+
+  const scheduleApply = useCallback(() => {
+    cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(applyZoomToDOM);
+  }, [applyZoomToDOM]);
+
+  // ── Gesture handlers ──
   const handleTouchStart = useCallback(
     (index: number, e: React.TouchEvent<HTMLButtonElement>) => {
       if (!isPdp) return;
@@ -248,18 +141,34 @@ export function ProductGallery({ images, productName, soldOut = false, variant =
       if (e.touches.length === 2) {
         gestureRef.current.blockClickUntil = Date.now() + 320;
         gestureRef.current.pinchIndex = index;
-        gestureRef.current.panIndex = null;
         gestureRef.current.moved = true;
-        gestureRef.current.startDistance = getDistance(e.touches[0], e.touches[1]);
-        gestureRef.current.startScale = getZoomState(index).scale;
+        gestureRef.current.startDistance = dist(e.touches[0], e.touches[1]);
+        gestureRef.current.startScale = zoomRef.current.scale;
+        zoomIndexRef.current = index;
+
+        // Hide source image immediately
+        const srcSpan = sourceSpanRefs.current[index];
+        if (srcSpan) {
+          srcSpan.style.transition = "none";
+          srcSpan.style.opacity = "0";
+        }
+
+        // Show overlay immediately
+        setOverlayVisible(true);
+
+        // Disable transitions during gesture
+        if (overlayRef.current) overlayRef.current.style.transition = "none";
+        if (overlayImgRef.current) overlayImgRef.current.style.transition = "none";
         return;
       }
 
       if (e.touches.length === 1) {
-        handlePointerDown(index, e.touches[0].clientX, e.touches[0].clientY);
+        gestureRef.current.startX = e.touches[0].clientX;
+        gestureRef.current.startY = e.touches[0].clientY;
+        gestureRef.current.moved = false;
       }
     },
-    [getDistance, getZoomState, handlePointerDown, isPdp],
+    [isPdp],
   );
 
   const handleTouchMove = useCallback(
@@ -268,38 +177,79 @@ export function ProductGallery({ images, productName, soldOut = false, variant =
 
       if (e.touches.length === 2 && gestureRef.current.pinchIndex === index) {
         e.preventDefault();
-        const nextDistance = getDistance(e.touches[0], e.touches[1]);
-        const nextScale = gestureRef.current.startScale * (nextDistance / gestureRef.current.startDistance);
-        const current = getZoomState(index);
-        updateZoomState(index, nextScale, current.x, current.y);
+        const nextDist = dist(e.touches[0], e.touches[1]);
+        const nextScale = clamp(
+          gestureRef.current.startScale * (nextDist / gestureRef.current.startDistance),
+          MIN_ZOOM,
+          MAX_ZOOM,
+        );
+
+        zoomRef.current = {
+          scale: nextScale,
+          x: zoomRef.current.x,
+          y: zoomRef.current.y,
+        };
+        scheduleApply();
         return;
       }
 
       if (e.touches.length === 1) {
-        const zoom = getZoomState(index);
-        if (zoom.scale > 1) {
-          e.preventDefault();
-        }
-        handlePointerMove(index, e.touches[0].clientX, e.touches[0].clientY);
+        const dx = Math.abs(e.touches[0].clientX - gestureRef.current.startX);
+        const dy = Math.abs(e.touches[0].clientY - gestureRef.current.startY);
+        if (dx > 8 || dy > 8) gestureRef.current.moved = true;
       }
     },
-    [getDistance, getZoomState, handlePointerMove, isPdp, updateZoomState],
+    [isPdp, scheduleApply],
   );
 
   const handleTouchEnd = useCallback(
     (index: number, e: React.TouchEvent<HTMLButtonElement>) => {
       if (!isPdp) return;
 
-      if (e.touches.length < 2) {
+      if (e.touches.length < 2 && gestureRef.current.pinchIndex === index) {
         gestureRef.current.pinchIndex = null;
-      }
+        zoomRef.current = DEFAULT_ZOOM;
 
-      if (e.touches.length === 0) {
-        handlePointerRelease(index);
+        const overlay = overlayRef.current;
+        const imgStage = overlayImgRef.current;
+        const srcSpan = sourceSpanRefs.current[index];
+
+        // Animate overlay image back to scale(1)
+        if (imgStage) {
+          imgStage.style.transition = "transform 280ms cubic-bezier(0.22,1,0.36,1)";
+          imgStage.style.transform = "translate3d(0,0,0) scale(1)";
+
+          // When animation ends: show source, remove overlay
+          const onDone = () => {
+            imgStage.removeEventListener("transitionend", onDone);
+            if (srcSpan) {
+              srcSpan.style.transition = "none";
+              srcSpan.style.opacity = "1";
+            }
+            if (overlay) {
+              overlay.style.transition = "none";
+              overlay.style.background = "rgba(0,0,0,0)";
+            }
+            zoomIndexRef.current = null;
+            setOverlayVisible(false);
+          };
+          imgStage.addEventListener("transitionend", onDone, { once: true });
+
+          // Safety fallback in case transitionend doesn't fire
+          setTimeout(onDone, 320);
+        }
+
+        // Fade overlay background during animation
+        if (overlay) {
+          overlay.style.transition = "background 280ms ease-out";
+          overlay.style.background = "rgba(0,0,0,0)";
+        }
       }
     },
-    [handlePointerRelease, isPdp],
+    [isPdp],
   );
+
+  const isTouchDevice = typeof window !== "undefined" && "ontouchstart" in window;
 
   const handleImageInteraction = useCallback(
     (index: number) => {
@@ -309,12 +259,14 @@ export function ProductGallery({ images, productName, soldOut = false, variant =
         gestureRef.current.moved = false;
         return;
       }
-
+      // On touch devices the pinch-zoom replaces the lightbox
+      if (isPdp && isTouchDevice) return;
       openLightbox(index);
     },
-    [openLightbox],
+    [openLightbox, isPdp, isTouchDevice],
   );
 
+  // ── Layout ──
   const wrapperClass = isPdp
     ? "relative w-full pb-10"
     : "relative aspect-square w-full overflow-hidden bg-transparent";
@@ -331,8 +283,6 @@ export function ProductGallery({ images, productName, soldOut = false, variant =
     ? "object-contain cursor-zoom-in bg-transparent transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
     : "object-contain object-center cursor-zoom-in bg-transparent";
 
-  const allowSwiperTouch = !isPdp || Object.values(pdpZoom).every((zoom) => (zoom?.scale ?? 1) <= 1.01);
-
   if (slides.length === 0) {
     return (
       <div className={emptyClass}>
@@ -344,6 +294,8 @@ export function ProductGallery({ images, productName, soldOut = false, variant =
       </div>
     );
   }
+
+  const overlaySlide = zoomIndexRef.current !== null ? slides[zoomIndexRef.current] : null;
 
   return (
     <div className={wrapperClass}>
@@ -365,7 +317,7 @@ export function ProductGallery({ images, productName, soldOut = false, variant =
           spaceBetween={0}
           slidesPerView={1}
           pagination={{ clickable: true }}
-          allowTouchMove={allowSwiperTouch}
+          allowTouchMove={!overlayVisible}
           className={`k-gallery-swiper relative z-[1] ${isPdp ? "k-gallery-swiper--pdp overflow-visible" : "h-full w-full"}`}
         >
           {slides.map((img, index) => {
@@ -373,7 +325,6 @@ export function ProductGallery({ images, productName, soldOut = false, variant =
             if (!src) return null;
 
             const alt = img.alt_text ?? productName ?? "Producto";
-            const zoom = getZoomState(index);
             const imageSizes = isPdp ? "100vw" : "(max-width: 768px) 100vw, 50vw";
             const unoptimizedImage = isPdp;
 
@@ -381,18 +332,10 @@ export function ProductGallery({ images, productName, soldOut = false, variant =
               <SwiperSlide key={`${img.url}-${index}`}>
                 <div className="relative flex w-full aspect-square items-center justify-center bg-transparent">
                   <button
-                    ref={(node) => {
-                      surfaceRefs.current[index] = node;
-                    }}
+                    ref={(node) => { surfaceRefs.current[index] = node; }}
                     type="button"
                     className={`group relative flex h-full w-full items-center justify-center overflow-hidden bg-transparent text-left ${isPdp ? "k-gallery-pdp-surface gallery-zoomable-surface" : ""}`}
                     aria-label={`Ampliar imagen ${index + 1} de ${slides.length}`}
-                    data-pressed={isPdp && zoom.scale > 1 ? "true" : "false"}
-                    onPointerDown={(e) => handlePointerDown(index, e.clientX, e.clientY)}
-                    onPointerMove={(e) => handlePointerMove(index, e.clientX, e.clientY)}
-                    onPointerUp={() => handlePointerRelease(index)}
-                    onPointerCancel={() => handlePointerRelease(index)}
-                    onPointerLeave={() => handlePointerRelease(index)}
                     onTouchStart={(e) => handleTouchStart(index, e)}
                     onTouchMove={(e) => handleTouchMove(index, e)}
                     onTouchEnd={(e) => handleTouchEnd(index, e)}
@@ -400,19 +343,8 @@ export function ProductGallery({ images, productName, soldOut = false, variant =
                     onClick={() => handleImageInteraction(index)}
                   >
                     <span
+                      ref={(node) => { sourceSpanRefs.current[index] = node; }}
                       className={`absolute inset-0 ${isPdp ? "gallery-zoomable-press" : ""}`}
-                      style={
-                        isPdp
-                          ? {
-                              transform: `translate3d(${zoom.x}px, ${zoom.y}px, 0) scale(${zoom.scale})`,
-                              transformOrigin: "center center",
-                              transition:
-                                gestureRef.current.panIndex === index || gestureRef.current.pinchIndex === index
-                                  ? "none"
-                                  : "transform 220ms cubic-bezier(0.22,1,0.36,1)",
-                            }
-                          : undefined
-                      }
                     >
                       <Image
                         key={src}
@@ -445,45 +377,37 @@ export function ProductGallery({ images, productName, soldOut = false, variant =
         setIndex={setLightboxIndex}
       />
 
-      {/* Fullscreen zoom overlay (Instagram-style) */}
-      {isFullscreenZoom && typeof document !== "undefined" && (() => {
-        const zoomIdx = activeZoomIndex!;
-        const zoom = getZoomState(zoomIdx);
-        const slide = slides[zoomIdx];
-        if (!slide?.url) return null;
-        const overlayOpacity = Math.min(1, (zoom.scale - 1) / 1.5);
-        const isGesturing = gestureRef.current.pinchIndex === zoomIdx || gestureRef.current.panIndex === zoomIdx;
-
-        return createPortal(
+      {/* Fullscreen zoom overlay (Instagram-style) — DOM-driven, no re-renders */}
+      {overlayVisible && typeof document !== "undefined" && overlaySlide?.url && createPortal(
+        <div
+          ref={overlayRef}
+          className="fixed inset-0 z-[200]"
+          style={{
+            pointerEvents: "none",
+            background: "rgba(0,0,0,0)",
+            willChange: "background",
+          }}
+        >
           <div
-            className="fixed inset-0 z-[200]"
+            ref={overlayImgRef}
+            className="absolute inset-0 flex items-center justify-center"
             style={{
               pointerEvents: "none",
-              background: `rgba(0,0,0,${overlayOpacity})`,
-              transition: isGesturing ? "background 50ms linear" : "background 250ms ease-out",
+              transform: "translate3d(0,0,0) scale(1)",
+              transformOrigin: "center center",
+              willChange: "transform",
             }}
           >
-            <div
-              className="absolute inset-0 flex items-center justify-center"
-              style={{
-                pointerEvents: "none",
-                transform: `translate3d(${zoom.x}px, ${zoom.y}px, 0) scale(${zoom.scale})`,
-                transformOrigin: "center center",
-                transition: isGesturing ? "none" : "transform 280ms cubic-bezier(0.22,1,0.36,1)",
-                willChange: "transform",
-              }}
-            >
-              <img
-                src={slide.url}
-                alt={slide.alt_text ?? productName ?? "Producto"}
-                className="max-w-full max-h-full object-contain"
-                draggable={false}
-              />
-            </div>
-          </div>,
-          document.body,
-        );
-      })()}
+            <img
+              src={overlaySlide.url}
+              alt={overlaySlide.alt_text ?? productName ?? "Producto"}
+              className="max-w-full max-h-full object-contain"
+              draggable={false}
+            />
+          </div>
+        </div>,
+        document.body,
+      )}
       <style jsx global>{`
         .k-gallery-swiper,
         .k-gallery-swiper .swiper,
