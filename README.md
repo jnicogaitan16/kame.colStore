@@ -65,10 +65,11 @@ pip install -r requirements/base.txt
 # pip install -r requirements/dev.txt
 ```
 
-Creá `.env` en la raíz (no commitear) con al menos: `DJANGO_SECRET_KEY`, `DJANGO_DEBUG=True`, `DJANGO_ALLOWED_HOSTS`, variables `DB_*` para PostgreSQL, claves **Wompi** y `RESEND_API_KEY`. La configuración de base de datos sigue `config/settings.py` leyendo esas variables.
+Copiá `.env.example` → `.env` en la raíz y completá al menos: `DJANGO_SECRET_KEY`, `DJANGO_DEBUG=True`, `DJANGO_ALLOWED_HOSTS`, `DATABASE_URL` (PostgreSQL) o dejá SQLite local, claves **Wompi** y `RESEND_API_KEY`. Ver `config/settings.py` para el resto.
 
 ```bash
 python manage.py migrate
+python manage.py collectstatic --noinput
 python manage.py createsuperuser
 python manage.py runserver
 ```
@@ -83,7 +84,9 @@ npm install
 npm run dev
 ```
 
-Storefront: **http://localhost:3000** — el proxy `/api` necesita el backend en marcha y `DJANGO_API_BASE` (u origen equivalente) en `frontend/.env.local` según tu entorno.
+Storefront: **http://localhost:3000** — copiá `frontend/.env.example` → `frontend/.env.local`. El proxy `/api` necesita el backend en marcha y `DJANGO_API_BASE` (u origen equivalente) según tu entorno.
+
+**Nota:** `staticfiles/` es generado por `collectstatic` y no se versiona. En deploy/prod el pipeline debe ejecutar `python manage.py collectstatic --noinput` antes de servir Django (admin, assets estáticos).
 
 ## 🔭 Sentry (resumen)
 

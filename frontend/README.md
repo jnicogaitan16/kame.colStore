@@ -22,13 +22,13 @@ Frontend público mobile-first: Next.js 14, Tailwind, Swiper, Zustand.
    cd frontend && npm install
    ```
 
-2. Crear `.env.local` en la raíz de `frontend/`:
+2. Copiar plantilla de entorno:
 
-   ```env
-   NEXT_PUBLIC_API_URL=http://127.0.0.1:8000/api
+   ```bash
+   cp .env.example .env.local
    ```
 
-   Si el backend corre en otro host/puerto, ajusta la URL (sin trailing slash).
+   Ajustá `NEXT_PUBLIC_API_URL` y `DJANGO_API_BASE` si el backend corre en otro host/puerto (sin trailing slash).
 
 ## Desarrollo
 

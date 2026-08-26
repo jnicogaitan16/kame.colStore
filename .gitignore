@@ -1,11 +1,24 @@
+# Python
 .venv/
+venv/
 __pycache__/
 *.pyc
-.env
-.DS_Store
+*.py[cod]
+*$py.class
 db.sqlite3
 *.sqlite3
+
+# Django
 media/
+staticfiles/
+
+# Secretos / entorno local
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
 
 # Logs
 logs/
@@ -14,17 +27,28 @@ logs/
 # Frontend (Next.js)
 frontend/node_modules/
 frontend/.next/
-frontend/.env.local
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
 frontend/.env.sentry-build-plugin
+
 # deps
-node_modules/
 node_modules/
 playwright-report/
 test-results/
 .playwright/
 *.tsbuildinfo
+
+# Editores / IDE (config personal)
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json.example
+
+# Cursor (tokens locales)
+.cursor/*
+!.cursor/mcp.json.example
+
+# Otros
 .claude/
 CLAUDE.md
-
-# MCP local (tokens); usar .cursor/mcp.json.example como plantilla
-.cursor/mcp.json
