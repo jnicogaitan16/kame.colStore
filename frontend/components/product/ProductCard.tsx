@@ -9,9 +9,10 @@ import { getProductCardImageCandidates } from "@/lib/product-media";
 import { productPath } from "@/lib/routes";
 import SoldOutBadge from "@/components/badges/SoldOutBadge";
 import { trackProductClick } from "@/hooks/useTracking";
+import type { Product } from "@/types/catalog";
 
 interface ProductCardProps {
-  product: any;
+  product: Product;
   index?: number;
   surface?: ProductCardSurface;
   isVisible?: boolean;
@@ -34,10 +35,10 @@ export function ProductCard({
   const imageCandidates = getProductCardImageCandidates(product);
   const imageCandidatesKey = useMemo(() => imageCandidates.join("|"), [imageCandidates]);
 
-  const name = (product as any)?.name ?? "";
-  const price = (product as any)?.price ?? "0";
-  const slug = (product as any)?.slug ?? "";
-  const productId = (product as any)?.id;
+  const name = product?.name ?? "";
+  const price = product?.price ?? "0";
+  const slug = product?.slug ?? "";
+  const productId = product?.id;
 
   const safeIndex =
     typeof index === "number" && Number.isFinite(index)
@@ -56,21 +57,16 @@ export function ProductCard({
   const img = imageCandidates[imageIndex] || "";
 
   const showSoldOutBadge = useMemo(() => {
-    if ((product as any)?.sold_out === true) return true;
+    if (product?.sold_out === true) return true;
 
-    const variants = Array.isArray((product as any)?.variants)
-      ? (product as any).variants
+    const variants = Array.isArray(product?.variants)
+      ? product.variants
       : [];
 
     if (!variants.length) return false;
 
-    return variants.every((variant: any) => {
-      const stock = Number(
-        variant?.stock ??
-          variant?.stock_total ??
-          variant?.inventory ??
-          0
-      );
+    return variants.every((variant) => {
+      const stock = Number(variant?.stock ?? 0);
 
       return !Number.isFinite(stock) || stock <= 0;
     });

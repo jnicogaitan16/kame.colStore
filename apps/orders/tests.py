@@ -358,3 +358,175 @@ class ApiHealthViewTests(TestCase):
         r = self.client.get("/api/health/")
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.json(), {"status": "ok"})
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TC-6: Shipping cost calculation
+# ─────────────────────────────────────────────────────────────────────────────
+
+class ShippingCostTest(TestCase):
+    """TC-6: calculate_shipping_cost edge cases."""
+
+    def test_free_shipping_at_threshold(self):
+        from apps.orders.services.shipping import calculate_shipping_cost
+        self.assertEqual(calculate_shipping_cost(170_000, "BOGOTA_DC"), 0)
+
+    def test_free_shipping_above_threshold(self):
+        from apps.orders.services.shipping import calculate_shipping_cost
+        self.assertEqual(calculate_shipping_cost(200_000, "MEDELLIN"), 0)
+
+    def test_bogota_rate_below_threshold(self):
+        from apps.orders.services.shipping import calculate_shipping_cost
+        self.assertEqual(calculate_shipping_cost(50_000, "BOGOTA_DC"), 11_900)
+
+    def test_national_rate(self):
+        from apps.orders.services.shipping import calculate_shipping_cost
+        self.assertEqual(calculate_shipping_cost(50_000, "CALI"), 19_900)
+
+    def test_threshold_boundary_minus_one(self):
+        from apps.orders.services.shipping import calculate_shipping_cost
+        self.assertEqual(calculate_shipping_cost(169_999, "BOGOTA_DC"), 11_900)
+
+    def test_unknown_city_defaults_to_national(self):
+        from apps.orders.services.shipping import calculate_shipping_cost
+        self.assertEqual(calculate_shipping_cost(50_000, "UNKNOWN"), 19_900)
+
+    def test_empty_city_defaults_to_national(self):
+        from apps.orders.services.shipping import calculate_shipping_cost
+        self.assertEqual(calculate_shipping_cost(50_000, ""), 19_900)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TC-7: Wompi service functions
+# ─────────────────────────────────────────────────────────────────────────────
+
+class WompiIntegritySignatureTest(TestCase):
+    """TC-7a: generate_integrity_signature determinism and format."""
+
+    @patch("apps.orders.services.wompi.settings")
+    def test_deterministic_output(self, mock_settings):
+        from apps.orders.services.wompi import generate_integrity_signature
+        mock_settings.WOMPI_INTEGRITY_SECRET = "test-integrity-secret"
+        sig1 = generate_integrity_signature("KAME-1-ABC", 10000)
+        sig2 = generate_integrity_signature("KAME-1-ABC", 10000)
+        self.assertEqual(sig1, sig2)
+        self.assertEqual(len(sig1), 64)  # SHA256 hex
+
+    @patch("apps.orders.services.wompi.settings")
+    def test_different_references_produce_different_signatures(self, mock_settings):
+        from apps.orders.services.wompi import generate_integrity_signature
+        mock_settings.WOMPI_INTEGRITY_SECRET = "test-integrity-secret"
+        sig1 = generate_integrity_signature("KAME-1-ABC", 10000)
+        sig2 = generate_integrity_signature("KAME-2-XYZ", 10000)
+        self.assertNotEqual(sig1, sig2)
+
+
+class WompiWebhookSignatureValidationTest(TestCase):
+    """TC-7b: validate_webhook_signature security checks."""
+
+    def _build_valid_payload(self, secret="test-events-secret", timestamp=1234567890):
+        """Build a valid webhook payload with matching checksum."""
+        import hashlib
+        transaction = {"id": "txn-123", "status": "APPROVED", "reference": "KAME-1-ABC"}
+        properties = ["transaction.id", "transaction.status"]
+        parts = [str(transaction["id"]), str(transaction["status"]),
+                 str(timestamp), secret]
+        checksum = hashlib.sha256("".join(parts).encode()).hexdigest()
+        event_data = {"data": {"transaction": transaction}}
+        return event_data, properties, checksum, timestamp
+
+    @patch("apps.orders.services.wompi.settings")
+    def test_valid_signature_passes(self, mock_settings):
+        from apps.orders.services.wompi import validate_webhook_signature
+        mock_settings.WOMPI_EVENTS_SECRET = "test-events-secret"
+        event_data, props, checksum, ts = self._build_valid_payload()
+        self.assertTrue(validate_webhook_signature(event_data, props, checksum, ts))
+
+    @patch("apps.orders.services.wompi.settings")
+    def test_invalid_checksum_fails(self, mock_settings):
+        from apps.orders.services.wompi import validate_webhook_signature
+        mock_settings.WOMPI_EVENTS_SECRET = "test-events-secret"
+        event_data, props, _, ts = self._build_valid_payload()
+        self.assertFalse(validate_webhook_signature(event_data, props, "bad-checksum", ts))
+
+    @patch("apps.orders.services.wompi.settings")
+    def test_wrong_timestamp_fails(self, mock_settings):
+        from apps.orders.services.wompi import validate_webhook_signature
+        mock_settings.WOMPI_EVENTS_SECRET = "test-events-secret"
+        event_data, props, checksum, _ = self._build_valid_payload()
+        self.assertFalse(validate_webhook_signature(event_data, props, checksum, 9999999))
+
+    @patch("apps.orders.services.wompi.settings")
+    def test_missing_secret_returns_false(self, mock_settings):
+        from apps.orders.services.wompi import validate_webhook_signature
+        mock_settings.WOMPI_EVENTS_SECRET = ""
+        event_data, props, checksum, ts = self._build_valid_payload()
+        self.assertFalse(validate_webhook_signature(event_data, props, checksum, ts))
+
+    @patch("apps.orders.services.wompi.settings")
+    def test_missing_transaction_data(self, mock_settings):
+        from apps.orders.services.wompi import validate_webhook_signature
+        mock_settings.WOMPI_EVENTS_SECRET = "test-events-secret"
+        self.assertFalse(validate_webhook_signature({}, ["transaction.id"], "bad", 123))
+
+
+class WompiCentsConversionTest(TestCase):
+    """TC-7c: cop_to_wompi_cents conversion."""
+
+    def test_basic_conversion(self):
+        from apps.orders.services.wompi import cop_to_wompi_cents
+        self.assertEqual(cop_to_wompi_cents(1), 100)
+        self.assertEqual(cop_to_wompi_cents(50_000), 5_000_000)
+
+    def test_zero(self):
+        from apps.orders.services.wompi import cop_to_wompi_cents
+        self.assertEqual(cop_to_wompi_cents(0), 0)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TC-8: Order._recalc_totals_in_memory
+# ─────────────────────────────────────────────────────────────────────────────
+
+class OrderRecalcTotalsTest(TestCase):
+    """TC-8: _recalc_totals_in_memory edge cases."""
+
+    def setUp(self):
+        dept, _ = Department.objects.get_or_create(name="Test Dept", slug="test-dept")
+        cat = _make_category("recalc-cat")
+        prod = _make_product(cat, "Recalc Product", 50000)
+        variant = _make_variant(prod, "M", "Negro")
+        _make_inventory(cat, "M", "Negro", 10)
+        customer = _make_customer(email="recalc@test.com")
+        self.order = _make_pending_order(customer, variant, qty=2, unit_price=50000)
+
+    def test_recalc_with_priced_items(self):
+        """Subtotal recalculated from items; total = subtotal + shipping."""
+        self.order.shipping_cost = 12000
+        self.order._recalc_totals_in_memory()
+        self.assertEqual(self.order.subtotal, 100000)  # 2 × 50,000
+        self.assertEqual(self.order.total, 112000)  # 100,000 + 12,000
+
+    def test_recalc_zero_shipping(self):
+        """Total equals subtotal when shipping is zero."""
+        self.order.shipping_cost = 0
+        self.order._recalc_totals_in_memory()
+        self.assertEqual(self.order.total, self.order.subtotal)
+
+    def test_recalc_preserves_subtotal_when_no_priced_items(self):
+        """Subtotal preserved if all items have unit_price=None."""
+        self.order.subtotal = 99999
+        for item in self.order.items.all():
+            item.unit_price = None
+            item.save()
+        self.order._recalc_totals_in_memory()
+        self.assertEqual(self.order.subtotal, 99999, "Must preserve manual subtotal")
+
+    def test_total_always_recalculated(self):
+        """Total is always subtotal + shipping, even if subtotal unchanged."""
+        self.order.subtotal = 80000
+        self.order.shipping_cost = 15000
+        for item in self.order.items.all():
+            item.unit_price = None
+            item.save()
+        self.order._recalc_totals_in_memory()
+        self.assertEqual(self.order.total, 95000)  # 80,000 + 15,000

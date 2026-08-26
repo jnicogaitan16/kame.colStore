@@ -92,6 +92,9 @@ export interface Product {
   // Campo legacy opcional de compatibilidad.
   image_url?: string | null;
   is_active: boolean;
+
+  // Presente cuando el producto llega con variantes expandidas (ej: PDP, marquee).
+  variants?: ProductVariant[];
 }
 
 // =============================
