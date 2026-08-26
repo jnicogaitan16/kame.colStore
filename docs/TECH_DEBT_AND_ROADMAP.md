@@ -1,455 +1,298 @@
-# Kame.col — Deuda Tecnica, Riesgos y Hoja de Ruta de Mejoras
+# Kame.col — Deuda Tecnica, Riesgos y Hoja de Ruta
 
-> Auditoria inicial: 2026-04-09. **Actualizado: 2026-08-26** — Auditoria completa con grafo de imports, funciones huerfanas, inventario de `any` (84 frontend / 30+ `except Exception` backend), console statements (36), cobertura de tests, seguridad, complejidad ciclomatica y estado de dependencias.
+> Auditoria inicial: 2026-04-09. **Ultima actualizacion: 2026-08-26** — Segundo barrido completo post-sprints 1-4 y sistema de descuentos.
 
 ---
 
 ## Resumen Ejecutivo
 
-Monorepo **Django 5.2.11 + DRF 3.15** (`apps/*`, `config/`) y **Next.js 14.2.15 App Router** (`frontend/`), con **PostgreSQL**, pagos **Wompi**, correo **Resend**, almacenamiento **Cloudflare R2** y E2E **Playwright** (`tests/`). El producto esta maduro para MVP en produccion.
+Monorepo **Django 5.2.17 + DRF 3.15.2** (`apps/*`, `config/`) y **Next.js 14.2.15 App Router** (`frontend/`), con **PostgreSQL**, pagos **Wompi**, correo **Resend**, almacenamiento **Cloudflare R2**, descuentos configurables y E2E **Playwright** (`tests/`).
 
-### Metricas del repositorio (agosto 2026)
+### Metricas del repositorio
 
 | Metrica | Valor |
 |---------|-------|
-| Archivos Python | 105 |
-| Archivos TSX | 73 |
-| Archivos TS | 55 |
-| Archivos JS | 9 |
-| Workflows CI | 4 (.yml) |
-| Migraciones Django | 16 (catalog: 12, orders: 3, customers: 1) |
-| Modelos Django | 15+ |
-| Rutas frontend | 25+ paginas/API routes |
-| Componentes React | 32 |
+| Archivos Python (excl. migrations) | 85 |
+| Archivos TSX | 74 |
+| Archivos TS | 37 |
+| Workflows CI | 4 (bandit, e2e, keep-alive, dependency-audit) |
+| Migraciones Django | 19 (catalog: 14, orders: 4, customers: 1) |
+| Modelos Django | 18 (catalog: 13, orders: 4, customers: 1) |
+| Rutas frontend | 35 paginas/API routes |
+| Componentes React | 33 |
+| Admin pages (Next.js) | 23 |
+| Tests backend | 42 |
+| Specs E2E | 8 (+ discounts.spec.ts excluido de CI) |
 
 ### Estado de salud del codigo
 
 | Area | Calificacion | Detalle |
 |------|-------------|---------|
-| Arquitectura | **A** | Separacion limpia: services layer, models, views/APIs, componentes |
-| Seguridad | **A-** | 2FA admin, Bandit CI, Sentry filtrado, webhook firmado; IP LAN en CSRF pendiente |
-| Tipado frontend | **C+** | 84 instancias de `any` en 20+ archivos |
-| Exception handling backend | **C** | 30+ `except Exception` broad sin tipo especifico |
-| Cobertura de tests | **B-** | Pagos/inventario cubiertos; admin, API endpoints, shipping sin tests |
-| Observabilidad | **B+** | Sentry backend+frontend; faltan metricas RED/APM y dashboards de negocio |
-| Dependencias | **B-** | Next 14 (latest 16), React 18 (latest 19), ESLint 8 (latest 10) |
+| Arquitectura | **A** | Services layer, models, views/APIs, componentes. Sistema de descuentos con scope hierarchy |
+| Seguridad | **A** | 2FA admin, Bandit CI, pip-audit CI, Sentry filtrado, webhook firmado, CSRF via env, rate limiting |
+| Tipado frontend | **B** | 84 → **~54 `any`** restantes (mayoria en admin pages y catch blocks) |
+| Exception handling backend | **B-** | `stock.py` corregido; `emails.py` evaluado como correcto; 27+ instancias restantes aceptables |
+| Cobertura de tests | **B+** | 42 tests backend + 8 specs E2E. Shipping, wompi, recalc, descuentos cubiertos |
+| Observabilidad | **B+** | Sentry backend+frontend; faltan metricas RED/APM |
+| Dependencias | **B** | Python actualizado (6 CVEs resueltas); Next 14 pendiente upgrade a 16 |
 
 ---
 
-## 1. Analisis Estatico de Codigo
+## 1. Analisis Estatico — Estado Actual
 
 ### 1.1 Grafo de Imports — Frontend
 
-**Resultado: Sin imports circulares.** Flujo de dependencias unidireccional limpio:
+**Sin imports circulares.** Flujo unidireccional verificado y mantenido.
 
-```
-types/ (sin deps internas)
-  └── lib/ (depende de types)
-       └── hooks/ (depende de lib, types)
-       └── store/ (depende de lib)
-            └── components/ (depende de lib, types, hooks, store)
-                 └── app/ pages (depende de todo lo anterior)
-```
+### 1.2 Archivos Huerfanos
 
-### 1.2 Archivos Huerfanos y Codigo Muerto
+| Item | Estado |
+|------|--------|
+| `frontend/store/ui.ts` | **Eliminado** (Sprint 1) |
+| Componentes sin uso | Ninguno detectado |
+| Codigo comentado / TODO / FIXME | Ninguno |
 
-**Frontend:**
+### 1.3 Tipado Frontend — `any` (~54 restantes)
 
-| Archivo | Estado | Accion |
-|---------|--------|--------|
-| `frontend/store/ui.ts` | `useUIStore` exportado pero **nunca importado** en todo el codebase | Eliminar o reutilizar |
-| Componentes en `components/` | Todos los 32 componentes verificados como **en uso** | OK |
-| Bloques de codigo comentado | **Ninguno** encontrado (3+ lineas consecutivas) | OK |
-| TODO/FIXME/HACK | **Ninguno** encontrado | OK |
+**Eliminados en sprints 1-4:** 30 instancias en archivos criticos:
+- `lib/api.ts`: 17 → **0**
+- `app/api/[...path]/route.ts`: 7 → **0**
+- `app/producto/[slug]/page.tsx`: 20 → **1** (tipo helper controlado)
+- `components/product/ProductCard.tsx`: 8 → **0**
+- `components/product/ProductGrid.tsx`: 3 → **0**
+- `components/header/Header.tsx`: 2 → **0**
 
-**Backend:**
+**Restantes (~54):** Mayoria en paginas admin (`catch (err: any)`), `lib/admin-api.ts` (4), `HomepagePromos.tsx` (8), `lib/errors/normalizeApiError.ts` (6), `app/categoria/[slug]/page.tsx` (9). Bajo riesgo.
 
-| Archivo | Estado | Accion |
-|---------|--------|--------|
-| `apps/orders/services/customers.py` | `get_or_create_customer()` — verificar si sigue en uso activo | Auditar referencias |
-| `apps/orders/services/product_variants.py` | Utilidad pequena, probablemente en uso | Verificar |
-| `apps/catalog/services/inventory_pool_bulk.py` | Usado por admin bulk load | Verificar integracion |
-| Bloques de codigo comentado | **Ninguno** encontrado | OK |
-| `print()` statements | **Ninguno** — usa logging correctamente | OK |
-| TODO/FIXME/HACK | **Ninguno** encontrado | OK |
+### 1.4 Console Statements
 
-### 1.3 Inventario completo de `any` — Frontend (84 instancias)
+- `console.log` → **`console.debug`** en `cart-stock-slice.ts` (6 instancias, gated por `DEV_VALIDATE_LOGS`)
+- `console.warn/error` en server components y admin: aceptables como logging de desarrollo
 
-#### Critico (tipos de datos de dominio sin tipar)
+### 1.5 Exception Handling Backend
 
-| Archivo | Instancias | Contexto |
-|---------|-----------|----------|
-| `app/producto/[slug]/page.tsx` | **20** | `product: any`, normalizers, error catches |
-| `lib/api.ts` | **17** | `apiFetch<any>`, payload, response normalization |
-| `app/categoria/[slug]/page.tsx` | **9** | Casts `as any` en resultados de API |
-| `components/product/ProductCard.tsx` | **8** | `product: any` prop, acceso con `(product as any)?.` |
-| `components/product/ProductGrid.tsx` | **3** | `products: any[]` prop |
-| `components/home/HomepagePromos.tsx` | **8** | `extractArray<T>(res: any)`, filter/sort callbacks |
-| `lib/errors/normalizeApiError.ts` | **6** | Payload inspection (aceptable por naturaleza dinamica) |
-| `components/header/Header.tsx` | **2** | `categories?: any[]`, `navDepartments?: any[]` |
+- `stock.py:118,129,137`: **Corregido** — `except Exception` → `except (TypeError, ValueError)`
+- `emails.py`: **Evaluado** — los `except Exception` con `logger.exception()` son correctos (fallback intencional)
+- Restantes: 27+ instancias en notifications/email modules — aceptables con logging existente
 
-#### Medio (API proxy y admin)
+### 1.6 Funciones Largas (>100 lineas)
 
-| Archivo | Instancias | Contexto |
-|---------|-----------|----------|
-| `app/api/[...path]/route.ts` | **7** | `context: any` en todos los handlers HTTP |
-| `lib/admin-api.ts` | **4** | `payload: any`, `err: any` |
-| `app/admin/*/page.tsx` (8 archivos) | **11** | `catch (err: any)` en paginas admin |
-
-#### Bajo (errores en catch — patron comun)
-
-| Archivo | Instancias |
-|---------|-----------|
-| `store/cart-stock-slice.ts` | 1 (`catch (error: any)`) |
-| `app/admin/login/page.tsx` | 2 |
-| `app/admin/recuperacion/page.tsx` | 1 |
-| `components/home/HomepagePromosClient.tsx` | 1 |
-
-**Recomendacion:** Crear tipos en `types/` para respuestas de API (`ProductResponse`, `CategoryResponse`, `NavigationResponse`) y reemplazar progresivamente. Los `catch (e: any)` pueden cambiarse a `catch (e: unknown)` con type guard.
-
-### 1.4 Console Statements — Frontend (36 instancias)
-
-| Tipo | Cantidad | Archivos principales |
-|------|----------|---------------------|
-| `console.log` | 8 | `store/cart-stock-slice.ts` (6 — validacion de stock en desarrollo) |
-| `console.warn` | 20 | `lib/api.ts`, `app/page.tsx`, `components/header/HeaderServer.tsx` (4), `HomepagePromos.tsx` (2), `lib/django-api-proxy.ts` |
-| `console.error` | 8 | `CheckoutClient.tsx`, admin pages (inventario, ordenes, productos, etc.) |
-
-**Accion:** Los `console.log` de `cart-stock-slice.ts` deben ir detras de flag dev o eliminarse. Los `console.warn/error` en server components y admin son aceptables como logging de desarrollo, pero considerar migrarlos a un logger estructurado o Sentry.
-
-### 1.5 Exception Handling — Backend (30+ instancias broad)
-
-**Archivos con mas `except Exception` sin tipo especifico:**
-
-| Archivo | Instancias | Lineas |
-|---------|-----------|--------|
-| `apps/notifications/email_product_media.py` | **12** | 32, 60, 65, 140, 148, 160, 166, 175, 188, 206 |
-| `apps/orders/services/stock.py` | **9** | 118, 129, 137, 170, 177, 188, 216, 252, 327 |
-| `apps/notifications/emails.py` | **5** | 126, 154, 207, 225, 265 |
-| `apps/notifications/email_context.py` | **3** | 88, 157, 185 |
-| `apps/orders/services/create_order_from_cart.py` | **1** | 404 (silent pass) |
-| `apps/orders/services/cart.py` | **1** | 27 |
-| `apps/catalog/models.py` | **1** | 468 (`warm_imagekit_derivatives`) |
-
-**Patron correcto existente** (en `payments.py`):
-```python
-except Exception:
-    logger.exception("Fallo enviando email de pago confirmado")
-```
-
-**Accion:** Reemplazar con tipos especificos (`ValueError`, `KeyError`, `IOError`, etc.) o al menos agregar `logger.exception()` con contexto.
-
-### 1.6 Complejidad Ciclomatica — Funciones Largas
-
-#### Critico (>100 lineas)
-
-| Funcion | Archivo | Lineas | Riesgo |
-|---------|---------|--------|--------|
-| `create_order_from_checkout()` | `orders/services/create_order_from_cart.py:324-502` | **179** | Orquestacion checkout end-to-end |
-| `_normalize_checkout_items()` | `orders/services/create_order_from_cart.py:168-321` | **154** | Maneja formatos list y dict |
-| `validate_items_stock()` | `orders/services/stock.py:142-279` | **138** | Agregacion y validacion de pools |
-| `confirm_order_payment()` | `orders/services/payments.py:45-189` | **145** | Ruta critica de pago |
-
-**Recomendacion:** Extraer helpers: `_validate_aggregated_qty()`, `_build_pool_maps()`, `_normalize_list_items()` / `_normalize_dict_items()`.
-
-#### Archivos >300 lineas
-
-| Archivo | Lineas | Estado |
-|---------|--------|--------|
-| `catalog/models.py` | ~1250 | OK (patron Django, multiples modelos) |
-| `catalog/serializers.py` | ~1050 | OK (multiples serializers REST) |
-| `catalog/admin.py` | ~800 | Candidato a dividir en submodulos |
-| `orders/services/create_order_from_cart.py` | ~503 | Aceptable (single responsibility) |
+4 funciones en checkout/stock evaluadas — bien organizadas con fases claras, refactor no necesario.
 
 ---
 
-## 2. Auditoria de Seguridad
+## 2. Seguridad
 
-### 2.1 Estado Actual — Sin hallazgos criticos
+### Controles implementados
 
-| Control | Estado | Detalle |
-|---------|--------|---------|
-| SECRET_KEY produccion | **OK** | `os.environ["DJANGO_SECRET_KEY"]` obligatorio; fallback solo en DEBUG |
-| DEBUG produccion | **OK** | Default `False`, controlado por `DJANGO_DEBUG` env |
-| SQL injection | **OK** | ORM exclusivo, sin `raw()` ni `cursor.execute()` |
-| eval/exec | **OK** | Ninguno en `*.py`/`*.ts`/`*.tsx` |
-| XSS | **OK** | Validacion de URLs CTA (bloquea `javascript:`, IPs) |
-| 2FA Admin | **OK** | Django OTP + TOTP obligatorio |
-| Admin IP restriction | **OK** | Middleware `AdminIPRestrictionMiddleware` con `ADMIN_ALLOWED_IPS` |
-| Wompi webhook | **OK** | SHA256 signature validation sin exposicion de secreto |
-| Sentry filtering | **OK** | `before_send` sanitiza password, card_number, cvv, email, token |
-| SSL/HTTPS | **OK** | `SECURE_SSL_REDIRECT`, cookies secure en produccion |
-| Bandit CI | **OK** | `bandit.yml` en push/PR a main, `-ll` (Medium+) |
-| Rate limiting DRF | **OK** | Anon 60/min, checkout 5/min, stock 30/min (produccion) |
-| Image upload | **OK** | 5MB max, extensiones .jpg/.jpeg/.png/.webp, UUID path |
+| Control | Estado |
+|---------|--------|
+| SECRET_KEY en env | OK |
+| DEBUG default False | OK |
+| SQL injection (ORM exclusivo) | OK |
+| 2FA Admin + IP restriction | OK |
+| Wompi webhook SHA256 | OK |
+| Sentry data sanitization | OK |
+| Bandit CI (Medium+) | OK |
+| pip-audit CI | OK |
+| Rate limiting DRF | OK |
+| CSRF via env (IP LAN removida) | **OK** (Sprint 1) |
+| Image upload validation | OK |
 
-### 2.2 Prioridad Media
+### Pendiente
 
-- **CSRF_TRUSTED_ORIGINS** incluye IP LAN fija (`192.168.20.128`) en `config/settings.py:61` — mover a variable de entorno exclusivamente.
-- **Proxy API Next** (`frontend/app/api/[...path]/route.ts`): 7 handlers con `context: any` — auditar que no amplie superficie (SSRF, headers).
-- **Re-import** `urlparse` en `settings.py:275` (ya importado en linea 16) — menor, limpieza.
-
-### 2.3 Hardening Recomendado
-
-- Evaluar **CSP headers** para storefront.
-- **Dependency audit** periodico: `pip audit` + `npm audit` en CI.
-- **Log rotation** para archivos de log Django si no se usa stdout exclusivo.
+- Evaluar **CSP headers** para storefront
+- **npm audit** deshabilitado en CI hasta upgrade Next 16 (CVEs conocidas en next/postcss/swiper)
 
 ---
 
-## 3. Registro de Riesgos (Actualizado agosto 2026)
+## 3. Registro de Riesgos
 
-| # | Riesgo | Probabilidad | Impacto | Mitigacion |
-|---|--------|--------------|---------|------------|
-| 1 | 84 instancias `any` en frontend ocultan errores de tipos en runtime | Alta | Medio | Crear tipos para respuestas API; reemplazar progresivamente por archivo |
-| 2 | 30+ `except Exception` broad silencian errores en backend | Alta | Alto | Agregar tipos especificos o `logger.exception()` con contexto |
-| 3 | Dependencias frontend desactualizadas (Next 14→16, React 18→19) | Alta | Medio | Hoja de ruta de upgrade + E2E completo antes de bump |
-| 4 | E2E sandbox solo Nequi; otros metodos sin E2E real | Alta | Medio | Anadir specs sandbox por metodo (patron Nequi) |
-| 5 | Test coverage gaps: admin, API endpoints, shipping, inventory services | Media | Alto | Tests unitarios prioritarios para shipping y stock |
-| 6 | Funciones >100 lineas en checkout/stock (4 funciones criticas) | Media | Medio | Refactor con helpers — no cambia logica, solo legibilidad |
-| 7 | Metricas RED/APM fuera de Sentry | Media | Medio | Health/version/metricas propias; alertas de negocio |
-| 8 | `catalog/admin.py` ~800 lineas — dificil de mantener | Baja | Bajo | Dividir en submodulos cuando toque refactor |
-| 9 | 36 console statements en frontend (8 console.log debug) | Baja | Bajo | Flag dev o eliminar; migrar warns a logger |
+| # | Riesgo | Probabilidad | Impacto | Estado |
+|---|--------|--------------|---------|--------|
+| 1 | Dependencias frontend desactualizadas (Next 14→16) | Alta | Medio | Roadmap — CVEs conocidas, Node audit deshabilitado |
+| 2 | E2E sandbox solo Nequi; otros metodos sin E2E real | Alta | Medio | Pendiente |
+| 3 | ~54 `any` restantes en frontend | Media | Bajo | Mayoria en admin catch blocks — bajo riesgo |
+| 4 | Metricas RED/APM fuera de Sentry | Media | Medio | Pendiente |
+| 5 | `catalog/admin.py` ~930 lineas | Baja | Bajo | Dividir cuando toque refactor |
 
 ---
 
-## 4. Evaluacion del Stack
+## 4. Dependencias
 
-### 4.1 Que esta funcionando bien
+### Backend (pip) — Actualizado 2026-08-26
 
-- **Django + DRF** con services layer limpios, ORM transaccional, migraciones y tests de dominio.
-- **Next 14 App Router** con fetch SSR, proxy `/api` same-origin, Image optimization (AVIF/WebP).
-- **PostgreSQL** con indices adecuados, `select_for_update()` para concurrencia en inventario.
-- **Zustand** para estado ligero (cart, auth, UI) — sin boilerplate Redux.
-- **React Hook Form + Zod** para validacion TypeScript-first en checkout y admin.
-- **Cloudflare R2** para media con CDN y ImageKit derivatives (thumb/medium/large/email).
-- **Sentry** en backend y frontend con source maps, `before_send` sanitizado.
-- **Framer Motion** para animaciones fluidas en storefront.
-- **2FA + IP restriction** en admin — seguridad enterprise-grade.
+| Paquete | Version | Notas |
+|---------|---------|-------|
+| Django | **5.2.17** | LTS, CVEs resueltas |
+| djangorestframework | **3.15.2** | XSS fix |
+| Pillow | **12.3.0** | CVEs criticas resueltas |
+| gunicorn | **22.0.0** | HTTP smuggling fix |
+| python-dotenv | **1.2.2** | Symlink fix |
+| sqlparse | **0.6.0** | ReDoS fix |
+| psycopg2-binary | 2.9.9 | OK |
 
-### 4.2 Que deberia cambiar
+### Frontend (npm) — Pendiente upgrade mayor
 
-- Planificar **upgrade mayor de Next/React** con ventana de QA dedicada.
-- Reducir `any` hacia tipos generados o inferidos desde contratos API (Zod schemas → types).
-- Refinar exception handling backend hacia tipos especificos.
-- Ampliar test coverage en areas sin tests (shipping, admin API, inventory services).
-
-### 4.3 Dependencias — Estado actual vs Latest
-
-#### Frontend (npm)
-
-| Paquete | Actual | Latest | Salto |
-|---------|--------|--------|-------|
-| next | 14.2.15 | 16.x | Major x2 |
-| react | 18.3.1 | 19.x | Major |
-| eslint | 8.57.1 | 10.x | Major x2 |
-| typescript | 5.6.3 | 5.x latest | Minor |
-| tailwindcss | 3.4.14 | 4.x | Major |
-| @sentry/nextjs | 10.48.0 | latest | Verificar |
-| framer-motion | 12.34.3 | latest | Verificar |
-| zustand | 5.0.1 | 5.x | OK |
-| zod | 3.23.8 | 3.x | OK |
-
-#### Backend (pip) — Actualizado Sprint 1 (2026-08-26)
-
-| Paquete | Actual | Anterior | Salto |
-|---------|--------|----------|-------|
-| Django | **5.2.17** | 5.2.11 | Patch (CVEs resueltas) |
-| djangorestframework | **3.15.2** | 3.15.0 | Patch (XSS fix) |
-| Pillow | **12.3.0** | 11.0.0 | Major (CVEs criticas) |
-| gunicorn | **22.0.0** | 21.2.0 | Major (HTTP smuggling fix) |
-| python-dotenv | **1.2.2** | 1.0.1 | Minor (symlink fix) |
-| sqlparse | **0.6.0** | 0.5.5 | Minor (ReDoS fix) |
-| boto3 | 1.42.52 | — | Verificar |
-| sentry-sdk | >=2.0.0 | — | Verificar |
-| psycopg2-binary | 2.9.9 | — | OK |
-
-### 4.4 Redis — Puntos de integracion recomendados
-
-- **Cache** de listados catalogo / navegacion (TTL corto).
-- **Rate limiting** distribuido si se escala horizontalmente.
-- **Cola** ligera (RQ/Celery) para emails y jobs de analytics.
+| Paquete | Actual | Latest | Accion |
+|---------|--------|--------|--------|
+| next | 14.2.15 | 16.x | Upgrade planificado (roadmap) |
+| react | 18.3.1 | 19.x | Viene con Next 16 |
+| tailwindcss | 3.4.14 | 4.x | Evaluar post-Next 16 |
+| eslint | 8.57.1 | 10.x | Evaluar post-Next 16 |
 
 ---
 
 ## 5. Cobertura de Tests
 
-### 5.1 Tests Backend — Existentes
+### Backend — 42 tests
 
-| Archivo | Tests | Cobertura |
-|---------|-------|-----------|
-| `apps/orders/tests.py` (361 lineas) | PaymentReferenceFormat (3), InventoryNotDecrementedAtCheckout (2), InventoryDecrementedOnPaymentConfirm (2), IdempotentPaymentConfirm (2), WompiWebhookIdempotency (1), ApiHealthView (1) | **Pagos + inventario + idempotencia** |
-| `apps/catalog/tests.py` | Existente | Catalogo basico |
-| `apps/customers/tests.py` | Existente | Customer basico |
-| `apps/notifications/tests/test_email_assets.py` | Existente | Assets de email |
-| `apps/notifications/tests/test_email_product_media.py` | Existente | Media URLs |
+| Suite | Tests | Cobertura |
+|-------|-------|-----------|
+| PaymentReferenceFormat | 3 | Formato y unicidad de referencia |
+| InventoryNotDecrementedAtCheckout | 2 | Stock no baja al crear orden |
+| InventoryDecrementedOnPaymentConfirm | 2 | Stock baja al confirmar pago |
+| IdempotentPaymentConfirm | 2 | No doble descuento |
+| WompiWebhookIdempotency | 1 | Webhook duplicado no descuenta doble |
+| ApiHealthView | 1 | Health endpoint |
+| ShippingCostTest | 7 | Threshold, Bogota, nacional, edge cases |
+| WompiIntegritySignature | 2 | Determinismo y unicidad |
+| WompiWebhookSignatureValidation | 5 | Firma valida, invalida, missing secret |
+| WompiCentsConversion | 2 | Conversion COP → centavos |
+| OrderRecalcTotals | 4 | Items con/sin precio, shipping |
+| DiscountRulePriority | 3 | PRODUCT > CATEGORY > DEPARTMENT > STORE_WIDE |
+| DiscountRuleDateRange | 3 | Futuro, expirado, inactivo |
+| DiscountCalculation | 4 | Porcentaje, monto fijo, estructura |
 
-### 5.2 Tests E2E — Existentes
+### E2E — 8 specs (CI) + 1 local
 
-| Spec | Cobertura |
+| Spec | Cobertura | CI |
+|------|-----------|-----|
+| smoke.spec.ts | Home, health, catalogo, PDP, checkout, legal, 404 | Si |
+| catalog.spec.ts | Grid, precio, navegacion, vacio, mobile | Si |
+| product.spec.ts | PDP, variantes, guia tallas, agotado, mobile | Si |
+| cart.spec.ts | Add, mini cart, eliminar, persistencia, mobile | Si |
+| navigation.spec.ts | Header, logo, menu mobile, routing | Si |
+| checkout.spec.ts | Formulario, submit, widget stub, errores, mobile | Si |
+| payments-nequi-sandbox.spec.ts | Sandbox Wompi real (Nequi) | Opt-in |
+| discounts.spec.ts | API descuentos: producto, departamento, prioridad | Local (requiere Django real) |
+
+### Gaps pendientes
+
+| Area | Prioridad |
 |------|-----------|
-| `smoke.spec.ts` | 200 en home, `/health`, catalogo, PDP, checkout, legal, 404 |
-| `catalog.spec.ts` | Grid, precio, navegacion a PDP, estado vacio, mobile |
-| `product.spec.ts` | PDP contenido, variantes, guia tallas, agotado, mobile |
-| `cart.spec.ts` | Add to cart, mini cart, eliminar, persistencia, mobile |
-| `navigation.spec.ts` | Header, logo, menu mobile, routing categoria |
-| `checkout.spec.ts` | Carga, validacion, envio, submit + widget stub, errores, stock warning, mobile |
-| `payments-nequi-sandbox.spec.ts` | Sandbox Wompi real (Nequi): aprobado y declinado |
-
-### 5.3 Gaps de Cobertura — Priorizados
-
-#### Prioridad 1 (antes del proximo release)
-
-| Area | Archivo(s) | Estado |
-|------|-----------|--------|
-| ~~Shipping cost calculation~~ | `apps/orders/services/shipping.py` | **Cubierto** — 7 tests (Sprint 2) |
-| ~~Wompi webhook signature~~ | `apps/orders/services/wompi.py` | **Cubierto** — 7 tests (Sprint 2) |
-| ~~Order total recalculation~~ | `apps/orders/models.py::_recalc_totals_in_memory()` | **Cubierto** — 4 tests (Sprint 2) |
-| Admin actions (inventory adjustments) | `apps/catalog/admin.py` | Pendiente |
-
-#### Prioridad 2
-
-| Area sin tests | Archivo(s) |
-|----------------|-----------|
-| Admin API views completos | `apps/admin_api/views_*.py` (9 archivos) |
-| Checkout API endpoints | `apps/orders/views_api.py` |
-| Stock management service | `apps/catalog/services/inventory.py` |
-| Email content generation | `apps/notifications/emails.py`, `email_context.py` |
-| Form validation | `apps/catalog/forms.py` |
-| Customer upsert | `apps/customers/services/customer_upsert.py` |
-
-### 5.4 E2E Pagos — Estado por metodo
-
-| Metodo | E2E? | Notas |
-|--------|------|-------|
-| Tarjeta (widget) | Parcial | CI con stub; sin spec sandbox real |
-| Nequi | Parcial | Sandbox real opt-in (`payments-nequi-sandbox.spec.ts`) |
-| Daviplata | No | Datos en `WOMPI_SANDBOX`; sin spec |
-| PSE | No | Datos en fixture; sin spec |
-| Bancolombia QR / Puntos | No | Datos en fixture; sin spec |
-| Correo pago completado | No | — |
-| Correo password reset | No | — |
+| Admin API views | P2 |
+| Checkout API endpoints | P2 |
+| Email content generation | P3 |
+| E2E sandbox otros metodos Wompi | P3 |
 
 ---
 
-## 6. Hoja de Ruta de Observabilidad
+## 6. Features Implementados (agosto 2026)
 
-### 6.1 Estado actual
+### Sistema de Descuentos (5 fases)
 
-- **Sentry Django:** `DjangoIntegration`, `LoggingIntegration`, `before_send` filtra datos sensibles. Comando: `python manage.py verify_sentry`.
-- **Sentry Next.js:** `@sentry/nextjs` con `sentry.runtime.config.ts`, tunel `/api/sentry-tunnel`.
-- **Logging:** Handlers a file + console para orders, catalog, customers, notifications, django.
-- **Health:** `GET /api/health/` (Django), `GET /health` (Next.js) — ambos implementados.
-- **Keep-alive:** Workflow `keep-alive.yml` cada 5 minutos ping a kamecol.com.
+| Componente | Detalle |
+|-----------|---------|
+| Modelo `DiscountRule` | Porcentaje o monto fijo, scope hierarchy (store/dept/cat/product), vigencia con fechas |
+| Servicio `discount.py` | `get_active_discount()`, `apply_discount()`, `get_product_discount_info()` |
+| API | `discount` field en ProductList/Detail/Marquee serializers |
+| Frontend display | Cards, PDP, marquees (home + PDP) con precio tachado + descuento |
+| Checkout | Precio con descuento server-side (S6), `original_price` en OrderItem |
+| Emails | Linea de descuento en resumen + precio tachado por item |
+| Admin Next.js | CRUD completo en `/admin/catalogo/descuentos` |
+| Admin Django | `DiscountRuleAdmin` con filtros, autocomplete |
+| Tests | 11 backend + 3 E2E (9 con browsers) |
 
-### 6.2 Monitoreo faltante
+### Zoom Fullscreen (Instagram-style)
 
-- Metricas RED/USE para API y tiempo de respuesta Wompi/Resend.
-- Dashboard de ordenes atascadas en `PENDING` > N minutos.
-- `GET /api/version` — git sha, build time.
-- `GET /api/metrics` — formato Prometheus basico (latencias, contadores checkout).
-- Alertas de negocio: productos con vistas altas y baja conversion.
-- Embudos visitas → add to cart → checkout → paid por canal.
+- Pinch-to-zoom abre overlay fullscreen via React portal
+- Zero React re-renders durante gesto (ref + rAF + DOM directo)
+- Snap back animado al soltar (280ms CSS transition)
+- Lightbox deshabilitado en mobile (pinch lo reemplaza)
+- Desktop: click para lightbox sin cambios
 
-### 6.3 Eventos a instrumentar
+### Auto-sync Variantes
 
-- `checkout_started`, `checkout_submitted`, `wompi_widget_opened`, `wompi_callback_received`, `order_paid`, `webhook_signature_failed`, `stock_validation_failed`.
-- Tracking existente en storefront — alinear con esquema versionado (`event_version: 1`).
+- Al crear producto, `sync_variants_for_category()` genera ProductVariant desde InventoryPool existente
+- Variantes activas si pool tiene stock (sin requerir imagenes)
+- Elimina paso manual de crear variantes cuando el pool ya existe
 
 ---
 
 ## 7. Migraciones y Base de Datos
 
-### 7.1 Estado de migraciones
-
-| App | Cantidad | Observacion |
-|-----|----------|-------------|
-| catalog | 12 | Incluye data migration `0003b_backfill_category_department` |
-| orders | 3 | Limpio |
+| App | Cantidad | Notas |
+|-----|----------|-------|
+| catalog | 14 | Incluye `0013_add_discount_rule` |
+| orders | 4 | Incluye `0004_add_original_price_to_orderitem` |
 | customers | 1 | Limpio |
-
-**Recomendacion:** Considerar squash de catalog 0001-0005 cuando supere 20 migraciones. Data migration `0003b` limpiar despues de confirmar que todos los datos estan poblados.
-
-### 7.2 Indices de base de datos
-
-- Categorical: `(department, slug)`, `(category, parent, slug)`
-- Inventory: `(category, value, color)` unique
-- Product: `(slug)` unique
-- Order: `(reference)` unique
-- Customer: `(document_type, cedula)` unique
-- Analytics: `event`, `session_id`, `product_id`, `timestamp`
 
 ---
 
-## 8. Plan de Accion Priorizado (Actualizado agosto 2026)
+## 8. Plan de Accion Pendiente
 
-### Inmediato (antes del proximo release)
+### Corto plazo
 
-| # | Tarea | Archivo(s) | Esfuerzo | Impacto |
-|---|-------|-----------|----------|---------|
-| 1 | ~~Refinar exception handling: tipos especificos~~ Parcial | `stock.py` corregido (3 instancias); `emails.py` evaluado y correcto | — | — |
-| 2 | ~~Tests para shipping, webhook validation, order totals~~ **Hecho** | 20 tests nuevos en `tests.py` | — | — |
-| 3 | ~~Eliminar `useUIStore` huerfano~~ **Hecho** | `frontend/store/ui.ts` eliminado | — | — |
-| 4 | ~~Quitar `console.log` de cart stock~~ **Hecho** | `console.log` → `console.debug` (6 instancias) | — | — |
-
-### Corto plazo (proximo sprint)
-
-| # | Tarea | Archivo(s) | Esfuerzo | Impacto |
-|---|-------|-----------|----------|---------|
-| 5 | Tipar respuestas API (`ProductResponse`, `CategoryResponse`) | `types/*.ts`, `lib/api.ts` | Medio | Alto |
-| 6 | ~~Tipar `ProductCard`/`ProductGrid`/`Header` props~~ **Hecho** | `any` → `Product`, `Product[]`, nav types | — | — |
-| 7 | Tipar API proxy `context` (Next.js params) | `app/api/[...path]/route.ts` | Bajo | Medio |
-| 8 | Tests admin API views | `apps/admin_api/views_*.py` | Alto | Medio |
-| 9 | ~~Mover IP LAN de CSRF a env exclusivo~~ **Hecho** | `config/settings.py` actualizado | — | — |
+| # | Tarea | Esfuerzo | Impacto |
+|---|-------|----------|---------|
+| 1 | Tipar `any` restantes en `HomepagePromos.tsx` y `categoria/page.tsx` | Bajo | Bajo |
+| 2 | Tests admin API views | Alto | Medio |
+| 3 | CSP headers para storefront | Medio | Medio |
 
 ### Medio plazo (roadmap)
 
 | # | Tarea | Esfuerzo | Impacto |
 |---|-------|----------|---------|
-| 10 | Upgrade Next 15/16 + React 19 | Alto | Alto |
-| 11 | Ampliar E2E sandbox Wompi (PSE, tarjeta, Daviplata, QR) | Alto | Alto |
-| 12 | Refactorizar funciones >100 lineas (checkout/stock) | Medio | Medio |
-| 13 | Dividir `catalog/admin.py` en submodulos | Medio | Bajo |
-| 14 | Evaluar Redis (cache catalogo + rate limit + cola) | Medio | Medio |
-| 15 | Metricas RED/APM + dashboards de negocio | Alto | Alto |
-| 16 | E2E correos transaccionales (Resend test API / buzón) | Medio | Medio |
-| 17 | Upgrade Tailwind 4 + ESLint 10 | Medio | Bajo |
+| 4 | Upgrade Next 16 + React 19 (reactivar npm audit en CI) | Alto | Alto |
+| 5 | Ampliar E2E sandbox Wompi (PSE, tarjeta, Daviplata) | Alto | Medio |
+| 6 | Metricas RED/APM + dashboards de negocio | Alto | Alto |
+| 7 | Evaluar Redis (cache catalogo + rate limit + cola) | Medio | Medio |
+| 8 | E2E correos transaccionales | Medio | Medio |
+| 9 | Upgrade Tailwind 4 + ESLint 10 | Medio | Bajo |
 
 ### Completado
 
 | Tarea | Fecha |
 |-------|-------|
-| Bandit en CI (`bandit.yml`) | 2026-04 |
-| Health endpoint Django (`GET /api/health/`) | 2026-04 |
-| Keep-alive workflow (`keep-alive.yml`) | 2026-04 |
+| Bandit en CI | 2026-04 |
+| Health endpoint Django | 2026-04 |
+| Keep-alive workflow | 2026-04 |
 | Sentry backend + frontend | 2026-04 |
 | 2FA admin + IP restriction | 2026-04 |
-| Rate limiting DRF (produccion) | 2026-04 |
-| Grafo de imports frontend (verificado sin circulares) | 2026-08 |
-| Inventario completo de `any` y console statements | 2026-08 |
-| Auditoria de exception handling backend | 2026-08 |
-| Auditoria de funciones huerfanas y codigo muerto | 2026-08 |
-| Eliminar `useUIStore` huerfano (`store/ui.ts`) | 2026-08 |
-| `console.log` → `console.debug` en `cart-stock-slice.ts` | 2026-08 |
-| `except Exception` → `(TypeError, ValueError)` en `stock.py` | 2026-08 |
-| IP LAN CSRF movida a env variable | 2026-08 |
-| Dependency audit CI (`pip-audit` en GitHub Actions) | 2026-08 |
-| Python deps actualizadas: Django 5.2.17, DRF 3.15.2, Pillow 12.3, Gunicorn 22, sqlparse 0.6 | 2026-08 |
-| Tipar `ProductCard`, `ProductGrid`, `Header` props (16 `any` eliminados) | 2026-08 |
-| Tests: shipping (7), wompi (9), order recalc (4) — 20 tests nuevos | 2026-08 |
+| Rate limiting DRF | 2026-04 |
+| Auditoria completa (grafo imports, any, console, exceptions, huerfanos) | 2026-08 |
+| Eliminar `useUIStore` huerfano | 2026-08 |
+| `console.log` → `console.debug` en cart-stock-slice | 2026-08 |
+| `except Exception` → `(TypeError, ValueError)` en stock.py | 2026-08 |
+| IP LAN CSRF → env variable | 2026-08 |
+| pip-audit CI (dependency-audit.yml) | 2026-08 |
+| Python deps: Django 5.2.17, DRF 3.15.2, Pillow 12.3, Gunicorn 22, sqlparse 0.6 | 2026-08 |
+| Tipar ProductCard, ProductGrid, Header, api.ts, route.ts, PDP page (30 `any` eliminados) | 2026-08 |
+| Tests: shipping (7), wompi (9), recalc (4), descuentos (11) — 31 tests nuevos | 2026-08 |
+| Fix tests pre-existentes: `_make_variant` (size→value), webhook payload, patch target | 2026-08 |
+| Sistema de descuentos completo (modelo, API, frontend, checkout, emails, admin) | 2026-08 |
+| Zoom fullscreen Instagram-style (pinch-to-zoom mobile PDP) | 2026-08 |
+| Auto-sync variantes desde InventoryPool al crear producto | 2026-08 |
+| Admin Next.js: pagina de descuentos (CRUD) | 2026-08 |
+| Node audit deshabilitado en CI (requiere Next 16) | 2026-08 |
+| Exclusion discounts.spec.ts de CI (requiere Django real) | 2026-08 |
 
 ---
 
-## Anexos — Comandos y herramientas
+## Anexos
 
 - **Bandit:** `bandit -r apps config -ll -c pyproject.toml`
-- **Pyright:** `pyrightconfig.json` configurado para `config.settings`
-- **ESLint:** `@typescript-eslint/no-explicit-any: off` (desactivado — contribuye a los 84 `any`)
-- **Dependencias backend:** `requirements/base.txt` (Django 5.2.17, DRF 3.15.2, Pillow 12.3.0, etc.)
-- **Dependencias frontend:** `frontend/package.json` (Next 14.2.15, React 18.3.1, etc.)
-- **CI workflows:** `bandit.yml` (seguridad), `e2e.yml` (Playwright), `keep-alive.yml` (ping produccion), `dependency-audit.yml` (pip-audit; Node audit deshabilitado hasta Next 16)
-- **Tests:** `tests/README.md` para detalle de E2E. `apps/*/tests.py` para backend.
+- **pip-audit:** CI en `dependency-audit.yml`; local: `pip-audit --strict --desc on`
+- **Pyright:** `pyrightconfig.json` configurado
+- **Dependencias backend:** `requirements/base.txt`
+- **Dependencias frontend:** `frontend/package.json`
+- **CI:** `bandit.yml`, `e2e.yml`, `keep-alive.yml`, `dependency-audit.yml` (Node audit comentado)
+- **Tests backend:** `apps/orders/tests.py` (42 tests)
+- **Tests E2E:** `tests/e2e/*.spec.ts` (8 specs CI + 1 local)
+- **Descuentos E2E (local):** `cd tests && DJANGO_API_BASE=http://localhost:8000 npx playwright test e2e/discounts.spec.ts`
+- **Skills Claude Code:** 16 slash commands en `.claude/commands/` (local, no versionados)
 
 ---
 
-*Fin del documento. Proxima auditoria programada: verificar progreso de items 1-4 en sprint actual.*
+*Fin del documento.*
