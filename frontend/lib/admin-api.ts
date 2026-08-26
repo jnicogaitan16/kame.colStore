@@ -634,3 +634,47 @@ export async function updateHomepageSection(
 export async function deleteHomepageSection(id: number): Promise<void> {
   await adminFetch<void>(`/admin/homepage/sections/${id}/delete/`, { method: "DELETE" });
 }
+
+// ── Discount Rules ──────────────────────────────────────────────────────────
+
+export type AdminDiscountRule = {
+  id: number;
+  name: string;
+  discount_type: string;
+  discount_value: number;
+  scope: string;
+  department_id: number | null;
+  department_name: string | null;
+  category_id: number | null;
+  category_name: string | null;
+  product_id: number | null;
+  product_name: string | null;
+  starts_at: string | null;
+  ends_at: string | null;
+  is_active: boolean;
+  is_currently_active: boolean;
+  priority: number;
+  created_at: string;
+};
+
+export async function getAdminDiscounts(): Promise<AdminDiscountRule[]> {
+  return adminFetch<AdminDiscountRule[]>("/admin/discounts/");
+}
+
+export async function createAdminDiscount(data: Record<string, unknown>): Promise<AdminDiscountRule> {
+  return adminFetch<AdminDiscountRule>("/admin/discounts/create/", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateAdminDiscount(id: number, data: Record<string, unknown>): Promise<AdminDiscountRule> {
+  return adminFetch<AdminDiscountRule>(`/admin/discounts/${id}/`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteAdminDiscount(id: number): Promise<void> {
+  await adminFetch<void>(`/admin/discounts/${id}/`, { method: "DELETE" });
+}

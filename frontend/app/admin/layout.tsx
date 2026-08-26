@@ -20,6 +20,7 @@ const NAV: { href: string; label: string; icon: string; indent?: boolean }[] = [
   { href: "/admin/catalogo/homepage-banners", label: "Homepage banners", icon: "🖼", indent: true },
   { href: "/admin/catalogo/promos-home", label: "Promos de Home", icon: "✦", indent: true },
   { href: "/admin/catalogo/secciones-home", label: "Secciones de Home", icon: "¶", indent: true },
+  { href: "/admin/catalogo/descuentos", label: "Descuentos", icon: "%", indent: true },
 ];
 
 function isNavItemActive(pathname: string, href: string): boolean {
