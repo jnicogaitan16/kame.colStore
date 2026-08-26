@@ -95,6 +95,17 @@ export interface Product {
 
   // Presente cuando el producto llega con variantes expandidas (ej: PDP, marquee).
   variants?: ProductVariant[];
+
+  // Descuento activo (null si no hay descuento).
+  discount?: {
+    has_discount: boolean;
+    compare_at_price: number;
+    discount_price: number;
+    discount_percentage: number;
+    discount_amount: number;
+    discount_label: string;
+    rule_name: string;
+  } | null;
 }
 
 // =============================
