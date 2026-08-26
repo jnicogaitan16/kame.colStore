@@ -13,6 +13,10 @@ import {
 } from "@/lib/product-media";
 import { buildProductDetailPDPViewModel } from "@/lib/product-detail-normalize";
 import { ProductDetailClient } from "./ProductDetailClient";
+import type { ProductDetail, PaginatedResponse, Product } from "@/types/catalog";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyProduct = ProductDetail & Record<string, any>;
 
 export const revalidate = 60;
 
@@ -50,11 +54,11 @@ function truncate(text: string, max = 180): string {
   return t.slice(0, max - 1).trimEnd() + "…";
 }
 
-function isNotFoundProduct(product: any): boolean {
+function isNotFoundProduct(product: AnyProduct): boolean {
   return !product || product?.detail === "Not found" || product?.detail === "Not found.";
 }
 
-function getCategorySlug(product: any): string | null {
+function getCategorySlug(product: AnyProduct): string | null {
   const candidate =
     product?.category?.slug ||
     product?.category_slug ||
@@ -65,7 +69,7 @@ function getCategorySlug(product: any): string | null {
   return value || null;
 }
 
-function getDepartmentSlug(product: any): string | null {
+function getDepartmentSlug(product: AnyProduct): string | null {
   const candidate =
     product?.category?.department?.slug ||
     product?.department?.slug ||
@@ -77,23 +81,24 @@ function getDepartmentSlug(product: any): string | null {
   return value || null;
 }
 
-function getCatalogItems(payload: any): any[] {
+function getCatalogItems(payload: PaginatedResponse<Product> | Product[]): AnyProduct[] {
   if (Array.isArray(payload)) {
-    return payload;
+    return payload as AnyProduct[];
   }
 
   if (Array.isArray(payload?.results)) {
-    return payload.results;
+    return payload.results as AnyProduct[];
   }
 
-  if (Array.isArray(payload?.items)) {
-    return payload.items;
+  const raw = payload as unknown as Record<string, unknown>;
+  if (Array.isArray(raw?.items)) {
+    return raw.items as AnyProduct[];
   }
 
   return [];
 }
 
-function normalizeDiscoveryProduct(product: any): DiscoveryProduct | null {
+function normalizeDiscoveryProduct(product: AnyProduct): DiscoveryProduct | null {
   const id = product?.id;
   const slug = String(product?.slug || "").trim();
   const name = String(product?.name || product?.title || "").trim();
@@ -165,8 +170,8 @@ function interleaveDiscoveryBuckets(
 }
 
 function buildMoreFromKameProducts(
-  currentProduct: any,
-  catalogPayload: any
+  currentProduct: AnyProduct,
+  catalogPayload: PaginatedResponse<Product> | Product[]
 ): DiscoveryProduct[] {
   const currentId = currentProduct?.id;
   const currentCategorySlug = getCategorySlug(currentProduct);
@@ -220,7 +225,7 @@ function buildMoreFromKameProducts(
     : [];
 }
 
-function normalizeProductForClient(product: any) {
+function normalizeProductForClient(product: AnyProduct) {
   const fallbackPrimaryImage = getProductPrimaryImage(product) || OG_DEFAULT_PATH;
   const fallbackGallery = getProductGalleryImages(product);
 
@@ -262,7 +267,7 @@ function normalizeProductForClient(product: any) {
   };
 }
 
-function buildProductMetadata(product: any, slug: string): Metadata {
+function buildProductMetadata(product: AnyProduct, slug: string): Metadata {
   const name = String(product?.name || product?.title || "Producto").trim();
   const descSource = product?.short_description || product?.shortDescription || product?.description || "";
   const description = truncate(descSource, 180) || "Producto en Kame.Col.";
@@ -354,12 +359,13 @@ function renderTemporaryApiFailure() {
   );
 }
 
-function logPdpStageError(stage: string, slug: string, e: any) {
+function logPdpStageError(stage: string, slug: string, e: unknown) {
+  const err = e as Record<string, unknown>;
   console.error(`[PDP] ${stage}`, {
     slug,
-    message: e?.message,
-    status: e?.status,
-    stack: e?.stack,
+    message: err?.message,
+    status: err?.status,
+    stack: err?.stack,
   });
 }
 
@@ -372,7 +378,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 
   try {
-    const product: any = await getCachedProductBySlug(slug, {
+    const product = await getCachedProductBySlug(slug, {
       next: { revalidate: 60 },
     });
 
@@ -392,13 +398,14 @@ export default async function ProductPage({ params }: PageProps) {
 
   if (!slug) notFound();
 
-  let product: any;
+  let product: ProductDetail;
   try {
     product = await getCachedProductBySlug(slug, {
       next: { revalidate: 60 },
     });
-  } catch (e: any) {
-    if (typeof e?.status === "number" && e.status === 404) {
+  } catch (e: unknown) {
+    const err = e as Record<string, unknown>;
+    if (typeof err?.status === "number" && err.status === 404) {
       notFound();
     }
 
@@ -410,21 +417,21 @@ export default async function ProductPage({ params }: PageProps) {
     notFound();
   }
 
-  let normalizedProduct: any;
+  let normalizedProduct: ReturnType<typeof normalizeProductForClient>;
   try {
     normalizedProduct = normalizeProductForClient(product);
-  } catch (e: any) {
+  } catch (e: unknown) {
     logPdpStageError("normalization failed", slug, e);
     return renderTemporaryApiFailure();
   }
 
-  let productViewModel: any;
+  let productViewModel: ReturnType<typeof buildProductDetailPDPViewModel>;
   try {
     // PDP contract: the normalizer is the single source of truth for
     // initial display variant, available-first resolution, gallery priority,
     // and sold-out semantics. This page must only orchestrate fetch -> normalize -> view model.
     productViewModel = buildProductDetailPDPViewModel(normalizedProduct);
-  } catch (e: any) {
+  } catch (e: unknown) {
     logPdpStageError("view-model build failed", slug, e);
     return renderTemporaryApiFailure();
   }
@@ -433,7 +440,7 @@ export default async function ProductPage({ params }: PageProps) {
   try {
     const catalogPayload = await getCachedCatalogo();
     moreFromKame = buildMoreFromKameProducts(normalizedProduct, catalogPayload);
-  } catch (e: any) {
+  } catch (e: unknown) {
     logPdpStageError("more-from-kame build failed", slug, e);
     moreFromKame = [];
   }
@@ -441,11 +448,11 @@ export default async function ProductPage({ params }: PageProps) {
   try {
     return (
       <ProductDetailClient
-        product={productViewModel as any}
+        product={productViewModel}
         moreFromKame={moreFromKame}
       />
     );
-  } catch (e: any) {
+  } catch (e: unknown) {
     logPdpStageError("render failed", slug, e);
     return renderTemporaryApiFailure();
   }
