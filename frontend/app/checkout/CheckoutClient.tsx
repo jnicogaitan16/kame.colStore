@@ -94,6 +94,7 @@ type CheckoutItemCandidate = StoreCartItem & {
   qty?: number;
   unit_price?: number | string;
   unitPrice?: number | string;
+  original_price?: number | string;
 };
 
 type FieldErrorLike = {
@@ -490,10 +491,17 @@ export default function CheckoutClient() {
         else if (typeof rawPrice === "string") unit_price = parseFloat(rawPrice);
         else unit_price = Number(rawPrice);
 
+        const rawOriginal = item.originalPrice ?? item.original_price ?? rawPrice;
+        let original_price = 0;
+        if (typeof rawOriginal === "number") original_price = rawOriginal;
+        else if (typeof rawOriginal === "string") original_price = parseFloat(rawOriginal);
+        else original_price = Number(rawOriginal);
+
         return {
           product_variant_id,
           quantity,
           unit_price: Math.round(unit_price || 0),
+          original_price: Math.round(original_price || unit_price || 0),
         };
       })
       .filter(

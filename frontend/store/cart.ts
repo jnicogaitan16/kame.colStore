@@ -19,7 +19,8 @@ export interface CartItem {
   productName: string;
   productSlug: string;
   variantLabel: string; // ej. "Talla M / Negro"
-  price: string;
+  price: string;           // precio efectivo (con descuento si aplica)
+  originalPrice?: string;  // precio original sin descuento (para mostrar tachado)
   quantity: number;
   /**
    * Canonical MiniCart media URL.
