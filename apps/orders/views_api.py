@@ -32,6 +32,7 @@ class StockValidateThrottle(AnonRateThrottle):
     scope = "stock_validate"
 
 from apps.catalog.models import ProductVariant
+from apps.catalog.services.discount import get_product_discount_info
 from apps.orders.models import Order
 
 from apps.orders.constants import CITY_CHOICES
@@ -430,17 +431,23 @@ class CheckoutAPIView(APIView):
                 )
 
             # Precio siempre desde el backend — ignorar unit_price del frontend (S6)
-            price = int(getattr(getattr(variant, "product", None), "price", 0) or 0)
+            product = getattr(variant, "product", None)
+            original_price = int(getattr(product, "price", 0) or 0)
+
+            # Aplicar descuento activo si existe
+            discount_info = get_product_discount_info(product) if product else None
+            effective_price = discount_info["discount_price"] if discount_info else original_price
 
             cart_items.append(
                 {
                     "product_variant": variant,
                     "qty": qty,
-                    "unit_price": int(price),
+                    "unit_price": int(effective_price),
+                    "original_price": int(original_price),
                     "product_variant_id": vid,
                 }
             )
-            subtotal += int(price) * qty
+            subtotal += int(effective_price) * qty
 
         if not cart_items:
             raise ValidationError(
