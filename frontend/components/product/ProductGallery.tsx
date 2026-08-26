@@ -2,6 +2,7 @@
 
 /** Galería PDP/catálogo. Usa --accent y clases globales desde globals.css; estilos locales del swiper en <style jsx>. */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Pagination } from "swiper/modules";
@@ -98,6 +99,24 @@ export function ProductGallery({ images, productName, soldOut = false, variant =
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
+  // Fullscreen zoom overlay (Instagram-style)
+  const activeZoomIndex = useMemo(() => {
+    for (const [key, zoom] of Object.entries(pdpZoom)) {
+      if (zoom && zoom.scale > 1.05) return Number(key);
+    }
+    return null;
+  }, [pdpZoom]);
+
+  const isFullscreenZoom = isPdp && activeZoomIndex !== null;
+
+  // Block body scroll during fullscreen zoom
+  useEffect(() => {
+    if (!isFullscreenZoom) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, [isFullscreenZoom]);
+
   useEffect(() => {
     setLightboxOpen(false);
     setLightboxIndex((current) => (slides.length === 0 ? 0 : Math.min(current, slides.length - 1)));
@@ -135,17 +154,17 @@ export function ProductGallery({ images, productName, soldOut = false, variant =
 
   const clampZoomState = useCallback(
     (index: number, nextScale: number, nextX: number, nextY: number) => {
-      const node = surfaceRefs.current[index];
-      const width = node?.clientWidth ?? 0;
-      const height = node?.clientHeight ?? 0;
       const scale = clamp(nextScale, MIN_PDP_ZOOM, MAX_PDP_ZOOM);
 
-      if (!width || !height || scale <= 1) {
+      if (scale <= 1) {
         return DEFAULT_ZOOM_STATE;
       }
 
-      const maxX = Math.max(0, ((width * scale) - width) / 2);
-      const maxY = Math.max(0, ((height * scale) - height) / 2);
+      // Fullscreen zoom: allow pan across entire viewport
+      const vw = typeof window !== "undefined" ? window.innerWidth : 400;
+      const vh = typeof window !== "undefined" ? window.innerHeight : 800;
+      const maxX = Math.max(0, (vw * scale) / 2);
+      const maxY = Math.max(0, (vh * scale) / 2);
 
       return {
         scale,
@@ -425,6 +444,46 @@ export function ProductGallery({ images, productName, soldOut = false, variant =
         index={lightboxIndex}
         setIndex={setLightboxIndex}
       />
+
+      {/* Fullscreen zoom overlay (Instagram-style) */}
+      {isFullscreenZoom && typeof document !== "undefined" && (() => {
+        const zoomIdx = activeZoomIndex!;
+        const zoom = getZoomState(zoomIdx);
+        const slide = slides[zoomIdx];
+        if (!slide?.url) return null;
+        const overlayOpacity = Math.min(1, (zoom.scale - 1) / 1.5);
+        const isGesturing = gestureRef.current.pinchIndex === zoomIdx || gestureRef.current.panIndex === zoomIdx;
+
+        return createPortal(
+          <div
+            className="fixed inset-0 z-[200]"
+            style={{
+              pointerEvents: "none",
+              background: `rgba(0,0,0,${overlayOpacity})`,
+              transition: isGesturing ? "background 50ms linear" : "background 250ms ease-out",
+            }}
+          >
+            <div
+              className="absolute inset-0 flex items-center justify-center"
+              style={{
+                pointerEvents: "none",
+                transform: `translate3d(${zoom.x}px, ${zoom.y}px, 0) scale(${zoom.scale})`,
+                transformOrigin: "center center",
+                transition: isGesturing ? "none" : "transform 280ms cubic-bezier(0.22,1,0.36,1)",
+                willChange: "transform",
+              }}
+            >
+              <img
+                src={slide.url}
+                alt={slide.alt_text ?? productName ?? "Producto"}
+                className="max-w-full max-h-full object-contain"
+                draggable={false}
+              />
+            </div>
+          </div>,
+          document.body,
+        );
+      })()}
       <style jsx global>{`
         .k-gallery-swiper,
         .k-gallery-swiper .swiper,
