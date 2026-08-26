@@ -124,6 +124,7 @@ function normalizeDiscoveryProduct(product: AnyProduct): DiscoveryProduct | null
     imageUrl: primaryImage || null,
     categorySlug: getCategorySlug(product),
     departmentSlug: getDepartmentSlug(product),
+    discount: product?.discount ?? null,
   };
 }
 
