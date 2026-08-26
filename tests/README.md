@@ -45,7 +45,7 @@ El checkout en CI sigue usando **stub** del widget (`e2e/fixtures/api-mocks.ts`)
 
 ## E2E Wompi sandbox (opt-in)
 
-**Alcance:** no hay E2E sandbox automatizado para *todos* los métodos de pago. Solo **`payments-nequi-sandbox.spec.ts`** ejerce el widget Wompi **real** (sandbox) con **Nequi**, en variantes **aprobada y declinada**, para validar la integración extremo a extremo. En CI estándar, el checkout sigue usando **stub** (`checkout.spec.ts`). Otros métodos: datos de prueba en `WOMPI_SANDBOX` sin spec Playwright dedicado por ahora — ver **`TECH_DEBT_AND_ROADMAP.md`** §6.
+**Alcance:** no hay E2E sandbox automatizado para *todos* los métodos de pago. Solo **`payments-nequi-sandbox.spec.ts`** ejerce el widget Wompi **real** (sandbox) con **Nequi**, en variantes **aprobada y declinada**, para validar la integración extremo a extremo. En CI estándar, el checkout sigue usando **stub** (`checkout.spec.ts`). Otros métodos: datos de prueba en `WOMPI_SANDBOX` sin spec Playwright dedicado por ahora — ver **`docs/TECH_DEBT_AND_ROADMAP.md`** §6.
 
 **Datos de prueba no secretos:** `e2e/fixtures/wompi-sandbox.ts` (`WOMPI_SANDBOX`: Nequi en uso por el spec; también tarjeta, PSE, Daviplata, QR, Puntos para referencia futura).
 
@@ -102,4 +102,4 @@ Convención en repo: **`WOMPI_SANDBOX`** en código + [docs.wompi.co](https://do
 
 ## Más contexto
 
-- Auditoría, riesgos y roadmap E2E (pagos/correos): `TECH_DEBT_AND_ROADMAP.md`
+- Auditoría, riesgos y roadmap E2E (pagos/correos): `docs/TECH_DEBT_AND_ROADMAP.md`

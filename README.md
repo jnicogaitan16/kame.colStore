@@ -37,7 +37,7 @@ Tienda e-commerce **streetwear**: **Django + DRF** (API y admin), **Next.js 14**
 | Observabilidad | Sentry |
 | CI — seguridad (Python) | [Bandit](https://bandit.readthedocs.io/) en GitHub Actions (`apps/`, `config/`; umbral Medium+) |
 
-**CI:** además de Bandit, **GitHub Actions** ejecuta **E2E** (build de Next + Playwright en `tests/`). Otros jobs y alcance: **`TECH_DEBT_AND_ROADMAP.md`** §6. Detalle Bandit: sección más abajo.
+**CI:** además de Bandit, **GitHub Actions** ejecuta **E2E** (build de Next + Playwright en `tests/`). Otros jobs y alcance: **`docs/TECH_DEBT_AND_ROADMAP.md`** §6. Detalle Bandit: sección más abajo.
 
 ## 📸 Screenshots
 
@@ -103,20 +103,22 @@ No subas `.env`, `frontend/.env.local` ni tokens al repositorio.
 |-----|--------|
 | E2E Playwright (checkout con mock) | `tests/README.md` — `cd tests && npm ci && npx playwright install chromium && CI=true npx playwright test` |
 | Bandit (Python) | Sección **Bandit** abajo; CI: `.github/workflows/bandit.yml` |
-| Alcance E2E, pagos, jobs opcionales en Actions | **`TECH_DEBT_AND_ROADMAP.md`** §6 (el README raíz no entra en detalle por método de pago) |
+| Alcance E2E, pagos, jobs opcionales en Actions | **`docs/TECH_DEBT_AND_ROADMAP.md`** §6 (el README raíz no entra en detalle por método de pago) |
 
-Deuda técnica, riesgos y roadmap: **`TECH_DEBT_AND_ROADMAP.md`**.
+Deuda técnica, riesgos y roadmap: **`docs/TECH_DEBT_AND_ROADMAP.md`**.
 
 ## 📦 Estructura (resumen)
 
 ```
 kame.colStore/
-├── apps/           # catalog, orders, customers, notifications, admin_api, …
-├── config/         # Django settings, urls
-├── frontend/       # Next.js storefront
-├── tests/          # Playwright E2E
+├── apps/             # catalog, orders, customers, notifications, admin_api, …
+├── config/           # Django settings, urls
+├── docs/             # Auditoría técnica, screenshots, archive
+├── frontend/         # Next.js storefront
+├── tests/            # Playwright E2E
+├── .claude/commands/ # Skills profesionales (slash commands)
 ├── .github/workflows/
-├── pyproject.toml  # Bandit [tool.bandit]
+├── pyproject.toml    # Bandit [tool.bandit]
 └── requirements/
 ```
 
@@ -133,7 +135,7 @@ kame.colStore/
 
 - Integraciones de envío (couriers)
 - Evolución de catálogo / promos / recomendaciones
-- CI ampliado (p. ej. lint frontend en Actions) y observabilidad tipo métricas — ver `TECH_DEBT_AND_ROADMAP.md`
+- CI ampliado (p. ej. lint frontend en Actions) y observabilidad tipo métricas — ver `docs/TECH_DEBT_AND_ROADMAP.md`
 
 
 ## 🔒 Bandit (análisis estático de seguridad)
