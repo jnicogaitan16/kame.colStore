@@ -54,11 +54,14 @@ def create_order_from_cart(
         order.payment_reference = ref
 
     for item in cart_items:
+        unit_price = int(item["unit_price"])
+        original_price = int(item.get("original_price") or unit_price)
         OrderItem.objects.create(
             order=order,
             product_variant_id=int(item["product_variant_id"]),
             quantity=int(item["qty"]),
-            unit_price=int(item["unit_price"]),
+            unit_price=unit_price,
+            original_price=original_price,
         )
 
     return order

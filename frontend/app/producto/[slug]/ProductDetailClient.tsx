@@ -869,6 +869,10 @@ export function ProductDetailClient({
         { value: variant.value ?? undefined, color: variant.color ?? undefined }
       );
 
+      const effectivePrice = product.discount?.has_discount
+        ? String(product.discount.discount_price)
+        : product.price;
+
       addItem(
         {
           variantId: variant.id,
@@ -876,7 +880,8 @@ export function ProductDetailClient({
           productName: product.name,
           productSlug: product.slug,
           variantLabel: buildVariantLabel(variant, selection.variantSchema),
-          price: product.price,
+          price: effectivePrice,
+          originalPrice: product.discount?.has_discount ? product.price : undefined,
           imageUrl: cartImageUrl,
         },
         1
@@ -899,6 +904,10 @@ export function ProductDetailClient({
       }
     );
 
+    const effectivePrice2 = product.discount?.has_discount
+      ? String(product.discount.discount_price)
+      : product.price;
+
     addItem(
       {
         variantId: variantToAdd.id,
@@ -906,7 +915,8 @@ export function ProductDetailClient({
         productName: product.name,
         productSlug: product.slug,
         variantLabel: buildVariantLabel(variantToAdd, selection.variantSchema),
-        price: product.price,
+        price: effectivePrice2,
+        originalPrice: product.discount?.has_discount ? product.price : undefined,
         imageUrl: cartImageUrl,
       },
       1
