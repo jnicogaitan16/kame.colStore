@@ -530,3 +530,143 @@ class OrderRecalcTotalsTest(TestCase):
             item.save()
         self.order._recalc_totals_in_memory()
         self.assertEqual(self.order.total, 95000)  # 80,000 + 15,000
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TC-9: Discount rules
+# ─────────────────────────────────────────────────────────────────────────────
+
+from django.utils import timezone
+from datetime import timedelta
+from apps.catalog.models import DiscountRule
+from apps.catalog.services.discount import get_active_discount, apply_discount, get_product_discount_info
+
+
+class DiscountRulePriorityTest(TestCase):
+    """TC-9a: Scope priority — PRODUCT > CATEGORY > DEPARTMENT > STORE_WIDE."""
+
+    def setUp(self):
+        self.cat = _make_category("Discount Cat")
+        self.dept = self.cat.department
+        self.product = _make_product(self.cat, "Discount Product", 100_000)
+        now = timezone.now()
+        self.base = {"starts_at": now - timedelta(hours=1), "is_active": True}
+
+    def test_store_wide_applies_when_only_rule(self):
+        DiscountRule.objects.create(
+            name="Store 5%", discount_value=5, scope="store_wide", **self.base
+        )
+        rule = get_active_discount(self.product)
+        self.assertIsNotNone(rule)
+        self.assertEqual(rule.scope, "store_wide")
+
+    def test_category_beats_store_wide(self):
+        DiscountRule.objects.create(
+            name="Store 5%", discount_value=5, scope="store_wide", **self.base
+        )
+        DiscountRule.objects.create(
+            name="Cat 10%", discount_value=10, scope="category",
+            category=self.cat, **self.base
+        )
+        rule = get_active_discount(self.product)
+        self.assertEqual(rule.scope, "category")
+
+    def test_product_beats_all(self):
+        DiscountRule.objects.create(
+            name="Store 5%", discount_value=5, scope="store_wide", **self.base
+        )
+        DiscountRule.objects.create(
+            name="Cat 10%", discount_value=10, scope="category",
+            category=self.cat, **self.base
+        )
+        DiscountRule.objects.create(
+            name="Prod 20%", discount_value=20, scope="product",
+            product=self.product, **self.base
+        )
+        rule = get_active_discount(self.product)
+        self.assertEqual(rule.scope, "product")
+        self.assertEqual(rule.discount_value, 20)
+
+
+class DiscountRuleDateRangeTest(TestCase):
+    """TC-9b: Discount only applies within starts_at / ends_at."""
+
+    def setUp(self):
+        self.cat = _make_category("Date Cat")
+        self.product = _make_product(self.cat, "Date Product", 80_000)
+
+    def test_future_discount_not_active(self):
+        DiscountRule.objects.create(
+            name="Future",
+            discount_value=10,
+            scope="store_wide",
+            starts_at=timezone.now() + timedelta(days=1),
+            is_active=True,
+        )
+        self.assertIsNone(get_active_discount(self.product))
+
+    def test_expired_discount_not_active(self):
+        DiscountRule.objects.create(
+            name="Expired",
+            discount_value=10,
+            scope="store_wide",
+            starts_at=timezone.now() - timedelta(days=2),
+            ends_at=timezone.now() - timedelta(days=1),
+            is_active=True,
+        )
+        self.assertIsNone(get_active_discount(self.product))
+
+    def test_inactive_rule_not_applied(self):
+        DiscountRule.objects.create(
+            name="Inactive",
+            discount_value=10,
+            scope="store_wide",
+            starts_at=timezone.now() - timedelta(hours=1),
+            is_active=False,
+        )
+        self.assertIsNone(get_active_discount(self.product))
+
+
+class DiscountCalculationTest(TestCase):
+    """TC-9c: Percentage and fixed amount calculations."""
+
+    def setUp(self):
+        self.cat = _make_category("Calc Cat")
+        self.product = _make_product(self.cat, "Calc Product", 100_000)
+        self.now = timezone.now()
+
+    def test_percentage_discount(self):
+        rule = DiscountRule.objects.create(
+            name="15% off", discount_type="percentage", discount_value=15,
+            scope="store_wide", starts_at=self.now - timedelta(hours=1), is_active=True,
+        )
+        applied = apply_discount(self.product.price, rule)
+        self.assertEqual(applied.discount_price, 85_000)
+        self.assertEqual(applied.discount_percentage, 15)
+        self.assertEqual(applied.discount_amount, 15_000)
+
+    def test_fixed_amount_discount(self):
+        rule = DiscountRule.objects.create(
+            name="10k off", discount_type="fixed_amount", discount_value=10_000,
+            scope="store_wide", starts_at=self.now - timedelta(hours=1), is_active=True,
+        )
+        applied = apply_discount(self.product.price, rule)
+        self.assertEqual(applied.discount_price, 90_000)
+        self.assertEqual(applied.discount_amount, 10_000)
+
+    def test_no_discount_returns_none(self):
+        info = get_product_discount_info(self.product)
+        self.assertIsNone(info)
+
+    def test_discount_info_structure(self):
+        DiscountRule.objects.create(
+            name="5%", discount_value=5, scope="store_wide",
+            starts_at=self.now - timedelta(hours=1), is_active=True,
+        )
+        info = get_product_discount_info(self.product)
+        self.assertIsNotNone(info)
+        self.assertTrue(info["has_discount"])
+        self.assertEqual(info["compare_at_price"], 100_000)
+        self.assertEqual(info["discount_price"], 95_000)
+        self.assertEqual(info["discount_percentage"], 5)
+        self.assertEqual(info["discount_label"], "-5%")

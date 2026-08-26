@@ -13,6 +13,7 @@ from .models import (
     Department,
     Category,
     CategorySizeGuide,
+    DiscountRule,
     InventoryPool,
     Product,
     ProductVariant,
@@ -905,3 +906,25 @@ class ProductVariantAdmin(admin.ModelAdmin):
 
     class Media:
         js = ("admin/catalog/productvariant_dynamic_value.js",)
+
+
+@admin.register(DiscountRule)
+class DiscountRuleAdmin(admin.ModelAdmin):
+    list_display = ("name", "discount_type", "discount_value", "scope", "is_active", "starts_at", "ends_at", "priority")
+    list_filter = ("is_active", "scope", "discount_type")
+    list_editable = ("is_active", "priority")
+    search_fields = ("name",)
+    autocomplete_fields = ("department", "category", "product")
+    fieldsets = (
+        ("Descuento", {
+            "fields": ("name", "discount_type", "discount_value"),
+        }),
+        ("Alcance", {
+            "fields": ("scope", "department", "category", "product"),
+            "description": "Selecciona el scope y completa el campo correspondiente.",
+        }),
+        ("Vigencia", {
+            "fields": ("starts_at", "ends_at", "is_active", "priority"),
+        }),
+    )
+    ordering = ("-is_active", "-priority", "-created_at")

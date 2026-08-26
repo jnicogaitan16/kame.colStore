@@ -25,6 +25,7 @@ from .models import (
 )
 
 from .services.inventory import get_pool_map, get_variant_available_stock
+from .services.discount import get_product_discount_info
 from .variant_rules import sort_variant_values
 
 
@@ -608,6 +609,7 @@ class ProductListSerializer(serializers.ModelSerializer):
     primary_medium_url = serializers.SerializerMethodField()
     stock_total = serializers.SerializerMethodField()
     sold_out = serializers.SerializerMethodField()
+    discount = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -624,6 +626,7 @@ class ProductListSerializer(serializers.ModelSerializer):
             "primary_thumb_url",
             "primary_medium_url",
             "is_active",
+            "discount",
         ]
 
     def _get_primary_list_image(self, obj):
@@ -747,6 +750,9 @@ class ProductListSerializer(serializers.ModelSerializer):
         _stock_total, sold_out, _pool_map = _effective_inventory_from_pool(obj.category_id, variants)
         return bool(sold_out)
 
+    def get_discount(self, obj):
+        return get_product_discount_info(obj)
+
 
 # ---------------------------------------------------------------------------
 # Product detail (producto + variantes + imágenes)
@@ -789,6 +795,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     primary_image = serializers.SerializerMethodField()
     primary_thumb_url = serializers.SerializerMethodField()
     primary_medium_url = serializers.SerializerMethodField()
+    discount = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -808,7 +815,11 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "variants",
+            "discount",
         ]
+
+    def get_discount(self, obj):
+        return get_product_discount_info(obj)
     def _get_primary_detail_image(self, obj):
         schema = getattr(getattr(obj, "category", None), "variant_schema", "")
 
