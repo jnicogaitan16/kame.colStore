@@ -200,7 +200,7 @@ export const createCartStockSlice: StateCreator<
 
     stockValidateTimer = setTimeout(() => {
       if (DEV_VALIDATE_LOGS) {
-        console.log("VALIDATE scheduled run", { reason });
+        console.debug("VALIDATE scheduled run", { reason });
       }
 
       void get().validateStockNow(reason);
@@ -215,7 +215,7 @@ export const createCartStockSlice: StateCreator<
     const itemsPayload = buildValidationPayload(get().items);
 
     if (DEV_VALIDATE_LOGS) {
-      console.log("VALIDATE payload", { reason, itemsPayload });
+      console.debug("VALIDATE payload", { reason, itemsPayload });
     }
 
     if (!itemsPayload.length) {
@@ -231,7 +231,7 @@ export const createCartStockSlice: StateCreator<
 
     const mySeq = ++stockValidateSeq;
     if (DEV_VALIDATE_LOGS) {
-      console.log("VALIDATE start", mySeq, { reason, itemsPayload });
+      console.debug("VALIDATE start", mySeq, { reason, itemsPayload });
     }
 
     set({
@@ -245,7 +245,7 @@ export const createCartStockSlice: StateCreator<
       });
 
       if (DEV_VALIDATE_LOGS) {
-        console.log("VALIDATE done", mySeq, {
+        console.debug("VALIDATE done", mySeq, {
           warningsByVariantId: (response as any)?.warningsByVariantId,
           hintsByVariantId: (response as any)?.hintsByVariantId,
         });
@@ -253,7 +253,7 @@ export const createCartStockSlice: StateCreator<
 
       const isLatest = mySeq === stockValidateSeq;
       if (DEV_VALIDATE_LOGS) {
-        console.log("VALIDATE apply", mySeq, {
+        console.debug("VALIDATE apply", mySeq, {
           isLatest,
           currentSeq: stockValidateSeq,
         });
@@ -271,7 +271,7 @@ export const createCartStockSlice: StateCreator<
       if (error?.name === "AbortError") return;
 
       if (DEV_VALIDATE_LOGS) {
-        console.log("VALIDATE error", mySeq, error);
+        console.debug("VALIDATE error", mySeq, error);
       }
       if (mySeq !== stockValidateSeq) return;
 
