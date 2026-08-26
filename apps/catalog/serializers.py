@@ -796,6 +796,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     primary_image = serializers.SerializerMethodField()
     primary_thumb_url = serializers.SerializerMethodField()
     primary_medium_url = serializers.SerializerMethodField()
+    primary_color = serializers.SerializerMethodField()
     discount = serializers.SerializerMethodField()
 
     class Meta:
@@ -813,11 +814,20 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             "primary_image",
             "primary_thumb_url",
             "primary_medium_url",
+            "primary_color",
             "created_at",
             "updated_at",
             "variants",
             "discount",
         ]
+
+    def get_primary_color(self, obj):
+        """Return the color of the primary/first ProductColorImage for initial PDP display."""
+        schema = getattr(getattr(obj, "category", None), "variant_schema", "")
+        if schema != Category.VariantSchema.SIZE_COLOR:
+            return None
+        img = self._get_primary_detail_image(obj)
+        return getattr(img, "color", None) if img else None
 
     def get_discount(self, obj):
         return get_product_discount_info(obj)
