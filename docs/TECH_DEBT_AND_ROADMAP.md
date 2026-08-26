@@ -250,17 +250,19 @@ except Exception:
 | zustand | 5.0.1 | 5.x | OK |
 | zod | 3.23.8 | 3.x | OK |
 
-#### Backend (pip)
+#### Backend (pip) — Actualizado Sprint 1 (2026-08-26)
 
-| Paquete | Actual | Latest | Salto |
-|---------|--------|--------|-------|
-| Django | 5.2.11 | 5.2.x | OK (LTS) |
-| djangorestframework | 3.15.0 | 3.15.x | OK |
-| Pillow | 11.0.0 | 11.x | OK |
-| boto3 | 1.42.52 | latest | Verificar |
-| sentry-sdk | >=2.0.0 | latest | Verificar |
-| psycopg2-binary | 2.9.9 | 2.9.x | OK |
-| gunicorn | 21.2.0 | latest | Verificar |
+| Paquete | Actual | Anterior | Salto |
+|---------|--------|----------|-------|
+| Django | **5.2.17** | 5.2.11 | Patch (CVEs resueltas) |
+| djangorestframework | **3.15.2** | 3.15.0 | Patch (XSS fix) |
+| Pillow | **12.3.0** | 11.0.0 | Major (CVEs criticas) |
+| gunicorn | **22.0.0** | 21.2.0 | Major (HTTP smuggling fix) |
+| python-dotenv | **1.2.2** | 1.0.1 | Minor (symlink fix) |
+| sqlparse | **0.6.0** | 0.5.5 | Minor (ReDoS fix) |
+| boto3 | 1.42.52 | — | Verificar |
+| sentry-sdk | >=2.0.0 | — | Verificar |
+| psycopg2-binary | 2.9.9 | — | OK |
 
 ### 4.4 Redis — Puntos de integracion recomendados
 
@@ -298,12 +300,12 @@ except Exception:
 
 #### Prioridad 1 (antes del proximo release)
 
-| Area sin tests | Archivo(s) | Impacto |
-|----------------|-----------|---------|
-| Shipping cost calculation | `apps/orders/services/shipping.py` | Alto — afecta total de orden |
-| Wompi webhook signature validation directa | `apps/orders/services/wompi.py` | Alto — seguridad de pagos |
-| Order total recalculation | `apps/orders/models.py::_recalc_totals_in_memory()` | Alto — integridad financiera |
-| Admin actions (inventory adjustments) | `apps/catalog/admin.py` | Medio — operaciones manuales |
+| Area | Archivo(s) | Estado |
+|------|-----------|--------|
+| ~~Shipping cost calculation~~ | `apps/orders/services/shipping.py` | **Cubierto** — 7 tests (Sprint 2) |
+| ~~Wompi webhook signature~~ | `apps/orders/services/wompi.py` | **Cubierto** — 7 tests (Sprint 2) |
+| ~~Order total recalculation~~ | `apps/orders/models.py::_recalc_totals_in_memory()` | **Cubierto** — 4 tests (Sprint 2) |
+| Admin actions (inventory adjustments) | `apps/catalog/admin.py` | Pendiente |
 
 #### Prioridad 2
 
@@ -385,20 +387,20 @@ except Exception:
 
 | # | Tarea | Archivo(s) | Esfuerzo | Impacto |
 |---|-------|-----------|----------|---------|
-| 1 | Refinar exception handling: tipos especificos + logging | `email_product_media.py`, `stock.py`, `emails.py`, `email_context.py` | Medio | Alto |
-| 2 | Tests para shipping, webhook validation, order totals | `shipping.py`, `wompi.py`, `models.py` | Medio | Alto |
-| 3 | Eliminar `useUIStore` huerfano | `frontend/store/ui.ts` | Bajo | Bajo |
-| 4 | Quitar `console.log` de cart stock o flag dev | `frontend/store/cart-stock-slice.ts` | Bajo | Bajo |
+| 1 | ~~Refinar exception handling: tipos especificos~~ Parcial | `stock.py` corregido (3 instancias); `emails.py` evaluado y correcto | — | — |
+| 2 | ~~Tests para shipping, webhook validation, order totals~~ **Hecho** | 20 tests nuevos en `tests.py` | — | — |
+| 3 | ~~Eliminar `useUIStore` huerfano~~ **Hecho** | `frontend/store/ui.ts` eliminado | — | — |
+| 4 | ~~Quitar `console.log` de cart stock~~ **Hecho** | `console.log` → `console.debug` (6 instancias) | — | — |
 
 ### Corto plazo (proximo sprint)
 
 | # | Tarea | Archivo(s) | Esfuerzo | Impacto |
 |---|-------|-----------|----------|---------|
 | 5 | Tipar respuestas API (`ProductResponse`, `CategoryResponse`) | `types/*.ts`, `lib/api.ts` | Medio | Alto |
-| 6 | Tipar `ProductCard`/`ProductGrid` props | `components/product/ProductCard.tsx`, `ProductGrid.tsx` | Bajo | Medio |
+| 6 | ~~Tipar `ProductCard`/`ProductGrid`/`Header` props~~ **Hecho** | `any` → `Product`, `Product[]`, nav types | — | — |
 | 7 | Tipar API proxy `context` (Next.js params) | `app/api/[...path]/route.ts` | Bajo | Medio |
 | 8 | Tests admin API views | `apps/admin_api/views_*.py` | Alto | Medio |
-| 9 | Mover IP LAN de CSRF a env exclusivo | `config/settings.py` | Bajo | Medio |
+| 9 | ~~Mover IP LAN de CSRF a env exclusivo~~ **Hecho** | `config/settings.py` actualizado | — | — |
 
 ### Medio plazo (roadmap)
 
@@ -427,6 +429,14 @@ except Exception:
 | Inventario completo de `any` y console statements | 2026-08 |
 | Auditoria de exception handling backend | 2026-08 |
 | Auditoria de funciones huerfanas y codigo muerto | 2026-08 |
+| Eliminar `useUIStore` huerfano (`store/ui.ts`) | 2026-08 |
+| `console.log` → `console.debug` en `cart-stock-slice.ts` | 2026-08 |
+| `except Exception` → `(TypeError, ValueError)` en `stock.py` | 2026-08 |
+| IP LAN CSRF movida a env variable | 2026-08 |
+| Dependency audit CI (`pip-audit` en GitHub Actions) | 2026-08 |
+| Python deps actualizadas: Django 5.2.17, DRF 3.15.2, Pillow 12.3, Gunicorn 22, sqlparse 0.6 | 2026-08 |
+| Tipar `ProductCard`, `ProductGrid`, `Header` props (16 `any` eliminados) | 2026-08 |
+| Tests: shipping (7), wompi (9), order recalc (4) — 20 tests nuevos | 2026-08 |
 
 ---
 
@@ -435,9 +445,9 @@ except Exception:
 - **Bandit:** `bandit -r apps config -ll -c pyproject.toml`
 - **Pyright:** `pyrightconfig.json` configurado para `config.settings`
 - **ESLint:** `@typescript-eslint/no-explicit-any: off` (desactivado — contribuye a los 84 `any`)
-- **Dependencias backend:** `requirements/base.txt` (Django 5.2.11, DRF 3.15.0, etc.)
+- **Dependencias backend:** `requirements/base.txt` (Django 5.2.17, DRF 3.15.2, Pillow 12.3.0, etc.)
 - **Dependencias frontend:** `frontend/package.json` (Next 14.2.15, React 18.3.1, etc.)
-- **CI workflows:** `bandit.yml` (seguridad), `e2e.yml` (Playwright), `keep-alive.yml` (ping produccion)
+- **CI workflows:** `bandit.yml` (seguridad), `e2e.yml` (Playwright), `keep-alive.yml` (ping produccion), `dependency-audit.yml` (pip-audit; Node audit deshabilitado hasta Next 16)
 - **Tests:** `tests/README.md` para detalle de E2E. `apps/*/tests.py` para backend.
 
 ---
