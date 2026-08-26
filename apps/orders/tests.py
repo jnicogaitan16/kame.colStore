@@ -292,6 +292,9 @@ class WompiWebhookIdempotencyTest(TestCase):
         self.pool = _make_inventory(self.category, quantity=10)
 
     def _build_webhook_payload(self, reference: str, transaction_id: str = "txn-abc123") -> dict:
+        # amount must match: cop_to_wompi_cents(order.total) = 50000 * 2 * 100 = 10_000_000
+        order = Order.objects.get(payment_reference=reference)
+        amount_in_cents = int(order.total) * 100
         return {
             "event": "transaction.updated",
             "data": {
@@ -299,7 +302,7 @@ class WompiWebhookIdempotencyTest(TestCase):
                     "id": transaction_id,
                     "reference": reference,
                     "status": "APPROVED",
-                    "amount_in_cents": 5000000,
+                    "amount_in_cents": amount_in_cents,
                     "currency": "COP",
                 }
             },
@@ -321,7 +324,7 @@ class WompiWebhookIdempotencyTest(TestCase):
 
         # Patch signature validation and email so they don't fail
         with (
-            patch("apps.orders.services.wompi.validate_webhook_signature", return_value=True),
+            patch("apps.orders.views_api.validate_webhook_signature", return_value=True),
             patch("apps.notifications.emails.send_payment_confirmed_email"),
         ):
             client = Client()
