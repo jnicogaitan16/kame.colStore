@@ -41,13 +41,8 @@ test-results/
 
 # Editores / IDE (config personal)
 .idea/
-.vscode/*
-!.vscode/extensions.json
-!.vscode/launch.json.example
-
-# Cursor (tokens locales)
-.cursor/*
-!.cursor/mcp.json.example
+.vscode/
+.cursor/
 
 # Otros
 .claude/
