@@ -113,6 +113,7 @@ export type PDPViewModel = ProductDetailViewModel &
     firstAvailableVariant: ProductVariant | null;
     initialDisplayVariant: ProductVariant | null;
     firstAvailableVariantId: number | null;
+    initialDisplayVariantId: number | null;
     variantMatrix: ProductVariantMatrix;
     variantsByColor: PDPVariantLookupRecord;
     variantsByValue: PDPVariantLookupRecord;
@@ -826,6 +827,7 @@ export function buildProductDetailPDPViewModel(
     firstAvailableVariant,
     initialDisplayVariant,
     firstAvailableVariantId: firstAvailableVariant?.id ?? null,
+    initialDisplayVariantId: initialDisplayVariant?.id ?? null,
     variantMatrix,
     variantsByColor,
     variantsByValue,
