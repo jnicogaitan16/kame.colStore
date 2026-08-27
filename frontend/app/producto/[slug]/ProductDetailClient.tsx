@@ -11,6 +11,7 @@ import SizeGuideDrawer from "@/components/product/SizeGuideDrawer";
 import { Button } from "@/components/ui/Button";
 import ShareButton from "@/components/ui/ShareButton";
 import { ProductDiscoveryRail } from "@/components/product/ProductDiscoveryRail";
+import { ShippingGuarantees } from "@/components/trust/ShippingGuarantees";
 
 import type { ProductVariant, SizeGuide } from "@/types/catalog";
 import { useTrackAddToCart, useTrackProductView } from "@/hooks/useTracking";
@@ -986,6 +987,8 @@ export function ProductDetailClient({
             selectedVariant={selection.selectedVariant}
             triggerRef={addToCartButtonRef}
           />
+
+          <ShippingGuarantees />
 
           <ProductDescription
             description={product.description}
