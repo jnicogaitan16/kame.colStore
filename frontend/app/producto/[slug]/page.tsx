@@ -447,11 +447,45 @@ export default async function ProductPage({ params }: PageProps) {
   }
 
   try {
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.kamecol.com";
+    const productUrl = `${siteUrl}/producto/${encodeURIComponent(slug)}`;
+    const productImage = getProductPrimaryImage(product) || `${siteUrl}/og/default.jpg`;
+    const isSoldOut = product.sold_out === true;
+    const discountInfo = product.discount;
+
+    const jsonLd = {
+      "@context": "https://schema.org",
+      "@type": "Product",
+      name: product.name,
+      description: product.description || `${product.name} — Kame.col`,
+      image: toAbsoluteProductMediaUrl(productImage, `${siteUrl}/og/default.jpg`),
+      brand: { "@type": "Brand", name: "Kame.col" },
+      url: productUrl,
+      offers: {
+        "@type": "Offer",
+        price: discountInfo?.has_discount
+          ? discountInfo.discount_price
+          : Number(product.price),
+        priceCurrency: "COP",
+        availability: isSoldOut
+          ? "https://schema.org/OutOfStock"
+          : "https://schema.org/InStock",
+        url: productUrl,
+        seller: { "@type": "Organization", name: "Kame.col" },
+      },
+    };
+
     return (
-      <ProductDetailClient
-        product={productViewModel}
-        moreFromKame={moreFromKame}
-      />
+      <>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+        <ProductDetailClient
+          product={productViewModel}
+          moreFromKame={moreFromKame}
+        />
+      </>
     );
   } catch (e: unknown) {
     logPdpStageError("render failed", slug, e);

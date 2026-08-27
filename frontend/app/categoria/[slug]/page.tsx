@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getNavigation, getProducts } from "@/lib/api";
 import ProductGrid from "@/components/product/ProductGrid";
@@ -9,6 +10,23 @@ export const revalidate = 300;
 interface PageProps {
   params: Promise<{ slug: string }>;
   searchParams: Promise<{ page?: string; search?: string; dept?: string }>;
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const raw = (await params)?.slug;
+  const slug = decodeURIComponent(String(raw || "")).trim();
+  if (!slug) return {};
+
+  const displayName = slug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+
+  return {
+    title: `${displayName} | Kame.col`,
+    description: `Explora nuestra colección de ${displayName}. Ropa urbana con diseño propio. Envíos a toda Colombia.`,
+    openGraph: {
+      title: `${displayName} | Kame.col`,
+      description: `Colección ${displayName} — Streetwear colombiano con envío a todo el país.`,
+    },
+  };
 }
 
 export default async function CategoryPage({ params, searchParams }: PageProps) {
