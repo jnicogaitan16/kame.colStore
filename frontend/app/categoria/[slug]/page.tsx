@@ -20,7 +20,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const displayName = slug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
   return {
-    title: `${displayName} | Kame.col`,
+    title: displayName,
     description: `Explora nuestra colección de ${displayName}. Ropa urbana con diseño propio. Envíos a toda Colombia.`,
     openGraph: {
       title: `${displayName} | Kame.col`,

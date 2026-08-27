@@ -6,7 +6,7 @@ import {
 } from "@/lib/api";
 
 export const metadata: Metadata = {
-  title: "Kame.col — Streetwear Colombiano | Ropa Urbana Bogotá",
+  title: { absolute: "Kame.col — Streetwear Colombiano | Ropa Urbana Bogotá" },
   description:
     "Tienda online de ropa urbana y streetwear en Colombia. Camisetas, hoodies y accesorios con diseño propio. Envíos a toda Colombia. Compra segura con Wompi.",
   keywords: ["ropa urbana", "streetwear colombia", "camisetas bogota", "ropa oversize", "moda urbana colombiana", "kame col"],

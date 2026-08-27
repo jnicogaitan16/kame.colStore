@@ -447,7 +447,7 @@ export default async function ProductPage({ params }: PageProps) {
   }
 
   try {
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.kamecol.com";
+    const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.kamecol.com").replace(/\/$/, "");
     const productUrl = `${siteUrl}/producto/${encodeURIComponent(slug)}`;
     const productImage = getProductPrimaryImage(product) || `${siteUrl}/og/default.jpg`;
     const isSoldOut = product.sold_out === true;

@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://www.kamecol.com";
+const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.kamecol.com").replace(/\/$/, "");
 const API_BASE = process.env.DJANGO_API_BASE || process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 
 type ApiProduct = { slug: string; updated_at?: string };
@@ -56,8 +56,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ];
 
+  const seenSlugs = new Set<string>();
   const categoryPages: MetadataRoute.Sitemap = categories
-    .filter((c) => c.slug)
+    .filter((c) => {
+      if (!c.slug || seenSlugs.has(c.slug)) return false;
+      seenSlugs.add(c.slug);
+      return true;
+    })
     .map((c) => ({
       url: `${SITE_URL}/categoria/${encodeURIComponent(c.slug)}`,
       changeFrequency: "weekly" as const,
