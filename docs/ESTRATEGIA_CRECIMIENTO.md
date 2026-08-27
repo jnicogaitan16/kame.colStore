@@ -4,21 +4,35 @@
 
 ---
 
-## Diagnostico actual
+## Diagnostico actual (actualizado 2026-08-27)
 
-### Lo que tienes
+### Lo que tienes (mas de lo que parece)
 
-- Producto solido: tienda custom con checkout, pagos Wompi, descuentos, zoom, emails
-- Dominio activo: kamecol.com
-- Redes: LinkedIn (awareness tecnico), intentos en Instagram
-- Descuentos activos para departamento Mujer (10%)
+**Storefront:**
+- Tienda custom (Django + Next.js) con checkout completo, pagos Wompi (6 metodos), emails transaccionales
+- Sistema de descuentos configurable (por tienda, departamento, categoria, producto) con vigencia por fechas
+- Zoom fullscreen estilo Instagram en PDP mobile
+- Auto-sync de variantes desde InventoryPool
 
-### Lo que te falta
+**Admin panel completo (Next.js):**
+- **Dashboard:** ventas totales, ticket promedio, conversion rate, revenue en riesgo, ventas diarias, top 5 productos, embudo de conversion, ordenes recientes
+- **Analitica:** embudo completo (vista → click → cart → checkout → compra), rendimiento por producto (vistas, clics, conv. %, CTR), actividad diaria, mix de eventos, checkout steps detallados, 37 sesiones unicas rastreadas
+- **Recuperacion:** listado de ordenes pendientes de pago con envio de email de recordatorio individual o masivo (rate limit 24h), template HTML con WhatsApp fallback
+- **Ordenes:** filtros por estado/fecha/busqueda, acciones (enviar, cancelar, recordatorio), historial de status
+- **Clientes:** CRM con LTV, frecuencia de compra, historial de ordenes, top productos comprados, edicion de perfil
+- **Catalogo:** CRUD productos, variantes, categorias, departamentos, inventario, homepage banners/promos/secciones, descuentos
 
-- **Nadie te encuentra en Google.** No hay robots.txt, sitemap, ni Schema.org. Google probablemente no esta indexando tus productos correctamente.
-- **No mides nada de marketing.** Sin Google Analytics, sin Meta Pixel. No sabes de donde vienen las visitas ni que hacen.
-- **No tienes retargeting.** Alguien entra, ve un producto y se va. No puedes volver a alcanzarlo con un anuncio.
-- **No hay trust signals visibles.** Sin logos de medios de pago, sin garantias visibles, sin reviews.
+**Tracking de eventos (custom, ya funcional):**
+- 8 tipos de eventos: home_visit, product_view, product_click, add_to_cart, checkout_start, checkout_step, purchase_complete, cart_abandon
+- Session tracking por tab (UUID), batching cada 5s, beacon on unload
+- Checkout steps granulares: formulario, ciudad envio, orden lista, widget Wompi abierto
+
+### Lo que falta
+
+- **Google no te encuentra.** No hay robots.txt, sitemap ni Schema.org — probablemente no indexa tus productos.
+- **No sabes DE DONDE vienen las visitas.** Tu analitica mide QUE hacen dentro de la tienda, pero no de donde llegaron (Google, Instagram, WhatsApp, directo). Sin GA4, no puedes atribuir trafico a fuente.
+- **No puedes hacer retargeting.** Sin Meta Pixel, no puedes mostrar ads a personas que visitaron pero no compraron.
+- **Falta confianza visual.** Sin logos de medios de pago, sin garantias visibles en checkout/PDP.
 
 ---
 
@@ -46,7 +60,7 @@
 | Meta Pixel (Facebook/Instagram) | Script en layout.tsx. Permite retargeting y medir conversiones de anuncios |
 | Eventos de conversion | Configurar: `view_item`, `add_to_cart`, `begin_checkout`, `purchase` en GA4 y Meta Pixel |
 
-**Impacto:** sabes cuantas personas entran, de donde vienen, que miran y donde abandonan. Sin esto, cualquier inversion en ads es a ciegas.
+**Impacto:** Ya sabes QUE hacen los visitantes (gracias al tracking interno). Ahora sabras DE DONDE vienen y podras hacer retargeting. Sin esto, cualquier inversion en ads es a ciegas.
 
 ### Fase 2 — Trust signals y conversion (1-2 dias)
 
@@ -87,6 +101,19 @@
 | Retargeting Meta | Mostrar anuncios a personas que visitaron la tienda pero no compraron |
 | Abandoned cart email | Email automatico a clientes que dejaron productos en checkout (requiere capturar email pre-pago) |
 | Newsletter | Capturar emails en el sitio (popup o banner). Enviar novedades, descuentos exclusivos |
+
+---
+
+## Ventajas competitivas que ya tienes (y debes explotar)
+
+| Capacidad | Como usarla para crecer |
+|-----------|------------------------|
+| Embudo de conversion con checkout steps | Identifica DONDE pierdes clientes: si 96% clickea pero solo 15% agrega al carrito, el problema es el PDP, no el trafico |
+| Recuperacion de pagos pendientes | Activa recordatorios masivos cada 24h — cada orden recuperada es venta directa sin costo de adquisicion |
+| Rendimiento por producto (conv. %, CTR) | Prioriza los productos con alto CTR + baja conversion para mejorar sus fotos/descripcion. Los de alta conversion van a ads |
+| Revenue en riesgo (dashboard) | Monitorea diario — cada peso en pendiente es dinero que puedes recuperar con un email o WhatsApp |
+| Descuentos por departamento | Usa para campanas estacionales (Dia de la Mujer → depto Mujer 15%. Black Friday → store_wide 20%) |
+| CRM con LTV | Identifica tus mejores clientes para descuentos exclusivos o acceso anticipado a nuevos diseños |
 
 ---
 
@@ -271,11 +298,13 @@ Si el producto tiene descuento, agregar `offers.priceValidUntil` y `offers.disco
 
 ---
 
-### Sprint G2 — Medicion y Tracking (saber que pasa)
+### Sprint G2 — Atribucion de trafico (saber DE DONDE vienen)
 
 **Rama:** `feature/analytics-tracking`
 **Tiempo estimado:** 2-3 horas
 **Prerequisito:** Crear cuentas de GA4 y Meta Business antes de empezar.
+
+**Nota:** Ya tenemos tracking interno completo (8 tipos de eventos, embudo, rendimiento por producto). Lo que falta es saber la FUENTE del trafico (Google vs Instagram vs directo) y habilitar retargeting. GA4 y Meta Pixel se agregan como BRIDGE sobre el tracker existente (`frontend/lib/tracker.ts`), no como reemplazo.
 
 #### G2.1 — Google Analytics 4
 
@@ -327,21 +356,30 @@ Implementar Meta Pixel:
 - [ ] Eventos aparecen en Meta Events Manager > Test Events
 - [ ] No se dispara en desarrollo
 
-#### G2.3 — Conectar tracker existente con GA4/Pixel
+#### G2.3 — Bridge: tracker existente → GA4 + Pixel
 
 **Skill:** `/dev`
-**Archivo:** `frontend/lib/tracker.ts`, componentes de analytics existentes
+**Archivo:** `frontend/lib/tracker.ts`, `frontend/hooks/useTracking.ts`
 
-El tracker custom ya captura eventos (`product_view`, `add_to_cart`, `checkout_start`, `purchase_complete`). Agregar un bridge que tambien dispare los eventos equivalentes a GA4 y Meta Pixel cuando ocurren.
+El tracker custom (`KameTracker`) ya captura 8 tipos de eventos con batching, session tracking y beacon. El bridge agrega disparo paralelo a GA4 y Meta Pixel sin modificar la logica existente.
 
-No duplicar logica — un solo punto de emision que envie a:
-1. API interna (`/api/events/` — ya existe)
-2. `gtag('event', ...)` — GA4
-3. `fbq('track', ...)` — Meta Pixel
+**Mapeo de eventos:**
+
+| Evento interno (tracker.ts) | GA4 (gtag) | Meta Pixel (fbq) |
+|------------------------------|-----------|-----------------|
+| `product_view` | `view_item` | `ViewContent` |
+| `product_click` | `select_item` | — |
+| `add_to_cart` | `add_to_cart` | `AddToCart` |
+| `checkout_start` | `begin_checkout` | `InitiateCheckout` |
+| `purchase_complete` | `purchase` | `Purchase` |
+| `home_visit` | — (page_view automatico) | — (PageView automatico) |
+
+**Implementacion:** Agregar funcion `emitToExternalAnalytics(event, data)` que se llama desde los hooks de tracking existentes (`useTracking.ts`). No modificar la clase `KameTracker` — el bridge vive en el hook layer.
 
 **Verificacion:**
-- [ ] Un solo `addToCart` dispara los 3 destinos
-- [ ] Datos consistentes entre los 3
+- [ ] Un solo `addToCart` dispara: API interna + gtag + fbq
+- [ ] Datos consistentes entre los 3 destinos
+- [ ] purchase_complete envia transaction_id y value a GA4 y Pixel
 
 ---
 
