@@ -160,4 +160,333 @@ Los logos son gratuitos de usar (son marcas de los medios de pago). Wompi los pr
 
 ---
 
+## Plan de Ejecucion por Sprints
+
+### Sprint G1 — SEO Fundacional (ser visible en Google)
+
+**Rama:** `feature/seo-foundation`
+**Tiempo estimado:** 3-4 horas
+**Sin esto, nada mas funciona.**
+
+#### G1.1 — robots.txt
+
+**Skill:** `/dev` + `/seo-marketing`
+**Archivo:** `frontend/app/robots.ts`
+
+Crear archivo `robots.ts` con las reglas:
+- Allow: `/`, `/producto/`, `/catalogo`, `/categoria/`
+- Disallow: `/admin/`, `/api/`, `/checkout/`, `/health`
+- Sitemap: `https://www.kamecol.com/sitemap.xml`
+
+**Verificacion:**
+- [ ] `curl https://www.kamecol.com/robots.txt` retorna las reglas
+- [ ] Google Search Console puede leer el robots.txt
+
+#### G1.2 — Sitemap dinamico
+
+**Skill:** `/dev` + `/seo-marketing` + `/dba`
+**Archivo:** `frontend/app/sitemap.ts`
+
+Generar sitemap XML dinamico que incluya:
+- Homepage (`/`)
+- Catalogo (`/catalogo`)
+- Todas las categorias activas (`/categoria/{slug}`)
+- Todos los productos activos (`/producto/{slug}`)
+- Legal (`/legal/politica-de-privacidad`)
+
+Para obtener productos y categorias, fetch desde Django API (`/api/products/` y `/api/categories/`) con `changeFrequency` y `priority`:
+- Homepage: priority 1.0, changefreq daily
+- Productos: priority 0.8, changefreq weekly
+- Categorias: priority 0.7, changefreq weekly
+- Legal: priority 0.3, changefreq yearly
+
+**Verificacion:**
+- [ ] `curl https://www.kamecol.com/sitemap.xml` retorna XML valido
+- [ ] Contiene URLs de todos los productos activos
+- [ ] Validar con https://www.xml-sitemaps.com/validate-xml-sitemap.html
+
+#### G1.3 — Schema.org Product JSON-LD
+
+**Skill:** `/dev` + `/seo-marketing`
+**Archivo:** `frontend/app/producto/[slug]/page.tsx`
+
+Agregar `<script type="application/ld+json">` en el PDP con:
+```json
+{
+  "@context": "https://schema.org",
+  "@type": "Product",
+  "name": "...",
+  "description": "...",
+  "image": "...",
+  "brand": { "@type": "Brand", "name": "Kame.col" },
+  "offers": {
+    "@type": "Offer",
+    "price": "...",
+    "priceCurrency": "COP",
+    "availability": "https://schema.org/InStock | OutOfStock",
+    "url": "https://www.kamecol.com/producto/{slug}"
+  }
+}
+```
+
+Si el producto tiene descuento, agregar `offers.priceValidUntil` y `offers.discount`.
+
+**Verificacion:**
+- [ ] Validar con https://search.google.com/test/rich-results
+- [ ] Google muestra precio en COP en resultados de busqueda
+
+#### G1.4 — Metadata en paginas de categoria y homepage
+
+**Skill:** `/dev`
+**Archivos:** `frontend/app/categoria/[slug]/page.tsx`, `frontend/app/page.tsx`
+
+**Categoria:** Agregar `generateMetadata` con:
+- Title: `{Categoria} | Kame.col`
+- Description: `Explora nuestra coleccion de {categoria}. Envios a toda Colombia.`
+- OpenGraph image: imagen del primer producto de la categoria
+
+**Homepage:** Agregar `export const metadata` con:
+- Title: `Kame.col — Streetwear Colombiano`
+- Description: orientada a busqueda local ("ropa urbana bogota", "streetwear colombia")
+
+**Verificacion:**
+- [ ] View source en cada pagina muestra og:title, og:description, og:image correctos
+- [ ] Compartir URL de categoria en WhatsApp muestra preview correcto
+
+#### G1.5 — Google Search Console (manual)
+
+**Skill:** `/seo-marketing`
+**No requiere codigo — configuracion manual.**
+
+1. Ir a https://search.google.com/search-console
+2. Agregar propiedad `https://www.kamecol.com`
+3. Verificar via DNS TXT record o meta tag
+4. Enviar sitemap: `https://www.kamecol.com/sitemap.xml`
+5. Solicitar indexacion de homepage y paginas principales
+
+**Verificacion:**
+- [ ] Propiedad verificada
+- [ ] Sitemap enviado y procesado
+- [ ] Monitorear errores de indexacion en 48h
+
+---
+
+### Sprint G2 — Medicion y Tracking (saber que pasa)
+
+**Rama:** `feature/analytics-tracking`
+**Tiempo estimado:** 2-3 horas
+**Prerequisito:** Crear cuentas de GA4 y Meta Business antes de empezar.
+
+#### G2.1 — Google Analytics 4
+
+**Skill:** `/dev` + `/campaign-manager`
+**Archivos:** `frontend/app/layout.tsx`, nuevo `frontend/components/analytics/GoogleAnalytics.tsx`
+
+Implementar GA4 con gtag.js:
+- Cargar script de gtag.js via `next/script` con strategy `afterInteractive`
+- ID de medicion via `NEXT_PUBLIC_GA_MEASUREMENT_ID` env var
+- Solo cargar en produccion (`process.env.NODE_ENV === 'production'`)
+
+**Eventos ecommerce a configurar (estandar GA4):**
+
+| Evento | Donde | Datos |
+|--------|-------|-------|
+| `page_view` | Automatico por gtag | — |
+| `view_item` | PDP load | item_id, item_name, price, currency: COP |
+| `add_to_cart` | Click "Agregar al carrito" | item_id, item_name, price, quantity |
+| `begin_checkout` | Acceso a /checkout | items, value, currency |
+| `purchase` | Pagina resultado exitoso | transaction_id, value, items, shipping |
+
+**Verificacion:**
+- [ ] GA4 Real-Time muestra visitas
+- [ ] Eventos de ecommerce llegan a GA4 > Events
+- [ ] No se carga en desarrollo (localhost)
+
+#### G2.2 — Meta Pixel (Facebook/Instagram)
+
+**Skill:** `/dev` + `/campaign-manager`
+**Archivos:** `frontend/app/layout.tsx`, nuevo `frontend/components/analytics/MetaPixel.tsx`
+
+Implementar Meta Pixel:
+- Script via `next/script` con strategy `afterInteractive`
+- Pixel ID via `NEXT_PUBLIC_META_PIXEL_ID` env var
+- Solo produccion
+
+**Eventos a enviar:**
+
+| Evento Meta | Cuando | Datos |
+|-------------|--------|-------|
+| `PageView` | Cada pagina | Automatico |
+| `ViewContent` | PDP load | content_ids, content_type: product, value, currency: COP |
+| `AddToCart` | Click agregar | content_ids, content_type: product, value |
+| `InitiateCheckout` | Acceso a /checkout | content_ids, num_items, value |
+| `Purchase` | Compra exitosa | content_ids, value, currency: COP |
+
+**Verificacion:**
+- [ ] Meta Pixel Helper (extension Chrome) detecta el pixel
+- [ ] Eventos aparecen en Meta Events Manager > Test Events
+- [ ] No se dispara en desarrollo
+
+#### G2.3 — Conectar tracker existente con GA4/Pixel
+
+**Skill:** `/dev`
+**Archivo:** `frontend/lib/tracker.ts`, componentes de analytics existentes
+
+El tracker custom ya captura eventos (`product_view`, `add_to_cart`, `checkout_start`, `purchase_complete`). Agregar un bridge que tambien dispare los eventos equivalentes a GA4 y Meta Pixel cuando ocurren.
+
+No duplicar logica — un solo punto de emision que envie a:
+1. API interna (`/api/events/` — ya existe)
+2. `gtag('event', ...)` — GA4
+3. `fbq('track', ...)` — Meta Pixel
+
+**Verificacion:**
+- [ ] Un solo `addToCart` dispara los 3 destinos
+- [ ] Datos consistentes entre los 3
+
+---
+
+### Sprint G3 — Trust Signals y Conversion (generar confianza)
+
+**Rama:** `feature/trust-signals`
+**Tiempo estimado:** 3-4 horas
+
+#### G3.1 — Logos de medios de pago en footer
+
+**Skill:** `/dev` + `/product-designer`
+**Archivos:** `frontend/components/layout/Footer.tsx` (o donde este el footer)
+
+Agregar seccion "Medios de pago" con logos de:
+- Visa, Mastercard (iconos SVG o PNG pequenos)
+- Nequi, PSE, Daviplata, Bancolombia
+- Logo Wompi como procesador
+
+Estilo: iconos en gris (monocromo) sobre fondo claro, tamaño 28-36px. Texto: "Pagos seguros procesados por Wompi".
+
+Los iconos SVG de medios de pago se pueden obtener de:
+- Wompi docs (proveen kit de marca)
+- https://simpleicons.org/ (Visa, Mastercard)
+- Logos oficiales de Nequi, PSE, Daviplata (publicos)
+
+**Verificacion:**
+- [ ] Logos visibles en footer de toda la tienda
+- [ ] Se ven bien en mobile y desktop
+- [ ] No afectan performance (SVG inline o sprites)
+
+#### G3.2 — Trust badges en checkout
+
+**Skill:** `/dev` + `/product-designer` + `/sales-optimizer`
+**Archivo:** `frontend/app/checkout/CheckoutClient.tsx`
+
+Agregar antes del boton de pago:
+- Icono de candado + "Pago seguro"
+- Logos de medios de pago (version compacta)
+- "Procesado por Wompi" con logo
+
+**Verificacion:**
+- [ ] Visible en mobile antes de scrollear al boton de pago
+- [ ] No interfiere con el flujo de checkout
+
+#### G3.3 — Politica de devoluciones
+
+**Skill:** `/dev` + `/customer-experience`
+**Archivos:** `frontend/app/legal/devoluciones/page.tsx` (nueva pagina), footer
+
+Crear pagina `/legal/devoluciones` con politica clara:
+- Plazo de devolucion (ej: 5 dias habiles)
+- Condiciones (producto sin uso, con etiqueta)
+- Proceso (contactar via WhatsApp)
+
+Agregar link en footer y en PDP (debajo del boton "Agregar al carrito").
+
+**Verificacion:**
+- [ ] Pagina accesible desde footer
+- [ ] Link visible en PDP
+- [ ] Texto claro y sin jerga legal excesiva
+
+#### G3.4 — Texto de envio y garantias en PDP
+
+**Skill:** `/dev` + `/product-designer`
+**Archivo:** `frontend/app/producto/[slug]/ProductDetailClient.tsx`
+
+Agregar debajo de los botones de compra:
+- "Envios a toda Colombia"
+- "Envio gratis en compras desde $170.000"
+- "Cambios y devoluciones en 5 dias"
+
+Iconos pequenos (camion, escudo, reloj) + texto en gris. No llamativo, solo informativo.
+
+**Verificacion:**
+- [ ] Visible en PDP mobile sin scroll excesivo
+- [ ] Threshold de envio gratis coincide con `FREE_SHIPPING_THRESHOLD` del backend
+
+---
+
+### Sprint G4 — Google Shopping + Preparacion para Ads
+
+**Rama:** Sin rama — configuracion manual en plataformas externas.
+**Tiempo estimado:** 2-3 horas
+**Prerequisito:** Sprints G1 y G2 completados y en produccion.
+
+#### G4.1 — Google Merchant Center
+
+**Skill:** `/seo-marketing` + `/campaign-manager`
+**No requiere codigo.**
+
+1. Crear cuenta en https://merchants.google.com
+2. Verificar dominio (ya hecho si Search Console esta configurado)
+3. Subir feed de productos:
+   - Opcion A: URL del sitemap + Schema.org (Google lo extrae automaticamente)
+   - Opcion B: Feed XML/CSV manual con productos
+4. Configurar envio (Colombia, tarifas fijas)
+5. Esperar aprobacion (1-3 dias)
+
+**Resultado:** productos de kamecol.com aparecen en Google Shopping **gratis** (tab Shopping).
+
+#### G4.2 — Preparar audiencias para ads
+
+**Skill:** `/campaign-manager` + `/strategist`
+**No requiere codigo.**
+
+Configurar en Meta Business Manager:
+- Audiencia personalizada: visitantes del sitio (ultimos 30 dias) — requiere Meta Pixel activo
+- Audiencia lookalike: personas similares a visitantes
+- Audiencia por intereses: moda urbana, streetwear, Bogota, 18-35 anos
+
+Configurar en Google Ads:
+- Audiencia de remarketing: visitantes del sitio (requiere GA4 activo)
+- Keywords research: "camiseta oversize bogota", "ropa streetwear colombia", "comprar ropa urbana"
+
+#### G4.3 — Primer campaña Instagram Ads ($80-100K COP)
+
+**Skill:** `/campaign-manager`
+**No requiere codigo.**
+
+Campaña de trafico con:
+- Objetivo: trafico al sitio
+- Audiencia: mujeres 18-35, Bogota, intereses moda/streetwear
+- Creative: foto real de producto con descuento + texto corto
+- CTA: "Ver coleccion"
+- Duracion: 7 dias
+- Presupuesto: $12-15K COP/dia
+
+**Verificacion:**
+- [ ] GA4 muestra trafico desde instagram.com
+- [ ] Meta Events Manager muestra conversiones
+- [ ] Costo por click < $500 COP
+
+---
+
+## Resumen de Sprints
+
+| Sprint | Foco | Tiempo | Impacto |
+|--------|------|--------|---------|
+| **G1** | SEO fundacional (robots, sitemap, schema, metadata) | 3-4h | Google empieza a indexar — base de todo |
+| **G2** | Analytics (GA4, Meta Pixel, eventos ecommerce) | 2-3h | Mides todo — base para optimizar |
+| **G3** | Trust signals (logos pago, garantias, devoluciones) | 3-4h | Mas confianza → mas conversion |
+| **G4** | Google Shopping + primer campaña ads | 2-3h | Primeros clientes pagados + shopping gratis |
+
+**Orden obligatorio:** G1 → G2 → G3 → G4. Cada sprint desbloquea el siguiente.
+
+---
+
 *Este documento es una guia viva. Actualizar con resultados reales cada 2 semanas.*
