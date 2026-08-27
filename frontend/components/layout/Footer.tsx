@@ -4,6 +4,7 @@ import {
   InstagramIcon,
   TikTokIcon,
 } from "@/components/ui/social-icons";
+import { PaymentLogosFooter } from "@/components/trust/PaymentLogos";
 
 export default function Footer() {
   const instagramUrl = process.env.NEXT_PUBLIC_INSTAGRAM_URL;
@@ -16,7 +17,7 @@ export default function Footer() {
       <div className="mx-auto max-w-6xl px-4 py-10 md:py-12">
         <div className="grid items-start gap-10 md:grid-cols-4 md:gap-x-10 md:gap-y-8">
           {/* Brand */}
-          <div className="text-center md:col-span-2 md:text-left">
+          <div className="text-center md:text-left">
             <h3 className="type-brand mb-3 text-zinc-950">Kame.col</h3>
             <p className="type-body mx-auto max-w-md text-zinc-700/90 md:mx-0">
               Diseño con intención, calidad que se siente y piezas pensadas para permanecer.
@@ -84,6 +85,9 @@ export default function Footer() {
               ) : null}
             </ul>
           </div>
+
+          {/* Payment logos */}
+          <PaymentLogosFooter />
         </div>
 
         {/* Legal */}
@@ -109,6 +113,7 @@ export default function Footer() {
               <Link href="/legal/politica-de-privacidad#terminos" className="footer-link">Términos</Link>
               <Link href="/legal/politica-de-privacidad#privacidad" className="footer-link">Privacidad</Link>
               <Link href="/legal/politica-de-privacidad#cookies" className="footer-link">Cookies</Link>
+              <Link href="/legal/devoluciones" className="footer-link">Devoluciones</Link>
             </div>
           </div>
         </div>

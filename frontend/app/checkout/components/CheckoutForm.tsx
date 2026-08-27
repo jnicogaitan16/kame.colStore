@@ -12,6 +12,7 @@ import type {
 import { Button } from "@/components/ui/Button";
 import FieldError from "@/components/forms/FieldError";
 import Notice from "@/components/ui/Notice";
+import { CheckoutTrustBadges } from "@/components/trust/TrustBadges";
 
 type CheckoutFormValuesShape = {
   full_name: string;
@@ -333,6 +334,8 @@ export default function CheckoutForm({
           {submitNotice.message}
         </Notice>
       ) : null}
+
+      <CheckoutTrustBadges />
 
       <Button
         type="submit"
