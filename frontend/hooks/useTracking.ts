@@ -6,6 +6,7 @@
 
 import { useEffect, useRef, useCallback } from "react";
 import { tracker } from "@/lib/tracker";
+import { emitToExternalAnalytics } from "@/lib/analytics-bridge";
 
 // Init tracker once per client mount
 export function useTrackerInit() {
@@ -28,10 +29,12 @@ export function useTrackProductView(product: {
     const timer = setTimeout(() => {
       if (tracked.current) return;
       tracked.current = true;
-      tracker.track("product_view", {
+      const data = {
         product_id: String(product.id || product.slug || ""),
         product_name: product.name || "",
-      });
+      };
+      tracker.track("product_view", data);
+      emitToExternalAnalytics("product_view", data);
     }, 2000); // 2s dwell = intentional view
     return () => clearTimeout(timer);
   }, [product]);
@@ -42,22 +45,26 @@ export function trackProductClick(product: {
   name?: string;
   slug?: string;
 }) {
-  tracker.track("product_click", {
+  const data = {
     product_id: String(product.id || product.slug || ""),
     product_name: product.name || "",
-  });
+  };
+  tracker.track("product_click", data);
+  emitToExternalAnalytics("product_click", data);
 }
 
 export function trackAddToCart(
   product: { id?: number | string; name?: string; slug?: string; price?: number | string },
   variant: { value?: string; color?: string }
 ) {
-  tracker.track("add_to_cart", {
+  const data = {
     product_id: String(product.id || product.slug || ""),
     product_name: product.name || "",
     variant: `${variant.value || ""} / ${variant.color || ""}`.trim().replace(/^\/|\/$/g, ""),
     price: typeof product.price === "string" ? parseFloat(product.price) : product.price,
-  });
+  };
+  tracker.track("add_to_cart", data);
+  emitToExternalAnalytics("add_to_cart", data);
 }
 
 /** Cada carga de la página de inicio (/). */
@@ -67,6 +74,7 @@ export function trackHomeVisit() {
 
 export function trackCheckoutStart() {
   tracker.track("checkout_start");
+  emitToExternalAnalytics("checkout_start");
 }
 
 export function trackCheckoutStep(step: string) {
@@ -77,10 +85,12 @@ export function trackPurchaseComplete(order: {
   reference?: string;
   total?: number;
 }) {
-  tracker.track("purchase_complete", {
+  const data = {
     step: order.reference || "",
     price: order.total,
-  });
+  };
+  tracker.track("purchase_complete", data);
+  emitToExternalAnalytics("purchase_complete", data);
 }
 
 export function trackCartAbandon(items: Array<{ product_variant_id?: number; quantity?: number }>, step: string) {

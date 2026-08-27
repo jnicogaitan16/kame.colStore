@@ -9,6 +9,8 @@ import { CartHydration } from "@/components/cart/CartHydration";
 import CartAddFlyout from "@/components/cart/CartAddFlyout";
 import Footer from "@/components/layout/Footer";
 import TrackerInit from "@/components/analytics/TrackerInit";
+import GoogleAnalytics from "@/components/analytics/GoogleAnalytics";
+import MetaPixel from "@/components/analytics/MetaPixel";
 import SentryBrowserInit from "@/components/SentryBrowserInit";
 
 const inter = Inter({
@@ -85,6 +87,8 @@ export default function RootLayout({
       <body className={bodyClass}>
         <div className="site-shell min-h-screen bg-stone-50 text-zinc-950">
           <CartHydration />
+          <GoogleAnalytics />
+          <MetaPixel />
           <SentryBrowserInit />
           <TrackerInit />
           <HeaderServer />
