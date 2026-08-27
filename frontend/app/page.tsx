@@ -1,8 +1,20 @@
+import type { Metadata } from "next";
 import {
   getHomepageBanners,
   getHomepageMarqueeProducts,
   getHomepageStory,
 } from "@/lib/api";
+
+export const metadata: Metadata = {
+  title: { absolute: "Kame.col — Streetwear Colombiano | Ropa Urbana Bogotá" },
+  description:
+    "Tienda online de ropa urbana y streetwear en Colombia. Camisetas, hoodies y accesorios con diseño propio. Envíos a toda Colombia. Compra segura con Wompi.",
+  keywords: ["ropa urbana", "streetwear colombia", "camisetas bogota", "ropa oversize", "moda urbana colombiana", "kame col"],
+  openGraph: {
+    title: "Kame.col — Streetwear Colombiano",
+    description: "Ropa urbana con diseño propio. Envíos a toda Colombia.",
+  },
+};
 import { HeroCarousel } from "@/components/home/HeroCarousel";
 import { BrandStory } from "@/components/home/BrandStory";
 import HomeProductMarquee from "@/components/home/HomeProductMarquee";
