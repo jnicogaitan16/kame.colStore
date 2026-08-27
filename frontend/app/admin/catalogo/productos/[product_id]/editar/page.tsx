@@ -6,6 +6,7 @@ import {
   addVariant,
   createProductColorImage,
   deleteProductColorImage,
+  updateProductColorImage,
   getAdminCategories,
   getAdminProduct,
   updateProduct,
@@ -66,6 +67,11 @@ export default function EditarProductoPage({ params }: { params: { product_id: s
     alt_text: string;
     file: File | null;
   }>({ color: "", sort_order: "0", is_primary: false, alt_text: "", file: null });
+
+  async function reloadProduct() {
+    const p = await getAdminProduct(Number(product_id));
+    setProduct(p);
+  }
 
   useEffect(() => {
     Promise.all([getAdminProduct(Number(product_id)), getAdminCategories()]).then(([p, cats]) => {
@@ -207,7 +213,7 @@ export default function EditarProductoPage({ params }: { params: { product_id: s
 
       {(product.color_images?.length || 0) > 0 && (
         <div className="grid sm:grid-cols-2 gap-3 mb-5">
-          {product.color_images.map((img) => (
+          {[...product.color_images].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)).map((img) => (
             <div key={img.id} className="border border-zinc-200 rounded-xl p-3 flex gap-3">
               <div className="w-16 h-16 bg-zinc-50 border border-zinc-200 rounded-lg overflow-hidden flex items-center justify-center">
                 {img.image_thumb_url ? (
@@ -238,7 +244,43 @@ export default function EditarProductoPage({ params }: { params: { product_id: s
                     </button>
                   </div>
                 </div>
-                <p className="mt-1 text-[11px] text-zinc-400">Orden: {img.sort_order}</p>
+                <div className="mt-1.5 flex items-center gap-3">
+                  {img.is_primary && (
+                    <label className="flex items-center gap-1.5 text-[11px] text-zinc-500">
+                      Orden color:
+                      <input
+                        type="number"
+                        className="w-12 bg-white border border-zinc-200 rounded px-1.5 py-0.5 text-xs text-center text-zinc-900"
+                        defaultValue={img.sort_order}
+                        onBlur={async (e) => {
+                          const val = parseInt(e.target.value) || 0;
+                          if (val === img.sort_order) return;
+                          const fd = new FormData();
+                          fd.append("sort_order", String(val));
+                          await updateProductColorImage(Number(product_id), img.id, fd);
+                          await reloadProduct();
+                        }}
+                      />
+                    </label>
+                  )}
+                  {!img.is_primary && (
+                    <p className="text-[11px] text-zinc-400">Orden: {img.sort_order}</p>
+                  )}
+                  <label className="flex items-center gap-1.5 text-[11px] text-zinc-500 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={img.is_primary}
+                      className="accent-green-600"
+                      onChange={async (e) => {
+                        const fd = new FormData();
+                        fd.append("is_primary", e.target.checked ? "true" : "false");
+                        await updateProductColorImage(Number(product_id), img.id, fd);
+                        await reloadProduct();
+                      }}
+                    />
+                    Principal
+                  </label>
+                </div>
               </div>
             </div>
           ))}

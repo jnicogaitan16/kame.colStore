@@ -113,6 +113,7 @@ export type PDPViewModel = ProductDetailViewModel &
     firstAvailableVariant: ProductVariant | null;
     initialDisplayVariant: ProductVariant | null;
     firstAvailableVariantId: number | null;
+    initialDisplayVariantId: number | null;
     variantMatrix: ProductVariantMatrix;
     variantsByColor: PDPVariantLookupRecord;
     variantsByValue: PDPVariantLookupRecord;
@@ -626,12 +627,23 @@ export function resolveInitialDisplayVariant(params: {
   variants: ProductVariant[];
   variantSchema: VariantSchema;
   firstAvailableVariant: ProductVariant | null;
+  primaryColor?: string | null;
 }): ProductVariant | null {
-  const { variants, variantSchema, firstAvailableVariant } = params;
+  const { variants, variantSchema, firstAvailableVariant, primaryColor } = params;
 
-  if (firstAvailableVariant) return firstAvailableVariant;
   if (!variants.length) return null;
   if (variants.length === 1) return variants[0] ?? null;
+
+  if (variantSchema === "size_color" && primaryColor) {
+    // Match the color shown in catalog card/marquee for consistent UX
+    const normalizedPrimary = primaryColor.trim().toLowerCase();
+    const matchingVariant = variants.find(
+      (v) => v.color?.trim().toLowerCase() === normalizedPrimary && (v.stock ?? 0) > 0
+    );
+    if (matchingVariant) return matchingVariant;
+  }
+
+  if (firstAvailableVariant) return firstAvailableVariant;
 
   if (variantSchema === "size_color") {
     return (
@@ -718,10 +730,12 @@ export function resolveVariantOptions(product: ProductDetail): PDPVariantOptions
   );
 
   const firstAvailableVariant = variants.find(hasStock) ?? null;
+  const primaryColor = (product as unknown as Record<string, unknown>).primary_color as string | null | undefined;
   const initialDisplayVariant = resolveInitialDisplayVariant({
     variants,
     variantSchema,
     firstAvailableVariant,
+    primaryColor,
   });
 
   return {
@@ -813,6 +827,7 @@ export function buildProductDetailPDPViewModel(
     firstAvailableVariant,
     initialDisplayVariant,
     firstAvailableVariantId: firstAvailableVariant?.id ?? null,
+    initialDisplayVariantId: initialDisplayVariant?.id ?? null,
     variantMatrix,
     variantsByColor,
     variantsByValue,
