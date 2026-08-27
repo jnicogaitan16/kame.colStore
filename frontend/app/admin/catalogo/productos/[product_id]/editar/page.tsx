@@ -212,54 +212,71 @@ export default function EditarProductoPage({ params }: { params: { product_id: s
       )}
 
       {(product.color_images?.length || 0) > 0 && (
-        <div className="space-y-2 mb-5">
-          <div className="grid grid-cols-[auto_1fr_60px_70px_auto_auto] gap-2 items-center text-[11px] font-semibold text-zinc-400 uppercase tracking-wider px-1">
-            <span></span><span>Color</span><span>Orden</span><span>Principal</span><span></span><span></span>
-          </div>
+        <div className="grid sm:grid-cols-2 gap-3 mb-5">
           {[...product.color_images].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)).map((img) => (
-            <div key={img.id} className="grid grid-cols-[auto_1fr_60px_70px_auto_auto] gap-2 items-center border border-zinc-200 rounded-xl p-2.5">
-              <div className="w-12 h-12 bg-zinc-50 border border-zinc-100 rounded-lg overflow-hidden flex items-center justify-center">
+            <div key={img.id} className="border border-zinc-200 rounded-xl p-3 flex gap-3">
+              <div className="w-16 h-16 bg-zinc-50 border border-zinc-200 rounded-lg overflow-hidden flex items-center justify-center">
                 {img.image_thumb_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={img.image_thumb_url} alt={img.alt_text || img.color} className="w-full h-full object-cover" />
                 ) : (
-                  <span className="text-[10px] text-zinc-400">—</span>
+                  <span className="text-[11px] text-zinc-400">Sin imagen</span>
                 )}
               </div>
-              <p className="text-sm font-medium text-zinc-900 truncate">{img.color}</p>
-              <input
-                type="number"
-                className="w-14 bg-white border border-zinc-200 rounded-lg px-2 py-1 text-xs text-center text-zinc-900"
-                defaultValue={img.sort_order}
-                onBlur={async (e) => {
-                  const val = parseInt(e.target.value) || 0;
-                  if (val === img.sort_order) return;
-                  const fd = new FormData();
-                  fd.append("sort_order", String(val));
-                  await updateProductColorImage(Number(product_id), img.id, fd);
-                  await reloadProduct();
-                }}
-              />
-              <div className="flex justify-center">
-                <input
-                  type="checkbox"
-                  checked={img.is_primary}
-                  className="accent-zinc-900"
-                  onChange={async (e) => {
-                    const fd = new FormData();
-                    fd.append("is_primary", e.target.checked ? "true" : "false");
-                    await updateProductColorImage(Number(product_id), img.id, fd);
-                    await reloadProduct();
-                  }}
-                />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="truncate">
+                    <p className="text-sm font-medium text-zinc-900 truncate">{img.color}</p>
+                    <p className="text-xs text-zinc-500 truncate">{img.alt_text || "—"}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {img.is_primary && (
+                      <span className="text-[11px] px-2 py-0.5 rounded-full border bg-green-50 text-green-700 border-green-200">
+                        Principal
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteColorImage(img)}
+                      className="text-xs px-2 py-1 rounded-lg border border-zinc-200 hover:bg-zinc-50 text-zinc-700"
+                    >
+                      Eliminar
+                    </button>
+                  </div>
+                </div>
+                <div className="mt-1.5 flex items-center gap-3">
+                  <label className="flex items-center gap-1.5 text-[11px] text-zinc-500">
+                    Orden:
+                    <input
+                      type="number"
+                      className="w-12 bg-white border border-zinc-200 rounded px-1.5 py-0.5 text-xs text-center text-zinc-900"
+                      defaultValue={img.sort_order}
+                      onBlur={async (e) => {
+                        const val = parseInt(e.target.value) || 0;
+                        if (val === img.sort_order) return;
+                        const fd = new FormData();
+                        fd.append("sort_order", String(val));
+                        await updateProductColorImage(Number(product_id), img.id, fd);
+                        await reloadProduct();
+                      }}
+                    />
+                  </label>
+                  <label className="flex items-center gap-1.5 text-[11px] text-zinc-500 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={img.is_primary}
+                      className="accent-green-600"
+                      onChange={async (e) => {
+                        const fd = new FormData();
+                        fd.append("is_primary", e.target.checked ? "true" : "false");
+                        await updateProductColorImage(Number(product_id), img.id, fd);
+                        await reloadProduct();
+                      }}
+                    />
+                    Principal
+                  </label>
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={() => handleDeleteColorImage(img)}
-                className="text-xs px-2 py-1 rounded-lg border border-zinc-200 hover:bg-zinc-50 text-red-500"
-              >
-                Eliminar
-              </button>
             </div>
           ))}
         </div>
