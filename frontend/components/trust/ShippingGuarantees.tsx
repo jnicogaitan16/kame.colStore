@@ -15,19 +15,21 @@ function TruckIcon() {
   );
 }
 
-function ShieldIcon() {
+function TagIcon() {
   return (
     <svg className="h-4 w-4 shrink-0 text-zinc-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+      <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z" />
+      <line x1="7" y1="7" x2="7.01" y2="7" />
     </svg>
   );
 }
 
-function ClockIcon() {
+function RefreshIcon() {
   return (
     <svg className="h-4 w-4 shrink-0 text-zinc-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="12" cy="12" r="10" />
-      <polyline points="12,6 12,12 16,14" />
+      <polyline points="1,4 1,10 7,10" />
+      <polyline points="23,20 23,14 17,14" />
+      <path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15" />
     </svg>
   );
 }
@@ -40,11 +42,11 @@ export function ShippingGuarantees() {
         <span className="text-sm text-zinc-500">Envios a toda Colombia</span>
       </div>
       <div className="flex items-center gap-2.5">
-        <ShieldIcon />
+        <TagIcon />
         <span className="text-sm text-zinc-500">Envio gratis desde $170.000</span>
       </div>
       <div className="flex items-center gap-2.5">
-        <ClockIcon />
+        <RefreshIcon />
         <Link href="/legal/devoluciones" className="text-sm text-zinc-500 underline-offset-2 hover:text-zinc-700 hover:underline">
           Cambios y devoluciones
         </Link>
