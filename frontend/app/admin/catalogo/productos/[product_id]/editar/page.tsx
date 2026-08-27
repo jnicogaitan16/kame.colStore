@@ -245,22 +245,27 @@ export default function EditarProductoPage({ params }: { params: { product_id: s
                   </div>
                 </div>
                 <div className="mt-1.5 flex items-center gap-3">
-                  <label className="flex items-center gap-1.5 text-[11px] text-zinc-500">
-                    Orden:
-                    <input
-                      type="number"
-                      className="w-12 bg-white border border-zinc-200 rounded px-1.5 py-0.5 text-xs text-center text-zinc-900"
-                      defaultValue={img.sort_order}
-                      onBlur={async (e) => {
-                        const val = parseInt(e.target.value) || 0;
-                        if (val === img.sort_order) return;
-                        const fd = new FormData();
-                        fd.append("sort_order", String(val));
-                        await updateProductColorImage(Number(product_id), img.id, fd);
-                        await reloadProduct();
-                      }}
-                    />
-                  </label>
+                  {img.is_primary && (
+                    <label className="flex items-center gap-1.5 text-[11px] text-zinc-500">
+                      Orden color:
+                      <input
+                        type="number"
+                        className="w-12 bg-white border border-zinc-200 rounded px-1.5 py-0.5 text-xs text-center text-zinc-900"
+                        defaultValue={img.sort_order}
+                        onBlur={async (e) => {
+                          const val = parseInt(e.target.value) || 0;
+                          if (val === img.sort_order) return;
+                          const fd = new FormData();
+                          fd.append("sort_order", String(val));
+                          await updateProductColorImage(Number(product_id), img.id, fd);
+                          await reloadProduct();
+                        }}
+                      />
+                    </label>
+                  )}
+                  {!img.is_primary && (
+                    <p className="text-[11px] text-zinc-400">Orden: {img.sort_order}</p>
+                  )}
                   <label className="flex items-center gap-1.5 text-[11px] text-zinc-500 cursor-pointer">
                     <input
                       type="checkbox"
