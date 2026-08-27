@@ -1,6 +1,8 @@
 # Kame.col — Estrategia de Crecimiento y Captacion de Clientes
 
-> Creado: 2026-08-27. Contexto: tienda funcionando, descuentos activos, pero sin trafico organico ni conversiones.
+> Creado: 2026-08-27. Actualizado: 2026-08-27.
+> Contexto: tienda funcionando, descuentos activos, pero sin trafico organico ni conversiones.
+> **Progreso:** Sprints G1, G2 y G3 completados e implementados en produccion.
 
 ---
 
@@ -27,20 +29,30 @@
 - Session tracking por tab (UUID), batching cada 5s, beacon on unload
 - Checkout steps granulares: formulario, ciudad envio, orden lista, widget Wompi abierto
 
+### Lo que se construyo (Sprints G1–G3)
+
+- ~~**Google no te encuentra.**~~ **RESUELTO (Sprint G1).** Se implemento `robots.txt`, sitemap XML dinamico (productos + categorias), Schema.org Product JSON-LD en cada PDP, y `generateMetadata` en paginas de categoria y homepage con OpenGraph. PR #149 (`feature/seo-foundation`).
+- ~~**No sabes DE DONDE vienen las visitas.**~~ **RESUELTO (Sprint G2).** GA4 y Meta Pixel integrados con bridge sobre el tracker interno. Eventos ecommerce estandar (`view_item`, `add_to_cart`, `begin_checkout`, `purchase`) enviandose en paralelo a GA4, Meta Pixel y API interna. PR #150 (`feature/analytics-tracking`).
+- ~~**No puedes hacer retargeting.**~~ **RESUELTO (Sprint G2).** Meta Pixel activo con eventos `ViewContent`, `AddToCart`, `InitiateCheckout`, `Purchase`. Listo para crear audiencias de retargeting en Meta Business Manager.
+- ~~**Falta confianza visual.**~~ **RESUELTO (Sprint G3).** Logos SVG de 6 medios de pago (Visa, MC, Amex, PSE, Nequi, Daviplata) en footer y checkout. Trust badges con candado + escudo antes del boton de pago. Pagina de devoluciones (`/legal/devoluciones`). Texto de envio gratis y garantias en PDP. PR #151 (`feature/trust-signals`).
+
 ### Lo que falta
 
-- **Google no te encuentra.** No hay robots.txt, sitemap ni Schema.org — probablemente no indexa tus productos.
-- **No sabes DE DONDE vienen las visitas.** Tu analitica mide QUE hacen dentro de la tienda, pero no de donde llegaron (Google, Instagram, WhatsApp, directo). Sin GA4, no puedes atribuir trafico a fuente.
-- **No puedes hacer retargeting.** Sin Meta Pixel, no puedes mostrar ads a personas que visitaron pero no compraron.
-- **Falta confianza visual.** Sin logos de medios de pago, sin garantias visibles en checkout/PDP.
+- **Google Search Console.** Falta verificar dominio, enviar sitemap y monitorear indexacion (tarea manual, sin codigo).
+- **Google Merchant Center.** Falta registrar productos para Google Shopping gratis (Sprint G4).
+- **Audiencias y campanas.** Falta configurar audiencias de retargeting en Meta y Google, y lanzar primera campaña de ads (Sprint G4).
+- **Contenido en redes.** Falta estrategia de publicacion en Instagram/TikTok con fotos reales de producto.
+- **Newsletter y email marketing.** Falta captura de emails (popup/banner) y flujo de abandoned cart automatizado.
 
 ---
 
 ## Plan de accion por prioridad
 
-### Fase 0 — Hacer visible la tienda en Google (1-2 dias)
+### Fase 0 — Hacer visible la tienda en Google (1-2 dias) ✅ COMPLETADO
 
 **Sin esto, nada mas funciona.** Google necesita poder rastrear e indexar tus productos.
+
+> **Estado:** Implementado en Sprint G1 (PR #149). robots.txt, sitemap dinamico, Schema.org y metadata en produccion.
 
 | Tarea | Detalle |
 |-------|---------|
@@ -52,7 +64,7 @@
 
 **Impacto esperado:** en 2-4 semanas Google empieza a indexar productos. Busquedas como "camiseta oversize bogota" o "ropa streetwear colombia" empiezan a mostrar kamecol.com.
 
-### Fase 1 — Medir para decidir (1 dia)
+### Fase 1 — Medir para decidir (1 dia) ✅ COMPLETADO
 
 | Tarea | Detalle |
 |-------|---------|
@@ -60,23 +72,27 @@
 | Meta Pixel (Facebook/Instagram) | Script en layout.tsx. Permite retargeting y medir conversiones de anuncios |
 | Eventos de conversion | Configurar: `view_item`, `add_to_cart`, `begin_checkout`, `purchase` en GA4 y Meta Pixel |
 
+> **Estado:** Implementado en Sprint G2 (PR #150). GA4 + Meta Pixel con bridge sobre tracker interno. Eventos ecommerce enviandose a 3 destinos en paralelo (API interna, GA4, Meta Pixel).
+
 **Impacto:** Ya sabes QUE hacen los visitantes (gracias al tracking interno). Ahora sabras DE DONDE vienen y podras hacer retargeting. Sin esto, cualquier inversion en ads es a ciegas.
 
-### Fase 2 — Trust signals y conversion (1-2 dias)
+### Fase 2 — Trust signals y conversion (1-2 dias) ✅ COMPLETADO
 
-| Tarea | Detalle |
-|-------|---------|
-| Logos de medios de pago | Visa, Mastercard, Nequi, PSE, Daviplata + logo Wompi. En footer y en checkout |
-| Texto de garantia | "Compra segura", "Envios a toda Colombia", "Pago protegido por Wompi" |
-| Politica de devoluciones visible | Link en footer y en PDP. Genera confianza para primera compra |
-| WhatsApp flotante | Boton visible en todas las paginas para atencion directa |
+| Tarea | Detalle | Estado |
+|-------|---------|--------|
+| Logos de medios de pago | Visa, Mastercard, Nequi, PSE, Daviplata + logo Wompi. En footer y en checkout | ✅ SVG para 6 metodos + Wompi |
+| Texto de garantia | "Compra segura", "Envios a toda Colombia", "Pago protegido por Wompi" | ✅ Trust badges en checkout + PDP |
+| Politica de devoluciones visible | Link en footer y en PDP. Genera confianza para primera compra | ✅ /legal/devoluciones creada |
+| WhatsApp flotante | Boton visible en todas las paginas para atencion directa | ⬚ Pendiente |
+
+> **Estado:** Implementado en Sprint G3 (PR #151). Logos SVG monocromo en footer y checkout, trust badges (candado + escudo), pagina de devoluciones con flujo WhatsApp, info de envio gratis en PDP. Falta boton flotante de WhatsApp global.
 
 **Sobre los logos de pago:** SI ayudan. Un estudio de Baymard Institute muestra que el 18% de abandonos de carrito es por falta de confianza en la seguridad del pago. Los logos de Visa/Mastercard/Nequi no son decoracion — son señales de que el pago es seguro. Colocarlos en:
-- Footer de toda la tienda
-- Seccion de resumen en checkout (antes del boton de pagar)
+- Footer de toda la tienda ✅
+- Seccion de resumen en checkout (antes del boton de pagar) ✅
 - Opcionalmente en el PDP debajo del boton "Agregar al carrito"
 
-### Fase 3 — Contenido que atrae (continuo)
+### Fase 3 — Contenido que atrae (continuo) ⬚ PENDIENTE
 
 | Canal | Estrategia |
 |-------|-----------|
@@ -85,7 +101,7 @@
 | Google Shopping (gratis) | Registrar en Google Merchant Center. Tus productos aparecen en la pestaña Shopping de Google sin pagar ads |
 | LinkedIn | Dejar de hablar de tecnologia. Hablar del producto, de moda, de emprendimiento. La gente no compra ropa porque esta hecha en Next.js |
 
-### Fase 4 — Primer presupuesto de publicidad ($50-150K COP/semana)
+### Fase 4 — Primer presupuesto de publicidad ($50-150K COP/semana) ⬚ PENDIENTE
 
 | Canal | Presupuesto | Objetivo |
 |-------|------------|----------|
@@ -94,7 +110,7 @@
 
 **Importante:** NO gastes en publicidad hasta tener GA4 + Meta Pixel instalados. Sin medicion, no puedes optimizar.
 
-### Fase 5 — Retargeting y email (semana 3+)
+### Fase 5 — Retargeting y email (semana 3+) ⬚ PENDIENTE
 
 | Tarea | Detalle |
 |-------|---------|
@@ -174,24 +190,24 @@ Los logos son gratuitos de usar (son marcas de los medios de pago). Wompi los pr
 
 ## Orden de ejecucion tecnico
 
-| # | Tarea | Skill | Esfuerzo | Impacto |
-|---|-------|-------|----------|---------|
-| 1 | robots.txt + sitemap.ts | `/dev` + `/seo-marketing` | 1 hora | Critico — sin esto Google no indexa |
-| 2 | Schema.org Product JSON-LD | `/dev` + `/seo-marketing` | 2 horas | Alto — rich results en Google |
-| 3 | Metadata en categoria page | `/dev` | 30 min | Alto — paginas de categoria indexables |
-| 4 | Google Analytics 4 | `/dev` + `/campaign-manager` | 1 hora | Critico — base de toda medicion |
-| 5 | Meta Pixel | `/dev` + `/campaign-manager` | 1 hora | Alto — retargeting + conversion tracking |
-| 6 | Logos de pago en footer/checkout | `/dev` + `/product-designer` | 1 hora | Medio — trust signals |
-| 7 | Google Search Console | `/seo-marketing` | 30 min | Alto — monitorear indexacion |
-| 8 | Google Merchant Center (Shopping gratis) | `/seo-marketing` | 2 horas | Alto — productos en Google Shopping |
+| # | Tarea | Skill | Esfuerzo | Impacto | Estado |
+|---|-------|-------|----------|---------|--------|
+| 1 | robots.txt + sitemap.ts | `/dev` + `/seo-marketing` | 1 hora | Critico — sin esto Google no indexa | ✅ Sprint G1 |
+| 2 | Schema.org Product JSON-LD | `/dev` + `/seo-marketing` | 2 horas | Alto — rich results en Google | ✅ Sprint G1 |
+| 3 | Metadata en categoria page | `/dev` | 30 min | Alto — paginas de categoria indexables | ✅ Sprint G1 |
+| 4 | Google Analytics 4 | `/dev` + `/campaign-manager` | 1 hora | Critico — base de toda medicion | ✅ Sprint G2 |
+| 5 | Meta Pixel | `/dev` + `/campaign-manager` | 1 hora | Alto — retargeting + conversion tracking | ✅ Sprint G2 |
+| 6 | Logos de pago en footer/checkout | `/dev` + `/product-designer` | 1 hora | Medio — trust signals | ✅ Sprint G3 |
+| 7 | Google Search Console | `/seo-marketing` | 30 min | Alto — monitorear indexacion | ⬚ Manual |
+| 8 | Google Merchant Center (Shopping gratis) | `/seo-marketing` | 2 horas | Alto — productos en Google Shopping | ⬚ Sprint G4 |
 
 ---
 
 ## Plan de Ejecucion por Sprints
 
-### Sprint G1 — SEO Fundacional (ser visible en Google)
+### Sprint G1 — SEO Fundacional (ser visible en Google) ✅ COMPLETADO
 
-**Rama:** `feature/seo-foundation`
+**Rama:** `feature/seo-foundation` → mergeado en PR #149
 **Tiempo estimado:** 3-4 horas
 **Sin esto, nada mas funciona.**
 
@@ -206,7 +222,7 @@ Crear archivo `robots.ts` con las reglas:
 - Sitemap: `https://www.kamecol.com/sitemap.xml`
 
 **Verificacion:**
-- [ ] `curl https://www.kamecol.com/robots.txt` retorna las reglas
+- [x] `curl https://www.kamecol.com/robots.txt` retorna las reglas
 - [ ] Google Search Console puede leer el robots.txt
 
 #### G1.2 — Sitemap dinamico
@@ -228,9 +244,11 @@ Para obtener productos y categorias, fetch desde Django API (`/api/products/` y 
 - Legal: priority 0.3, changefreq yearly
 
 **Verificacion:**
-- [ ] `curl https://www.kamecol.com/sitemap.xml` retorna XML valido
-- [ ] Contiene URLs de todos los productos activos
+- [x] `curl https://www.kamecol.com/sitemap.xml` retorna XML valido
+- [x] Contiene URLs de todos los productos activos
 - [ ] Validar con https://www.xml-sitemaps.com/validate-xml-sitemap.html
+
+> **Implementado:** Sitemap dinamico con fetch a API de productos y categorias. Incluye homepage (priority 1.0), catalogo (0.9), productos (0.8), categorias (0.7), legal (0.3). Revalidacion cada 1 hora. Deduplicacion de slugs.
 
 #### G1.3 — Schema.org Product JSON-LD
 
@@ -262,6 +280,8 @@ Si el producto tiene descuento, agregar `offers.priceValidUntil` y `offers.disco
 - [ ] Validar con https://search.google.com/test/rich-results
 - [ ] Google muestra precio en COP en resultados de busqueda
 
+> **Implementado:** JSON-LD con @type Product, brand Kame.col, offers con price en COP, availability dinamica (InStock/OutOfStock segun sold_out), integracion con discount_price cuando hay descuento activo.
+
 #### G1.4 — Metadata en paginas de categoria y homepage
 
 **Skill:** `/dev`
@@ -277,13 +297,17 @@ Si el producto tiene descuento, agregar `offers.priceValidUntil` y `offers.disco
 - Description: orientada a busqueda local ("ropa urbana bogota", "streetwear colombia")
 
 **Verificacion:**
-- [ ] View source en cada pagina muestra og:title, og:description, og:image correctos
+- [x] View source en cada pagina muestra og:title, og:description, og:image correctos
 - [ ] Compartir URL de categoria en WhatsApp muestra preview correcto
 
-#### G1.5 — Google Search Console (manual)
+> **Implementado:** `generateMetadata` en categorias (`{Categoria} | Kame.col`), homepage con metadata orientada a busqueda local, OpenGraph images 1200x630 con fallback, Twitter cards summary_large_image, locale es_CO. Trailing slash normalizado en URLs.
+
+#### G1.5 — Google Search Console (manual) ⬚ PENDIENTE
 
 **Skill:** `/seo-marketing`
 **No requiere codigo — configuracion manual.**
+
+> **Nota:** Todo el codigo necesario (robots.txt, sitemap, schema, metadata) ya esta en produccion. Solo falta la configuracion manual en Google Search Console.
 
 1. Ir a https://search.google.com/search-console
 2. Agregar propiedad `https://www.kamecol.com`
@@ -298,9 +322,9 @@ Si el producto tiene descuento, agregar `offers.priceValidUntil` y `offers.disco
 
 ---
 
-### Sprint G2 — Atribucion de trafico (saber DE DONDE vienen)
+### Sprint G2 — Atribucion de trafico (saber DE DONDE vienen) ✅ COMPLETADO
 
-**Rama:** `feature/analytics-tracking`
+**Rama:** `feature/analytics-tracking` → mergeado en PR #150
 **Tiempo estimado:** 2-3 horas
 **Prerequisito:** Crear cuentas de GA4 y Meta Business antes de empezar.
 
@@ -327,9 +351,11 @@ Implementar GA4 con gtag.js:
 | `purchase` | Pagina resultado exitoso | transaction_id, value, items, shipping |
 
 **Verificacion:**
-- [ ] GA4 Real-Time muestra visitas
-- [ ] Eventos de ecommerce llegan a GA4 > Events
-- [ ] No se carga en desarrollo (localhost)
+- [x] GA4 Real-Time muestra visitas
+- [x] Eventos de ecommerce llegan a GA4 > Events
+- [x] No se carga en desarrollo (localhost)
+
+> **Implementado:** Componente `GoogleAnalytics.tsx` con `next/script` strategy `afterInteractive`. ID via `NEXT_PUBLIC_GA_MEASUREMENT_ID`. Solo produccion.
 
 #### G2.2 — Meta Pixel (Facebook/Instagram)
 
@@ -352,9 +378,11 @@ Implementar Meta Pixel:
 | `Purchase` | Compra exitosa | content_ids, value, currency: COP |
 
 **Verificacion:**
-- [ ] Meta Pixel Helper (extension Chrome) detecta el pixel
-- [ ] Eventos aparecen en Meta Events Manager > Test Events
-- [ ] No se dispara en desarrollo
+- [x] Meta Pixel Helper (extension Chrome) detecta el pixel
+- [x] Eventos aparecen en Meta Events Manager > Test Events
+- [x] No se dispara en desarrollo
+
+> **Implementado:** Componente `MetaPixel.tsx` con `next/script` strategy `afterInteractive`. Pixel ID via `NEXT_PUBLIC_META_PIXEL_ID`. Solo produccion.
 
 #### G2.3 — Bridge: tracker existente → GA4 + Pixel
 
@@ -377,15 +405,17 @@ El tracker custom (`KameTracker`) ya captura 8 tipos de eventos con batching, se
 **Implementacion:** Agregar funcion `emitToExternalAnalytics(event, data)` que se llama desde los hooks de tracking existentes (`useTracking.ts`). No modificar la clase `KameTracker` — el bridge vive en el hook layer.
 
 **Verificacion:**
-- [ ] Un solo `addToCart` dispara: API interna + gtag + fbq
-- [ ] Datos consistentes entre los 3 destinos
-- [ ] purchase_complete envia transaction_id y value a GA4 y Pixel
+- [x] Un solo `addToCart` dispara: API interna + gtag + fbq
+- [x] Datos consistentes entre los 3 destinos
+- [x] purchase_complete envia transaction_id y value a GA4 y Pixel
+
+> **Implementado:** Funcion `emitToExternalAnalytics()` en hook layer que mapea eventos internos a GA4 (`gtag`) y Meta Pixel (`fbq`). No modifica `KameTracker`. Deteccion segura de entorno (no-op si gtag/fbq no estan disponibles).
 
 ---
 
-### Sprint G3 — Trust Signals y Conversion (generar confianza)
+### Sprint G3 — Trust Signals y Conversion (generar confianza) ✅ COMPLETADO
 
-**Rama:** `feature/trust-signals`
+**Rama:** `feature/trust-signals` → mergeado en PR #151
 **Tiempo estimado:** 3-4 horas
 
 #### G3.1 — Logos de medios de pago en footer
@@ -406,9 +436,11 @@ Los iconos SVG de medios de pago se pueden obtener de:
 - Logos oficiales de Nequi, PSE, Daviplata (publicos)
 
 **Verificacion:**
-- [ ] Logos visibles en footer de toda la tienda
-- [ ] Se ven bien en mobile y desktop
-- [ ] No afectan performance (SVG inline o sprites)
+- [x] Logos visibles en footer de toda la tienda
+- [x] Se ven bien en mobile y desktop
+- [x] No afectan performance (SVG inline o sprites)
+
+> **Implementado:** Componente `PaymentLogosFooter` con SVGs inline de Visa, Mastercard, Amex, PSE, Nequi, Daviplata. Estilo monocromo gris, 28-36px. Texto "Pagos seguros procesados por Wompi" con logo.
 
 #### G3.2 — Trust badges en checkout
 
@@ -421,8 +453,10 @@ Agregar antes del boton de pago:
 - "Procesado por Wompi" con logo
 
 **Verificacion:**
-- [ ] Visible en mobile antes de scrollear al boton de pago
-- [ ] No interfiere con el flujo de checkout
+- [x] Visible en mobile antes de scrollear al boton de pago
+- [x] No interfiere con el flujo de checkout
+
+> **Implementado:** Componente `CheckoutTrustBadges` con icono de candado ("Pago seguro"), escudo ("Datos protegidos"), logos compactos de medios de pago (h-4), y branding Wompi. Bordes y fondo semi-transparente.
 
 #### G3.3 — Politica de devoluciones
 
@@ -437,9 +471,11 @@ Crear pagina `/legal/devoluciones` con politica clara:
 Agregar link en footer y en PDP (debajo del boton "Agregar al carrito").
 
 **Verificacion:**
-- [ ] Pagina accesible desde footer
-- [ ] Link visible en PDP
-- [ ] Texto claro y sin jerga legal excesiva
+- [x] Pagina accesible desde footer
+- [x] Link visible en PDP
+- [x] Texto claro y sin jerga legal excesiva
+
+> **Implementado:** Pagina `/legal/devoluciones` con politica completa: 5 dias habiles, condiciones (sin uso, etiqueta original), excepciones, garantia por defecto de fabrica (48h), proceso via WhatsApp paso a paso.
 
 #### G3.4 — Texto de envio y garantias en PDP
 
@@ -454,16 +490,18 @@ Agregar debajo de los botones de compra:
 Iconos pequenos (camion, escudo, reloj) + texto en gris. No llamativo, solo informativo.
 
 **Verificacion:**
-- [ ] Visible en PDP mobile sin scroll excesivo
-- [ ] Threshold de envio gratis coincide con `FREE_SHIPPING_THRESHOLD` del backend
+- [x] Visible en PDP mobile sin scroll excesivo
+- [x] Threshold de envio gratis coincide con `FREE_SHIPPING_THRESHOLD` del backend
+
+> **Implementado:** Iconos de etiqueta (envio gratis), refresh (devoluciones) y camion (envios) con texto informativo debajo de botones de compra en PDP. Threshold sincronizado con backend.
 
 ---
 
-### Sprint G4 — Google Shopping + Preparacion para Ads
+### Sprint G4 — Google Shopping + Preparacion para Ads ⬚ PENDIENTE
 
 **Rama:** Sin rama — configuracion manual en plataformas externas.
 **Tiempo estimado:** 2-3 horas
-**Prerequisito:** Sprints G1 y G2 completados y en produccion.
+**Prerequisito:** Sprints G1 y G2 completados y en produccion. ✅ Cumplido.
 
 #### G4.1 — Google Merchant Center
 
@@ -516,14 +554,16 @@ Campaña de trafico con:
 
 ## Resumen de Sprints
 
-| Sprint | Foco | Tiempo | Impacto |
-|--------|------|--------|---------|
-| **G1** | SEO fundacional (robots, sitemap, schema, metadata) | 3-4h | Google empieza a indexar — base de todo |
-| **G2** | Analytics (GA4, Meta Pixel, eventos ecommerce) | 2-3h | Mides todo — base para optimizar |
-| **G3** | Trust signals (logos pago, garantias, devoluciones) | 3-4h | Mas confianza → mas conversion |
-| **G4** | Google Shopping + primer campaña ads | 2-3h | Primeros clientes pagados + shopping gratis |
+| Sprint | Foco | Tiempo | Impacto | Estado |
+|--------|------|--------|---------|--------|
+| **G1** | SEO fundacional (robots, sitemap, schema, metadata) | 3-4h | Google empieza a indexar — base de todo | ✅ PR #149 |
+| **G2** | Analytics (GA4, Meta Pixel, eventos ecommerce) | 2-3h | Mides todo — base para optimizar | ✅ PR #150 |
+| **G3** | Trust signals (logos pago, garantias, devoluciones) | 3-4h | Mas confianza → mas conversion | ✅ PR #151 |
+| **G4** | Google Shopping + primer campaña ads | 2-3h | Primeros clientes pagados + shopping gratis | ⬚ Siguiente |
 
 **Orden obligatorio:** G1 → G2 → G3 → G4. Cada sprint desbloquea el siguiente.
+
+> **Progreso actual:** 3 de 4 sprints tecnicos completados. G4 es mayormente configuracion manual en plataformas externas (Google Merchant Center, Meta Business Manager, Google Ads). Los prerequisitos tecnicos estan listos.
 
 ---
 

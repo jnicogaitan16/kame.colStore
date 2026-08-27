@@ -15,10 +15,12 @@ Tienda e-commerce **streetwear**: **Django + DRF** (API y admin), **Next.js 14**
 ## ✨ Features
 
 - Catálogo, carrito, checkout y gestión de pedidos
-- Pagos y webhooks **Wompi**; emails transaccionales **Resend**
-- Admin interno (catálogo, órdenes, clientes) con **2FA**
-- Inventario y variantes de producto
-- Eventos de comportamiento en storefront (analytics)
+- Pagos y webhooks **Wompi** (tarjeta, Nequi, PSE, Daviplata); emails transaccionales **Resend**
+- Admin interno (catálogo, órdenes, clientes, descuentos, recuperación de pagos) con **2FA**
+- Inventario, variantes y sistema de descuentos configurable (por tienda, departamento, categoría, producto)
+- **SEO:** robots.txt, sitemap XML dinámico, Schema.org Product JSON-LD, OpenGraph metadata
+- **Analytics:** tracking interno (8 eventos, embudo, rendimiento por producto) + bridge a **GA4** y **Meta Pixel**
+- **Trust signals:** logos de medios de pago (footer/checkout), trust badges, política de devoluciones, info de envío
 - **Sentry** (backend + frontend) y **Bandit** en CI sobre Python
 - E2E **Playwright** (ver `tests/README.md`)
 
@@ -92,6 +94,7 @@ No subas `.env`, `frontend/.env.local` ni tokens al repositorio.
 | Alcance E2E, pagos, jobs opcionales en Actions | **`docs/TECH_DEBT_AND_ROADMAP.md`** §6 (el README raíz no entra en detalle por método de pago) |
 
 Deuda técnica, riesgos y roadmap: **`docs/TECH_DEBT_AND_ROADMAP.md`**.
+Estrategia de crecimiento y captación: **`docs/ESTRATEGIA_CRECIMIENTO.md`**.
 
 ## 📦 Estructura (resumen)
 
@@ -119,9 +122,12 @@ kame.colStore/
 
 ## 📌 Roadmap (alto nivel)
 
+- Google Search Console + Google Merchant Center (Shopping gratis)
+- Campañas de ads (Instagram, Google Search) y retargeting
 - Integraciones de envío (couriers)
-- Evolución de catálogo / promos / recomendaciones
-- CI ampliado (p. ej. lint frontend en Actions) y observabilidad tipo métricas — ver `docs/TECH_DEBT_AND_ROADMAP.md`
+- Newsletter y abandoned cart automatizado
+- CI ampliado y observabilidad tipo métricas — ver `docs/TECH_DEBT_AND_ROADMAP.md`
+- Plan completo de crecimiento: `docs/ESTRATEGIA_CRECIMIENTO.md`
 
 
 ## 🔒 Bandit (análisis estático de seguridad)
