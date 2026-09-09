@@ -22,7 +22,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 from imagekit.cachefiles import ImageCacheFile
-from apps.catalog.services.variant_sync import sync_variants_for_pool
+from apps.catalog.services.variant_sync import sync_variants_for_pool, sync_variants_for_product
 
 from .models import InventoryPool, ProductImage, ProductColorImage
 
@@ -82,6 +82,19 @@ def productcolorimage_post_save_generate_cache(sender, instance: ProductColorIma
 
     def _run():
         _generate_product_color_image_cachefiles(instance)
+
+    transaction.on_commit(_run)
+
+
+@receiver(post_save, sender=ProductColorImage)
+def productcolorimage_post_save_sync_variants(sender, instance: ProductColorImage, **kwargs) -> None:
+    """Sync variants when a color image is added — only for the affected product."""
+    product_id = instance.product_id
+    if not product_id:
+        return
+
+    def _run():
+        sync_variants_for_product(product_id)
 
     transaction.on_commit(_run)
 
