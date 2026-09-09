@@ -215,14 +215,9 @@ def products_create(request: Request):
     except Exception as e:
         return Response({"error": str(e)}, status=400)
 
-    # Auto-sync variants from existing InventoryPool entries for this category.
-    # If the category already has pool entries (e.g., M/Negro with stock=10),
-    # ProductVariant entries are created automatically — no manual variant creation needed.
-    try:
-        from apps.catalog.services.variant_sync import sync_variants_for_category
-        sync_variants_for_category(product.category_id)
-    except Exception:
-        logger.exception("Auto-sync variants failed for product %s", product.pk)
+    # Variants are NOT auto-synced at creation — the product has no color images yet.
+    # Variants will be created when the first ProductColorImage is uploaded,
+    # which triggers a signal that syncs variants for colors with images.
 
     product = (
         Product.objects.select_related("category")

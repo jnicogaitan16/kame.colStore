@@ -735,6 +735,12 @@ class ProductAdmin(admin.ModelAdmin):
                     f"Producto «{product.name}»: la categoría no es leaf; no se generan variantes.",
                 )
                 continue
+            # Only generate variants for colors the product has images for
+            product_colors = set(
+                ProductColorImage.objects.filter(product=product)
+                .values_list("color", flat=True)
+                .distinct()
+            )
             pool_rows = (
                 InventoryPool.objects.filter(category_id=product.category_id, is_active=True)
                 .values_list("value", "color", flat=False)
@@ -744,6 +750,11 @@ class ProductAdmin(admin.ModelAdmin):
             for value, color in pool_rows:
                 value = (value or "").strip().upper()
                 color = (color or "").strip()
+                # Skip colors not present in this product's images
+                if product_colors and color and not any(
+                    c.strip().lower() == color.lower() for c in product_colors
+                ):
+                    continue
                 _, was_created = ProductVariant.objects.get_or_create(
                     product_id=product.id,
                     value=value,
