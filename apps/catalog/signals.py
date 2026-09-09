@@ -18,7 +18,7 @@ import logging
 
 from django.conf import settings
 from django.db import transaction
-from django.db.models.signals import post_save
+from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 
 from imagekit.cachefiles import ImageCacheFile
@@ -89,6 +89,19 @@ def productcolorimage_post_save_generate_cache(sender, instance: ProductColorIma
 @receiver(post_save, sender=ProductColorImage)
 def productcolorimage_post_save_sync_variants(sender, instance: ProductColorImage, **kwargs) -> None:
     """Sync variants when a color image is added — only for the affected product."""
+    product_id = instance.product_id
+    if not product_id:
+        return
+
+    def _run():
+        sync_variants_for_product(product_id)
+
+    transaction.on_commit(_run)
+
+
+@receiver(post_delete, sender=ProductColorImage)
+def productcolorimage_post_delete_sync_variants(sender, instance: ProductColorImage, **kwargs) -> None:
+    """Deactivate variants when the last image of a color is removed."""
     product_id = instance.product_id
     if not product_id:
         return
