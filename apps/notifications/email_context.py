@@ -283,6 +283,61 @@ def build_payment_confirmed_context(order) -> dict:
     return enrich_context_with_brand_assets(ctx)
 
 
+def build_admin_new_sale_context(order) -> dict:
+    """Context for the internal admin notification when an order is paid."""
+    reference = (getattr(order, "payment_reference", "") or "").strip() or "—"
+    payment_method = (getattr(order, "payment_method", "") or "").strip() or "—"
+
+    raw_total = getattr(order, "total", None)
+    if raw_total is None:
+        raw_total = getattr(order, "total_amount", None)
+    total_fmt = format_cop(raw_total)
+
+    raw_subtotal = getattr(order, "subtotal", None)
+    raw_shipping_cost = getattr(order, "shipping_cost", None)
+    subtotal_fmt = format_cop(raw_subtotal)
+    shipping_cost_fmt = format_cop(raw_shipping_cost)
+    shipping_is_free = int(raw_shipping_cost or 0) <= 0
+
+    customer_name = (getattr(order, "full_name", "") or "").strip() or "—"
+    customer_phone = (getattr(order, "phone", "") or "").strip() or "—"
+    customer_email = (getattr(order, "email", "") or "").strip() or "—"
+    customer_cedula = (getattr(order, "cedula", "") or "").strip() or "—"
+    customer_city = (getattr(order, "city_code", "") or "").strip() or "—"
+    customer_address = (getattr(order, "address", "") or "").strip() or "—"
+    customer_notes = (getattr(order, "notes", "") or "").strip() or ""
+
+    email_items = _build_email_items(order)
+    items_count = sum(int(item.get("quantity") or 0) for item in email_items)
+
+    # Link to admin panel order detail
+    base = _get_storefront_base_url()
+    admin_order_url = f"{base}/admin/ordenes/{reference}"
+
+    subject = f"\U0001f6d2 Nueva venta \u2014 {reference} \u2014 {total_fmt}"
+
+    return {
+        "subject": subject,
+        "brand_name": _get_brand_name(),
+        "reference": reference,
+        "total_fmt": total_fmt,
+        "subtotal_fmt": subtotal_fmt,
+        "shipping_cost_fmt": shipping_cost_fmt,
+        "shipping_is_free": shipping_is_free,
+        "payment_method": payment_method,
+        "customer_name": customer_name,
+        "customer_phone": customer_phone,
+        "customer_email": customer_email,
+        "customer_cedula": customer_cedula,
+        "customer_city": customer_city,
+        "customer_address": customer_address,
+        "customer_notes": customer_notes,
+        "email_items": email_items,
+        "items_count": items_count,
+        "admin_order_url": admin_order_url,
+    }
+
+
 def build_payment_declined_context(order, *, wompi_status: str | None = None) -> dict:
     first_name = _get_first_name(order)
 

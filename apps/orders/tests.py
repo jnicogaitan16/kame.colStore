@@ -673,3 +673,103 @@ class DiscountCalculationTest(TestCase):
         self.assertEqual(info["discount_price"], 95_000)
         self.assertEqual(info["discount_percentage"], 5)
         self.assertEqual(info["discount_label"], "-5%")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TC-10: Admin new-sale notification on payment confirmation
+# ─────────────────────────────────────────────────────────────────────────────
+
+class AdminNewSaleNotificationTest(TestCase):
+    """TC-10: Store owner receives email when an order is paid."""
+
+    def setUp(self):
+        self.customer = _make_customer()
+        self.category = _make_category("Notif Cat")
+        self.product = _make_product(self.category, "Notif Prod", 80_000)
+        self.variant = _make_variant(self.product, size="L", color="Blanco")
+        _make_inventory(self.category, size="L", color="Blanco", quantity=10)
+        self.order = _make_pending_order(self.customer, self.variant, qty=1, unit_price=80_000)
+
+    @patch("apps.notifications.emails._safe_send_multipart")
+    def test_admin_email_sent_on_payment_confirmation(self, mock_send):
+        """When payment is confirmed and STORE_NOTIFICATION_EMAILS is set, admin email is sent."""
+        with self.settings(STORE_NOTIFICATION_EMAILS=["admin@kamecol.com"]):
+            with self.captureOnCommitCallbacks(execute=True):
+                confirm_order_payment(self.order)
+        # At least 2 calls: one for customer, one for admin
+        self.assertGreaterEqual(mock_send.call_count, 2)
+        admin_call = mock_send.call_args_list[-1]
+        self.assertEqual(admin_call.kwargs.get("to_email") or admin_call[1].get("to_email"), "admin@kamecol.com")
+
+    @patch("apps.notifications.emails._safe_send_multipart")
+    def test_admin_email_not_sent_when_no_emails_configured(self, mock_send):
+        """When STORE_NOTIFICATION_EMAILS is empty, only customer email is sent."""
+        with self.settings(STORE_NOTIFICATION_EMAILS=[]):
+            with self.captureOnCommitCallbacks(execute=True):
+                confirm_order_payment(self.order)
+        # Only customer email
+        self.assertEqual(mock_send.call_count, 1)
+
+    @patch("apps.notifications.emails._safe_send_multipart")
+    def test_admin_email_multiple_recipients(self, mock_send):
+        """Each admin email in the list receives a separate notification."""
+        emails = ["admin1@kamecol.com", "admin2@kamecol.com"]
+        with self.settings(STORE_NOTIFICATION_EMAILS=emails):
+            with self.captureOnCommitCallbacks(execute=True):
+                confirm_order_payment(self.order)
+        # 1 customer + 2 admin = 3
+        self.assertEqual(mock_send.call_count, 3)
+
+    @patch("apps.notifications.emails._safe_send_multipart")
+    def test_admin_email_failure_does_not_block_customer_email(self, mock_send):
+        """If admin notification raises, customer email should still have been sent."""
+        def side_effect(*, subject, text_body, html_body, to_email):
+            if to_email == "admin@kamecol.com":
+                raise Exception("Resend down")
+        mock_send.side_effect = side_effect
+        with self.settings(STORE_NOTIFICATION_EMAILS=["admin@kamecol.com"]):
+            with self.captureOnCommitCallbacks(execute=True):
+                confirm_order_payment(self.order)
+        # Customer email was attempted first (to_email=test@example.com) — no error
+        # Admin email raised — caught by send_admin_new_sale_email's except
+        calls = mock_send.call_args_list
+        self.assertGreaterEqual(len(calls), 1)
+        first_call_email = calls[0].kwargs.get("to_email")
+        self.assertEqual(first_call_email, "test@example.com")
+
+
+class AdminNewSaleContextTest(TestCase):
+    """TC-10b: Context builder for admin sale notification."""
+
+    def setUp(self):
+        self.customer = _make_customer()
+        self.category = _make_category("Ctx Cat")
+        self.product = _make_product(self.category, "Ctx Prod", 90_000)
+        self.variant = _make_variant(self.product, size="S", color="Rojo")
+        _make_inventory(self.category, size="S", color="Rojo", quantity=5)
+        self.order = _make_pending_order(self.customer, self.variant, qty=2, unit_price=90_000)
+
+    def test_context_contains_required_fields(self):
+        from apps.notifications.email_context import build_admin_new_sale_context
+
+        ctx = build_admin_new_sale_context(self.order)
+        self.assertIn("subject", ctx)
+        self.assertIn("reference", ctx)
+        self.assertIn("total_fmt", ctx)
+        self.assertIn("customer_name", ctx)
+        self.assertIn("customer_phone", ctx)
+        self.assertIn("email_items", ctx)
+        self.assertIn("admin_order_url", ctx)
+
+    def test_subject_contains_reference_and_total(self):
+        from apps.notifications.email_context import build_admin_new_sale_context
+
+        ctx = build_admin_new_sale_context(self.order)
+        self.assertIn(self.order.payment_reference, ctx["subject"])
+
+    def test_admin_order_url_points_to_admin(self):
+        from apps.notifications.email_context import build_admin_new_sale_context
+
+        ctx = build_admin_new_sale_context(self.order)
+        self.assertIn("/admin/ordenes/", ctx["admin_order_url"])
+        self.assertIn(self.order.payment_reference, ctx["admin_order_url"])

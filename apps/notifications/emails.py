@@ -12,6 +12,7 @@ from django.template.loader import render_to_string
 
 from apps.notifications.email_assets import get_brand_asset_resend_attachments
 from apps.notifications.email_context import (
+    build_admin_new_sale_context,
     build_order_created_context,
     build_payment_confirmed_context,
     build_payment_declined_context,
@@ -224,6 +225,41 @@ def send_payment_confirmed_email(order) -> None:
     )
     # Backward compatible alias
     send_order_paid_email(order)
+
+
+def send_admin_new_sale_email(order) -> None:
+    """Notify store owner(s) that an order was paid. Best-effort: never raises."""
+    admin_emails: list[str] = getattr(settings, "STORE_NOTIFICATION_EMAILS", [])
+    if not admin_emails:
+        logger.info("[emails] No STORE_NOTIFICATION_EMAILS configured; skipping admin sale notification.")
+        return
+
+    ctx = build_admin_new_sale_context(order)
+    subject = str(ctx.get("subject") or "Nueva venta")
+    text_body = render_to_string("emails/orders/admin_new_sale.txt", ctx)
+
+    html_body: Optional[str] = None
+    try:
+        html_body = render_to_string("emails/orders/admin_new_sale.html", ctx)
+    except TemplateDoesNotExist:
+        logger.warning("[emails] admin_new_sale.html not found; sending TXT-only.")
+    except Exception:
+        logger.exception("[emails] Failed to render admin_new_sale.html; sending TXT-only.")
+
+    for email in admin_emails:
+        try:
+            _safe_send_multipart(
+                subject=subject,
+                text_body=text_body,
+                html_body=html_body,
+                to_email=email,
+            )
+        except Exception:
+            logger.exception(
+                "[emails] Failed admin sale notification to=%s order_id=%s",
+                email,
+                getattr(order, "id", None),
+            )
 
 
 def send_payment_declined_email(order, *, wompi_status: str | None = None) -> None:

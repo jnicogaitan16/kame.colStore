@@ -413,6 +413,14 @@ if not TRANSACTIONAL_FROM_EMAIL:
 DEFAULT_FROM_EMAIL = TRANSACTIONAL_FROM_EMAIL
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
 
+# Store owner/admin emails for internal notifications (new sale, etc.)
+# Comma-separated list; empty disables admin notifications.
+STORE_NOTIFICATION_EMAILS = [
+    e.strip()
+    for e in os.getenv("STORE_NOTIFICATION_EMAILS", "").split(",")
+    if e.strip()
+]
+
 # Logging configuration
 # https://docs.djangoproject.com/en/6.0/topics/logging/
 

@@ -187,4 +187,13 @@ def confirm_order_payment(order: Order) -> None:
             except Exception:
                 logger.exception("Fallo enviando email de pago confirmado")
 
+            # Admin/store-owner notification (independent of customer email)
+            try:
+                from apps.notifications.emails import send_admin_new_sale_email
+
+                fresh_order = Order.objects.get(pk=order_id)
+                send_admin_new_sale_email(fresh_order)
+            except Exception:
+                logger.exception("Fallo enviando notificacion admin de nueva venta order_id=%s", order_id)
+
         transaction.on_commit(_send_paid_email)
