@@ -1,0 +1,109 @@
+{% extends "emails/base_dark.html" %}
+
+{% block title %}Nueva venta · KAME.COL{% endblock %}
+
+{% block preheader %}
+Nueva venta {{ reference }} por {{ total_fmt }}
+{% endblock %}
+
+{% block banner %}
+  {% include "emails/includes/banner.html" with banner_bg="#bbf7d0" banner_text_color="#050505" banner_icon="$" banner_title="NUEVA VENTA" banner_subtitle=reference %}
+{% endblock %}
+
+{% block content %}
+  <!-- Total -->
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:24px;">
+    <tr>
+      <td style="padding:16px; background:#ffffff; border-radius:8px; border:1px solid #e5e5e5;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr>
+            <td style="font-family:Arial, Helvetica, sans-serif; font-size:24px; font-weight:700; color:#151515; padding-bottom:4px;">
+              {{ total_fmt }}
+            </td>
+          </tr>
+          <tr>
+            <td style="font-family:Arial, Helvetica, sans-serif; font-size:13px; line-height:1.6; color:#666666;">
+              Subtotal: {{ subtotal_fmt }} · Envio: {% if shipping_is_free %}Gratis{% else %}{{ shipping_cost_fmt }}{% endif %} · {{ payment_method }}
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+
+  <!-- Productos (PRIMERO — para producción) -->
+  {% if email_items %}
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:24px;">
+    <tr>
+      <td style="padding:20px; background:#ffffff; border-radius:8px; border:1px solid #e5e5e5;">
+        <p style="margin:0 0 16px 0; font-family:Arial, Helvetica, sans-serif; font-size:13px; font-weight:700; color:#151515; text-transform:uppercase; letter-spacing:0.5px;">
+          Prendas a producir ({{ items_count }} unidad{{ items_count|pluralize:"es" }})
+        </p>
+        {% for item in email_items %}
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="{% if not forloop.last %}border-bottom:1px solid #eeeeee; margin-bottom:12px; padding-bottom:12px;{% endif %}">
+          <tr>
+            <td style="font-family:Arial, Helvetica, sans-serif; padding:4px 0;">
+              <p style="margin:0 0 6px 0; font-size:15px; font-weight:700; color:#151515;">
+                {{ item.name }}
+              </p>
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                {% if item.variant_size %}
+                <tr>
+                  <td style="font-family:Arial, Helvetica, sans-serif; font-size:14px; color:#666666; padding:2px 0; width:70px; vertical-align:top;">Talla:</td>
+                  <td style="font-family:Arial, Helvetica, sans-serif; font-size:14px; font-weight:700; color:#151515; padding:2px 0;">{{ item.variant_size }}</td>
+                </tr>
+                {% endif %}
+                {% if item.variant_color %}
+                <tr>
+                  <td style="font-family:Arial, Helvetica, sans-serif; font-size:14px; color:#666666; padding:2px 0; width:70px; vertical-align:top;">Color:</td>
+                  <td style="font-family:Arial, Helvetica, sans-serif; font-size:14px; font-weight:700; color:#151515; padding:2px 0;">{{ item.variant_color }}</td>
+                </tr>
+                {% endif %}
+                <tr>
+                  <td style="font-family:Arial, Helvetica, sans-serif; font-size:14px; color:#666666; padding:2px 0; width:70px; vertical-align:top;">Cant:</td>
+                  <td style="font-family:Arial, Helvetica, sans-serif; font-size:14px; font-weight:700; color:#151515; padding:2px 0;">{{ item.quantity }}</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+        {% endfor %}
+      </td>
+    </tr>
+  </table>
+  {% endif %}
+
+  <!-- CTA -->
+  {% if admin_order_url %}
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:24px;">
+    <tr>
+      <td align="center" style="padding:8px 0;">
+        <a href="{{ admin_order_url }}" target="_blank"
+           style="display:inline-block; padding:14px 32px; background:#151515; color:#ffffff; font-family:Arial, Helvetica, sans-serif; font-size:14px; font-weight:700; text-decoration:none; border-radius:6px; letter-spacing:0.5px;">
+          VER PEDIDO EN ADMIN
+        </a>
+      </td>
+    </tr>
+  </table>
+  {% endif %}
+
+  <!-- Cliente (referencia, abajo) -->
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+    <tr>
+      <td style="padding:16px; background:#ffffff; border-radius:8px; border:1px solid #e5e5e5;">
+        <p style="margin:0 0 8px 0; font-family:Arial, Helvetica, sans-serif; font-size:13px; font-weight:700; color:#151515; text-transform:uppercase; letter-spacing:0.5px;">
+          Cliente
+        </p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-family:Arial, Helvetica, sans-serif; font-size:14px; line-height:1.8; color:#333333;">
+          <tr><td style="padding:2px 0;"><strong>Nombre:</strong> {{ customer_name }}</td></tr>
+          <tr><td style="padding:2px 0;"><strong>Tel:</strong> {{ customer_phone }}</td></tr>
+          <tr><td style="padding:2px 0;"><strong>Email:</strong> {{ customer_email }}</td></tr>
+          <tr><td style="padding:2px 0;"><strong>Cedula:</strong> {{ customer_cedula }}</td></tr>
+          <tr><td style="padding:2px 0;"><strong>Ciudad:</strong> {{ customer_city }}</td></tr>
+          <tr><td style="padding:2px 0;"><strong>Direccion:</strong> {{ customer_address }}</td></tr>
+          {% if customer_notes %}<tr><td style="padding:2px 0;"><strong>Notas:</strong> {{ customer_notes }}</td></tr>{% endif %}
+        </table>
+      </td>
+    </tr>
+  </table>
+{% endblock %}

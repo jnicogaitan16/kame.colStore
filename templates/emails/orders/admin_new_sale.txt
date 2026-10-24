@@ -1,0 +1,26 @@
+Nueva venta en Kame.col
+
+Referencia: {{ reference }}
+Total: {{ total_fmt }} (Subtotal: {{ subtotal_fmt }} · Envio: {% if shipping_is_free %}Gratis{% else %}{{ shipping_cost_fmt }}{% endif %} · {{ payment_method }})
+
+{% if email_items %}---
+PRENDAS A PRODUCIR ({{ items_count }} unidad{{ items_count|pluralize:"es" }})
+
+{% for item in email_items %}{{ forloop.counter }}. {{ item.name }}
+   Talla: {{ item.variant_size|default:"—" }}
+   Color: {{ item.variant_color|default:"—" }}
+   Cantidad: {{ item.quantity }}
+{% endfor %}{% endif %}
+---
+Ver pedido en admin:
+{{ admin_order_url }}
+
+---
+CLIENTE
+Nombre: {{ customer_name }}
+Telefono: {{ customer_phone }}
+Email: {{ customer_email }}
+Cedula: {{ customer_cedula }}
+Ciudad: {{ customer_city }}
+Direccion: {{ customer_address }}
+{% if customer_notes %}Notas: {{ customer_notes }}{% endif %}
