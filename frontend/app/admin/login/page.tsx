@@ -3,6 +3,9 @@
 import { Suspense, useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { authLogin, authVerifyOtp, authMe } from "@/lib/admin-api";
+import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
+
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
 
 function PasswordStep({
   onSuccess,
@@ -15,13 +18,19 @@ function PasswordStep({
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const turnstileRef = useRef<TurnstileInstance>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (TURNSTILE_SITE_KEY && !turnstileToken) {
+      setError("Esperando verificación de seguridad...");
+      return;
+    }
     setError("");
     setLoading(true);
     try {
-      const res = await authLogin(username, password);
+      const res = await authLogin(username, password, turnstileToken || undefined);
       if ("requires_otp" in res && res.requires_otp) {
         onRequiresOtp(res.ephemeral_token);
       } else {
@@ -29,6 +38,8 @@ function PasswordStep({
       }
     } catch (err: any) {
       setError(err?.payload?.error || err?.message || "Error al iniciar sesión.");
+      turnstileRef.current?.reset();
+      setTurnstileToken("");
     } finally {
       setLoading(false);
     }
@@ -48,8 +59,18 @@ function PasswordStep({
           onChange={(e) => setPassword(e.target.value)} className={INPUT_CLS}
           placeholder="••••••••" required />
       </div>
+      {TURNSTILE_SITE_KEY && (
+        <Turnstile
+          ref={turnstileRef}
+          siteKey={TURNSTILE_SITE_KEY}
+          onSuccess={setTurnstileToken}
+          onError={() => setTurnstileToken("")}
+          onExpire={() => setTurnstileToken("")}
+          options={{ theme: "light", size: "flexible" }}
+        />
+      )}
       {error && <ErrorBanner message={error} />}
-      <button type="submit" disabled={loading} className={BTN_CLS}>
+      <button type="submit" disabled={loading || (!!TURNSTILE_SITE_KEY && !turnstileToken)} className={BTN_CLS}>
         {loading ? "Verificando..." : "Continuar →"}
       </button>
     </form>

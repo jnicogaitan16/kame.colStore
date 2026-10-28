@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Tuple
 
+from apps.common.crypto import make_blind_index
 from apps.customers.models import Customer
 from apps.orders.models import Order, OrderItem
 
@@ -114,7 +115,8 @@ def resolve_customer_from_checkout(payload_customer: Dict[str, Any]) -> Customer
 
     # A) SI hay documento: SOLO documento
     if cedula:
-        existing = Customer.objects.filter(document_type=document_type, cedula=cedula).first()
+        cedula_h = make_blind_index(cedula)
+        existing = Customer.objects.filter(document_type=document_type, cedula_hash=cedula_h).first()
         if existing is not None:
             return existing
 
@@ -128,8 +130,8 @@ def resolve_customer_from_checkout(payload_customer: Dict[str, Any]) -> Customer
                 phone=(phone or ""),
             )
         except IntegrityError:
-            # Carrera por UNIQUE(document_type, cedula)
-            existing = Customer.objects.filter(document_type=document_type, cedula=cedula).first()
+            # Carrera por UNIQUE(document_type, cedula_hash)
+            existing = Customer.objects.filter(document_type=document_type, cedula_hash=cedula_h).first()
             if existing is not None:
                 return existing
             raise

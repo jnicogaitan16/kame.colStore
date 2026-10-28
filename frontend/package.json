@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
+    "@marsidev/react-turnstile": "^1.6.3",
     "@sentry/nextjs": "^10.48.0",
     "framer-motion": "^12.34.3",
     "next": "14.2.15",

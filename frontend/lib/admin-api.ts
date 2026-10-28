@@ -137,11 +137,12 @@ export type LoginResponse =
 
 export async function authLogin(
   username: string,
-  password: string
+  password: string,
+  turnstile_token?: string,
 ): Promise<LoginResponse> {
   return adminFetch<LoginResponse>("/auth/login/", {
     method: "POST",
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({ username, password, ...(turnstile_token && { turnstile_token }) }),
   });
 }
 

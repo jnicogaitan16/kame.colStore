@@ -44,7 +44,7 @@ def customer_snapshot_view(request):
 
     phone = (getattr(customer, "phone", "") or "").strip()
     email = (getattr(customer, "email", "") or "").strip()
-    cedula = (getattr(customer, "cedula", "") or "").strip()
+    cedula = (getattr(customer, "cedula_plain", "") or "").strip()
 
     return JsonResponse(
         {

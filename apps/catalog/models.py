@@ -563,7 +563,7 @@ class ProductImage(models.Model):
     
     def clean(self):
         super().clean()
-        
+
         # Validar tamaño del archivo
         if self.image:
             if hasattr(self.image, 'size') and self.image.size:
@@ -571,14 +571,26 @@ class ProductImage(models.Model):
                     raise ValidationError(
                         {"image": f"El archivo es demasiado grande. Tamaño máximo: {self.MAX_FILE_SIZE / (1024 * 1024):.1f}MB"}
                     )
-            
+
             # Validar extensión
             ext = os.path.splitext(self.image.name)[1].lower()
             if ext not in self.ALLOWED_EXTENSIONS:
                 raise ValidationError(
                     {"image": f"Formato no permitido. Formatos permitidos: {', '.join(self.ALLOWED_EXTENSIONS)}"}
                 )
-        
+
+            # Validar contenido real del archivo (magic bytes)
+            try:
+                from PIL import Image as PilImg
+                self.image.seek(0)
+                with PilImg.open(self.image) as img:
+                    img.verify()
+                self.image.seek(0)
+            except Exception:
+                raise ValidationError(
+                    {"image": "El archivo no es una imagen válida."}
+                )
+
         # Validar que solo haya una imagen primaria por variante
         if self.is_primary and self.variant_id:
             existing_primary = ProductImage.objects.filter(
@@ -767,6 +779,18 @@ class ProductColorImage(models.Model):
                 raise ValidationError({
                     "image": f"Formato no permitido. Formatos permitidos: {', '.join(self.ALLOWED_EXTENSIONS)}"
                 })
+
+            # Validar contenido real del archivo (magic bytes)
+            try:
+                from PIL import Image as PilImg
+                self.image.seek(0)
+                with PilImg.open(self.image) as img:
+                    img.verify()
+                self.image.seek(0)
+            except Exception:
+                raise ValidationError(
+                    {"image": "El archivo no es una imagen válida."}
+                )
 
         if self.is_primary and self.product_id and self.color:
             existing_primary = ProductColorImage.objects.filter(

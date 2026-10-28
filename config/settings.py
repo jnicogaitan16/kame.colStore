@@ -86,6 +86,19 @@ if raw_csrf_trusted:
         if norm and norm not in CSRF_TRUSTED_ORIGINS:
             CSRF_TRUSTED_ORIGINS.append(norm)
 
+# CORS — only allow requests from trusted frontend origins
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+raw_cors = os.getenv("DJANGO_CORS_ALLOWED_ORIGINS", raw_csrf_trusted)
+if raw_cors:
+    for piece in raw_cors.split(","):
+        norm = _normalize_csrf_trusted_origin(piece)
+        if norm and norm not in CORS_ALLOWED_ORIGINS:
+            CORS_ALLOWED_ORIGINS.append(norm)
+CORS_ALLOW_CREDENTIALS = True
+
 # When running behind a reverse proxy (e.g., Cloudflare Tunnel), Django should trust
 # the forwarded proto header to know the original scheme was HTTPS.
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
@@ -93,18 +106,27 @@ SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 # Trust host/scheme forwarded by the proxy (Cloudflare Tunnel sets these headers)
 USE_X_FORWARDED_HOST = True
 
-# Avoid HTTPS redirect loops behind tunnels in dev/demo.
-# In production you can set DJANGO_SECURE_SSL_REDIRECT=True.
-SECURE_SSL_REDIRECT = os.getenv("DJANGO_SECURE_SSL_REDIRECT", "False").lower() in ("1", "true", "yes", "on")
-if DEBUG:
-    # Default to False in DEBUG unless explicitly enabled via env.
-    SECURE_SSL_REDIRECT = os.getenv("DJANGO_SECURE_SSL_REDIRECT", "False").lower() in ("1", "true", "yes", "on")
+# HTTPS redirect: True by default in production, False in dev.
+# Override via DJANGO_SECURE_SSL_REDIRECT env var.
+_ssl_default = "False" if DEBUG else "True"
+SECURE_SSL_REDIRECT = os.getenv("DJANGO_SECURE_SSL_REDIRECT", _ssl_default).lower() in ("1", "true", "yes", "on")
 
 # Cookie security flags
 SESSION_COOKIE_SECURE = not DEBUG
 SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_SECURE = not DEBUG
 SESSION_COOKIE_SAMESITE = "Lax"
+
+# Security headers
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
+X_FRAME_OPTIONS = "DENY"
+
+# HSTS — solo en producción (1 año)
+if not DEBUG:
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
 
 # For APIs behind proxies/rewrites (Next.js / Cloudflare Tunnel),
 # disable Django's automatic slash-append redirects to avoid 301 loops.
@@ -128,6 +150,7 @@ INSTALLED_APPS = [
     'two_factor',
 
     'rest_framework',
+    'corsheaders',
     'imagekit',
     'storages',
 
@@ -143,6 +166,7 @@ MIDDLEWARE = [
     'config.middleware.AdminIPRestrictionMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -354,6 +378,8 @@ REST_FRAMEWORK = {
         "anon": "1000/minute" if DEBUG else "60/minute",
         "checkout": "100/minute" if DEBUG else "5/minute",
         "stock_validate": "200/minute" if DEBUG else "30/minute",
+        "auth_login": "100/minute" if DEBUG else "5/minute",
+        "auth_otp": "50/minute" if DEBUG else "3/minute",
     },
 }
 

@@ -7,6 +7,7 @@ from typing import Any, Dict, Optional, Tuple
 
 from django.db import transaction
 
+from apps.common.crypto import make_blind_index
 from apps.customers.models import Customer
 
 
@@ -74,7 +75,8 @@ def get_or_create_customer_from_checkout(payload: Dict[str, Any]) -> Customer:
     phone_in = _clean_str(payload.get("phone"))
 
     with transaction.atomic():
-        customer = Customer.objects.filter(document_type=document_type, cedula=cedula).first()
+        cedula_h = make_blind_index(cedula)
+        customer = Customer.objects.filter(document_type=document_type, cedula_hash=cedula_h).first()
 
         if customer is None:
             customer = Customer.objects.create(

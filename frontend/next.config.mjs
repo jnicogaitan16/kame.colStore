@@ -4,6 +4,32 @@ import { withSentryConfig } from "@sentry/nextjs";
 const nextConfig = {
   skipTrailingSlashRedirect: true,
 
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+          {
+            key: "Content-Security-Policy",
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.wompi.co https://checkout.wompi.co",
+              "style-src 'self' 'unsafe-inline'",
+              "img-src 'self' data: blob: https://*.r2.dev https://*.r2.cloudflarestorage.com https://kame-colstore.onrender.com https://res.cloudinary.com",
+              "connect-src 'self' https://api.wompi.co https://*.sentry.io https://*.ingest.sentry.io",
+              "frame-src https://checkout.wompi.co",
+              "font-src 'self' data:",
+            ].join("; "),
+          },
+        ],
+      },
+    ];
+  },
+
   images: {
     unoptimized: process.env.NEXT_ENABLE_IMAGE_OPTIMIZATION !== "true",
     formats: ["image/avif", "image/webp"],

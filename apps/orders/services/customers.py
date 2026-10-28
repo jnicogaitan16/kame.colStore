@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from django.core.exceptions import ValidationError
 
+from apps.common.crypto import make_blind_index
 from apps.customers.models import Customer
 
 
@@ -27,10 +28,12 @@ def get_or_create_customer_from_form_data(form_data: dict) -> Customer:
     phone = (form_data.get("phone") or "").strip()
     document_type = (form_data.get("document_type") or "CC").strip() or "CC"
 
+    cedula_h = make_blind_index(cedula)
     try:
         customer, _created = Customer.objects.get_or_create(
-            cedula=cedula,
+            cedula_hash=cedula_h,
             defaults={
+                "cedula": cedula,
                 "first_name": first_name,
                 "last_name": last_name,
                 "phone": phone,
@@ -41,7 +44,7 @@ def get_or_create_customer_from_form_data(form_data: dict) -> Customer:
         return customer
     except IntegrityError as e:
         try:
-            customer = Customer.objects.get(cedula=cedula)
+            customer = Customer.objects.get(cedula_hash=cedula_h)
             changed = False
 
             if phone and not customer.phone:

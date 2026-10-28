@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import re
 
+from apps.common.crypto import make_blind_index
+
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError
 from django.db.models import Sum, Count, Max, Min, Avg, Q
@@ -103,7 +105,7 @@ def _serialize_customer_detail(customer: Customer) -> dict:
         "email": customer.email or "",
         "phone": customer.phone or "",
         "document_type": customer.document_type or "CC",
-        "cedula": customer.cedula,
+        "cedula": customer.cedula_plain,
         "is_active": customer.is_active,
         "created_at": customer.created_at.isoformat(),
         "metrics": metrics,
@@ -124,15 +126,16 @@ def customers_list(request: Request):
 
     if search:
         s = search.strip()
-        doc_filter = Q(cedula__icontains=s) | Q(document_type__icontains=s)
+        # Search by cedula uses blind index (exact match only for encrypted fields)
+        doc_filter = Q(document_type__icontains=s)
         digits = "".join(ch for ch in s if ch.isdigit())
-        if digits:
-            doc_filter |= Q(cedula__icontains=digits)
+        if len(digits) >= 5:
+            doc_filter |= Q(cedula_hash=make_blind_index(digits))
         # "CC 243234234" / "nit 900123456" → tipo + cédula exacta en campos separados
         compact = re.sub(r"[\s.\-_]+", " ", s).strip()
         m_doc = re.match(r"^([A-Za-z]{1,10})\s+(\d{5,20})$", compact)
         if m_doc:
-            doc_filter |= Q(document_type__iexact=m_doc.group(1)) & Q(cedula=m_doc.group(2))
+            doc_filter |= Q(document_type__iexact=m_doc.group(1)) & Q(cedula_hash=make_blind_index(m_doc.group(2)))
         qs = qs.filter(
             Q(first_name__icontains=s)
             | Q(last_name__icontains=s)
