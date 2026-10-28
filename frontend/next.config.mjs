@@ -17,11 +17,11 @@ const nextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.wompi.co https://checkout.wompi.co",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.wompi.co https://checkout.wompi.co https://challenges.cloudflare.com",
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob: https://*.r2.dev https://*.r2.cloudflarestorage.com https://kame-colstore.onrender.com https://res.cloudinary.com",
               "connect-src 'self' https://api.wompi.co https://*.sentry.io https://*.ingest.sentry.io",
-              "frame-src https://checkout.wompi.co",
+              "frame-src https://checkout.wompi.co https://challenges.cloudflare.com",
               "font-src 'self' data:",
             ].join("; "),
           },
