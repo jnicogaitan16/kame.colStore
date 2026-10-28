@@ -1,5 +1,4 @@
 from django.db import models
-from django.core.validators import RegexValidator
 
 from apps.common.crypto import encrypt_value, decrypt_value, make_blind_index
 
@@ -15,15 +14,8 @@ class Customer(models.Model):
         default="CC",
         help_text="Tipo de documento principal del cliente (CC, NIT, ...).",
     )
-    cedula = models.CharField(
-        max_length=500,
-        validators=[
-            RegexValidator(
-                regex=r"^\d{5,20}$",
-                message="La cédula debe contener solo números (5 a 20 dígitos).",
-            )
-        ],
-    )
+    # Stored encrypted — regex validation happens at serializer/form layer before save()
+    cedula = models.CharField(max_length=500)
     cedula_hash = models.CharField(
         max_length=64,
         blank=True,

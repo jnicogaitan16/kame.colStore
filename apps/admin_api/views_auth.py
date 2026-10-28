@@ -53,7 +53,7 @@ def _verify_turnstile(token: str, remote_ip: str) -> bool:
             data=data,
             method="POST",
         )
-        with urllib.request.urlopen(req, timeout=5) as resp:
+        with urllib.request.urlopen(req, timeout=5) as resp:  # nosec B310 — hardcoded Cloudflare URL
             result = json.loads(resp.read())
         return result.get("success", False)
     except Exception:
