@@ -2,9 +2,9 @@ asgiref==3.11.0
 Django==5.2.17
 sqlparse==0.6.0
 python-dotenv==1.2.2
-Pillow==12.3.0
+Pillow==13.0.0
 django-imagekit==6.0.0
-djangorestframework==3.17.2
+djangorestframework==3.18.2
 django-cors-headers==4.6.0
 dj-database-url==2.2.0
 psycopg2-binary==2.9.9
