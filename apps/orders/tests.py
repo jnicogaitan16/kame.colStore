@@ -773,3 +773,97 @@ class AdminNewSaleContextTest(TestCase):
         ctx = build_admin_new_sale_context(self.order)
         self.assertIn("/admin/ordenes/", ctx["admin_order_url"])
         self.assertIn(self.order.payment_reference, ctx["admin_order_url"])
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TC-API: checkout prices from DB, not from the client payload
+# ─────────────────────────────────────────────────────────────────────────────
+
+from rest_framework.test import APIClient
+from apps.catalog.services.discount import get_product_discount_info as _discount_info
+
+
+class CheckoutPriceFromDatabaseTest(TestCase):
+    """The live POST /api/checkout/ path ignores client unit_price."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.category = _make_category("API Price Cat")
+        self.product = _make_product(self.category, "API Price Tee", price=50_000)
+        self.variant = _make_variant(self.product)
+        self.pool = _make_inventory(self.category, quantity=10)
+
+    def _payload(self, unit_price: int = 1, cedula: str = "1098765432") -> dict:
+        return {
+            "customer": {
+                "full_name": "Ana Garcia",
+                "phone": "3001234567",
+                "email": f"ana-{cedula}@test.com",
+                "cedula": cedula,
+                "document_type": "CC",
+            },
+            "shipping_address": {
+                "city_code": "BOGOTA_DC",
+                "address": "Calle 100 # 15-20",
+            },
+            "items": [
+                {
+                    "product_variant_id": self.variant.id,
+                    "quantity": 1,
+                    "unit_price": unit_price,
+                }
+            ],
+            "payment_method": "wompi",
+        }
+
+    def test_client_cannot_lower_unit_price(self):
+        initial_qty = self.pool.quantity
+        response = self.client.post(
+            "/api/checkout/", self._payload(unit_price=1), format="json"
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+
+        order = Order.objects.get(pk=response.data["order_id"])
+        item = order.items.get()
+        self.assertEqual(int(item.unit_price), 50_000)
+        self.assertEqual(int(order.subtotal), 50_000)
+        self.assertEqual(order.status, Order.Status.PENDING_PAYMENT)
+
+        self.pool.refresh_from_db()
+        self.assertEqual(self.pool.quantity, initial_qty)
+
+    def test_discount_still_comes_from_database(self):
+        DiscountRule.objects.create(
+            name="API 20%",
+            discount_type="percentage",
+            discount_value=20,
+            scope="product",
+            product=self.product,
+            starts_at=timezone.now() - timedelta(hours=1),
+            is_active=True,
+        )
+        expected = _discount_info(self.product)["discount_price"]
+
+        response = self.client.post(
+            "/api/checkout/",
+            self._payload(unit_price=1, cedula="1098765433"),
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+
+        order = Order.objects.get(pk=response.data["order_id"])
+        item = order.items.get()
+        self.assertEqual(int(item.unit_price), int(expected))
+        self.assertNotEqual(int(item.unit_price), 1)
+
+    def test_dead_checkout_helpers_are_gone(self):
+        import importlib
+
+        # __init__.py reexporta create_order_from_cart (función) y sombrea el módulo.
+        m = importlib.import_module("apps.orders.services.create_order_from_cart")
+
+        self.assertFalse(hasattr(m, "create_order_from_checkout"))
+        self.assertFalse(hasattr(m, "_normalize_checkout_items"))
+        self.assertTrue(callable(getattr(m, "create_order_from_cart", None)))
+        self.assertTrue(callable(getattr(m, "resolve_customer_from_checkout", None)))
+

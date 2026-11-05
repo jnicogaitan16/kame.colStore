@@ -28,7 +28,7 @@ export default function SoldOutBadge({
     >
       <Image
         src="/badges/sold-out.png"
-        alt={label}
+        alt=""
         width={320}
         height={160}
         priority={variant === "detail"}

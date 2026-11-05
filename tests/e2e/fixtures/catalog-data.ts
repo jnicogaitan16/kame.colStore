@@ -17,7 +17,7 @@ export const TEST_PRODUCT = {
   descriptionPattern: /algodón|oversize/i,
 };
 
-/** Sold-out product (no_variant schema, stock_total 0, auto-shows "Agotado"). */
+/** Sold-out product (no_variant schema, stock_total 0). PDP hides selectors/CTAs. */
 export const TEST_PRODUCT_SOLD_OUT = {
   id: 99,
   slug: "99",

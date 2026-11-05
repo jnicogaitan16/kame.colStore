@@ -97,17 +97,6 @@ export default function Footer() {
               <span>
                 © {new Date().getFullYear()} Kame.col. Todos los derechos reservados.
               </span>
-              <span className="type-body footer-meta">
-                Desarrollado por{" "}
-                <a
-                  href={process.env.NEXT_PUBLIC_LINKEDIN_URL}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="type-action footer-link"
-                >
-                  Nicolás Gaitán
-                </a>
-              </span>
             </div>
             <div className="type-ui-label flex flex-wrap items-center justify-center gap-x-4 gap-y-2 md:justify-end">
               <Link href="/legal/politica-de-privacidad#terminos" className="footer-link">Términos</Link>
