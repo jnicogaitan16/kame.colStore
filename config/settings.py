@@ -549,19 +549,7 @@ from sentry_sdk.integrations.django import DjangoIntegration
 from sentry_sdk.integrations.logging import LoggingIntegration
 from sentry_sdk.utils import BadDsn
 
-SENSITIVE_KEYS = {"password", "card_number", "cvv", "email", "token"}
-
-
-def _sentry_before_send(event, hint):
-    try:
-        data = event.get("request", {}).get("data", {})
-        if isinstance(data, dict):
-            for key in SENSITIVE_KEYS:
-                if key in data:
-                    data[key] = "[Filtered]"
-    except Exception:
-        pass
-    return event
+from apps.common.sentry_scrub import sentry_before_send as _sentry_before_send
 
 
 # Misma variable de entorno que en Render: SENTRY_DSN (valor local en .env, no commitear).

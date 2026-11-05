@@ -285,7 +285,12 @@ export function ProductGallery({ images, productName, soldOut = false, variant =
 
   if (slides.length === 0) {
     return (
-      <div className={emptyClass}>
+      <div className={`relative ${emptyClass}`}>
+        <div className="pointer-events-none absolute inset-0 z-[3]">
+          <div className="absolute top-2 left-2 md:top-3 md:left-3">
+            <SoldOutBadge show={soldOut === true} variant="detail" />
+          </div>
+        </div>
         <div className={`flex h-full items-center justify-center ${isPdp ? "text-zinc-500" : "text-zinc-400"}`}>
           <svg className="h-20 w-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14" />
@@ -302,7 +307,7 @@ export function ProductGallery({ images, productName, soldOut = false, variant =
       <div className={mediaFrameClass} data-gallery-frame={isPdp ? "pdp" : "default"}>
         <div
           className="pointer-events-none absolute inset-0 z-[3]"
-          aria-hidden="true"
+          aria-hidden={soldOut === true ? undefined : true}
           data-gallery-soldout-overlay={soldOut === true ? "true" : "false"}
         >
           <div className="absolute top-2 left-2 md:top-3 md:left-3">

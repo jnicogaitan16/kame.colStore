@@ -76,7 +76,10 @@ function normalizeStockVisualState(params: {
       return {
         status: "over",
         message: "Stock limitado",
-        detail: "Ajusta tu cantidad para continuar",
+        detail:
+          available === 0
+            ? "Esta talla ya no está disponible. Quítala para continuar."
+            : "Ajusta tu cantidad para continuar",
       };
     }
 
@@ -100,7 +103,10 @@ function normalizeStockVisualState(params: {
     return {
       status: "over",
       message: "Stock limitado",
-      detail: "Ajusta tu cantidad para continuar",
+      detail:
+        hasAvailable && available === 0
+          ? "Esta talla ya no está disponible. Quítala para continuar."
+          : "Ajusta tu cantidad para continuar",
     };
   }
 
@@ -160,6 +166,9 @@ export default function CheckoutSummary({
                 const hint = stockHintsByVariantId[String(item.variantId)];
                 const stockState = normalizeStockVisualState({ item, warning, hint });
                 const canAdjust = canAdjustToAvailable(item, warning);
+                const availableQty = parseFiniteNumber(warning?.available);
+                const adjustLabel =
+                  Number.isFinite(availableQty) && availableQty === 0 ? "Quitar" : "Ajustar";
                 const thumb = item.imageUrl || "";
                 const alt = item.product?.name || item.productName || "Producto";
 
@@ -229,7 +238,7 @@ export default function CheckoutSummary({
                                   onClick={(e) => handleAdjustToAvailable(e, item.variantId)}
                                   className="min-h-0 w-auto rounded-[0.8rem] px-3 py-2 text-[11px] leading-none tracking-[0.02em]"
                                 >
-                                  Ajustar
+                                  {adjustLabel}
                                 </Button>
                               </div>
                             ) : null}

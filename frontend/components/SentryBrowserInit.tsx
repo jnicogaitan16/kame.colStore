@@ -5,6 +5,7 @@ import * as Sentry from "@sentry/react";
 import type { Event, EventHint, Primitive } from "@sentry/core";
 
 import { getSentryEnvironment, getSentryRelease } from "@/lib/sentry-environment";
+import { scrubSentryEvent } from "@/lib/sentry-scrub";
 
 const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN?.trim() ?? "";
 const sentryEnvironment = getSentryEnvironment();
@@ -23,7 +24,7 @@ function withPatchedEnvironment<E extends Event>(
 ): E | null {
   void hint;
   patchEventEnvironment(event);
-  return event;
+  return scrubSentryEvent(event as E & Record<string, unknown>) as E;
 }
 
 function applyEnvironmentTags() {
@@ -51,6 +52,7 @@ export default function SentryBrowserInit() {
             scope.setTag("environment", sentryEnvironment);
             return scope;
           },
+          sendDefaultPii: false,
           beforeSend: withPatchedEnvironment,
           beforeSendTransaction: withPatchedEnvironment,
           tracesSampleRate: 0.2,
@@ -63,7 +65,7 @@ export default function SentryBrowserInit() {
       } else if (!sentrySetupDone.current) {
         Sentry.addEventProcessor((event) => {
           patchEventEnvironment(event);
-          return event;
+          return scrubSentryEvent(event as typeof event & Record<string, unknown>);
         });
       }
       sentrySetupDone.current = true;

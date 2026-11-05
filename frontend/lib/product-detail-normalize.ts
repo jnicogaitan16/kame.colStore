@@ -137,6 +137,20 @@ export function hasStock(variant: Pick<ProductVariant, "stock"> | null | undefin
   return (variant?.stock ?? 0) > 0;
 }
 
+export function isSellableVariant(
+  variant: Pick<ProductVariant, "value" | "color" | "is_active"> | null | undefined,
+  schema: VariantSchema
+): boolean {
+  if (!variant || variant.is_active === false) return false;
+
+  const value = normalizeOption(variant.value);
+  const color = normalizeOption(variant.color);
+
+  if (schema === "size_color") return Boolean(value && color);
+  if (schema === "jean_size" || schema === "shoe_size") return Boolean(value);
+  return true;
+}
+
 export function getProductVariantSchema(product: ProductDetail): VariantSchema {
   return (product.category?.variant_schema || "size_color") as VariantSchema;
 }
@@ -635,11 +649,15 @@ export function resolveInitialDisplayVariant(params: {
   if (variants.length === 1) return variants[0] ?? null;
 
   if (variantSchema === "size_color" && primaryColor) {
-    // Match the color shown in catalog card/marquee for consistent UX
     const normalizedPrimary = primaryColor.trim().toLowerCase();
-    const matchingVariant = variants.find(
-      (v) => v.color?.trim().toLowerCase() === normalizedPrimary && (v.stock ?? 0) > 0
-    );
+    const matchingVariant =
+      variants.find(
+        (v) =>
+          v.color?.trim().toLowerCase() === normalizedPrimary &&
+          isSellableVariant(v, variantSchema)
+      ) ??
+      variants.find((v) => v.color?.trim().toLowerCase() === normalizedPrimary) ??
+      null;
     if (matchingVariant) return matchingVariant;
   }
 
@@ -729,7 +747,9 @@ export function resolveVariantOptions(product: ProductDetail): PDPVariantOptions
     )
   );
 
-  const firstAvailableVariant = variants.find(hasStock) ?? null;
+  const firstAvailableVariant =
+    variants.find((variant) => isSellableVariant(variant, variantSchema) && hasStock(variant)) ??
+    null;
   const primaryColor = (product as unknown as Record<string, unknown>).primary_color as string | null | undefined;
   const initialDisplayVariant = resolveInitialDisplayVariant({
     variants,

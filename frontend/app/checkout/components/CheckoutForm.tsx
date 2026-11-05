@@ -51,8 +51,11 @@ type CheckoutFormProps = {
 };
 
 function formatCoPhoneDisplay(input: string): string {
-  const digits = String(input || "").replace(/\D/g, "");
-  const normalized = digits.length >= 10 ? digits.slice(-10) : digits;
+  let digits = String(input || "").replace(/\D/g, "");
+  if (digits.startsWith("57") && digits.length >= 12) {
+    digits = digits.slice(2);
+  }
+  const normalized = digits.slice(0, 10);
 
   const a = normalized.slice(0, 3);
   const b = normalized.slice(3, 6);
@@ -186,6 +189,7 @@ export default function CheckoutForm({
                   placeholder="310 000 0000"
                   inputMode="numeric"
                   autoComplete="tel"
+                  maxLength={12}
                   className={fieldAddonInputClass()}
                   aria-invalid={submitAttempted && errors.phone ? true : undefined}
                   aria-describedby={errors.phone ? fieldErrorId("phone") : undefined}

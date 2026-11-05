@@ -1710,24 +1710,13 @@ select {
 
 .home-marquee-soldout {
   position: absolute;
-  left: 0.75rem;
-  top: 0.75rem;
+  left: 0.5rem;
+  top: 0.5rem;
+  z-index: 2;
+  pointer-events: none;
   display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid rgba(24, 24, 27, 0.08);
-  padding: 0.32rem 0.52rem;
-  font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
-  font-size: 0.6rem;
-  font-weight: 600;
-  line-height: 1;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: rgba(63, 63, 70, 0.88);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  width: 84px;
+  justify-content: flex-start;
 }
 
 

@@ -197,6 +197,37 @@ def _pool_map_cached(category_id: int, ctx: dict) -> dict:
     return cache[cid]
 
 
+def _variant_schema_from_variants(category_id: int, variants) -> str:
+    for variant in variants:
+        category = getattr(getattr(variant, "product", None), "category", None)
+        schema = getattr(category, "variant_schema", None)
+        if schema:
+            return str(schema)
+    if category_id:
+        return (
+            Category.objects.filter(pk=category_id)
+            .values_list("variant_schema", flat=True)
+            .first()
+            or ""
+        )
+    return ""
+
+
+def _is_sellable_variant(variant, schema: str) -> bool:
+    """A SIZE_COLOR row without size/color cannot be bought in the storefront."""
+    if not bool(getattr(variant, "is_active", False)):
+        return False
+
+    value = str(getattr(variant, "value", "") or "").strip()
+    color = str(getattr(variant, "color", "") or "").strip()
+
+    if schema == Category.VariantSchema.SIZE_COLOR:
+        return bool(value and color)
+    if schema in (Category.VariantSchema.JEAN_SIZE, Category.VariantSchema.SHOE_SIZE):
+        return bool(value)
+    return True
+
+
 def _effective_inventory_from_pool(category_id: int, variants_qs_or_list):
     """Fuente de verdad de inventario efectivo desde InventoryPool.
 
@@ -205,6 +236,7 @@ def _effective_inventory_from_pool(category_id: int, variants_qs_or_list):
     - sold_out: boolean real
     - stock_total: NO sumar (puede inflar).
       Usamos: max(stock_variants) o 0.
+    - Filas incompletas (talla vacía en size_color) no cuentan: no se pueden comprar.
 
     Retorna:
     - stock_total (int)
@@ -222,13 +254,12 @@ def _effective_inventory_from_pool(category_id: int, variants_qs_or_list):
     if not variants_qs_or_list:
         return 0, True, pool_map
 
+    variants = list(variants_qs_or_list)
+    schema = _variant_schema_from_variants(category_id, variants)
+
     max_stock = 0
-    for v in variants_qs_or_list:
-        try:
-            is_active = bool(getattr(v, "is_active", False))
-        except Exception:
-            is_active = False
-        if not is_active:
+    for v in variants:
+        if not _is_sellable_variant(v, schema):
             continue
 
         try:

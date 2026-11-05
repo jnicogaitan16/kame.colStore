@@ -286,11 +286,8 @@ export default function CheckoutClient() {
             ? availableRaw
             : Number(availableRaw);
 
-        const safeAvailable = Number.isFinite(available) ? available : 0;
-
-        // Política: si available es 0, NO auto-removemos aquí.
-        // Dejamos qty mínimo 1 (se mantendrá el warning y el usuario deberá remover).
-        const targetQty = Math.max(1, safeAvailable);
+        const safeAvailable = Number.isFinite(available) ? Math.max(0, available) : 0;
+        const targetQty = safeAvailable;
 
         if (item.quantity > targetQty) {
           return { variantId: item.variantId, qty: targetQty };

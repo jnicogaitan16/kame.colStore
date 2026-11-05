@@ -112,18 +112,20 @@ test.describe("PDP — guía de tallas", () => {
 });
 
 test.describe("PDP — producto agotado", () => {
-  test("CTA muestra agotado cuando sold_out=true", async ({ page }) => {
+  test("oculta selectores y CTAs cuando sold_out=true", async ({ page }) => {
     await mockAllAPIs(page);
     await page.goto(TEST_PRODUCT_SOLD_OUT.pdpUrl);
 
-    const soldOutButtons = page.getByRole("button", { name: /sin stock/i });
+    await expect(page.getByRole("heading", { name: /producto agotado/i })).toBeVisible({
+      timeout: 5000,
+    });
+    await expect(page.getByRole("img", { name: /sold out/i })).toBeVisible();
+    await expect(page.getByText(/\$89\.000|\$89,000/)).toBeVisible();
 
-    await expect(soldOutButtons).toHaveCount(2, { timeout: 5000 });
-    await expect(soldOutButtons.first()).toBeVisible();
-    await expect(soldOutButtons.first()).toBeDisabled();
-    await expect(soldOutButtons.nth(1)).toBeDisabled();
-
-    await expect(page.getByText(/^Agotado$/)).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole("button", { name: /sin stock/i })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /agregar al carrito/i })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /comprar ahora/i })).toHaveCount(0);
+    await expect(page.getByText(/selecciona (un color|una talla)/i)).toHaveCount(0);
   });
 });
 

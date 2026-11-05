@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { HomepageMarqueeProduct } from "@/lib/api";
 
 import { useCartStore } from "@/store/cart";
+import SoldOutBadge from "@/components/badges/SoldOutBadge";
 import { ProductGallery } from "@/components/product/ProductGallery";
 import SizeGuideDrawer from "@/components/product/SizeGuideDrawer";
 import { Button } from "@/components/ui/Button";
@@ -123,6 +124,18 @@ function hasStock(variant: ProductVariant | null | undefined): boolean {
   return (variant?.stock ?? 0) > 0;
 }
 
+function isSellableVariant(
+  variant: ProductVariant | null | undefined,
+  schema: VariantSchema
+): boolean {
+  if (!variant || variant.is_active === false) return false;
+  const value = normalizeOption(variant.value);
+  const color = normalizeOption(variant.color);
+  if (schema === "size_color") return Boolean(value && color);
+  if (schema === "jean_size" || schema === "shoe_size") return Boolean(value);
+  return true;
+}
+
 function buildVariantLabel(v: ProductVariant, variantSchema?: string): string {
   const schema = normalizeOptionForCompare(variantSchema);
   const parts: string[] = [];
@@ -237,8 +250,11 @@ function useProductSelection(product: PDPViewModel): SelectionState {
       );
     }
 
-    return variants.find(hasStock) ?? null;
-  }, [product.firstAvailableVariantId, variants]);
+    return (
+      variants.find((variant) => isSellableVariant(variant, variantSchema) && hasStock(variant)) ??
+      null
+    );
+  }, [product.firstAvailableVariantId, variants, variantSchema]);
 
   const initialDisplayVariant = useMemo(() => {
     if (product.initialDisplayVariantId != null) {
@@ -474,7 +490,7 @@ function ProductMedia({
             variant="pdp"
           />
         ) : fallbackImage ? (
-          <div className="aspect-square w-full bg-zinc-100">
+          <div className="relative aspect-square w-full bg-zinc-100">
             <img
               src={fallbackImage}
               alt={productName || "Producto"}
@@ -483,12 +499,19 @@ function ProductMedia({
             />
           </div>
         ) : (
-          <div className="aspect-square w-full bg-zinc-100">
+          <div className="relative aspect-square w-full bg-zinc-100">
             <div className="flex h-full w-full items-center justify-center text-neutral-600">
               Sin imagen
             </div>
           </div>
         )}
+        {soldOut && galleryImages.length === 0 ? (
+          <div className="pointer-events-none absolute inset-0 z-[3]">
+            <div className="absolute top-2 left-2 md:top-3 md:left-3">
+              <SoldOutBadge show variant="detail" />
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -971,22 +994,26 @@ export function ProductDetailClient({
             discount={product.discount}
           />
 
-          <ProductSelectors
-            selection={selection}
-            sizeGuideTrigger={sizeGuideTrigger}
-          />
+          {selection.uiSoldOut ? null : (
+            <>
+              <ProductSelectors
+                selection={selection}
+                sizeGuideTrigger={sizeGuideTrigger}
+              />
 
-          <ProductPurchaseBox
-            availableStock={selection.availableStock}
-            canAdd={selection.canAdd}
-            helperSelectionText={selection.helperSelectionText}
-            isInvalidCombo={selection.isInvalidCombo}
-            isSubmittingToCart={isSubmittingToCart}
-            onAddToCart={handleAddToCart}
-            onBuyNow={handleBuyNow}
-            selectedVariant={selection.selectedVariant}
-            triggerRef={addToCartButtonRef}
-          />
+              <ProductPurchaseBox
+                availableStock={selection.availableStock}
+                canAdd={selection.canAdd}
+                helperSelectionText={selection.helperSelectionText}
+                isInvalidCombo={selection.isInvalidCombo}
+                isSubmittingToCart={isSubmittingToCart}
+                onAddToCart={handleAddToCart}
+                onBuyNow={handleBuyNow}
+                selectedVariant={selection.selectedVariant}
+                triggerRef={addToCartButtonRef}
+              />
+            </>
+          )}
 
           <ShippingGuarantees />
 

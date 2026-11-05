@@ -5,6 +5,7 @@
 import * as Sentry from "@sentry/nextjs";
 
 import { getSentryEnvironment, getSentryRelease } from "./lib/sentry-environment";
+import { scrubSentryEvent } from "./lib/sentry-scrub";
 
 const sentryEnvironment = getSentryEnvironment();
 const sentryRelease = getSentryRelease();
@@ -19,5 +20,8 @@ Sentry.init({
   },
   tracesSampleRate: 1,
   enableLogs: true,
-  sendDefaultPii: true,
+  sendDefaultPii: false,
+  beforeSend(event) {
+    return scrubSentryEvent(event as typeof event & Record<string, unknown>);
+  },
 });

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef } from "react";
 
 import type { HomepageMarqueeProduct } from "@/lib/api";
+import SoldOutBadge from "@/components/badges/SoldOutBadge";
 import { getProductCardImageCandidates } from "@/lib/product-media";
 import { productPath } from "@/lib/routes";
 import { trackProductClick } from "@/hooks/useTracking";
@@ -456,7 +457,9 @@ export default function ProductMarqueeCarousel({
                         )}
 
                         {showSoldOut ? (
-                          <span className="home-marquee-soldout">Sold out</span>
+                          <div className="home-marquee-soldout">
+                            <SoldOutBadge show variant="card" />
+                          </div>
                         ) : null}
                       </div>
 
