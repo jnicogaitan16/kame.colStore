@@ -15,7 +15,8 @@ concurrency:
 jobs:
   e2e:
     name: Playwright E2E
-    runs-on: ubuntu-latest
+    # ubuntu-latest is 26.04; Playwright 1.59.1 has no chromium build for that OS.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
 
     steps:
@@ -118,7 +119,7 @@ jobs:
   # DJANGO_CSRF_TRUSTED_ORIGINS (misma convención que config/settings.py: https://host, CSV).
   e2e-wompi-nequi-sandbox:
     name: Playwright Wompi Nequi (sandbox)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: e2e
     # `secrets` no está permitido en `jobs.<id>.if`; el filtro por URL va en el paso "Guard".
     if: >
